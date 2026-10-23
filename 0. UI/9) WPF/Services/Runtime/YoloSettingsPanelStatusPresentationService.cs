@@ -9,6 +9,9 @@ namespace MvcVisionSystem
 {
     public static class YoloSettingsPanelStatusPresentationService
     {
+        private static readonly OpenVisionLab.OpenVisionLocalizationEntry MissingRuntimeDetailDefault = OpenVisionLab.OpenVisionLanguageService.GetDefaultEntries()
+            .FirstOrDefault(entry => string.Equals(entry.Key, "WpfModelDetails.Runtime.203", StringComparison.Ordinal));
+
         public static string BuildDetail(
             PythonModelSettings settings,
             PythonModelValidationResult validation,
@@ -23,14 +26,14 @@ namespace MvcVisionSystem
             communicationStatus ??= new PythonCommunicationStatus();
 
             var detail = new StringBuilder();
-            detail.AppendLine($"실행 파일: {PythonModelSettingsValidator.ResolvePythonExecutable(settings)}");
-            detail.AppendLine($"프로젝트: {settings.ProjectRootPath}");
-            detail.AppendLine($"실행 스크립트: {settings.ClientScriptPath}");
-            detail.AppendLine($"모델 파일: {settings.WeightsPath}");
-            detail.AppendLine($"이미지: {settings.ImageRootPath}");
-            detail.AppendLine($"실행 환경 설정: {settings.GetRequirementsPath()}");
-            detail.AppendLine($"신뢰도: {settings.MinimumDetectionConfidence.ToString("0.##", CultureInfo.InvariantCulture)}");
-            detail.AppendLine($"시간 제한: {settings.DetectionTimeoutSeconds}s");
+            detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.Executable"), PythonModelSettingsValidator.ResolvePythonExecutable(settings)));
+            detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.Project"), settings.ProjectRootPath));
+            detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.Script"), settings.ClientScriptPath));
+            detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.ModelFile"), settings.WeightsPath));
+            detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.Image"), settings.ImageRootPath));
+            detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.Requirements"), settings.GetRequirementsPath()));
+            detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.Confidence"), settings.MinimumDetectionConfidence.ToString("0.##", CultureInfo.InvariantCulture)));
+            detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.Timeout"), settings.DetectionTimeoutSeconds));
             AppendPythonWorkerStatus(detail, communicationStatus, pythonClientProcessRunning);
             AppendValidationMessages(detail, validation);
             AppendPackageStatus(detail, runtimeState, environment, environmentCheckError);
@@ -47,12 +50,12 @@ namespace MvcVisionSystem
             detail.AppendLine();
             foreach (string error in validation.Errors)
             {
-                detail.AppendLine($"오류: {NormalizeDisplayText(error)}");
+                detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.Error"), NormalizeDisplayText(error)));
             }
 
             foreach (string warning in validation.Warnings)
             {
-                detail.AppendLine($"주의: {NormalizeDisplayText(warning)}");
+                detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.Warning"), NormalizeDisplayText(warning)));
             }
         }
 
@@ -65,18 +68,32 @@ namespace MvcVisionSystem
             detail.AppendLine();
             if (runtimeState?.IsRuntimeInstalled != true)
             {
-                detail.AppendLine("패키지: 모델 실행기 설치 후 확인");
-                detail.AppendLine(NormalizeDisplayText(runtimeState?.DetailText));
+                detail.AppendLine(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloSettingsPanelStatusPresentationService.68"));
+                const string detailKey = "WpfModelDetails.Runtime.203";
+                string runtimeDetail = NormalizeDisplayText(runtimeState?.DetailText);
+                var entries = OpenVisionLab.OpenVisionLanguageService.GetEntries();
+                OpenVisionLab.OpenVisionLocalizationEntry entry = entries.FirstOrDefault(item => string.Equals(item.Key, detailKey, StringComparison.Ordinal));
+                if (entry != null
+                    && (string.Equals(runtimeDetail, entry.Korean, StringComparison.Ordinal)
+                        || string.Equals(runtimeDetail, entry.English, StringComparison.Ordinal)
+                        || OpenVisionLab.OpenVisionLanguageService.GetPreviousKoreanDefaults(detailKey).Contains(runtimeDetail, StringComparer.Ordinal)
+                        || string.Equals(runtimeDetail, MissingRuntimeDetailDefault?.Korean, StringComparison.Ordinal)
+                        || string.Equals(runtimeDetail, MissingRuntimeDetailDefault?.English, StringComparison.Ordinal)))
+                {
+                    string translated = OpenVisionLab.OpenVisionLanguageService.CurrentLanguage == OpenVisionLab.OpenVisionLanguage.Korean ? entry.Korean : entry.English;
+                    if (!string.IsNullOrWhiteSpace(translated)) runtimeDetail = translated;
+                }
+                detail.AppendLine(runtimeDetail);
                 return;
             }
 
             if (environment != null)
             {
-                detail.AppendLine($"패키지: {BuildPythonEnvironmentSummary(environment)}");
-                detail.AppendLine($"필요 패키지: {Math.Max(0, environment.RequiredPackages?.Count ?? 0)}");
+                detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.Package"), BuildPythonEnvironmentSummary(environment)));
+                detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.RequiredPackages"), Math.Max(0, environment.RequiredPackages?.Count ?? 0)));
                 if ((environment.MissingPackages?.Count ?? 0) > 0)
                 {
-                    detail.AppendLine($"누락: {string.Join(", ", environment.MissingPackages.Take(12))}");
+                    detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.Missing"), string.Join(", ", environment.MissingPackages.Take(12))));
                 }
 
                 return;
@@ -84,7 +101,7 @@ namespace MvcVisionSystem
 
             if (!string.IsNullOrWhiteSpace(environmentCheckError))
             {
-                detail.AppendLine($"패키지: 점검 실패 - {NormalizeDisplayText(environmentCheckError)}");
+                detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.PackageCheckFailed"), NormalizeDisplayText(environmentCheckError)));
             }
         }
 
@@ -94,10 +111,10 @@ namespace MvcVisionSystem
             bool pythonClientProcessRunning)
         {
             detail.AppendLine(
-                $"추론 실행기: 대기 {FormatBooleanStatus(status.IsListening, "켜짐", "꺼짐")} / 연결 {FormatBooleanStatus(status.IsClientConnected, "연결됨", "미연결")} / 실행 {FormatBooleanStatus(pythonClientProcessRunning, "실행 중", "중지")}");
+                string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloSettingsPanelStatusPresentationService.97"), FormatBooleanStatus(status.IsListening, OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.ListeningOn"), OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.ListeningOff")), FormatBooleanStatus(status.IsClientConnected, OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.ClientConnected"), OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.ClientDisconnected")), FormatBooleanStatus(pythonClientProcessRunning, OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.ProcessRunning"), OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.ProcessStopped"))));
             if (status.ListenerPort > 0)
             {
-                detail.AppendLine($"추론 연결 포트: {status.ListenerPort}");
+                detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.Port"), status.ListenerPort));
             }
 
             if (HasWorkerCapability(status))
@@ -110,24 +127,24 @@ namespace MvcVisionSystem
                 || (status.WorkerMissingTrainingWeights?.Count ?? 0) > 0)
             {
                 detail.AppendLine(
-                    $"학습 weight 캐시: 보유={FormatModelList(status.WorkerCachedTrainingWeights)} / 누락={FormatModelList(status.WorkerMissingTrainingWeights)}");
+                    string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.CachedWeights"), FormatModelList(status.WorkerCachedTrainingWeights), FormatModelList(status.WorkerMissingTrainingWeights)));
                 detail.AppendLine(
-                    $"학습 weight 런타임: 실행 가능={FormatModelList(status.WorkerRuntimeReadyTrainingWeights)} / 런타임 차단={FormatModelList(status.WorkerRuntimeBlockedTrainingWeights)}");
+                    string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloSettingsPanelStatusPresentationService.115"), FormatModelList(status.WorkerRuntimeReadyTrainingWeights), FormatModelList(status.WorkerRuntimeBlockedTrainingWeights)));
                 detail.AppendLine(
-                    $"학습 weight 준비: 다운로드/캐시 필요={FormatModelList(status.WorkerDownloadRequiredTrainingWeights)} / 런타임 지원 필요={FormatModelList(status.WorkerRuntimeBlockedMissingTrainingWeights)}");
+                    string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloSettingsPanelStatusPresentationService.117"), FormatModelList(status.WorkerDownloadRequiredTrainingWeights), FormatModelList(status.WorkerRuntimeBlockedMissingTrainingWeights)));
             }
 
             if (!string.IsNullOrWhiteSpace(status.LastWorkerState)
                 || !string.IsNullOrWhiteSpace(status.LastWorkerMessage))
             {
-                detail.AppendLine($"추론 상태: {FormatWorkerState(status.LastWorkerState)} {TranslateWorkerMessage(status.LastWorkerMessage)}".TrimEnd());
+                detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.InferenceStatus"), FormatWorkerState(status.LastWorkerState), TranslateWorkerMessage(status.LastWorkerMessage)).TrimEnd());
             }
 
             if (!string.IsNullOrWhiteSpace(status.LastModelState)
                 || !string.IsNullOrWhiteSpace(status.LastModelMessage))
             {
-                string modelLoadedText = FormatBooleanStatus(status.LastModelLoaded, "예", "아니요");
-                detail.AppendLine($"모델 상태: {FirstNonEmpty(status.LastModelState, "-")} / 로드:{modelLoadedText} {NormalizeOptionalText(status.LastModelMessage)}".TrimEnd());
+                string modelLoadedText = FormatBooleanStatus(status.LastModelLoaded, OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.ModelLoadedYes"), OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.ModelLoadedNo"));
+                detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.ModelStatus"), FirstNonEmpty(status.LastModelState, "-"), modelLoadedText, NormalizeOptionalText(status.LastModelMessage)).TrimEnd());
             }
 
             if (!string.IsNullOrWhiteSpace(status.LastTrainingState)
@@ -137,29 +154,29 @@ namespace MvcVisionSystem
                     ? $"{status.LastTrainingProgressPercent.Value}%"
                     : "-";
                 string epoch = status.LastTrainingEpoch.HasValue && status.LastTrainingTotalEpochs.HasValue
-                    ? $" 에폭 {status.LastTrainingEpoch.Value}/{status.LastTrainingTotalEpochs.Value}"
+                    ? string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.Epoch"), status.LastTrainingEpoch.Value, status.LastTrainingTotalEpochs.Value)
                     : string.Empty;
                 string trainingMessage = string.IsNullOrWhiteSpace(status.LastTrainingMessage)
                     ? string.Empty
                     : TrainingProgressPresentationService.FormatTrainingMessage(status.LastTrainingMessage);
-                detail.AppendLine($"학습: {TrainingProgressPresentationService.FormatTrainingState(status.LastTrainingState)} {progress}{epoch} {trainingMessage}".TrimEnd());
+                detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.Training"), TrainingProgressPresentationService.FormatTrainingState(status.LastTrainingState), progress, epoch, trainingMessage).TrimEnd());
             }
 
             if (!string.IsNullOrWhiteSpace(status.LastTrainingWeightsPath))
             {
-                detail.AppendLine($"학습 weight 선택: {NormalizeOptionalText(status.LastTrainingWeightsPath)}");
+                detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.TrainingWeights"), NormalizeOptionalText(status.LastTrainingWeightsPath)));
             }
 
             if (!string.IsNullOrWhiteSpace(status.LastError))
             {
-                detail.AppendLine($"실행 오류: {FormatWorkerError(status.LastError)}");
+                detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.ExecutionError"), FormatWorkerError(status.LastError)));
             }
 
             if ((status.WorkerRuntimeWarnings?.Count ?? 0) > 0)
             {
                 foreach (string warning in status.WorkerRuntimeWarnings.Take(5))
                 {
-                    detail.AppendLine($"추론 경고: {NormalizeDisplayText(warning)}");
+                    detail.AppendLine(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.InferenceWarning"), NormalizeDisplayText(warning)));
                 }
             }
         }
@@ -173,12 +190,12 @@ namespace MvcVisionSystem
 
             if ((environment.MissingPackages?.Count ?? 0) > 0)
             {
-                return $"누락 패키지: {string.Join(", ", environment.MissingPackages.Take(6))}";
+                return string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.MissingPackages"), string.Join(", ", environment.MissingPackages.Take(6)));
             }
 
             if (environment.IsReady)
             {
-                return "추론 실행 환경 준비 완료.";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.EnvironmentReady");
             }
 
             if ((environment.Warnings?.Count ?? 0) > 0)
@@ -210,11 +227,11 @@ namespace MvcVisionSystem
             return normalized.ToLowerInvariant() switch
             {
                 "" => "-",
-                "listening" => "수신 대기",
-                "connected" => "연결됨",
-                "running" => "실행 중",
-                "stopped" => "중지",
-                "error" => "오류",
+                "listening" => OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.WorkerListening"),
+                "connected" => OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.WorkerConnected"),
+                "running" => OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.WorkerRunning"),
+                "stopped" => OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.WorkerStopped"),
+                "error" => OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.WorkerError"),
                 _ => normalized
             };
         }
@@ -228,8 +245,8 @@ namespace MvcVisionSystem
 
             return message.Trim() switch
             {
-                "Python TCP listener is waiting for a client." => "추론 실행기 연결 대기 중입니다.",
-                "Python TCP listener stopped." => "추론 실행기가 중지되었습니다.",
+                "Python TCP listener is waiting for a client." => OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloSettingsPanelStatusPresentationService.231"),
+                "Python TCP listener stopped." => OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloSettingsPanelStatusPresentationService.232"),
                 _ => message.Trim()
             };
         }
@@ -241,14 +258,14 @@ namespace MvcVisionSystem
 
         private static string NormalizeDisplayText(string text)
         {
-            return string.IsNullOrWhiteSpace(text) ? "상세 없음" : text.Trim();
+            return string.IsNullOrWhiteSpace(text) ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloSettingsPanelStatusPresentationService.NoDetail") : text.Trim();
         }
 
         private static string FormatWorkerError(string text)
         {
             string normalized = NormalizeDisplayText(text);
             return normalized.Contains("TrainingWeightDownloadRequired", StringComparison.OrdinalIgnoreCase)
-                ? "학습 weight 다운로드 승인 필요: 모델 weight를 캐시에 추가하거나 다운로드를 명시적으로 승인하세요."
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloSettingsPanelStatusPresentationService.251")
                 : normalized;
         }
 

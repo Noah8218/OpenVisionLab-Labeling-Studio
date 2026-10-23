@@ -14,6 +14,7 @@ import csv
 import hashlib
 import importlib.util
 import json
+import math
 import os
 import shutil
 import socket
@@ -36,11 +37,18 @@ _YOLO11_RUNTIME_AVAILABLE: bool | None = None
 _ULTRALYTICS_VERSION: str | None = None
 TRAINING_WEIGHT_DEFAULTS = (
     "yolov8n.pt",
+    "yolov8s.pt",
     "yolov8n-seg.pt",
+    "yolov8s-seg.pt",
     "yolov8n-cls.pt",
+    "yolov8s-cls.pt",
     "yolo11n.pt",
+    "yolo11s.pt",
+    "yolo11m.pt",
     "yolo11n-seg.pt",
+    "yolo11s-seg.pt",
     "yolo11n-cls.pt",
+    "yolo11s-cls.pt",
 )
 LEGACY_TYPE_MAP = {
     "StartDefect": "DetectImage",
@@ -104,10 +112,9 @@ def checkpoint_epoch(checkpoint_path: Path, results_csv_path: Path) -> int | Non
         except (OSError, UnicodeError):
             pass
 
-    for candidate in (raw_epoch, raw_epoch + 1):
-        if candidate in result_epochs:
-            return candidate
-    return raw_epoch + 1
+    # Ultralytics stores zero-based epochs; stripped checkpoints contain -1.
+    epoch = raw_epoch + 1
+    return epoch if raw_epoch >= 0 and epoch in result_epochs else None
 
 
 def write_checkpoint_metadata(
@@ -116,10 +123,17 @@ def write_checkpoint_metadata(
     results_csv_path: Path,
     run_name: str,
     run_id: str = "",
+    observed_epoch: int | None = None,
 ) -> dict[str, Any] | None:
-    epoch = checkpoint_epoch(checkpoint_path, results_csv_path)
+    epoch = observed_epoch if observed_epoch is not None else checkpoint_epoch(checkpoint_path, results_csv_path)
     if epoch is None:
         return None
+    if observed_epoch is not None:
+        if not checkpoint_path.is_file() or epoch < 1 or not results_csv_path.is_file():
+            return None
+        with results_csv_path.open("r", newline="", encoding="utf-8-sig") as stream:
+            if not any(str(row.get("epoch", "")).strip() == str(epoch) for row in csv.DictReader(stream)):
+                return None
 
     metadata_path = Path(f"{checkpoint_path}.metadata.json")
     temporary_path = Path(f"{metadata_path}.tmp")
@@ -162,6 +176,37 @@ def get_first(payload: dict[str, Any], names: Iterable[str], default: Any = None
         if value is not None and value != "":
             return value
     return default
+
+
+def training_epoch_metrics(trainer: Any, task: str) -> dict[str, Any]:
+    def finite(value: Any) -> float | None:
+        if isinstance(value, bool):
+            return None
+        try:
+            number = float(value)
+            return number if math.isfinite(number) and number >= 0 else None
+        except (TypeError, ValueError, OverflowError):
+            return None
+
+    result: dict[str, Any] = {}
+    metrics = getattr(trainer, "metrics", None) or {}
+    try:
+        losses = trainer.label_loss_items(trainer.tloss, prefix="train") if getattr(trainer, "tloss", None) is not None else {}
+        for name, values in (("trainLoss", losses), ("validationLoss", metrics)):
+            prefix = "train/" if name == "trainLoss" else "val/"
+            components = [finite(value) for key, value in values.items() if key.startswith(prefix) and "loss" in key.lower()]
+            if components and all(value is not None for value in components):
+                total = sum(components)
+                if math.isfinite(total):
+                    result[name] = total
+        source_key, key = {"detect": ("metrics/mAP50(B)", "map50"), "segment": ("metrics/mAP50(M)", "maskMap50"),
+                           "classify": ("metrics/accuracy_top1", "top1Accuracy")}.get(task, ("", ""))
+        value = finite(metrics.get(source_key))
+        if key and value is not None and value <= 1:
+            result.update({"validationMetricKey": key, "validationMetricValue": value})
+    except (AttributeError, TypeError, ValueError, RuntimeError):
+        return {}
+    return result
 
 
 def normalize_run_id(value: Any) -> str:
@@ -318,6 +363,55 @@ def runtime_segmentation_models() -> tuple[str, ...]:
 
 def runtime_classification_models() -> tuple[str, ...]:
     return runtime_supported_models()
+
+
+def nms_candidate_multiplier(predictor_type: type, nms_function: Any, class_count: int) -> int:
+    """Resolve the inspected predictor's actual single/multi-label NMS contract.
+
+    Unknown argument expansion or a dynamic multi_label value fails closed.
+    """
+    import ast
+    import inspect
+    import textwrap
+    signature = inspect.signature(nms_function)
+    parameter = signature.parameters.get("multi_label")
+    if parameter is None:
+        return 0
+    for owner in predictor_type.__mro__:
+        method = owner.__dict__.get("postprocess")
+        if method is None:
+            continue
+        try:
+            tree = ast.parse(textwrap.dedent(inspect.getsource(method)))
+        except (OSError, TypeError, SyntaxError):
+            return 0
+        calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                 and (isinstance(node.func, ast.Attribute) and node.func.attr == nms_function.__name__
+                      or isinstance(node.func, ast.Name) and node.func.id == nms_function.__name__)]
+        if not calls:
+            continue
+        if len(calls) != 1 or any(isinstance(value, ast.Starred) for value in calls[0].args) or any(keyword.arg is None for keyword in calls[0].keywords):
+            return 0
+        call = calls[0]
+        labels = signature.parameters.get("labels")
+        if labels is not None:
+            label_position = list(signature.parameters).index("labels")
+            label_expression = next((keyword.value for keyword in call.keywords if keyword.arg == "labels"), None)
+            if label_expression is None and len(call.args) > label_position:
+                label_expression = call.args[label_position]
+            if label_expression is not None and not (isinstance(label_expression, (ast.Tuple, ast.List)) and not label_expression.elts):
+                return 0
+            if label_expression is None and labels.default != ():
+                return 0
+        position = list(signature.parameters).index("multi_label")
+        expression = next((keyword.value for keyword in call.keywords if keyword.arg == "multi_label"), None)
+        if expression is None and len(call.args) > position:
+            expression = call.args[position]
+        value = parameter.default if expression is None else expression.value if isinstance(expression, ast.Constant) else None
+        if not isinstance(value, bool):
+            return 0
+        return max(1, class_count) if value else 1
+    return 0
 
 
 def default_runtime_model() -> str:
@@ -514,16 +608,74 @@ class UltralyticsDetector:
         if self.device:
             kwargs["device"] = self.device
 
-        results = model.predict(**kwargs)
+        capture = getattr(self, "decision_evaluation", False)
+        capture_state = {"complete": False}
+        if getattr(model, "task", "") in ("detect", "segment"):
+            import inspect
+            import logging
+            from ultralytics.utils import LOGGER
+            try:
+                from ultralytics.utils.nms import non_max_suppression
+            except ImportError:
+                from ultralytics.utils.ops import non_max_suppression
+            limit = inspect.signature(non_max_suppression).parameters.get("max_nms")
+            proposal_limit = int(limit.default) if limit is not None else 0
+            predictor_type = model.task_map[model.task]["predictor"]
+            candidate_multiplier = nms_candidate_multiplier(predictor_type, non_max_suppression, len(self.class_names))
+
+            capture_owner = self
+            self.capture_state = capture_state
+            class DecisionCapturePredictor(predictor_type):
+                def postprocess(self, preds, img, orig_imgs, **options):
+                    tensor = preds[0] if isinstance(preds, (tuple, list)) else preds
+                    shape = tuple(getattr(tensor, "shape", ()))
+                    # A single image with fewer raw proposals than max_nms cannot
+                    # hit the pre-NMS candidate cap. Unknown layouts fail closed.
+                    capture_owner.capture_state["complete"] = (len(shape) == 3 and shape[0] == 1
+                                                  and (model.task == "detect" and shape[1] == 4 + len(capture_owner.class_names)
+                                                       or model.task == "segment" and shape[1] > 4 + len(capture_owner.class_names))
+                                                  and shape[-1] != 6 and not getattr(getattr(model, "model", None), "end2end", False)
+                                                  and hasattr(tensor, "isfinite") and bool(tensor.isfinite().all().item())
+                                                  and proposal_limit > 0 and max(shape[1:]) < proposal_limit
+                                                  and candidate_multiplier > 0 and shape[-1] * candidate_multiplier < proposal_limit)
+                    return super().postprocess(preds, img, orig_imgs, **options)
+
+            class CaptureWarnings(logging.Handler):
+                def emit(self, record):
+                    if "NMS" in record.getMessage() and ("time" in record.getMessage().lower() or "limit" in record.getMessage().lower()):
+                        capture_state["complete"] = False
+            warning_handler = CaptureWarnings()
+            if capture:
+                kwargs.update(conf=0.0, max_det=proposal_limit or 30000)
+            else:
+                from ultralytics.cfg import DEFAULT_CFG_DICT
+                kwargs["max_det"] = int(getattr(getattr(model, "predictor", None), "args", None).max_det) if getattr(model, "predictor", None) is not None else int(model.overrides.get("max_det", DEFAULT_CFG_DICT["max_det"]))
+            if not hasattr(model, "_decision_capture_predictor_type"):
+                model._decision_capture_predictor_type = DecisionCapturePredictor
+                model.predictor = None
+            kwargs["predictor"] = model._decision_capture_predictor_type
+            LOGGER.addHandler(warning_handler)
+            try:
+                results = model.predict(**kwargs)
+            finally:
+                LOGGER.removeHandler(warning_handler)
+        else:
+            results = model.predict(**kwargs)
         if not results:
-            return [], {"path": str(image_path), "width": 0, "height": 0}
+            raise ValueError(f"image decoding produced no result: {image_path}")
 
         result = results[0]
         height, width = self._read_shape(result)
-        return self._build_candidates(result, width, height), {
+        if width <= 0 or height <= 0:
+            raise ValueError(f"image decoding produced an invalid size: {image_path}")
+        candidates = self._build_candidates(result, width, height)
+        return candidates, {
             "path": str(image_path),
             "width": width,
             "height": height,
+            "captureConfidenceFloor": 0.0 if capture else kwargs["conf"],
+            "hasCompletePredictions": capture_state["complete"] and len(candidates) < kwargs.get("max_det", 0),
+            "captureCandidateLimit": kwargs.get("max_det"),
         }
 
     def _clamp_confidence(self, confidence: float | None) -> float:
@@ -945,6 +1097,8 @@ class LabelingUltralyticsWorker:
             epoch: int | None = None,
             error: dict[str, Any] | None = None,
             checkpoint_metadata: dict[str, Any] | None = None,
+            metrics: dict[str, Any] | None = None,
+            result_weights_path: str = "",
         ) -> None:
             status = self._build_training_status(
                 request_id,
@@ -959,6 +1113,9 @@ class LabelingUltralyticsWorker:
                 training_weights=training_weights,
                 checkpoint_metadata=checkpoint_metadata,
             )
+            status.update(metrics or {})
+            if state == "completed" and result_weights_path:
+                status["weightsPath"] = result_weights_path
             if run_id:
                 status["runId"] = run_id
                 status["runName"] = display_run_name
@@ -974,9 +1131,14 @@ class LabelingUltralyticsWorker:
 
             send_status("running", f"Ultralytics {model_name} {task} training started.", progress=0, epoch=0)
             model = YOLO(training_weights)
+            last_metric_epoch = 0
+            last_training_epoch = 0
+            saved_checkpoint_epochs: dict[str, int] = {}
 
             def on_train_epoch_end(trainer: Any) -> None:
+                nonlocal last_training_epoch
                 current_epoch = int(getattr(trainer, "epoch", 0)) + 1
+                last_training_epoch = current_epoch
                 total_epochs = int(getattr(trainer, "epochs", epochs) or epochs)
                 progress = int(max(0, min(100, round((current_epoch / max(total_epochs, 1)) * 100))))
                 if self.training_stop_requested.is_set():
@@ -990,9 +1152,32 @@ class LabelingUltralyticsWorker:
                 if self.training_stop_requested.is_set():
                     setattr(trainer, "stop", True)
 
+            def on_fit_epoch_end(trainer: Any) -> None:
+                nonlocal last_metric_epoch
+                current_epoch = int(getattr(trainer, "epoch", 0)) + 1
+                # Final best-model validation increments trainer.epoch without training.
+                if current_epoch != last_training_epoch or current_epoch <= last_metric_epoch:
+                    return
+                last_metric_epoch = current_epoch
+                total_epochs = int(getattr(trainer, "epochs", epochs) or epochs)
+                progress = int(max(0, min(100, round(current_epoch / max(total_epochs, 1) * 100))))
+                send_status("stopping" if self.training_stop_requested.is_set() else "running", f"Epoch {current_epoch}/{total_epochs}",
+                            progress=progress, epoch=current_epoch, metrics=training_epoch_metrics(trainer, task))
+
+            def on_model_save(trainer: Any) -> None:
+                current_epoch = int(getattr(trainer, "epoch", -1)) + 1
+                if current_epoch != last_training_epoch or current_epoch < 1:
+                    return
+                if Path(trainer.last).is_file():
+                    saved_checkpoint_epochs["last"] = current_epoch
+                if trainer.best_fitness == trainer.fitness and Path(trainer.best).is_file():
+                    saved_checkpoint_epochs["best"] = current_epoch
+
             if hasattr(model, "add_callback"):
                 model.add_callback("on_train_epoch_end", on_train_epoch_end)
                 model.add_callback("on_train_batch_end", on_train_batch_end)
+                model.add_callback("on_fit_epoch_end", on_fit_epoch_end)
+                model.add_callback("on_model_save", on_model_save)
 
             with remove_created_source_label_caches(data_yaml), data_yaml_working_directory(data_yaml), label_cache_directory():
                 result = model.train(
@@ -1018,14 +1203,18 @@ class LabelingUltralyticsWorker:
                         checkpoint_role,
                         results_csv_path,
                         display_run_name,
-                        run_id)
+                        run_id,
+                        saved_checkpoint_epochs.get(checkpoint_role))
                     if metadata is not None:
                         checkpoint_metadata[checkpoint_role] = metadata
             if self.training_stop_requested.is_set():
                 send_status("stopped", f"Ultralytics {model_name} {task} training stopped. {save_dir}".strip(), epoch=0)
             else:
                 completed_message = f"Ultralytics {model_name} {task} training completed. {save_dir}".strip()
-                send_status("completed", completed_message, progress=100, epoch=epochs, checkpoint_metadata=checkpoint_metadata)
+                best_weights = Path(save_dir).expanduser().resolve() / "weights" / "best.pt" if save_dir else None
+                result_weights_path = str(best_weights) if best_weights is not None and best_weights.is_file() else ""
+                send_status("completed", completed_message, progress=100, epoch=last_metric_epoch or None,
+                            checkpoint_metadata=checkpoint_metadata, result_weights_path=result_weights_path)
         except Exception as exc:
             if self.training_stop_requested.is_set():
                 send_status("stopped", "Ultralytics training stopped.")
@@ -1346,7 +1535,7 @@ def find_json_packet_end(buffer: bytearray, start: int) -> int:
 
 
 def build_detector(args: argparse.Namespace) -> UltralyticsDetector:
-    return UltralyticsDetector(
+    detector = UltralyticsDetector(
         weights=Path(args.weights).resolve(),
         model_root=Path(args.model_root).resolve(),
         image_root=Path(args.image_root).resolve(),
@@ -1356,6 +1545,8 @@ def build_detector(args: argparse.Namespace) -> UltralyticsDetector:
         iou=args.iou,
         debug=args.debug,
     )
+    detector.decision_evaluation = getattr(args, "decision_evaluation", False)
+    return detector
 
 
 def run_client(args: argparse.Namespace) -> int:
@@ -1403,17 +1594,29 @@ def read_loop(sock: socket.socket, args: argparse.Namespace, worker: LabelingUlt
                 return 0
 
 
+def emit_smoke_test_result(args: argparse.Namespace, result: dict[str, Any]) -> None:
+    payload = compact_json(result).decode("utf-8")
+    result_json = getattr(args, "result_json", "")
+    if result_json:
+        with Path(result_json).open("x", encoding="utf-8", newline="\n") as result_file:
+            result_file.write(payload + "\n")
+        if result.get("ok"):
+            print(f"SmokeTestResult saved: {result_json}", flush=True)
+            return
+    print(payload, flush=True)
+
+
 def run_smoke_test(args: argparse.Namespace) -> int:
     detector = build_detector(args)
     image_path_value = args.detect_file or args.image
     if not image_path_value:
-        print(compact_json({"type": "SmokeTestResult", "ok": False, "error": make_error("MissingImagePath", "--smoke-test requires --image or --detect-file.")}).decode("utf-8"), flush=True)
+        emit_smoke_test_result(args, {"type": "SmokeTestResult", "ok": False, "error": make_error("MissingImagePath", "--smoke-test requires --image or --detect-file.")})
         return 2
 
     image_path = resolve_image_path_for_cli(image_path_value, Path(args.image_root).resolve())
     requested_model = normalize_model(getattr(args, "model", ""))
     if requested_model and ultralytics_available() and requested_model not in runtime_detection_models():
-        print(compact_json({
+        emit_smoke_test_result(args, {
             "type": "SmokeTestResult",
             "requestId": "smoke-test",
             "imageId": image_path.stem,
@@ -1423,7 +1626,7 @@ def run_smoke_test(args: argparse.Namespace) -> int:
             "model": detector.status(),
             "capabilities": capability_payload(detector.model_root),
             "error": make_error("UnsupportedModel", unsupported_model_message("detection", requested_model)),
-        }).decode("utf-8"), flush=True)
+        })
         return 1
 
     started = time.perf_counter()
@@ -1441,7 +1644,7 @@ def run_smoke_test(args: argparse.Namespace) -> int:
             "capabilities": capability_payload(detector.model_root),
             "candidates": detections,
         }
-        print(compact_json(result).decode("utf-8"), flush=True)
+        emit_smoke_test_result(args, result)
         return 0
     except Exception as exc:
         result = {
@@ -1455,7 +1658,7 @@ def run_smoke_test(args: argparse.Namespace) -> int:
             "capabilities": capability_payload(detector.model_root),
             "error": make_error("SmokeTestFailed", exc, include_trace=args.debug),
         }
-        print(compact_json(result).decode("utf-8"), flush=True)
+        emit_smoke_test_result(args, result)
         return 1
 
 
@@ -1556,6 +1759,7 @@ def run_self_test() -> int:
         xy = [FakeTensor([[10, 20], [30, 20], [30, 40], [10, 40]])]
 
     class FakeResult:
+        orig_shape = (80, 100)
         boxes = [FakeBox()]
         masks = FakeMasks()
         names = {1: "Defect"}
@@ -1574,6 +1778,37 @@ def run_self_test() -> int:
     assert candidates[0]["segmentationType"] == "polygon"
     assert candidates[0]["polygonPoints"][2]["x"] == 30.0
     assert candidates[0]["normalizedPolygonPoints"][2]["y"] == 0.5
+
+    class FakePredictionModel:
+        results: list[Any] = []
+
+        def predict(self, **kwargs: Any) -> list[Any]:
+            return self.results
+
+    class EmptyPrediction:
+        orig_shape = (80, 100)
+        boxes: list[Any] = []
+
+    detector.model = FakePredictionModel()
+    decode_worker = LabelingUltralyticsWorker(detector)
+    decode_message = IncomingMessage("DetectImage", request_id="req-decode", payload={"imagePath": str(source_file)})
+    try:
+        for results in ([], [type("InvalidPrediction", (), {"orig_shape": (0, 100)})()], [type("InvalidPrediction", (), {"orig_shape": (80, 0)})()]):
+            detector.model.results = results
+            decoded = decode_worker.handle_detect_image(decode_message)
+            assert decoded["ok"] is False
+            assert decoded["error"]["code"] == "DetectImageFailed"
+            assert decoded["requestId"] == "req-decode"
+            assert str(source_file) in decoded["error"]["message"]
+        detector.model.results = [EmptyPrediction()]
+        decoded = decode_worker.handle_detect_image(decode_message)
+        assert decoded["ok"] is True and not decoded["candidates"]
+        assert decoded["image"]["width"] == 100 and decoded["image"]["height"] == 80
+        detector.model.results = [FakeResult()]
+        decoded = decode_worker.handle_detect_image(decode_message)
+        assert decoded["ok"] is True and len(decoded["candidates"]) == 1
+    finally:
+        detector.model = None
 
     class FakeProbs:
         top1 = FakeTensor(0)
@@ -1642,6 +1877,16 @@ def run_self_test() -> int:
             assert "yolov8n-seg.pt" in cache_payload["runtimeReadyTrainingWeights"]
             assert "yolov8n-cls.pt" in cache_payload["runtimeReadyTrainingWeights"]
             assert "yolov8n.pt" in cache_payload["downloadRequiredTrainingWeights"]
+        workspace_weights = ("yolov8s.pt", "yolov8s-seg.pt", "yolov8s-cls.pt", "yolo11s.pt", "yolo11m.pt", "yolo11s-seg.pt", "yolo11s-cls.pt")
+        for name in workspace_weights:
+            assert name in cache_payload["missingTrainingWeights"]
+            assert worker._training_weight_requires_download(name)
+            (cached_weight_root / name).write_text("weights", encoding="utf-8")
+        prepared = training_weight_cache_payload(cached_weight_root)
+        for name in workspace_weights:
+            assert name in prepared["cachedTrainingWeights"] and name not in prepared["missingTrainingWeights"]
+            readiness_key = "runtimeReadyTrainingWeights" if training_weight_model_name(name) in runtime_supported_models() else "runtimeBlockedTrainingWeights"
+            assert name in prepared[readiness_key]
         assert "yolo11n-seg.pt" in cache_payload["missingTrainingWeights"]
         if "yolo11" not in runtime_supported_models():
             assert "yolo11n-seg.pt" in cache_payload["runtimeBlockedMissingTrainingWeights"]
@@ -1689,17 +1934,40 @@ def run_self_test() -> int:
         def train(self, **kwargs: Any) -> Any:
             captured_train_kwargs.update(kwargs)
             captured_training_working_directories.append(Path.cwd())
+            save_dir = Path(kwargs["project"]) / kwargs["name"]
+            (save_dir / "weights").mkdir(parents=True, exist_ok=True)
+            for role in ("best", "last"):
+                (save_dir / "weights" / f"{role}.pt").write_bytes(b"owned-trained-checkpoint")
+            (save_dir / "results.csv").write_text("epoch,train/box_loss\n1,0.5\n2,0.4\n", encoding="utf-8")
 
             class FakeTrainer:
                 epoch = 0
                 epochs = 1
+                tloss = [0.4, 0.2]
+                metrics = {"val/seg_loss": 0.5, "val/cls_loss": 0.2, "metrics/mAP50(M)": 0.73}
+                def label_loss_items(self, values: Any, prefix: str = "train") -> dict[str, float]:
+                    return {f"{prefix}/seg_loss": values[0], f"{prefix}/cls_loss": values[1]}
 
-            callbacks["on_train_epoch_end"](FakeTrainer())
+            trainer = FakeTrainer()
+            trainer.epochs = kwargs["epochs"]
+            trainer.best, trainer.last = save_dir / "weights" / "best.pt", save_dir / "weights" / "last.pt"
+            trainer.best_fitness = trainer.fitness = 0.73
+            for epoch in range(min(trainer.epochs, 2)):
+                trainer.epoch = epoch
+                callbacks["on_train_epoch_end"](trainer)
+                callbacks["on_fit_epoch_end"](trainer)
+                callbacks["on_model_save"](trainer)
+            callbacks["on_fit_epoch_end"](trainer)  # duplicate callback for an already published epoch
+            trainer.epoch += 1  # installed Ultralytics final_eval advances the logging step
+            trainer.metrics = {"val/seg_loss": 99, "metrics/mAP50(M)": 0.99}
+            callbacks["on_fit_epoch_end"](trainer)  # final best-model evaluation is not a new epoch
 
             class FakeResult:
-                save_dir = "fake-run"
+                pass
 
-            return FakeResult()
+            result = FakeResult()
+            result.save_dir = str(save_dir)
+            return result
 
     fake_ultralytics = type(sys)("ultralytics")
     fake_ultralytics.YOLO = FakeYolo
@@ -1754,7 +2022,37 @@ def run_self_test() -> int:
             assert captured_train_kwargs["task"] == "segment"
             assert captured_training_working_directories[-1] == Path(__file__).resolve().parent
             assert Path.cwd() == original_working_directory
-            assert any(item["state"] == "completed" for item in sent_statuses)
+            completed = next(item for item in sent_statuses if item["state"] == "completed")
+            assert completed["trainingWeights"] == "yolov8n-seg.pt"
+            assert Path(completed["weightsPath"]).is_file()
+            assert completed["weightsPath"] != completed["trainingWeights"]
+            assert completed["checkpointMetadata"]["best"]["artifactId"] == checkpoint_artifact_id(Path(completed["weightsPath"]))
+            assert worker.training_status["weightsPath"] == completed["weightsPath"]
+            assert worker.handle_model_status(IncomingMessage("ModelStatus"))["training"]["weightsPath"] == completed["weightsPath"]
+            assert all("weightsPath" not in item for item in sent_statuses if item["state"] != "completed")
+            received_metrics = [item for item in sent_statuses if "validationMetricValue" in item]
+            assert len(received_metrics) == 1 and received_metrics[0]["validationMetricKey"] == "maskMap50"
+            assert math.isclose(received_metrics[0]["trainLoss"], 0.6) and math.isclose(received_metrics[0]["validationLoss"], 0.7)
+            assert received_metrics[0]["validationMetricValue"] == 0.73
+            assert [item["epoch"] for item in sent_statuses if item["state"] == "completed"] == [1]
+
+        sent_statuses.clear()
+        worker._run_training_job("req-partial-epochs", {"model": "yolov8", "task": "segment",
+                                 "dataYaml": str(Path(__file__).resolve()), "allowModelDownload": True, "epochs": 50}, FakeWriter())
+        received_metrics = [item for item in sent_statuses if "validationMetricValue" in item]
+        assert [item["epoch"] for item in received_metrics] == [1, 2]
+        assert [item["epoch"] for item in sent_statuses if item["state"] == "completed"] == [2]
+
+        checkpoint = download_guard_root / "last.pt"
+        checkpoint.write_bytes(b"owned-checkpoint-bytes-after-strip")
+        results_csv = download_guard_root / "results.csv"
+        results_csv.write_text("epoch,train/box_loss\n1,0.5\n2,0.4\n", encoding="utf-8")
+        metadata = write_checkpoint_metadata(checkpoint, "last", results_csv, "observed-save", "run-proof", observed_epoch=2)
+        assert metadata["epoch"] == 2 and metadata["artifactId"] == checkpoint_artifact_id(checkpoint)
+        assert metadata["runId"] == "run-proof"
+        assert write_checkpoint_metadata(checkpoint, "last", results_csv, "observed-save", observed_epoch=3) is None
+        assert write_checkpoint_metadata(checkpoint, "last", results_csv, "observed-save", observed_epoch=0) is None
+        assert write_checkpoint_metadata(download_guard_root / "absent.pt", "last", results_csv, "observed-save", observed_epoch=2) is None
     finally:
         if previous_ultralytics is None:
             sys.modules.pop("ultralytics", None)
@@ -1830,6 +2128,109 @@ def resolve_image_path_for_cli(value: Any, image_root: Path) -> Path:
     return (image_root / path).resolve()
 
 
+def run_capture_self_test() -> int:
+    """Focused fake-predictor proof checks; no model, image inference or network."""
+    from types import SimpleNamespace
+    from ultralytics.utils import LOGGER
+
+    def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False, multi_label=False, labels=(), max_det=300):
+        return prediction
+
+    class SingleLabelPredictor:
+        def __init__(self, args):
+            self.args = args
+
+        def postprocess(self, preds, img, orig_imgs, **options):
+            return non_max_suppression(preds, self.args.conf, self.args.iou, None, False, max_det=self.args.max_det)
+
+    class MultiLabelPredictor(SingleLabelPredictor):
+        def postprocess(self, preds, img, orig_imgs, **options):
+            return non_max_suppression(preds, self.args.conf, self.args.iou, None, False, multi_label=True, max_det=self.args.max_det)
+
+    class UnknownLabelPredictor(SingleLabelPredictor):
+        def postprocess(self, preds, img, orig_imgs, **options):
+            return non_max_suppression(preds, self.args.conf, self.args.iou, None, False, multi_label=self.args.agnostic_nms, max_det=self.args.max_det)
+
+    class FakeTensor:
+        def __init__(self, shape, finite=True):
+            self.shape = shape
+            self.finite = finite
+
+        def isfinite(self):
+            return SimpleNamespace(all=lambda: SimpleNamespace(item=lambda: self.finite))
+
+    class FakeModel:
+        task = "detect"
+
+        def __init__(self, predictor_type=SingleLabelPredictor):
+            self.task_map = {"detect": {"predictor": predictor_type}}
+            self.names = {index: f"fixture-class-{index}" for index in range(80)}
+            self.model = SimpleNamespace(end2end=False)
+            self.predictor = None
+            self.overrides = {}
+            self.tensor = FakeTensor((1, 84, 2100))
+            self.count = 452
+            self.warn = False
+
+        def predict(self, **options):
+            args = SimpleNamespace(conf=options["conf"], iou=options["iou"], max_det=options["max_det"], agnostic_nms=False)
+            if self.predictor is None:
+                self.predictor = options["predictor"](args)
+            else:
+                self.predictor.args = args
+            self.predictor.postprocess(self.tensor, None, None)
+            if self.warn:
+                LOGGER.warning("NMS time limit 2.050s exceeded")
+            return [SimpleNamespace(orig_shape=(220, 260))]
+
+    def detector_for(model, image):
+        detector = UltralyticsDetector(image, image.parent, image.parent, "cpu", 320, 0.25, 0.45)
+        detector.model = model
+        detector.class_names = detector._read_class_names(model)
+        detector.decision_evaluation = True
+        detector._build_candidates = lambda result, width, height: [{} for _ in range(model.count)]
+        return detector
+
+    checks = []
+    with tempfile.TemporaryDirectory(prefix="capture-proof-", dir=os.environ.get("TEMP")) as directory:
+        image = Path(directory) / "owned-fake-input.bmp"
+        image.write_bytes(b"Fake predictor marker, not an image inference fixture.")
+        model = FakeModel()
+        detector = detector_for(model, image)
+        handler_count = len(LOGGER.handlers)
+        _, metadata = detector.detect_path(image)
+        assert metadata["hasCompletePredictions"] and metadata["captureConfidenceFloor"] == 0
+        checks.append("80-class single-label capture is complete below actual NMS caps")
+        model.tensor = FakeTensor((1, 84, 30001))
+        assert not detector.detect_path(image)[1]["hasCompletePredictions"]
+        checks.append("pre-NMS proposal overflow is unavailable")
+        limited_model = FakeModel(); limited_model.count = 300
+        limited_detector = detector_for(limited_model, image); limited_detector.decision_evaluation = False
+        limited_metadata = limited_detector.detect_path(image)[1]
+        assert not limited_metadata["hasCompletePredictions"] and limited_metadata["captureCandidateLimit"] == 300 and limited_metadata["captureConfidenceFloor"] == 0.25
+        checks.append("post-NMS output at candidate limit is unavailable")
+        model.tensor = FakeTensor((1, 84, 2100)); model.warn = True
+        assert not detector.detect_path(image)[1]["hasCompletePredictions"]
+        checks.append("NMS time warning invalidates otherwise complete capture")
+        model.warn = False
+        assert detector.detect_path(image)[1]["hasCompletePredictions"] and len(LOGGER.handlers) == handler_count
+        checks.append("valid recovery reuses predictor and releases warning handlers")
+        model.tensor = FakeTensor((1, 2100, 84))
+        assert not detector.detect_path(image)[1]["hasCompletePredictions"]
+        model.tensor = FakeTensor((1, 300, 6))
+        assert not detector.detect_path(image)[1]["hasCompletePredictions"]
+        checks.append("unknown layout and end-to-end output remain unavailable")
+        model.tensor = FakeTensor((1, 84, 2100), finite=False)
+        assert not detector.detect_path(image)[1]["hasCompletePredictions"]
+        checks.append("non-finite raw outputs remain unavailable")
+        assert not detector_for(FakeModel(MultiLabelPredictor), image).detect_path(image)[1]["hasCompletePredictions"]
+        checks.append("actual multi-label expansion retains conservative pre-NMS bound")
+        assert not detector_for(FakeModel(UnknownLabelPredictor), image).detect_path(image)[1]["hasCompletePredictions"]
+        checks.append("dynamic multi-label configuration fails closed")
+    print(compact_json({"type": "CaptureProofSelfTestResult", "ok": True, "checks": checks}).decode("utf-8"), flush=True)
+    return 0
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Ultralytics TCP worker for OpenVisionLab Labeling Studio.")
     parser.add_argument("--host", default="127.0.0.1")
@@ -1850,16 +2251,100 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--preload", action="store_true")
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--capture-self-test", action="store_true")
     parser.add_argument("--smoke-test", action="store_true")
+    parser.add_argument("--decision-evaluation", action="store_true")
+    parser.add_argument("--result-json", default="")
     parser.add_argument("--detect-file", default="")
     parser.add_argument("--image", default="")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.result_json and not args.decision_evaluation:
+        parser.error("--result-json requires --decision-evaluation.")
+    return args
+
+
+def run_yolov5_decision_capture(args: argparse.Namespace) -> int:
+    """Explicit raw capture through the configured local YOLOv5 source APIs.
+
+    No external client is edited, no hub/network model download is requested,
+    and the normal YOLOv5 application runtime remains unchanged.
+    """
+    image_path = Path(args.image).resolve()
+    started = time.perf_counter()
+    try:
+        import inspect
+        import logging
+        import re
+        import cv2
+        import numpy as np
+        import torch
+        root = Path(args.model_root).resolve()
+        if not (root / "models" / "common.py").is_file():
+            root = root / "yolov5Master"
+        if not (root / "models" / "common.py").is_file():
+            raise FileNotFoundError("Configured YOLOv5 source does not contain models/common.py.")
+        sys.path.insert(0, str(root))
+        from models.common import DetectMultiBackend
+        from utils.augmentations import letterbox
+        from utils import general
+        from utils.torch_utils import select_device
+        device = select_device(args.device or "cpu")
+        model = DetectMultiBackend(args.weights, device=device)
+        source = cv2.imread(str(image_path))
+        if source is None:
+            raise ValueError("Evaluation image could not be decoded.")
+        height, width = source.shape[:2]
+        stride = int(model.stride)
+        size = int(math.ceil(args.img_size / stride) * stride)
+        resized = letterbox(source, size, stride=stride, auto=False)[0]
+        tensor = torch.from_numpy(np.ascontiguousarray(resized.transpose((2, 0, 1))[::-1])).to(device).float() / 255.0
+        tensor = tensor.unsqueeze(0)
+        with torch.no_grad():
+            predictions = model(tensor)
+        predictions = predictions[0] if isinstance(predictions, (tuple, list)) else predictions
+        nms_source = inspect.getsource(general.non_max_suppression)
+        cap_match = re.search(r"max_nms\s*=\s*(\d+)", nms_source)
+        signature_cap = inspect.signature(general.non_max_suppression).parameters.get("max_nms")
+        proposal_limit = int(signature_cap.default) if signature_cap is not None else int(cap_match.group(1)) if cap_match else 0
+        state = {"complete": proposal_limit > 0 and predictions.ndim == 3 and predictions.shape[0] == 1
+                            and predictions.shape[1] < proposal_limit and bool(predictions.isfinite().all().item())}
+
+        class CaptureWarnings(logging.Handler):
+            def emit(self, record):
+                if "NMS" in record.getMessage() and ("time" in record.getMessage().lower() or "limit" in record.getMessage().lower()):
+                    state["complete"] = False
+        warning_handler = CaptureWarnings()
+        general.LOGGER.addHandler(warning_handler)
+        try:
+            detections = general.non_max_suppression(predictions, conf_thres=0.0, iou_thres=args.iou, max_det=proposal_limit or 30000)[0]
+        finally:
+            general.LOGGER.removeHandler(warning_handler)
+        scale = getattr(general, "scale_boxes", None) or getattr(general, "scale_coords")
+        if len(detections):
+            detections[:, :4] = scale(tensor.shape[2:], detections[:, :4], source.shape).round()
+        candidates = [{"index": index + 1, "classId": int(row[5]), "className": str(model.names[int(row[5])]),
+                       "confidence": float(row[4]), "x": float(row[0]), "y": float(row[1]),
+                       "width": float(row[2] - row[0]), "height": float(row[3] - row[1])}
+                      for index, row in enumerate(detections.detach().cpu().tolist())]
+        emit_smoke_test_result(args, {"type": "SmokeTestResult", "ok": True, "weightsPath": str(Path(args.weights).resolve()),
+                            "elapsedMs": int((time.perf_counter() - started) * 1000), "candidates": candidates,
+                            "image": {"path": str(image_path), "width": width, "height": height, "captureConfidenceFloor": 0.0,
+                                      "captureCandidateLimit": proposal_limit or 30000,
+                                      "hasCompletePredictions": state["complete"] and len(candidates) < (proposal_limit or 30000)}})
+        return 0
+    except Exception as exc:
+        emit_smoke_test_result(args, {"type": "SmokeTestResult", "ok": False, "error": make_error("DecisionCaptureFailed", exc, include_trace=args.debug)})
+        return 1
 
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
     if args.self_test:
         return run_self_test()
+    if args.capture_self_test:
+        return run_capture_self_test()
+    if args.decision_evaluation and normalize_model(args.model) == "yolov5":
+        return run_yolov5_decision_capture(args)
     if args.smoke_test or args.detect_file or args.image:
         return run_smoke_test(args)
     return run_client(args)

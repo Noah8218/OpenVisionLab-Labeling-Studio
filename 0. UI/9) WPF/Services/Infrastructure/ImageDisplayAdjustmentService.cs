@@ -61,6 +61,48 @@ namespace MvcVisionSystem
             return output;
         }
 
+        public void CompositeReadOnlyEvidence(DrawingBitmap displayCopy, DrawingBitmap heatmap, double opacity,
+            System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyList<Point>> outlines, double imagePixelsPerScreenPixel,
+            System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyList<Point>>> polygonFills = null)
+        {
+            ArgumentNullException.ThrowIfNull(displayCopy);
+            using Graphics graphics = Graphics.FromImage(displayCopy);
+            if (heatmap != null && opacity > 0D)
+            {
+                using var attributes = new ImageAttributes();
+                attributes.SetColorMatrix(new ColorMatrix { Matrix33 = (float)Math.Clamp(opacity, 0D, 1D) });
+                graphics.DrawImage(heatmap, new DrawingRectangle(0, 0, displayCopy.Width, displayCopy.Height),
+                    0, 0, heatmap.Width, heatmap.Height, GraphicsUnit.Pixel, attributes);
+            }
+            // 표시 복사본은 원본 좌표이므로2px/6,4도 이미지와 함께 확대·축소한다.
+            using var white = new Pen(Color.White, 2F) { DashPattern = new[] { 3F, 2F } };
+            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using var fill = new SolidBrush(Color.FromArgb(46, Color.White));
+            foreach (var polygon in polygonFills ?? Array.Empty<System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyList<Point>>>())
+            {
+                using var region = new Region();
+                region.MakeEmpty();
+                for (int contourIndex = 0; contourIndex < polygon.Count; contourIndex++)
+                {
+                    var contour = polygon[contourIndex];
+                    if (contour == null || contour.Count < 3) continue;
+                    Point[] points = new Point[contour.Count];
+                    for (int i = 0; i < points.Length; i++) points[i] = contour[i];
+                    using var path = new System.Drawing.Drawing2D.GraphicsPath();
+                    path.AddPolygon(points);
+                    if (contourIndex == 0) region.Union(path); else region.Exclude(path);
+                }
+                graphics.FillRegion(fill, region);
+            }
+            foreach (var outline in outlines ?? Array.Empty<System.Collections.Generic.IReadOnlyList<Point>>())
+            {
+                if (outline == null || outline.Count < 3) continue;
+                Point[] points = new Point[outline.Count];
+                for (int index = 0; index < outline.Count; index++) points[index] = outline[index];
+                graphics.DrawPolygon(white, points);
+            }
+        }
+
         private static void ApplyInPlace(
             DrawingBitmap bitmap,
             ImageDisplayAdjustmentOptions options)

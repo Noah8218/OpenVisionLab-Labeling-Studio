@@ -1,5 +1,8 @@
 using Microsoft.Win32;
+using MvcVisionSystem.Yolo;
+using System;
 using System.IO;
+using System.Text;
 using System.Windows;
 using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
@@ -47,13 +50,17 @@ namespace MvcVisionSystem
             return true;
         }
 
+        public bool TryPickSaveFile(Window owner, string title, string filter, string currentPath, string defaultExtension, out string selectedPath)
+            => TryPickSaveFile(owner, title, filter, currentPath, defaultExtension, out selectedPath, suggestedFileName: null);
+
         public bool TryPickSaveFile(
             Window owner,
             string title,
             string filter,
             string currentPath,
             string defaultExtension,
-            out string selectedPath)
+            out string selectedPath,
+            string suggestedFileName)
         {
             selectedPath = string.Empty;
             var dialog = new SaveFileDialog
@@ -63,7 +70,8 @@ namespace MvcVisionSystem
                 AddExtension = true,
                 DefaultExt = defaultExtension ?? string.Empty,
                 InitialDirectory = ResolveInitialDirectory(currentPath),
-                FileName = File.Exists(currentPath) ? Path.GetFileName(currentPath) : string.Empty
+                FileName = File.Exists(currentPath) ? Path.GetFileName(currentPath) : suggestedFileName ?? string.Empty,
+                OverwritePrompt = true
             };
 
             if (dialog.ShowDialog(owner) != true || string.IsNullOrWhiteSpace(dialog.FileName))
@@ -74,6 +82,19 @@ namespace MvcVisionSystem
             selectedPath = dialog.FileName;
             return true;
         }
+
+        public string TrySaveUtf8Text(Window owner, string title, string filter, string content, string suggestedFileName, string defaultExtension)
+            => TrySaveUtf8Text(owner, title, filter, () => content, suggestedFileName, defaultExtension);
+
+        public string TrySaveUtf8Text(Window owner, string title, string filter, Func<string> contentFactory, string suggestedFileName, string defaultExtension)
+        {
+            if (!TryPickSaveFile(owner, title, filter, string.Empty, defaultExtension, out string path, suggestedFileName)) return string.Empty;
+            WriteUtf8Text(path, contentFactory());
+            return path;
+        }
+
+        internal static void WriteUtf8Text(string path, string content)
+            => AnnotationFilePersistence.WriteAtomically(path, temporaryPath => File.WriteAllText(temporaryPath, content, new UTF8Encoding(true)));
 
         // Keep dialog path normalization out of the shell so future picker changes stay localized.
         public static string ResolveInitialDirectory(string currentPath)

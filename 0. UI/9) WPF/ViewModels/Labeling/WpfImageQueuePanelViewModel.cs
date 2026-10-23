@@ -1,16 +1,19 @@
+using MvcVisionSystem._1._Core;
 using OpenVisionLab;
 using OpenVisionLab.Mvvm;
 using System;
 using System.Collections.Generic;
+using System.Collections;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Windows.Input;
+using System.Windows.Data;
 
 namespace MvcVisionSystem
 {
-    public sealed class WpfImageQueuePanelViewModel : WpfObservableViewModel
+    public sealed class WpfImageQueuePanelViewModel : WpfObservableViewModel, IDisposable, IComparer
     {
         private static readonly Action NoOpCommand = () => { };
         private static readonly Action<object> NoOpSelectionCommand = _ => { };
@@ -18,7 +21,37 @@ namespace MvcVisionSystem
         private static readonly Action NoOpMouseCommand = () => { };
         private static readonly Action<WpfImageQueueItem> NoOpQueueItemCommand = _ => { };
         private static readonly Action<WpfImageQueueFilter> NoOpFilterCommand = _ => { };
+        private static readonly WpfImageQueueFilter[] LabelingFilterOrder = { WpfImageQueueFilter.All, WpfImageQueueFilter.Unlabeled, WpfImageQueueFilter.ReviewPending, WpfImageQueueFilter.Reviewed, WpfImageQueueFilter.NeedsFix, WpfImageQueueFilter.Candidate, WpfImageQueueFilter.LabelSuspicion };
+        private ImageQueueSummary labelingFilterSummary = new ImageQueueSummary();
+        private int labelingCandidateCount;
+        private int labelingSuspicionCount;
+        private bool isInferencePresentation;
+        private int inferenceFilterIndex;
+        private int inferenceCompletedCount;
+        private int inferenceImageCount;
+        private string inferenceModelCaption = string.Empty;
+        private Func<string, InferenceResultReviewEntry> inferenceResultProvider;
+        private Func<InferenceResultReviewEntry, ModelDecisionResult> inferenceDecisionProvider;
+        private Action refreshInferenceView;
         private bool isOpenSelectedImageEnabled;
+        private Action<ImageQueueSort> candidateSortChanged;
+        private Func<bool> canGenerateCandidates;
+        private ImageQueueSortOption selectedCandidateSort;
+        private IReadOnlyList<ImageQueueSortOption> candidateSortOptions = Array.Empty<ImageQueueSortOption>();
+        private bool candidateWorkflowVisible;
+        private string candidateSortUnavailableText = string.Empty;
+        private ICommand generateCandidatesCommand = new RelayCommand(NoOpCommand, () => false);
+        private bool isCandidateBatchRunning;
+        private CandidateBatchSummary candidateBatchSummary;
+        private IReadOnlyList<WpfImageQueueFilterOption> queueFilterOptions = WpfImageQueueFilterOption.CreateDefaults()
+            .Where(option => option.Filter != WpfImageQueueFilter.Candidate && option.Filter != WpfImageQueueFilter.LabelSuspicion).ToArray();
+        private AnomalyImageReviewState candidateAnomalyPredictionState;
+        private double? candidateAnomalyScore;
+        private double? candidateAnomalyThreshold;
+        private Action<AnomalyImageReviewState> applyCandidateAnomaly;
+        private Func<bool> canApplyCandidateAnomaly;
+        private ICommand applyCandidateAnomalyCommand = new RelayCommand(NoOpCommand, () => false);
+
         private bool isDetectSelectedEnabled;
         private bool isBatchDetectEnabled;
         private bool isTemplateBatchEnabled;
@@ -50,6 +83,8 @@ namespace MvcVisionSystem
         private bool isQueueFilterSkippedActive;
         private bool isQueueFilterNoCandidateActive;
         private WpfImageQueueItem selectedQueueItem;
+        private WpfImageQueueItem activeQueueItem;
+        private bool isSelectedImagePathVisible;
         private string currentImageTaskTitleText = T("WpfImageQueue.Current.Waiting.Title");
         private string currentImageTaskDetailText = T("WpfImageQueue.Current.Waiting.StandardDetail");
         private string currentImageTaskBadgeText = T("WpfImageQueue.Current.Waiting.Badge");
@@ -58,8 +93,13 @@ namespace MvcVisionSystem
         private Action<WpfImageQueueItem> selectedQueueItemChanged = NoOpQueueItemCommand;
         private Action<WpfImageQueueFilter> filterChanged = NoOpFilterCommand;
         private Action<string> searchTextChanged = NoOpTextCommand;
+        private readonly RelayCommand clearSearchCommand;
+        private readonly RelayCommand resetQueueFiltersCommand;
         private string currentImageFolderPath = string.Empty;
         private string currentImageFolderDisplayText = T("WpfImageQueue.Folder.Empty");
+        private int datasetImageCount;
+        private int datasetLabeledImageCount;
+        private int datasetReviewedImageCount;
         private bool isOpenCurrentImageFolderEnabled;
         private bool isAnomalyFolderStateSuggestionVisible;
         private string anomalyFolderStateSuggestionTitleText = T("WpfImageQueue.Anomaly.Suggestion.DefaultTitle");
@@ -94,20 +134,370 @@ namespace MvcVisionSystem
         private ICommand filterSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private ICommand searchTextChangedCommand = new RelayCommand<string>(NoOpTextCommand);
         private ICommand queueSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
+        private ICommand queueExplicitOpenCommand = new RelayCommand(NoOpCommand);
         private ICommand queueMouseDoubleClickCommand = new RelayCommand(NoOpMouseCommand);
         private ICommand applyAnomalyFolderStateSuggestionCommand = new RelayCommand(NoOpCommand);
         private ICommand dismissAnomalyFolderStateSuggestionCommand = new RelayCommand(NoOpCommand);
         private ICommand markAnomalyNormalCommand = new RelayCommand(NoOpCommand);
         private ICommand markAnomalyAbnormalCommand = new RelayCommand(NoOpCommand);
         private ICommand clearAnomalyReviewCommand = new RelayCommand(NoOpCommand);
+        private readonly System.Windows.Threading.DispatcherTimer anomalyNoticeTimer;
+        private System.Collections.IEnumerable anomalyGridItems = Array.Empty<WpfImageQueueItem>();
+        private IReadOnlyList<WpfImageQueueItem> anomalyGridSelection = Array.Empty<WpfImageQueueItem>();
+        private bool isAnomalyGridActive;
+        private bool isAnomalyDecisionAvailable;
+        private bool isAnomalySingleDecisionEnabled;
+        private bool isUndoAnomalyDecisionEnabled;
+        private bool isAnomalyDecisionNoticeVisible;
+        private bool anomalyNoticeOffersUndo;
+        private string anomalyNoticeKind = string.Empty;
+        private string anomalyNoticeFileName = string.Empty;
+        private AnomalyImageReviewState anomalyNoticeState;
+        private int anomalyNoticeCount;
+        private ICommand toggleAnomalyGridCommand = new RelayCommand(NoOpCommand);
+        private ICommand markAnomalySelectionNormalCommand = new RelayCommand(NoOpCommand);
+        private ICommand markAnomalySelectionAbnormalCommand = new RelayCommand(NoOpCommand);
+        private ICommand undoAnomalyDecisionCommand = new RelayCommand(NoOpCommand);
+        private ICommand openAnomalyGridImageCommand = new RelayCommand(NoOpCommand);
+        private readonly RelayCommand<object> anomalyGridSelectionChangedCommand;
+        private AnomalyImageReviewSummary anomalyDecisionSummary;
+        private string anomalyPredictionClassName = string.Empty;
+        private double anomalyPredictionConfidence;
+        private AnomalyImageReviewState anomalyPredictionReviewState;
+        private bool isAnomalyAutoAdvanceAfterDecision = true;
+        private bool isRestoringAnomalyAutoAdvance;
+        private Action<bool> anomalyAutoAdvanceChanged = _ => { };
 
+        public WpfImageQueuePanelViewModel()
+        {
+            clearSearchCommand = new RelayCommand(() => ExecuteSearchTextChanged(string.Empty), () => HasSearchText);
+            resetQueueFiltersCommand = new RelayCommand(ExecuteResetQueueFilters, () => HasQueueFilter);
+            anomalyGridSelectionChangedCommand = new RelayCommand<object>(SetAnomalyGridSelection);
+            anomalyNoticeTimer = new System.Windows.Threading.DispatcherTimer();
+            anomalyNoticeTimer.Tick += OnAnomalyNoticeElapsed;
+        }
+
+        public bool IsInferencePresentation => isInferencePresentation;
+        public string InferenceFilterAllText => T("WpfImageQueue.Filter.All");
+        public string InferenceFilterUnexecutedText => T("WpfInference.Workspace.NotRun");
+        public string InferenceFilterNgText => IsAnomalyImageReviewMode ? T("WpfAnomalyGrid.AbnormalState") : "NG";
+        public string InferenceFilterOkText => IsAnomalyImageReviewMode ? T("WpfAnomalyGrid.NormalState") : "OK";
+        public int InferenceFilterIndex
+        {
+            get => inferenceFilterIndex;
+            set { if (SetProperty(ref inferenceFilterIndex, Math.Clamp(value, 0, 3))) refreshInferenceView?.Invoke(); }
+        }
+        public string InferenceQueueSummaryText => Format("WpfInference.Queue.Progress", inferenceCompletedCount, inferenceImageCount, inferenceModelCaption);
+
+        public void ConfigureInferencePresentation(Func<string, InferenceResultReviewEntry> resultProvider, Func<InferenceResultReviewEntry, ModelDecisionResult> decisionProvider, Action refreshView)
+        {
+            inferenceResultProvider = resultProvider;
+            inferenceDecisionProvider = decisionProvider;
+            refreshInferenceView = refreshView;
+        }
+
+        public void RefreshInferencePresentation(bool active, IEnumerable<WpfImageQueueItem> items, string modelCaption)
+        {
+            bool changed = SetProperty(ref isInferencePresentation, active, nameof(IsInferencePresentation));
+            WpfImageQueueItem[] rows = (items ?? Array.Empty<WpfImageQueueItem>()).Where(item => item != null).ToArray();
+            int completed = 0;
+            foreach (WpfImageQueueItem row in rows)
+            {
+                InferenceResultReviewEntry entry = inferenceResultProvider?.Invoke(row.ImagePath);
+                bool hasResult = entry?.Result != null;
+                bool? isNg = hasResult ? inferenceDecisionProvider?.Invoke(entry)?.IsNg : null;
+                string key = !hasResult ? entry?.Failure != null ? "WpfInference.Workspace.Failed" : "WpfInference.Workspace.NotRun"
+                    : !isNg.HasValue ? "WpfInference.Queue.DecisionUnknown"
+                    : IsAnomalyImageReviewMode ? isNg.Value ? "WpfAnomalyGrid.AbnormalState" : "WpfAnomalyGrid.NormalState"
+                    : isNg.Value ? "WpfInference.Queue.Ng" : "WpfInference.Queue.Ok";
+                changed |= row.SetInferencePresentation(hasResult, isNg, key);
+                if (hasResult) completed++;
+            }
+            changed |= inferenceCompletedCount != completed || inferenceImageCount != rows.Length || inferenceModelCaption != modelCaption;
+            inferenceCompletedCount = completed;
+            inferenceImageCount = rows.Length;
+            inferenceModelCaption = modelCaption ?? string.Empty;
+            OnPropertyChanged(nameof(InferenceQueueSummaryText));
+            OnPropertyChanged(nameof(InferenceFilterNgText));
+            OnPropertyChanged(nameof(InferenceFilterOkText));
+            if (changed) refreshInferenceView?.Invoke();
+        }
+
+        public IReadOnlyList<ImageQueueSortOption> CandidateSortOptions => candidateSortOptions;
+        public IReadOnlyList<WpfImageQueueFilterOption> QueueFilterOptions => queueFilterOptions;
+        public IReadOnlyList<WpfImageQueueFilterOption> LabelingFilterOptions => LabelingFilterOrder
+            .Select(filter => queueFilterOptions.FirstOrDefault(option => option.Filter == filter)).Where(option => option != null).ToArray();
+
+        public void SetLabelingFilterCounts(ImageQueueSummary summary)
+        {
+            labelingFilterSummary = summary ?? new ImageQueueSummary();
+            SetCandidateFilterCounts(labelingFilterSummary.CandidateCount, labelingFilterSummary.LabelSuspicionCount);
+            foreach (WpfImageQueueFilterOption option in queueFilterOptions)
+            {
+                option.IsAnomalyLabeling = IsAnomalyImageReviewMode;
+                option.Count = ImageQueueFilterService.CountByFilter(labelingFilterSummary, option.Filter);
+            }
+            OnPropertyChanged(nameof(LabelingCompletionProgressText));
+            OnPropertyChanged(nameof(LabelingRemainingText));
+            OnPropertyChanged(nameof(LabelingReviewProgressText));
+            OnPropertyChanged(nameof(LabelingReviewedProgressWidth));
+            OnPropertyChanged(nameof(LabelingCompletedProgressWidth));
+            OnPropertyChanged(nameof(LabelingRemainingProgressWidth));
+        }
+        public string LabelingRemainingText => Format("WpfLabeling.Footer.Remaining", labelingFilterSummary.WorklistCount);
+        public string LabelingCompletionProgressText => $"{T(IsAnomalyImageReviewMode ? "WpfAnomalyLabeling.Mode" : "WpfShell.Right.Rail.Labels")} {labelingFilterSummary.CompletedCount}/{labelingFilterSummary.TotalCount}";
+        public string LabelingReviewProgressText => $"{T("WpfClassCatalog.ColorPreset.Review")} {labelingFilterSummary.ReviewedCount}/{labelingFilterSummary.TotalCount}";
+        public System.Windows.GridLength LabelingReviewedProgressWidth => new System.Windows.GridLength(labelingFilterSummary.ReviewedCount, System.Windows.GridUnitType.Star);
+        public System.Windows.GridLength LabelingCompletedProgressWidth => new System.Windows.GridLength(Math.Max(0, labelingFilterSummary.CompletedCount - labelingFilterSummary.ReviewedCount), System.Windows.GridUnitType.Star);
+        public System.Windows.GridLength LabelingRemainingProgressWidth => new System.Windows.GridLength(Math.Max(0, labelingFilterSummary.TotalCount - labelingFilterSummary.CompletedCount), System.Windows.GridUnitType.Star);
+
+        public WpfImageQueueFilterOption SelectedLabelingFilterOption
+        {
+            get => LabelingFilterOrder.Contains(SelectedFilter) ? SelectedFilterOption : null;
+            set { if (value != null) SetSelectedFilter(value.Filter); }
+        }
+
+        public WpfImageQueueFilterOption SelectedFilterOption
+        {
+            get => queueFilterOptions.FirstOrDefault(option => option.Filter == SelectedFilter);
+            set { if (value != null) SetSelectedFilter(value.Filter); }
+        }
+
+        public void SetCandidateFilterCounts(int candidateCount, int suspicionCount)
+        {
+            labelingCandidateCount = Math.Max(0, candidateCount);
+            labelingSuspicionCount = Math.Max(0, suspicionCount);
+            bool candidates = labelingCandidateCount > 0 || candidateWorkflowVisible && SelectedFilter == WpfImageQueueFilter.Candidate;
+            bool suspicions = labelingSuspicionCount > 0 || candidateWorkflowVisible && SelectedFilter == WpfImageQueueFilter.LabelSuspicion;
+            if (queueFilterOptions.Any(option => option.Filter == WpfImageQueueFilter.Candidate) == candidates
+                && queueFilterOptions.Any(option => option.Filter == WpfImageQueueFilter.LabelSuspicion) == suspicions) return;
+            queueFilterOptions = WpfImageQueueFilterOption.CreateDefaults().Where(option =>
+                (option.Filter != WpfImageQueueFilter.Candidate || candidates) && (option.Filter != WpfImageQueueFilter.LabelSuspicion || suspicions)).ToArray();
+            if (!queueFilterOptions.Any(option => option.Filter == SelectedFilter)) SetSelectedFilter(WpfImageQueueFilter.All);
+            foreach (WpfImageQueueFilterOption option in queueFilterOptions)
+            {
+                option.IsAnomalyLabeling = IsAnomalyImageReviewMode;
+                option.Count = ImageQueueFilterService.CountByFilter(labelingFilterSummary, option.Filter);
+            }
+            OnPropertyChanged(nameof(QueueFilterOptions));
+            OnPropertyChanged(nameof(LabelingFilterOptions));
+            OnPropertyChanged(nameof(SelectedFilterOption));
+            OnPropertyChanged(nameof(SelectedLabelingFilterOption));
+        }
+        public ImageQueueSortOption SelectedCandidateSort
+        {
+            get => selectedCandidateSort;
+            set
+            {
+                if (value?.IsEnabled != true || !SetProperty(ref selectedCandidateSort, value)) return;
+                candidateSortChanged?.Invoke(value.Sort);
+            }
+        }
+        public System.Windows.Visibility CandidateWorkflowVisibility => candidateWorkflowVisible ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+        public ICommand GenerateCandidatesCommand => generateCandidatesCommand;
+        public string GenerateCandidatesText => T("WpfCandidate.Batch.Action");
+        public string CandidateSortText => T("WpfCandidate.Batch.Sort");
+        public string CandidateSortUnavailableText => candidateSortUnavailableText;
+        public ICommand ApplyCandidateAnomalyCommand => applyCandidateAnomalyCommand;
+        public ICommand SelectNormalAnomalyCandidatesCommand { get; private set; } = new RelayCommand(NoOpCommand, () => false);
+        public ICommand SelectAbnormalAnomalyCandidatesCommand { get; private set; } = new RelayCommand(NoOpCommand, () => false);
+        public bool HasCandidateAnomalyPrediction => candidateAnomalyPredictionState != AnomalyImageReviewState.Unreviewed;
+        public System.Windows.Visibility CandidateAnomalyPredictionVisibility => HasCandidateAnomalyPrediction ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+        public string CandidateAnomalyPredictionText => HasCandidateAnomalyPrediction ? Format("WpfCandidate.Batch.AnomalyPrediction",
+            T(candidateAnomalyPredictionState == AnomalyImageReviewState.Normal ? "WpfAnomalyGrid.NormalState" : "WpfAnomalyGrid.AbnormalState"),
+            candidateAnomalyScore?.ToString("0.####", CultureInfo.CurrentCulture), candidateAnomalyThreshold?.ToString("0.####", CultureInfo.CurrentCulture)) : string.Empty;
+        public string ApplyCandidateAnomalyText => Format("WpfCandidate.Batch.AnomalyApply", T(candidateAnomalyPredictionState == AnomalyImageReviewState.Normal ? "WpfAnomalyGrid.NormalState" : "WpfAnomalyGrid.AbnormalState"));
+        public string SelectNormalAnomalyCandidatesText => Format("WpfCandidate.Batch.SelectNormal",
+            anomalyGridItems.OfType<WpfImageQueueItem>().Count(row => row.SessionCandidateAnomalyState == AnomalyImageReviewState.Normal && !row.HasAnomalyVerdict));
+        public string SelectAbnormalAnomalyCandidatesText => Format("WpfCandidate.Batch.SelectAbnormal",
+            anomalyGridItems.OfType<WpfImageQueueItem>().Count(row => row.SessionCandidateAnomalyState == AnomalyImageReviewState.Abnormal && !row.HasAnomalyVerdict));
+
+        public void ConfigureCandidateAnomalyAction(Action<AnomalyImageReviewState> apply, Func<bool> canApply)
+        {
+            applyCandidateAnomaly = apply;
+            canApplyCandidateAnomaly = canApply;
+            applyCandidateAnomalyCommand = new RelayCommand(() => applyCandidateAnomaly?.Invoke(candidateAnomalyPredictionState),
+                () => HasCandidateAnomalyPrediction && !IsAnomalyGridActive && canApplyCandidateAnomaly?.Invoke() == true);
+            SelectNormalAnomalyCandidatesCommand = new RelayCommand(() => SelectAnomalyCandidates(AnomalyImageReviewState.Normal), () => IsAnomalyGridActive && isAnomalyDecisionAvailable);
+            SelectAbnormalAnomalyCandidatesCommand = new RelayCommand(() => SelectAnomalyCandidates(AnomalyImageReviewState.Abnormal), () => IsAnomalyGridActive && isAnomalyDecisionAvailable);
+            OnPropertyChanged(nameof(ApplyCandidateAnomalyCommand));
+            OnPropertyChanged(nameof(SelectNormalAnomalyCandidatesCommand));
+            OnPropertyChanged(nameof(SelectAbnormalAnomalyCandidatesCommand));
+        }
+
+        public void SetCandidateAnomalyPrediction(YoloWorkerSmokeTestResult result, double? savedThreshold)
+        {
+            double? score = result?.Succeeded == true ? result.CaptureAnomalyScore ?? result.Candidates?.FirstOrDefault(candidate => candidate?.ImageLevel == true)?.AnomalyScore : null;
+            bool valid = score.HasValue && savedThreshold.HasValue && double.IsFinite(score.Value) && double.IsFinite(savedThreshold.Value);
+            candidateAnomalyScore = valid ? score : null;
+            candidateAnomalyThreshold = valid ? savedThreshold : null;
+            candidateAnomalyPredictionState = valid ? score.Value >= savedThreshold.Value ? AnomalyImageReviewState.Abnormal : AnomalyImageReviewState.Normal : AnomalyImageReviewState.Unreviewed;
+            OnPropertyChanged(nameof(HasCandidateAnomalyPrediction));
+            OnPropertyChanged(nameof(CandidateAnomalyPredictionVisibility));
+            OnPropertyChanged(nameof(CandidateAnomalyPredictionText));
+            OnPropertyChanged(nameof(ApplyCandidateAnomalyText));
+            CommandManager.InvalidateRequerySuggested();
+        }
+
+        private void SelectAnomalyCandidates(AnomalyImageReviewState state)
+        {
+            WpfImageQueueItem[] rows = anomalyGridItems?.OfType<WpfImageQueueItem>().ToArray() ?? Array.Empty<WpfImageQueueItem>();
+            foreach (WpfImageQueueItem row in rows) row.IsAnomalyGridSelected = row.SessionCandidateAnomalyState == state && !row.HasAnomalyVerdict;
+            SetAnomalyGridSelection(rows.Where(row => row.IsAnomalyGridSelected).ToArray());
+        }
+        public System.Windows.Visibility CandidateBatchRunningVisibility => isCandidateBatchRunning ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+        public string CandidateBatchSummaryText => candidateBatchSummary == null ? string.Empty : Format("WpfCandidate.Batch.Summary",
+            candidateBatchSummary.ProcessedImages, candidateBatchSummary.ImagesWithCandidates, candidateBatchSummary.EmptyImages,
+            candidateBatchSummary.FailedImages, candidateBatchSummary.Canceled ? T("WpfCandidate.Batch.Canceled")
+                : string.IsNullOrWhiteSpace(candidateBatchSummary.FailureSummary) ? T("WpfCandidate.Batch.Completed") : T("WpfCandidate.Batch.Stopped"))
+                + (string.IsNullOrWhiteSpace(candidateBatchSummary.FailureSummary) ? string.Empty : " · " + candidateBatchSummary.FailureSummary);
+
+        public void SetCandidateWorkflowVisible(bool visible)
+        {
+            if (candidateWorkflowVisible == visible) return;
+            candidateWorkflowVisible = visible;
+            SetCandidateFilterCounts(labelingCandidateCount, labelingSuspicionCount);
+            OnPropertyChanged(nameof(CandidateWorkflowVisibility));
+        }
+
+        public void SetCandidateBatchRunning(bool running)
+        {
+            isCandidateBatchRunning = running;
+            if (running) candidateBatchSummary = null;
+            OnPropertyChanged(nameof(CandidateBatchRunningVisibility));
+            OnPropertyChanged(nameof(CandidateBatchSummaryText));
+            if (generateCandidatesCommand is RelayCommand command) command.RaiseCanExecuteChanged();
+        }
+
+        public void SetCandidateBatchSummary(CandidateBatchSummary summary)
+        {
+            candidateBatchSummary = summary;
+            OnPropertyChanged(nameof(CandidateBatchSummaryText));
+        }
+
+        public void SelectCandidateSort(ImageQueueSort sort)
+            => SelectedCandidateSort = candidateSortOptions.FirstOrDefault(option => option.Sort == sort && option.IsEnabled) ?? candidateSortOptions.FirstOrDefault();
+
+        public void RefreshCandidateCommands()
+        {
+            if (generateCandidatesCommand is RelayCommand command) command.RaiseCanExecuteChanged();
+        }
+
+        public void ApplyCandidateSort(ICollectionView collectionView, bool refresh = false)
+        {
+            if (collectionView is not ListCollectionView listView) return;
+            if (ReferenceEquals(listView.CustomSort, this) && listView.SortDescriptions.Count == 0)
+            {
+                if (refresh) listView.Refresh();
+                return;
+            }
+            using (listView.DeferRefresh())
+            {
+                listView.SortDescriptions.Clear();
+                listView.CustomSort = this;
+            }
+        }
+
+        int IComparer.Compare(object left, object right)
+        {
+            if (left is not WpfImageQueueItem first || right is not WpfImageQueueItem second) return 0;
+            ImageQueueSort sort = selectedCandidateSort?.Sort ?? ImageQueueSort.File;
+            double? firstScore = sort == ImageQueueSort.Uncertain ? first.CandidateUncertainty : sort == ImageQueueSort.Disagreement ? first.ModelDisagreement : null;
+            double? secondScore = sort == ImageQueueSort.Uncertain ? second.CandidateUncertainty : sort == ImageQueueSort.Disagreement ? second.ModelDisagreement : null;
+            int compared = Nullable.Compare(secondScore, firstScore);
+            return compared != 0 ? compared : StringComparer.OrdinalIgnoreCase.Compare(first.FileName, second.FileName);
+        }
+
+        public void ConfigureCandidateWorkflow(Action generate, Func<bool> canGenerate, Action<ImageQueueSort> sortChanged)
+        {
+            canGenerateCandidates = canGenerate;
+            candidateSortChanged = sortChanged;
+            generateCandidatesCommand = new RelayCommand(generate ?? NoOpCommand, () => canGenerateCandidates?.Invoke() == true);
+            candidateWorkflowVisible = generate != null;
+            OnPropertyChanged(nameof(GenerateCandidatesCommand));
+            OnPropertyChanged(nameof(CandidateWorkflowVisibility));
+        }
+
+        public void SetCandidateSortAvailability(bool hasInspectionResult, bool hasMultipleModelResults, string unavailableReason)
+        {
+            OnPropertyChanged(nameof(SelectNormalAnomalyCandidatesText));
+            OnPropertyChanged(nameof(SelectAbnormalAnomalyCandidatesText));
+            SetProperty(ref candidateSortUnavailableText, hasInspectionResult && hasMultipleModelResults ? string.Empty : unavailableReason ?? string.Empty, nameof(CandidateSortUnavailableText));
+            ImageQueueSort sort = selectedCandidateSort?.Sort ?? ImageQueueSort.File;
+            ImageQueueSortOption[] options = new[] {
+                new ImageQueueSortOption(ImageQueueSort.File, T("WpfCandidate.Batch.SortFile"), true, string.Empty),
+                new ImageQueueSortOption(ImageQueueSort.Uncertain, T("WpfCandidate.Batch.SortUncertain"), hasInspectionResult, hasInspectionResult ? string.Empty : unavailableReason),
+                new ImageQueueSortOption(ImageQueueSort.Disagreement, T("WpfCandidate.Batch.SortDisagreement"), hasMultipleModelResults, hasMultipleModelResults ? string.Empty : unavailableReason)
+            };
+            if (candidateSortOptions.SequenceEqual(options)) { RefreshCandidateCommands(); return; }
+            candidateSortOptions = options;
+            OnPropertyChanged(nameof(CandidateSortOptions));
+            SelectedCandidateSort = candidateSortOptions.FirstOrDefault(option => option.Sort == sort && option.IsEnabled) ?? candidateSortOptions[0];
+            if (generateCandidatesCommand is RelayCommand command) command.RaiseCanExecuteChanged();
+        }
+
+        public IEnumerable<WpfImageQueueItem> OrderCandidateQueue(IEnumerable<WpfImageQueueItem> items)
+        {
+            IEnumerable<WpfImageQueueItem> rows = items ?? Array.Empty<WpfImageQueueItem>();
+            return (selectedCandidateSort?.Sort ?? ImageQueueSort.File) switch
+            {
+                ImageQueueSort.Uncertain => rows.OrderByDescending(item => item.CandidateUncertainty.HasValue).ThenByDescending(item => item.CandidateUncertainty).ThenBy(item => item.FileName, StringComparer.OrdinalIgnoreCase),
+                ImageQueueSort.Disagreement => rows.OrderByDescending(item => item.ModelDisagreement.HasValue).ThenByDescending(item => item.ModelDisagreement).ThenBy(item => item.FileName, StringComparer.OrdinalIgnoreCase),
+                _ => rows.OrderBy(item => item.FileName, StringComparer.OrdinalIgnoreCase)
+            };
+        }
         public string ViewName => nameof(WpfImageQueuePanel);
 
         public string PanelTitleText => T("WpfImageQueue.Panel.Title");
 
+        public System.Collections.IEnumerable AnomalyGridItems => anomalyGridItems;
+        public IReadOnlyList<WpfImageQueueItem> AnomalyGridSelection => anomalyGridSelection;
+        public bool IsAnomalyGridActive { get => isAnomalyGridActive; private set => SetProperty(ref isAnomalyGridActive, value); }
+        public bool IsAnomalyDecisionAvailable => isAnomalyDecisionAvailable;
+        public bool IsUndoAnomalyDecisionEnabled => isUndoAnomalyDecisionEnabled;
+        public bool IsAnomalyDecisionNoticeVisible => isAnomalyDecisionNoticeVisible;
+        public bool IsAnomalyUndoNoticeVisible => isAnomalyDecisionNoticeVisible && anomalyNoticeOffersUndo && isUndoAnomalyDecisionEnabled;
+        public string AnomalyGridToggleText => T(IsAnomalyGridActive ? "WpfAnomalyGrid.SingleView" : "WpfAnomalyGrid.GridView");
+        public string AnomalyGridHintText => T("WpfAnomalyGrid.Hint");
+        public string AnomalyGridTitleText => T("WpfAnomalyGrid.Title");
+        public string AnomalyDecisionTitleText => T(IsAnomalyGridActive ? "WpfAnomalyGrid.Title" : "WpfAnomalyGrid.SingleTitle");
+        public bool HasAnomalyPrediction => anomalyPredictionReviewState != AnomalyImageReviewState.Unreviewed;
+        public string AnomalyPredictionSummaryText => HasAnomalyPrediction
+            ? Format("WpfAnomalyGrid.Prediction.Summary", T(anomalyPredictionReviewState == AnomalyImageReviewState.Normal ? "WpfAnomalyGrid.NormalState" : "WpfAnomalyGrid.AbnormalState"), anomalyPredictionClassName, anomalyPredictionConfidence.ToString("0.###", CultureInfo.InvariantCulture))
+            : T("WpfAnomalyGrid.Prediction.None");
+        public string AnomalyNormalShortcutText => IsAnomalyGridActive ? T("WpfAnomalyGrid.SelectionShortcut") + " · 1" : "OK · 1";
+        public string AnomalyAbnormalShortcutText => IsAnomalyGridActive ? T("WpfAnomalyGrid.SelectionShortcut") + " · 2" : "NG · 2";
+        public string AnomalyDecisionProgressText => Format("WpfAnomalyGrid.Progress", anomalyDecisionSummary?.NormalImageCount ?? 0, anomalyDecisionSummary?.AbnormalImageCount ?? 0, anomalyDecisionSummary?.UnreviewedImageCount ?? 0);
+        public string AnomalyNextUnreviewedText => T("WpfAnomalyGrid.Next");
+        public string AnomalyAutoAdvanceText => T("WpfAnomalyGrid.AutoAdvance");
+        public bool IsAnomalyAutoAdvanceAfterDecision
+        {
+            get => isAnomalyAutoAdvanceAfterDecision;
+            set { if (SetProperty(ref isAnomalyAutoAdvanceAfterDecision, value) && !isRestoringAnomalyAutoAdvance) anomalyAutoAdvanceChanged(value); }
+        }
+        public string AnomalyNormalStateText => T("WpfAnomalyGrid.NormalState");
+        public string AnomalyAbnormalStateText => T("WpfAnomalyGrid.AbnormalState");
+        public bool IsAnomalyNormalDecisionActive => IsAnomalyGridActive ? anomalyGridSelection.Count > 0 && anomalyGridSelection.All(item => item.AnomalyReviewState == AnomalyImageReviewState.Normal) : ActiveQueueItem?.AnomalyReviewState == AnomalyImageReviewState.Normal;
+        public bool IsAnomalyAbnormalDecisionActive => IsAnomalyGridActive ? anomalyGridSelection.Count > 0 && anomalyGridSelection.All(item => item.AnomalyReviewState == AnomalyImageReviewState.Abnormal) : ActiveQueueItem?.AnomalyReviewState == AnomalyImageReviewState.Abnormal;
+        public string AnomalyGridSelectionText => anomalyGridSelection.Count == 0 ? T("WpfAnomalyGrid.SelectPrompt") : Format("WpfAnomalyGrid.Selected", anomalyGridSelection.Count);
+        public string AnomalyGridSaveHintText => T("WpfAnomalyGrid.SaveHint");
+        public string AnomalyGridNormalText => T("WpfAnomalyGrid.Normal");
+        public string AnomalyGridAbnormalText => T("WpfAnomalyGrid.Abnormal");
+        public string AnomalyUndoText => T("WpfAnomalyGrid.Undo");
+        public string AnomalyDecisionNoticeText => anomalyNoticeKind switch
+        {
+            "Single" => Format("WpfAnomalyGrid.Notice.Single", anomalyNoticeFileName, T(anomalyNoticeState == AnomalyImageReviewState.Normal ? "WpfAnomalyGrid.NormalState" : "WpfAnomalyGrid.AbnormalState")),
+            "Bulk" => Format("WpfAnomalyGrid.Notice.Bulk", anomalyNoticeCount, T(anomalyNoticeState == AnomalyImageReviewState.Normal ? "WpfAnomalyGrid.NormalState" : "WpfAnomalyGrid.AbnormalState")),
+            "Undone" => T("WpfAnomalyGrid.Notice.Undone"),
+            "UndoneImageUnavailable" => T("WpfAnomalyGrid.Notice.UndoneImageUnavailable"),
+            "Failed" => T("WpfAnomalyGrid.Notice.Failed"),
+            "PreferenceFailed" => T("WpfAnomalyGrid.Notice.PreferenceFailed"),
+            _ => string.Empty
+        };
+
         public string BatchStatusText
         {
-            get => batchStatusText;
+            get => LocalizationTextRuntimeService.Translate(batchStatusText);
             private set => SetProperty(ref batchStatusText, value ?? string.Empty);
         }
 
@@ -166,6 +556,22 @@ namespace MvcVisionSystem
         public string SearchAutomationNameText => T("WpfImageQueue.Search.Name");
 
         public string SearchToolTipText => T("WpfImageQueue.Search.ToolTip");
+
+        public string ClearSearchText => T("WpfImageQueue.Search.Clear");
+
+        public string ClearSearchToolTipText => T("WpfImageQueue.Search.Clear.ToolTip");
+
+        public string NoMatchingImagesTitleText => T("WpfImageQueue.Search.Empty.Title");
+
+        public string NoMatchingImagesDetailText => T("WpfImageQueue.Search.Empty.Detail");
+
+        public string ResetQueueFiltersText => T("WpfImageQueue.Search.ResetFilters");
+
+        public string ResetQueueFiltersToolTipText => T("WpfImageQueue.Search.ResetFilters.ToolTip");
+
+        public bool HasSearchText => !string.IsNullOrEmpty(SearchText);
+
+        public bool HasQueueFilter => !string.IsNullOrWhiteSpace(SearchText) || SelectedFilter != WpfImageQueueFilter.All;
 
         public string DetectSelectedNameText => T("WpfImageQueue.Action.Detect.Name");
 
@@ -227,6 +633,12 @@ namespace MvcVisionSystem
 
         public string DismissAnomalySuggestionButtonText => T("WpfImageQueue.Anomaly.Suggestion.Dismiss.Text");
 
+        public WpfImageQueueItem ActiveQueueItem
+        {
+            get => activeQueueItem;
+            internal set => SetProperty(ref activeQueueItem, value);
+        }
+
         public WpfImageQueueItem SelectedQueueItem
         {
             get => selectedQueueItem;
@@ -250,22 +662,49 @@ namespace MvcVisionSystem
                         selectedQueueItem.PropertyChanged += OnSelectedQueueItemPropertyChanged;
                     }
 
+                    IsSelectedImagePathVisible = false;
                     RefreshCurrentImageTaskSummary();
                     selectedQueueItemChanged(value);
                 }
             }
         }
 
+        public bool IsSelectedImagePathVisible
+        {
+            get => isSelectedImagePathVisible;
+            set => SetProperty(ref isSelectedImagePathVisible, value && SelectedQueueItem != null);
+        }
+
         public WpfImageQueueFilter SelectedFilter
         {
             get => selectedFilter;
-            private set => SetProperty(ref selectedFilter, value);
+            private set
+            {
+                if (SetProperty(ref selectedFilter, value))
+                {
+                    OnPropertyChanged(nameof(HasQueueFilter));
+                    SetCandidateFilterCounts(labelingCandidateCount, labelingSuspicionCount);
+                    OnPropertyChanged(nameof(SelectedLabelingFilterOption));
+                    RefreshDatasetEmptyPresentation();
+                    resetQueueFiltersCommand.RaiseCanExecuteChanged();
+                }
+            }
         }
 
         public string SearchText
         {
             get => searchText;
-            private set => SetProperty(ref searchText, value ?? string.Empty);
+            private set
+            {
+                if (SetProperty(ref searchText, value ?? string.Empty))
+                {
+                    OnPropertyChanged(nameof(HasSearchText));
+                    OnPropertyChanged(nameof(HasQueueFilter));
+                    RefreshDatasetEmptyPresentation();
+                    clearSearchCommand.RaiseCanExecuteChanged();
+                    resetQueueFiltersCommand.RaiseCanExecuteChanged();
+                }
+            }
         }
 
         public string CurrentImageTaskTitleText
@@ -418,10 +857,20 @@ namespace MvcVisionSystem
             private set => SetProperty(ref searchTextChangedCommand, value);
         }
 
+        public ICommand ClearSearchCommand => clearSearchCommand;
+
+        public ICommand ResetQueueFiltersCommand => resetQueueFiltersCommand;
+
         public ICommand QueueSelectionChangedCommand
         {
             get => queueSelectionChangedCommand;
             private set => SetProperty(ref queueSelectionChangedCommand, value);
+        }
+
+        public ICommand QueueExplicitOpenCommand
+        {
+            get => queueExplicitOpenCommand;
+            private set => SetProperty(ref queueExplicitOpenCommand, value);
         }
 
         public ICommand QueueMouseDoubleClickCommand
@@ -469,13 +918,73 @@ namespace MvcVisionSystem
         public string CurrentImageFolderPath
         {
             get => currentImageFolderPath;
-            private set => SetProperty(ref currentImageFolderPath, value ?? string.Empty);
+            private set
+            {
+                if (SetProperty(ref currentImageFolderPath, value ?? string.Empty))
+                {
+                    OnPropertyChanged(nameof(CurrentImageFolderNameText));
+                }
+            }
         }
+
+        public string CurrentImageFolderNameText
+            => string.IsNullOrWhiteSpace(CurrentImageFolderPath)
+                ? T("WpfImageQueue.Folder.Empty")
+                : Path.GetFileName(CurrentImageFolderPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)) is { Length: > 0 } name
+                    ? name
+                    : CurrentImageFolderPath;
 
         public string CurrentImageFolderDisplayText
         {
             get => currentImageFolderDisplayText;
             private set => SetProperty(ref currentImageFolderDisplayText, value ?? string.Empty);
+        }
+
+        public int DatasetImageCount
+        {
+            get => datasetImageCount;
+            private set
+            {
+                if (SetProperty(ref datasetImageCount, Math.Max(0, value))) RefreshDatasetEmptyPresentation();
+            }
+        }
+
+        public string DatasetImageCountText => IsImageFolderUnavailable ? T("WpfDatasetHome.CountUnknown") : DatasetImageCount.ToString(CultureInfo.InvariantCulture);
+
+        public string DatasetLabeledImageCountText => IsImageFolderUnavailable ? T("WpfDatasetHome.CountUnknown") : DatasetLabeledImageCount.ToString(CultureInfo.InvariantCulture);
+
+        public bool IsImageFolderUnavailable => !string.IsNullOrWhiteSpace(CurrentImageFolderPath) && !IsOpenCurrentImageFolderEnabled;
+
+        public string DatasetEmptyTitleText
+        {
+            get
+            {
+                if (DatasetImageCount > 0) return T(HasQueueFilter ? "WpfDatasetHome.Filtered.Title" : "WpfImageQueue.Current.Waiting.Title");
+                if (IsImageFolderUnavailable) return T("WpfDatasetHome.MissingFolder.Title");
+                return T(string.IsNullOrWhiteSpace(CurrentImageFolderPath) ? "WpfDatasetHome.Empty.Title" : "WpfDatasetHome.EmptyFolder.Title");
+            }
+        }
+
+        public string DatasetEmptyDetailText
+        {
+            get
+            {
+                if (DatasetImageCount > 0) return T(HasQueueFilter ? "WpfImageQueue.Search.Empty.Detail" : "WpfImageQueue.Current.Waiting.StandardDetail");
+                if (IsImageFolderUnavailable) return T("WpfDatasetHome.MissingFolder.Detail");
+                return T(string.IsNullOrWhiteSpace(CurrentImageFolderPath) ? "WpfDatasetHome.Empty.Detail" : "WpfDatasetHome.EmptyFolder.Detail");
+            }
+        }
+
+        public int DatasetLabeledImageCount
+        {
+            get => datasetLabeledImageCount;
+            private set => SetProperty(ref datasetLabeledImageCount, Math.Max(0, value));
+        }
+
+        public int DatasetReviewedImageCount
+        {
+            get => datasetReviewedImageCount;
+            private set => SetProperty(ref datasetReviewedImageCount, Math.Max(0, value));
         }
 
         public bool IsOpenCurrentImageFolderEnabled
@@ -658,6 +1167,14 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isQueueFilterNoCandidateActive, value);
         }
 
+        public ICommand ToggleAnomalyGridCommand => toggleAnomalyGridCommand;
+        public ICommand MarkAnomalySelectionNormalCommand => markAnomalySelectionNormalCommand;
+        public ICommand MarkAnomalySelectionAbnormalCommand => markAnomalySelectionAbnormalCommand;
+        public ICommand UndoAnomalyDecisionCommand => undoAnomalyDecisionCommand;
+        public ICommand OpenAnomalyGridImageCommand => openAnomalyGridImageCommand;
+        public ICommand AnomalyGridSelectionChangedCommand => anomalyGridSelectionChangedCommand;
+        public ICommand NextAnomalyUnreviewedCommand { get; private set; } = new RelayCommand(NoOpCommand);
+
         public void ConfigureCommands(
             Action loadImageRoot,
             Action browseImageFolder,
@@ -741,6 +1258,136 @@ namespace MvcVisionSystem
             QueueFilterNoCandidateCommand = new RelayCommand(() => ExecuteFilterCommand(WpfImageQueueFilter.NoCandidate));
         }
 
+        public void ConfigureAnomalyReviewCommands(System.Collections.IEnumerable items, Action<AnomalyImageReviewState> mark, Action undo, Action<WpfImageQueueItem> open, Action<bool> autoAdvanceChanged = null)
+        {
+            anomalyAutoAdvanceChanged = autoAdvanceChanged ?? (_ => { });
+            anomalyGridItems = items ?? Array.Empty<WpfImageQueueItem>();
+            OnPropertyChanged(nameof(AnomalyGridItems));
+            toggleAnomalyGridCommand = new RelayCommand(() => SetAnomalyGridActive(!IsAnomalyGridActive), () => isAnomalyDecisionAvailable);
+            markAnomalySelectionNormalCommand = new RelayCommand(() => mark?.Invoke(AnomalyImageReviewState.Normal), CanMarkAnomalySelection);
+            markAnomalySelectionAbnormalCommand = new RelayCommand(() => mark?.Invoke(AnomalyImageReviewState.Abnormal), CanMarkAnomalySelection);
+            undoAnomalyDecisionCommand = new RelayCommand(() => undo?.Invoke(), () => isUndoAnomalyDecisionEnabled);
+            openAnomalyGridImageCommand = new RelayCommand<WpfImageQueueItem>(item => open?.Invoke(item), item => isAnomalyDecisionAvailable && item != null);
+            NextAnomalyUnreviewedCommand = new RelayCommand(() => NextUnlabeledCommand.Execute(null), () => isAnomalyDecisionAvailable && NextUnlabeledCommand.CanExecute(null));
+            OnPropertyChanged(string.Empty);
+        }
+
+        public void SetAnomalyGridActive(bool active)
+        {
+            IsAnomalyGridActive = active && isAnomalyDecisionAvailable;
+            ClearAnomalyGridSelection();
+            OnPropertyChanged(nameof(AnomalyGridToggleText));
+            OnPropertyChanged(nameof(AnomalyDecisionTitleText));
+            OnPropertyChanged(nameof(AnomalyNormalShortcutText));
+            OnPropertyChanged(nameof(AnomalyAbnormalShortcutText));
+            CommandManager.InvalidateRequerySuggested();
+        }
+
+        public void SetAnomalyDecisionAvailability(bool available, bool canMarkSingle, bool canUndo, bool resetView = false)
+        {
+            isAnomalyDecisionAvailable = available;
+            isAnomalySingleDecisionEnabled = available && canMarkSingle;
+            isUndoAnomalyDecisionEnabled = available && canUndo;
+            if (resetView)
+            {
+                SetAnomalyGridActive(false);
+                HideAnomalyDecisionNotice();
+            }
+            OnPropertyChanged(nameof(IsAnomalyDecisionAvailable));
+            OnPropertyChanged(nameof(IsUndoAnomalyDecisionEnabled));
+            OnPropertyChanged(nameof(IsAnomalyUndoNoticeVisible));
+            OnPropertyChanged(nameof(IsAnomalyNormalDecisionActive));
+            OnPropertyChanged(nameof(IsAnomalyAbnormalDecisionActive));
+            CommandManager.InvalidateRequerySuggested();
+        }
+
+        public void ShowAnomalyDecisionNotice(string kind, string fileName = "", AnomalyImageReviewState state = AnomalyImageReviewState.Unreviewed, int count = 1, bool offerUndo = false)
+        {
+            anomalyNoticeKind = kind;
+            anomalyNoticeFileName = fileName;
+            anomalyNoticeState = state;
+            anomalyNoticeCount = count;
+            anomalyNoticeOffersUndo = offerUndo;
+            isAnomalyDecisionNoticeVisible = true;
+            OnPropertyChanged(nameof(AnomalyDecisionNoticeText));
+            OnPropertyChanged(nameof(IsAnomalyDecisionNoticeVisible));
+            OnPropertyChanged(nameof(IsAnomalyUndoNoticeVisible));
+            anomalyNoticeTimer.Stop();
+            anomalyNoticeTimer.Interval = TimeSpan.FromSeconds(offerUndo ? 6 : 2.6);
+            anomalyNoticeTimer.Start();
+        }
+
+        public void HideAnomalyDecisionNotice()
+        {
+            anomalyNoticeTimer.Stop();
+            isAnomalyDecisionNoticeVisible = false;
+            OnPropertyChanged(nameof(IsAnomalyDecisionNoticeVisible));
+            OnPropertyChanged(nameof(IsAnomalyUndoNoticeVisible));
+        }
+
+        public void ClearAnomalyGridSelection()
+        {
+            foreach (WpfImageQueueItem item in anomalyGridSelection.ToArray()) item.IsAnomalyGridSelected = false;
+            SetAnomalyGridSelection(null);
+        }
+
+        public void SetAnomalyDecisionSummary(AnomalyImageReviewSummary summary)
+        {
+            anomalyDecisionSummary = summary;
+            OnPropertyChanged(nameof(AnomalyDecisionProgressText));
+        }
+
+        public void SetAnomalyPrediction(AnomalyClassificationDecision decision)
+        {
+            bool mapped = decision?.IsMapped == true;
+            anomalyPredictionClassName = mapped ? decision.ClassName ?? string.Empty : string.Empty;
+            anomalyPredictionConfidence = mapped ? decision.Confidence : 0D;
+            anomalyPredictionReviewState = mapped ? decision.ReviewState : AnomalyImageReviewState.Unreviewed;
+            OnPropertyChanged(nameof(HasAnomalyPrediction));
+            OnPropertyChanged(nameof(AnomalyPredictionSummaryText));
+        }
+
+        public void RestoreAnomalyAutoAdvance(bool enabled)
+        {
+            isRestoringAnomalyAutoAdvance = true;
+            try { IsAnomalyAutoAdvanceAfterDecision = enabled; }
+            finally { isRestoringAnomalyAutoAdvance = false; }
+        }
+
+        private void SetAnomalyGridSelection(object selected)
+        {
+            anomalyGridSelection = (selected as System.Collections.IEnumerable)?.OfType<WpfImageQueueItem>().Distinct().ToArray() ?? Array.Empty<WpfImageQueueItem>();
+            OnPropertyChanged(nameof(AnomalyGridSelection));
+            OnPropertyChanged(nameof(AnomalyGridSelectionText));
+            OnPropertyChanged(nameof(IsAnomalyNormalDecisionActive));
+            OnPropertyChanged(nameof(IsAnomalyAbnormalDecisionActive));
+            CommandManager.InvalidateRequerySuggested();
+        }
+
+        private bool CanMarkAnomalySelection() => isAnomalyDecisionAvailable && (IsAnomalyGridActive ? anomalyGridSelection.Count > 0 : isAnomalySingleDecisionEnabled);
+        private void OnAnomalyNoticeElapsed(object sender, EventArgs e) => HideAnomalyDecisionNotice();
+
+        public void Dispose()
+        {
+            SetCandidateAnomalyPrediction(null, null);
+            applyCandidateAnomaly = null;
+            canApplyCandidateAnomaly = null;
+            candidateSortChanged = null;
+            canGenerateCandidates = null;
+            candidateWorkflowVisible = false;
+            isCandidateBatchRunning = false;
+            candidateBatchSummary = null;
+            SetAnomalyPrediction(null);
+            HideAnomalyDecisionNotice();
+            anomalyNoticeTimer.Tick -= OnAnomalyNoticeElapsed;
+            isAnomalyDecisionAvailable = false;
+            isUndoAnomalyDecisionEnabled = false;
+            anomalyAutoAdvanceChanged = _ => { };
+            if (selectedQueueItem != null) selectedQueueItem.PropertyChanged -= OnSelectedQueueItemPropertyChanged;
+            anomalyGridItems = Array.Empty<WpfImageQueueItem>();
+            anomalyGridSelection = Array.Empty<WpfImageQueueItem>();
+        }
+
         public void ConfigureSearchWorkflow(Action<string> applySearchAction)
         {
             searchTextChanged = applySearchAction ?? NoOpTextCommand;
@@ -750,6 +1397,7 @@ namespace MvcVisionSystem
         public void ConfigureQueueSelectionWorkflow()
         {
             QueueSelectionChangedCommand = new RelayCommand<object>(ExecuteQueueSelectionChanged);
+            QueueExplicitOpenCommand = new RelayCommand<WpfImageQueueItem>(item => selectedQueueItemChanged(item), item => item != null && IsOpenSelectedImageEnabled);
         }
 
         private void ExecuteQueueSelectionChanged(object selectedItem)
@@ -769,12 +1417,32 @@ namespace MvcVisionSystem
 
         private void ExecuteSearchTextChanged(string text)
         {
-            SetSearchText(text);
-            searchTextChanged(text);
+            string normalized = text ?? string.Empty;
+            // The Text binding echoes a command-driven clear through TextChanged.
+            // Only the originating change should refresh the queue.
+            if (string.Equals(SearchText, normalized, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            SetSearchText(normalized);
+            searchTextChanged(normalized);
+        }
+
+        private void ExecuteResetQueueFilters()
+        {
+            if (SelectedFilter != WpfImageQueueFilter.All)
+            {
+                ExecuteFilterCommand(WpfImageQueueFilter.All);
+            }
+
+            ExecuteSearchTextChanged(string.Empty);
         }
 
         public void RefreshLocalizedPresentation(IEnumerable<WpfImageQueueItem> queueItems = null)
         {
+            SetCandidateSortAvailability(candidateSortOptions.Any(option => option.Sort == ImageQueueSort.Uncertain && option.IsEnabled),
+                candidateSortOptions.Any(option => option.Sort == ImageQueueSort.Disagreement && option.IsEnabled), T("WpfCandidate.Batch.SortUnavailable"));
             foreach (WpfImageQueueItem item in queueItems ?? Array.Empty<WpfImageQueueItem>())
             {
                 item?.RefreshLocalizedPresentation();
@@ -788,6 +1456,7 @@ namespace MvcVisionSystem
                 : T("WpfImageQueue.Secondary.Standard");
             CurrentImageFolderDisplayText = FormatFolderDisplayPath(CurrentImageFolderPath);
             RefreshQuickFilterText();
+            foreach (WpfImageQueueFilterOption option in queueFilterOptions) option.RefreshLocalizedPresentation();
             RefreshAnomalyFolderStateSuggestionText();
             OnPropertyChanged(string.Empty);
             RefreshCurrentImageTaskSummary();
@@ -796,6 +1465,10 @@ namespace MvcVisionSystem
         public void SetAnomalyImageReviewMode(bool enabled)
         {
             IsAnomalyImageReviewMode = enabled;
+            foreach (WpfImageQueueFilterOption option in queueFilterOptions) option.IsAnomalyLabeling = enabled;
+            OnPropertyChanged(nameof(LabelingCompletionProgressText));
+            OnPropertyChanged(nameof(LabelingRemainingText));
+            if (!enabled) SetAnomalyPrediction(null);
             AnomalyImageReviewVisibility = enabled
                 ? System.Windows.Visibility.Visible
                 : System.Windows.Visibility.Collapsed;
@@ -852,6 +1525,11 @@ namespace MvcVisionSystem
             CurrentImageFolderPath = normalizedPath;
             CurrentImageFolderDisplayText = FormatFolderDisplayPath(normalizedPath);
             IsOpenCurrentImageFolderEnabled = canOpenFolder && !string.IsNullOrWhiteSpace(normalizedPath);
+            OnPropertyChanged(nameof(IsImageFolderUnavailable));
+            OnPropertyChanged(nameof(DatasetImageCountText));
+            OnPropertyChanged(nameof(DatasetLabeledImageCountText));
+            RefreshDatasetEmptyPresentation();
+            CommandManager.InvalidateRequerySuggested();
         }
 
         public void SetBatchDetectionProgress(int progressMaximum, int progressValue, string statusText)
@@ -869,6 +1547,7 @@ namespace MvcVisionSystem
         public void SetSelectedFilter(WpfImageQueueFilter filter)
         {
             SelectedFilter = filter;
+            OnPropertyChanged(nameof(SelectedFilterOption));
         }
 
         public void SetSearchText(string text)
@@ -878,12 +1557,22 @@ namespace MvcVisionSystem
 
         public bool ShouldShow(WpfImageQueueItem item)
         {
-            return ImageQueueFilterService.ShouldShow(item, SearchText, SelectedFilter);
+            if (IsInferencePresentation) return item != null && (InferenceFilterIndex switch
+            {
+                1 => !item.HasInferenceResult,
+                2 => item.HasInferenceResult && item.InferenceIsNg == true,
+                3 => item.HasInferenceResult && item.InferenceIsNg == false,
+                _ => true
+            });
+            return ImageQueueFilterService.ShouldShow(item, SearchText, SelectedFilter)
+                || (SelectedFilter == WpfImageQueueFilter.Unlabeled
+                    && ReferenceEquals(item, SelectedQueueItem)
+                    && ImageQueueFilterService.ShouldShow(item, SearchText, WpfImageQueueFilter.All));
         }
 
         public void ApplyWorkflowCommandState(WorkflowCommandState state)
         {
-            bool canRunInference = state?.CanRunInference == true;
+            bool canRunInference = state?.CanRunInferenceTarget == true;
             IsDetectSelectedEnabled = canRunInference;
             IsBatchDetectEnabled = canRunInference;
             IsTemplateBatchEnabled = state?.CanRunGeneralCommands == true;
@@ -916,6 +1605,22 @@ namespace MvcVisionSystem
             IsQueueFilterConfirmedActive = selectedFilter == WpfImageQueueFilter.Confirmed;
             IsQueueFilterSkippedActive = selectedFilter == WpfImageQueueFilter.Skipped;
             IsQueueFilterNoCandidateActive = selectedFilter == WpfImageQueueFilter.NoCandidate;
+        }
+
+        public void SetDatasetContentCounts(int imageCount, int labeledImageCount, int reviewedImageCount)
+        {
+            DatasetImageCount = imageCount;
+            DatasetLabeledImageCount = labeledImageCount;
+            DatasetReviewedImageCount = reviewedImageCount;
+            OnPropertyChanged(nameof(DatasetImageCountText));
+            OnPropertyChanged(nameof(DatasetLabeledImageCountText));
+            CommandManager.InvalidateRequerySuggested();
+        }
+
+        private void RefreshDatasetEmptyPresentation()
+        {
+            OnPropertyChanged(nameof(DatasetEmptyTitleText));
+            OnPropertyChanged(nameof(DatasetEmptyDetailText));
         }
 
         private void RefreshQuickFilterText()
@@ -1038,19 +1743,19 @@ namespace MvcVisionSystem
                 return;
             }
 
-            string labelStatus = string.IsNullOrWhiteSpace(item.LabelStatus) ? "\uC5C6\uC74C" : item.LabelStatus;
-            string detectStatus = string.IsNullOrWhiteSpace(item.DetectStatus) ? "\uB300\uAE30" : item.DetectStatus;
+            string labelStatus = item.LocalizedLabelStatus;
+            string detectStatus = item.LocalizedDetectStatus;
             string statusSummary = string.IsNullOrWhiteSpace(item.QueueStatusSummary)
-                ? $"\uC800\uC7A5 {labelStatus} / \uAC80\uC0AC {detectStatus}"
-                : item.QueueStatusSummary;
+                ? string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfImageQueuePanelViewModel.FallbackSummary"), labelStatus, detectStatus)
+                : item.LocalizedQueueStatusSummary;
 
             if (item.IsSaveRequired)
             {
-                CurrentImageTaskTitleText = "\uB77C\uBCA8 \uC800\uC7A5 \uD544\uC694";
+                CurrentImageTaskTitleText = T("WpfImageQueue.Current.SaveRequired.Title");
                 CurrentImageTaskDetailText = statusSummary;
                 CurrentImageTaskBadgeText = string.IsNullOrWhiteSpace(item.QueueBadgeText)
-                    ? "\uC800\uC7A5 \uD544\uC694"
-                    : item.QueueBadgeText;
+                    ? T("WpfImageQueue.Current.SaveRequired.Badge")
+                    : item.LocalizedQueueBadgeText;
                 CurrentImageTaskKey = "SaveRequired";
                 CurrentImageTaskToolTip = BuildCurrentImageTaskToolTip(
                     item.FileName,
@@ -1062,9 +1767,9 @@ namespace MvcVisionSystem
 
             if (item.QualityReviewState == Yolo.YoloImageQualityReviewState.NeedsFix)
             {
-                CurrentImageTaskTitleText = "라벨 수정 필요";
-                CurrentImageTaskDetailText = "저장 라벨을 확인하고 수정한 뒤 라벨 저장 후 검수 완료로 변경하세요.";
-                CurrentImageTaskBadgeText = "수정 필요";
+                CurrentImageTaskTitleText = T("WpfImageQueue.Current.NeedsFix.Title");
+                CurrentImageTaskDetailText = T("WpfImageQueue.Current.NeedsFix.Detail");
+                CurrentImageTaskBadgeText = T("WpfImageQueue.Current.NeedsFix.Badge");
                 CurrentImageTaskKey = "NeedsFix";
                 CurrentImageTaskToolTip = BuildCurrentImageTaskToolTip(
                     item.FileName,
@@ -1091,38 +1796,39 @@ namespace MvcVisionSystem
             switch (item.ReviewState)
             {
                 case Yolo.YoloImageReviewState.Requested:
-                    CurrentImageTaskTitleText = "\uAC80\uC0AC \uC9C4\uD589 \uC911";
-                    CurrentImageTaskDetailText = "\uAC80\uC0AC \uACB0\uACFC\uB97C \uAE30\uB2E4\uB9AC\uB294 \uC774\uBBF8\uC9C0\uC785\uB2C8\uB2E4.";
-                    CurrentImageTaskBadgeText = "\uAC80\uC0AC\uC911";
+                    CurrentImageTaskTitleText = T("WpfImageQueue.Current.Requested.Title");
+                    CurrentImageTaskDetailText = T("WpfImageQueue.Current.Requested.Detail");
+                    CurrentImageTaskBadgeText = T("WpfImageQueue.Current.Requested.Badge");
                     CurrentImageTaskKey = "Requested";
                     break;
                 case Yolo.YoloImageReviewState.Candidate:
-                    CurrentImageTaskTitleText = "AI \uD6C4\uBCF4 \uAC80\uD1A0";
-                    CurrentImageTaskDetailText = "\uD6C4\uBCF4\uB97C \uD655\uC815\uD558\uAC70\uB098 \uC228\uAE30\uC138\uC694. \uD655\uC815\uD558\uBA74 \uC800\uC7A5 \uB77C\uBCA8\uC5D0 \uC790\uB3D9 \uBC18\uC601\uB429\uB2C8\uB2E4.";
-                    CurrentImageTaskBadgeText = string.IsNullOrWhiteSpace(item.QueueBadgeText) ? "AI" : item.QueueBadgeText;
+                    CurrentImageTaskTitleText = T("WpfImageQueue.Current.Candidate.Title");
+                    CurrentImageTaskDetailText = T("WpfImageQueue.Current.Candidate.Detail");
+                    CurrentImageTaskBadgeText = string.IsNullOrWhiteSpace(item.QueueBadgeText) ? "AI" : item.LocalizedQueueBadgeText;
                     CurrentImageTaskKey = "Candidate";
                     break;
                 case Yolo.YoloImageReviewState.Failed:
-                    CurrentImageTaskTitleText = "\uAC80\uC0AC \uC2E4\uD328";
+                    CurrentImageTaskTitleText = T("WpfImageQueue.Current.Failed.Title");
                     CurrentImageTaskDetailText = statusSummary;
                     CurrentImageTaskBadgeText = "\uC2E4\uD328";
                     CurrentImageTaskKey = "Failed";
                     break;
                 case Yolo.YoloImageReviewState.Confirmed:
                     CurrentImageTaskTitleText = "\uB77C\uBCA8 \uC800\uC7A5 \uC644\uB8CC";
-                    CurrentImageTaskDetailText = "\uB2E4\uC74C \uBBF8\uC644\uB8CC\uB85C \uC774\uB3D9\uD558\uAC70\uB098, \uD544\uC694\uD558\uBA74 \uB2E4\uC2DC \uC5F4\uC5B4 \uC218\uC815\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
+                    CurrentImageTaskDetailText = T("WpfImageQueue.Current.Saved.Detail");
                     CurrentImageTaskBadgeText = "\uC800\uC7A5";
                     CurrentImageTaskKey = "Saved";
                     break;
                 case Yolo.YoloImageReviewState.NoCandidate:
-                    CurrentImageTaskTitleText = "\uAC1D\uCCB4 \uC5C6\uC74C \uC644\uB8CC";
-                    CurrentImageTaskDetailText = "\uAC1D\uCCB4 \uC5C6\uC74C\uC73C\uB85C \uC800\uC7A5\uB428. \uB2E4\uC74C \uBBF8\uC644\uB8CC\uB85C \uC774\uB3D9\uD558\uAC70\uB098 \uB2E4\uC2DC \uC5F4\uC5B4 \uC218\uC815\uD558\uC138\uC694.";
-                    CurrentImageTaskBadgeText = "\uAC1D\uCCB4\uC5C6\uC74C";
-                    CurrentImageTaskKey = "Saved";
+                    string resultKey = item.HasSavedNoObjectLabel ? "NoCandidate" : "AiEmpty";
+                    CurrentImageTaskTitleText = T("WpfImageQueue.Current." + resultKey + ".Title");
+                    CurrentImageTaskDetailText = T("WpfImageQueue.Current." + resultKey + ".Detail");
+                    CurrentImageTaskBadgeText = T("WpfImageQueue.Current." + resultKey + ".Badge");
+                    CurrentImageTaskKey = ImageQueueFilterService.HasSavedGroundTruth(item) ? "Saved" : "NeedsLabel";
                     break;
                 case Yolo.YoloImageReviewState.Skipped:
                     CurrentImageTaskTitleText = "\uD6C4\uBCF4 \uC228\uAE40";
-                    CurrentImageTaskDetailText = "AI \uD6C4\uBCF4\uB97C \uC228\uAE34 \uC0C1\uD0DC\uC785\uB2C8\uB2E4. \uD544\uC694\uD558\uBA74 \uB2E4\uC2DC \uAC80\uD1A0\uD558\uC138\uC694.";
+                    CurrentImageTaskDetailText = T("WpfImageQueue.Current.Skipped.Detail");
                     CurrentImageTaskBadgeText = "\uC228\uAE40";
                     CurrentImageTaskKey = "Skipped";
                     break;
@@ -1130,7 +1836,7 @@ namespace MvcVisionSystem
                     if (item.IsLabeled)
                     {
                         CurrentImageTaskTitleText = "\uC800\uC7A5 \uB77C\uBCA8 \uC788\uC74C";
-                        CurrentImageTaskDetailText = $"\uC800\uC7A5 {labelStatus} / \uAC80\uC0AC {detectStatus}. \uB2E4\uC74C \uBBF8\uC644\uB8CC\uB85C \uC774\uB3D9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
+                        CurrentImageTaskDetailText = string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfImageQueuePanelViewModel.SavedDetail"), labelStatus, detectStatus);
                         CurrentImageTaskBadgeText = "\uC800\uC7A5";
                         CurrentImageTaskKey = "Saved";
                     }
@@ -1267,10 +1973,11 @@ namespace MvcVisionSystem
                         CurrentImageTaskKey = "Saved";
                         break;
                     case Yolo.YoloImageReviewState.NoCandidate:
-                        CurrentImageTaskTitleText = T("WpfImageQueue.Current.NoCandidate.Title");
-                        CurrentImageTaskDetailText = T("WpfImageQueue.Current.NoCandidate.Detail");
-                        CurrentImageTaskBadgeText = T("WpfImageQueue.Current.NoCandidate.Badge");
-                        CurrentImageTaskKey = "Saved";
+                        string resultKey = item.HasSavedNoObjectLabel ? "NoCandidate" : "AiEmpty";
+                        CurrentImageTaskTitleText = T("WpfImageQueue.Current." + resultKey + ".Title");
+                        CurrentImageTaskDetailText = T("WpfImageQueue.Current." + resultKey + ".Detail");
+                        CurrentImageTaskBadgeText = T("WpfImageQueue.Current." + resultKey + ".Badge");
+                        CurrentImageTaskKey = ImageQueueFilterService.HasSavedGroundTruth(item) ? "Saved" : "NeedsLabel";
                         break;
                     case Yolo.YoloImageReviewState.Skipped:
                         CurrentImageTaskTitleText = T("WpfImageQueue.Current.Skipped.Title");

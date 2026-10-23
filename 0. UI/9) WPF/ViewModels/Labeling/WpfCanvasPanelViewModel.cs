@@ -32,7 +32,7 @@ namespace MvcVisionSystem
         public string Text { get; }
     }
 
-    public sealed class WpfBoxDrawingMethodItem
+    public sealed class WpfBoxDrawingMethodItem : WpfObservableViewModel
     {
         public WpfBoxDrawingMethodItem(LabelingBoxDrawingMethod method, string text, string toolTip)
         {
@@ -44,17 +44,45 @@ namespace MvcVisionSystem
         public LabelingBoxDrawingMethod Method { get; }
         public string Text { get; }
         public string ToolTip { get; }
+        public string DisplayText => LocalizationTextRuntimeService.Translate(Text);
+        internal void RefreshLocalizedPresentation() => OnPropertyChanged(nameof(DisplayText));
+    }
+
+    public sealed class WpfMaskEraserScopeItem : WpfObservableViewModel
+    {
+        public WpfMaskEraserScopeItem(MaskEraserScope scope, string text, string toolTip)
+        {
+            Scope = scope;
+            Text = text ?? string.Empty;
+            ToolTip = toolTip ?? string.Empty;
+        }
+
+        public MaskEraserScope Scope { get; }
+        public string Text { get; }
+        public string ToolTip { get; }
+        public string DisplayText => Scope switch
+        {
+            MaskEraserScope.VisibleEditable => OpenVisionLanguageService.T("WpfCanvas.ToolContext.VisibleEditable"),
+            MaskEraserScope.CurrentClass => OpenVisionLanguageService.T("WpfCanvas.ToolContext.CurrentClass"),
+            MaskEraserScope.SelectedObject => OpenVisionLanguageService.T("WpfCanvas.ToolContext.SelectedObject"),
+            _ => Text
+        };
+        internal void RefreshLocalizedPresentation() => OnPropertyChanged(nameof(DisplayText));
     }
 
     public sealed class WpfCanvasPanelViewModel : WpfObservableViewModel, IDisposable
     {
         private static readonly Action NoOpCommand = () => { };
+        private static readonly Action<int> NoOpBrushSizeChanged = _ => { };
         private static readonly Action<object> NoOpSelectionCommand = _ => { };
         private bool isFitEnabled;
         private bool isActualSizeEnabled;
         private bool isPanEnabled;
         private bool isFocusCandidateEnabled;
         private bool isResetAiOverlayEnabled;
+        private bool areOverlaysVisible = true;
+        private bool showViewerStatusDetails;
+        private double overlayOpacity = CanvasLayerPresentationWorkflowService.DefaultLabelOverlayOpacity;
         private readonly CanvasDisplayAdjustmentWorkflowService displayAdjustmentWorkflow =
             new CanvasDisplayAdjustmentWorkflowService();
         private readonly CanvasLayerPresentationWorkflowService layerPresentationWorkflow =
@@ -81,6 +109,7 @@ namespace MvcVisionSystem
             new CanvasAnnotationToolbarPresentationService();
         private Action displayAdjustmentChanged = NoOpCommand;
         private Action<WpfCanvasDisplayMode> displayModeChanged = _ => { };
+        private Action<bool> temporaryOriginalViewChanged = _ => { };
         private bool isPreviousCandidateEnabled;
         private bool isNextCandidateEnabled;
         private bool isFocusCurrentLabelEnabled;
@@ -98,21 +127,34 @@ namespace MvcVisionSystem
         private string currentWorkflowActionText = OpenVisionLanguageService.T("WpfCanvas.Workflow.NoImageAction");
         private string canvasLayerModeTitleText = "\uC791\uC5C5: \uC800\uC7A5 \uB77C\uBCA8 \uD3B8\uC9D1";
         private string canvasLayerModeDetailText = "AI \uD6C4\uBCF4\uB294 \uC228\uAE40. \uC800\uC7A5\uB41C \uB77C\uBCA8\uB9CC \uC120\uD0DD/\uC218\uC815/\uC800\uC7A5\uD569\uB2C8\uB2E4.";
-        private string canvasLayerModeToolTip = "\uD604\uC7AC \uCEA0\uBC84\uC2A4\uAC00 \uC800\uC7A5 \uB77C\uBCA8 \uD3B8\uC9D1\uC778\uC9C0 AI \uD6C4\uBCF4 \uAC80\uD1A0\uC778\uC9C0 \uD45C\uC2DC\uD569\uB2C8\uB2E4.";
+        private string canvasLayerModeToolTip = "현재 캔버스가 저장 라벨 편집인지 AI 후보 확인인지 표시합니다.";
         private string canvasLabelLayerText = "\uB77C\uBCA8 0\uAC1C \uD45C\uC2DC";
         private string canvasInferenceLayerText = "AI \uD6C4\uBCF4 0\uAC1C \uC228\uAE40";
         private bool isLabelLayerVisible = true;
         private bool isInferenceLayerVisible;
+        private bool isSavedGroundTruthAvailable;
+        private bool isInferenceHeatmapAvailable;
+        private bool isSavedGroundTruthApplicable;
+        private bool isInferenceHeatmapApplicable;
+        private string groundTruthOverlayStatusKey = "WpfCanvas.Reference.GT.Empty";
+        private string heatmapOverlayStatusKey = "WpfCanvas.Reference.HM.NoResult";
+        private bool isTemporaryOriginalView;
+        private bool isAnomalyImageReviewMode;
         private System.Windows.Visibility annotationWorkspaceVisibility = System.Windows.Visibility.Visible;
         private System.Windows.GridLength annotationToolRailWidth = new System.Windows.GridLength(46);
         private WpfAnnotationToolItem selectedAnnotationTool;
+        private bool isConfiguringAnnotationTools;
         private WpfCanvasLabelClassItem selectedLabelClass;
         private WpfCanvasDisplayModeItem selectedDisplayMode;
         private WpfAnnotationToolItem undoAnnotationTool;
         private WpfAnnotationToolItem redoAnnotationTool;
         private WpfAnnotationToolItem deleteAnnotationTool;
+        private bool isExecutingDeleteAnnotation;
         private bool isAnnotationSaveEnabled;
+        private string saveAndNextGuidanceText = string.Empty;
         private bool isNoObjectCompletionEnabled;
+        private bool isNoObjectSelected;
+        private Action<bool> noObjectSelectionChanged = _ => { };
         private string annotationSaveActionText = "\uC800\uC7A5 \uB300\uAE30";
         private string annotationSaveToolTip = "\uC774\uBBF8\uC9C0\uB97C \uBD88\uB7EC\uC624\uBA74 \uB77C\uBCA8 \uC800\uC7A5 \uC0C1\uD0DC\uB97C \uD45C\uC2DC\uD569\uB2C8\uB2E4.";
         private string noObjectCompletionActionText = "\uAC1D\uCCB4 \uC5C6\uC74C";
@@ -121,8 +163,14 @@ namespace MvcVisionSystem
         private string annotationSaveStatusDetailText = "\uC774\uBBF8\uC9C0\uB97C \uC5F4\uBA74 \uD604\uC7AC \uB77C\uBCA8\uC758 \uD30C\uC77C \uC800\uC7A5 \uC0C1\uD0DC\uB97C \uD45C\uC2DC\uD569\uB2C8\uB2E4.";
         private string annotationSaveStatusKey = "Waiting";
         private CanvasWorkflowContext currentWorkflowContext;
+        private int brushSizeValue = CanvasBrushSizePresentationService.DefaultSize;
         private string brushSizeText = CanvasBrushSizePresentationService.Format(CanvasBrushSizePresentationService.DefaultSize);
+        private int polygonProgressPointCount;
+        private double polygonProgressHorizontalOffset = 54;
+        private Action<int> brushSizeChanged = NoOpBrushSizeChanged;
+        private string smartMaskConfidenceText = "신뢰도 —";
         private System.Windows.Visibility maskBrushControlVisibility = System.Windows.Visibility.Collapsed;
+        private System.Windows.Visibility maskEraserScopeVisibility = System.Windows.Visibility.Collapsed;
         private ICommand fitCommand = new RelayCommand(NoOpCommand);
         private ICommand actualSizeCommand = new RelayCommand(NoOpCommand);
         private ICommand panCommand = new RelayCommand(NoOpCommand);
@@ -130,6 +178,10 @@ namespace MvcVisionSystem
         private ICommand resetAiOverlayCommand = new RelayCommand(NoOpCommand);
         private ICommand toggleDisplayAdjustmentCommand;
         private ICommand resetDisplayAdjustmentCommand;
+        private ICommand previousLabelingImageCommand = new RelayCommand(NoOpCommand, () => false);
+        private ICommand nextLabelingImageCommand = new RelayCommand(NoOpCommand, () => false);
+        private ICommand previousInferenceImageCommand = new RelayCommand(NoOpCommand, () => false);
+        private ICommand nextInferenceImageCommand = new RelayCommand(NoOpCommand, () => false);
         private ICommand previousCandidateCommand = new RelayCommand(NoOpCommand);
         private ICommand nextCandidateCommand = new RelayCommand(NoOpCommand);
         private ICommand focusCurrentLabelCommand = new RelayCommand(NoOpCommand);
@@ -139,22 +191,35 @@ namespace MvcVisionSystem
         private ICommand labelClassSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private ICommand openClassCatalogCommand = new RelayCommand(NoOpCommand);
         private ICommand displayModeSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
+        private ICommand beginTemporaryOriginalViewCommand;
+        private ICommand endTemporaryOriginalViewCommand;
         private ICommand undoAnnotationCommand = new RelayCommand(NoOpCommand);
         private ICommand redoAnnotationCommand = new RelayCommand(NoOpCommand);
-        private ICommand deleteAnnotationCommand = new RelayCommand(NoOpCommand);
+        private ICommand deleteAnnotationCommand = new RelayCommand(NoOpCommand, () => false);
+        private ICommand importPreviousLabelsCommand = new RelayCommand(NoOpCommand);
         private ICommand saveAnnotationCommand = new RelayCommand(NoOpCommand);
+        private ICommand saveAndNextAnnotationCommand = new RelayCommand(NoOpCommand);
         private ICommand completeNoObjectCommand = new RelayCommand(NoOpCommand);
+        private ICommand toggleNoObjectSelectionCommand = new RelayCommand(NoOpCommand);
         private ICommand decreaseBrushSizeCommand = new RelayCommand(NoOpCommand);
         private ICommand increaseBrushSizeCommand = new RelayCommand(NoOpCommand);
         private ICommand createSmartMaskCommand = new RelayCommand(NoOpCommand);
+        private ICommand openSmartMaskSetupCommand = new RelayCommand(NoOpCommand);
+        private ICommand completePolygonDraftCommand = new RelayCommand(NoOpCommand);
+        private ICommand cancelPolygonDraftCommand = new RelayCommand(NoOpCommand);
         private ICommand addPositiveSmartMaskPointCommand = new RelayCommand(NoOpCommand);
         private ICommand addNegativeSmartMaskPointCommand = new RelayCommand(NoOpCommand);
         private ICommand undoSmartMaskPointCommand = new RelayCommand(NoOpCommand);
         private ICommand clearSmartMaskPointsCommand = new RelayCommand(NoOpCommand);
         private ICommand cancelSmartMaskGenerationCommand = new RelayCommand(NoOpCommand);
+        private ICommand applySmartMaskCandidateCommand = new RelayCommand(NoOpCommand);
         private ICommand nextSmartMaskInstanceCommand = new RelayCommand(NoOpCommand);
         private ICommand showInitialSmartMaskCandidateCommand = new RelayCommand(NoOpCommand);
         private ICommand showLatestSmartMaskCandidateCommand = new RelayCommand(NoOpCommand);
+        private ICommand undoSmartMaskCandidateEditCommand = new RelayCommand(NoOpCommand);
+        private ICommand redoSmartMaskCandidateEditCommand = new RelayCommand(NoOpCommand);
+        private ICommand addSmartMaskCandidateRegionCommand = new RelayCommand(NoOpCommand);
+        private ICommand subtractSmartMaskCandidateRegionCommand = new RelayCommand(NoOpCommand);
         private ICommand toggleSmartMaskAutoContourCommand;
         private ICommand boxDrawingMethodSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private ICommand resetBoxDrawingMethodCommand;
@@ -167,6 +232,13 @@ namespace MvcVisionSystem
         private WpfSmartMaskDetailItem selectedSmartMaskDetail;
         private Action<bool> smartMaskAutoContourChanged = _ => { };
         private Action<WpfSmartMaskPolygonDetail> smartMaskDetailChanged = _ => { };
+        private bool hasSmartMaskCandidateEditSession;
+        private bool hasSmartMaskCandidateRegionTarget;
+        private bool canUndoSmartMaskCandidateEdit;
+        private bool canRedoSmartMaskCandidateEdit;
+        private MaskRegionOperation smartMaskCandidateRegionOperation = MaskRegionOperation.Add;
+        private WpfMaskEraserScopeItem selectedMaskEraserScope;
+        private Action<MaskEraserScope> maskEraserScopeChanged = _ => { };
         private Action cancelPendingLabelClassDraft = NoOpCommand;
         private Action<string> selectClassCatalog = _ => { };
         private Action<string> refreshObjectClassOptions = _ => { };
@@ -174,6 +246,9 @@ namespace MvcVisionSystem
 
         public WpfCanvasPanelViewModel()
         {
+            beginTemporaryOriginalViewCommand = new RelayCommand(() => BeginTemporaryOriginalView());
+            endTemporaryOriginalViewCommand = new RelayCommand(() => EndTemporaryOriginalView());
+            selectedMaskEraserScope = MaskEraserScopes.First();
             OpenVisionLanguageService.LanguageChanged += OpenVisionLanguageService_LanguageChanged;
         }
 
@@ -181,9 +256,9 @@ namespace MvcVisionSystem
 
         public string FirstLabelLoopText => T("WpfCanvas.FirstLabelLoop");
 
-        public string ShortcutSummaryText => TranslateExact(AnnotationProductivityService.ShortcutSummaryText);
+        public string ShortcutSummaryText => T("WpfCanvas.ShortcutSummary");
 
-        public string ShortcutHelpText => TranslateExact(AnnotationProductivityService.ShortcutHelpText);
+        public string ShortcutHelpText => T("WpfCanvas.ShortcutHelp");
 
         public ObservableCollection<WpfAnnotationToolItem> AnnotationTools { get; } = new ObservableCollection<WpfAnnotationToolItem>();
 
@@ -197,8 +272,8 @@ namespace MvcVisionSystem
                 "\uC800\uC7A5\uB41C \uB77C\uBCA8\uB9CC \uBCF4\uBA70 \uBC15\uC2A4/\uB9C8\uC2A4\uD06C\uB97C \uC218\uC815\uD569\uB2C8\uB2E4."),
             new WpfCanvasDisplayModeItem(
                 WpfCanvasDisplayMode.InferenceOnly,
-                "AI \uAC80\uD1A0",
-                "AI \uD6C4\uBCF4\uB9CC \uBCF4\uBA70 \uD655\uC815/\uC2A4\uD0B5\uC744 \uACB0\uC815\uD569\uB2C8\uB2E4."),
+                "AI 후보 확인",
+                "AI \uD6C4\uBCF4\uB9CC \uBCF4\uBA70 \uD655\uC815/\uAC74\uB108\uB6F0\uAE30\uB97C \uACB0\uC815\uD569\uB2C8\uB2E4."),
             new WpfCanvasDisplayModeItem(
                 WpfCanvasDisplayMode.Both,
                 "\uBE44\uAD50",
@@ -211,6 +286,14 @@ namespace MvcVisionSystem
             new WpfSmartMaskDetailItem(WpfSmartMaskPolygonDetail.Balanced, "균형 · 96점"),
             new WpfSmartMaskDetailItem(WpfSmartMaskPolygonDetail.Detailed, "정밀 · 256점")
         };
+
+        public ObservableCollection<WpfMaskEraserScopeItem> MaskEraserScopes { get; } =
+            new ObservableCollection<WpfMaskEraserScopeItem>
+            {
+                new WpfMaskEraserScopeItem(MaskEraserScope.VisibleEditable, "표시된 편집 가능", "현재 화면에서 편집 가능한 모든 마스크를 지웁니다."),
+                new WpfMaskEraserScopeItem(MaskEraserScope.CurrentClass, "현재 클래스", "현재 선택한 클래스의 마스크만 지웁니다."),
+                new WpfMaskEraserScopeItem(MaskEraserScope.SelectedObject, "선택 객체", "현재 선택한 하나의 객체만 지웁니다.")
+            };
 
         public ObservableCollection<WpfBoxDrawingMethodItem> BoxDrawingMethods { get; } =
             new ObservableCollection<WpfBoxDrawingMethodItem>
@@ -281,6 +364,7 @@ namespace MvcVisionSystem
             {
                 if (displayAdjustmentWorkflow.SetBrightness(value))
                 {
+                    OnPropertyChanged(nameof(DisplayBrightness));
                     OnPropertyChanged(nameof(DisplayBrightnessText));
                     NotifyDisplayAdjustmentChanged();
                 }
@@ -296,6 +380,7 @@ namespace MvcVisionSystem
             {
                 if (displayAdjustmentWorkflow.SetContrastPercent(value))
                 {
+                    OnPropertyChanged(nameof(DisplayContrastPercent));
                     OnPropertyChanged(nameof(DisplayContrastText));
                     NotifyDisplayAdjustmentChanged();
                 }
@@ -311,6 +396,7 @@ namespace MvcVisionSystem
             {
                 if (displayAdjustmentWorkflow.SetGamma(value))
                 {
+                    OnPropertyChanged(nameof(DisplayGamma));
                     OnPropertyChanged(nameof(DisplayGammaText));
                     NotifyDisplayAdjustmentChanged();
                 }
@@ -326,6 +412,7 @@ namespace MvcVisionSystem
             {
                 if (displayAdjustmentWorkflow.SetInverted(value))
                 {
+                    OnPropertyChanged(nameof(IsDisplayInverted));
                     NotifyDisplayAdjustmentChanged();
                 }
             }
@@ -338,6 +425,7 @@ namespace MvcVisionSystem
             {
                 if (displayAdjustmentWorkflow.SetHistogramEqualized(value))
                 {
+                    OnPropertyChanged(nameof(IsDisplayHistogramEqualized));
                     NotifyDisplayAdjustmentChanged();
                 }
             }
@@ -345,6 +433,11 @@ namespace MvcVisionSystem
 
         public bool IsDisplayAdjustmentActive
             => displayAdjustmentWorkflow.IsActive;
+
+        public ICommand PreviousLabelingImageCommand => previousLabelingImageCommand;
+        public ICommand NextLabelingImageCommand => nextLabelingImageCommand;
+        public ICommand PreviousInferenceImageCommand => previousInferenceImageCommand;
+        public ICommand NextInferenceImageCommand => nextInferenceImageCommand;
 
         public ICommand PreviousCandidateCommand
         {
@@ -382,6 +475,8 @@ namespace MvcVisionSystem
             private set => SetProperty(ref annotationToolSelectionChangedCommand, value);
         }
 
+        internal bool IsConfiguringAnnotationTools => isConfiguringAnnotationTools;
+
         public ICommand LabelClassSelectionChangedCommand
         {
             get => labelClassSelectionChangedCommand;
@@ -400,6 +495,14 @@ namespace MvcVisionSystem
             private set => SetProperty(ref displayModeSelectionChangedCommand, value);
         }
 
+        public ICommand BeginTemporaryOriginalViewCommand => beginTemporaryOriginalViewCommand;
+
+        public ICommand EndTemporaryOriginalViewCommand => endTemporaryOriginalViewCommand;
+
+        public string TemporaryOriginalViewActionText => OpenVisionLanguageService.T("WpfCanvas.OriginalView.Action");
+
+        public string TemporaryOriginalViewToolTip => OpenVisionLanguageService.T("WpfCanvas.OriginalView.ToolTip");
+
         public WpfAnnotationToolItem SelectedAnnotationTool
         {
             get => selectedAnnotationTool;
@@ -410,6 +513,7 @@ namespace MvcVisionSystem
                     return;
                 }
 
+                OnPropertyChanged(nameof(CurrentWorkflowToolText));
                 CanvasAnnotationToolSelectionSnapshot snapshot = value == null
                     ? annotationToolSelectionWorkflow.ClearSelectedTool()
                     : annotationToolSelectionWorkflow.SetSelectedTool(value.Tool);
@@ -500,10 +604,28 @@ namespace MvcVisionSystem
             private set => SetProperty(ref saveAnnotationCommand, value);
         }
 
+        public ICommand ImportPreviousLabelsCommand
+        {
+            get => importPreviousLabelsCommand;
+            private set => SetProperty(ref importPreviousLabelsCommand, value);
+        }
+
         public ICommand CompleteNoObjectCommand
         {
             get => completeNoObjectCommand;
             private set => SetProperty(ref completeNoObjectCommand, value);
+        }
+
+        public ICommand SaveAndNextAnnotationCommand
+        {
+            get => saveAndNextAnnotationCommand;
+            private set => SetProperty(ref saveAndNextAnnotationCommand, value);
+        }
+
+        public ICommand ToggleNoObjectSelectionCommand
+        {
+            get => toggleNoObjectSelectionCommand;
+            private set => SetProperty(ref toggleNoObjectSelectionCommand, value);
         }
 
         public ICommand DecreaseBrushSizeCommand
@@ -529,9 +651,89 @@ namespace MvcVisionSystem
         public ICommand UndoSmartMaskPointCommand => undoSmartMaskPointCommand;
         public ICommand ClearSmartMaskPointsCommand => clearSmartMaskPointsCommand;
         public ICommand CancelSmartMaskGenerationCommand => cancelSmartMaskGenerationCommand;
+        public ICommand ApplySmartMaskCandidateCommand => applySmartMaskCandidateCommand;
         public ICommand NextSmartMaskInstanceCommand => nextSmartMaskInstanceCommand;
         public ICommand ShowInitialSmartMaskCandidateCommand => showInitialSmartMaskCandidateCommand;
         public ICommand ShowLatestSmartMaskCandidateCommand => showLatestSmartMaskCandidateCommand;
+        public ICommand UndoSmartMaskCandidateEditCommand => undoSmartMaskCandidateEditCommand;
+        public ICommand RedoSmartMaskCandidateEditCommand => redoSmartMaskCandidateEditCommand;
+        public ICommand AddSmartMaskCandidateRegionCommand => addSmartMaskCandidateRegionCommand;
+        public ICommand SubtractSmartMaskCandidateRegionCommand => subtractSmartMaskCandidateRegionCommand;
+
+        public bool IsSmartMaskCandidateEditAvailable => hasSmartMaskCandidateEditSession;
+
+        public bool IsSmartMaskCandidateRegionTargetAvailable
+            => hasSmartMaskCandidateEditSession && hasSmartMaskCandidateRegionTarget;
+
+        public bool IsUndoSmartMaskCandidateEditEnabled
+            => hasSmartMaskCandidateEditSession && canUndoSmartMaskCandidateEdit;
+
+        public bool IsRedoSmartMaskCandidateEditEnabled
+            => hasSmartMaskCandidateEditSession && canRedoSmartMaskCandidateEdit;
+
+        public bool IsSmartMaskCandidateAddMode
+            => smartMaskCandidateRegionOperation == MaskRegionOperation.Add;
+
+        public bool IsSmartMaskCandidateSubtractMode
+            => smartMaskCandidateRegionOperation == MaskRegionOperation.Subtract;
+
+        public string SmartMaskCandidateEditOperationText
+            => !hasSmartMaskCandidateEditSession
+                ? "후보 없음"
+                : !hasSmartMaskCandidateRegionTarget
+                    ? "편집 대상 선택 필요"
+                    : IsSmartMaskCandidateSubtractMode
+                        ? "후보에서 빼기"
+                        : "후보에 더하기";
+
+        public void ConfigureSmartMaskEditCommands(
+            Action undo,
+            Action redo,
+            Action add,
+            Action subtract)
+        {
+            undoSmartMaskCandidateEditCommand = new RelayCommand(undo ?? NoOpCommand);
+            redoSmartMaskCandidateEditCommand = new RelayCommand(redo ?? NoOpCommand);
+            addSmartMaskCandidateRegionCommand = new RelayCommand(add ?? NoOpCommand);
+            subtractSmartMaskCandidateRegionCommand = new RelayCommand(subtract ?? NoOpCommand);
+            OnPropertyChanged(nameof(UndoSmartMaskCandidateEditCommand));
+            OnPropertyChanged(nameof(RedoSmartMaskCandidateEditCommand));
+            OnPropertyChanged(nameof(AddSmartMaskCandidateRegionCommand));
+            OnPropertyChanged(nameof(SubtractSmartMaskCandidateRegionCommand));
+        }
+
+        public ICommand OpenSmartMaskSetupCommand => openSmartMaskSetupCommand;
+
+        public ICommand CompletePolygonDraftCommand => completePolygonDraftCommand;
+
+        public ICommand CancelPolygonDraftCommand => cancelPolygonDraftCommand;
+
+        public void SetSmartMaskCandidateEditState(
+            bool hasSession,
+            bool canUndo,
+            bool canRedo,
+            MaskRegionOperation operation)
+        {
+            hasSmartMaskCandidateEditSession = hasSession;
+            hasSmartMaskCandidateRegionTarget = false;
+            canUndoSmartMaskCandidateEdit = canUndo;
+            canRedoSmartMaskCandidateEdit = canRedo;
+            smartMaskCandidateRegionOperation = operation;
+            OnPropertyChanged(nameof(IsSmartMaskCandidateEditAvailable));
+            OnPropertyChanged(nameof(IsSmartMaskCandidateRegionTargetAvailable));
+            OnPropertyChanged(nameof(IsUndoSmartMaskCandidateEditEnabled));
+            OnPropertyChanged(nameof(IsRedoSmartMaskCandidateEditEnabled));
+            OnPropertyChanged(nameof(IsSmartMaskCandidateAddMode));
+            OnPropertyChanged(nameof(IsSmartMaskCandidateSubtractMode));
+            OnPropertyChanged(nameof(SmartMaskCandidateEditOperationText));
+        }
+
+        public void SetSmartMaskCandidateRegionTargetState(bool available)
+        {
+            hasSmartMaskCandidateRegionTarget = available;
+            OnPropertyChanged(nameof(IsSmartMaskCandidateRegionTargetAvailable));
+            OnPropertyChanged(nameof(SmartMaskCandidateEditOperationText));
+        }
         public ICommand ToggleSmartMaskAutoContourCommand
             => toggleSmartMaskAutoContourCommand ??= new RelayCommand(
                 () =>
@@ -589,7 +791,21 @@ namespace MvcVisionSystem
                 : System.Windows.Visibility.Collapsed;
 
         public string FourPointBoxProgressText
-            => boxDrawingPresentationWorkflow.GetSnapshot().ProgressText;
+            => TranslateExact(boxDrawingPresentationWorkflow.GetSnapshot().ProgressText);
+
+        public System.Windows.Visibility PolygonProgressVisibility
+            => polygonProgressPointCount > 0
+                ? System.Windows.Visibility.Visible
+                : System.Windows.Visibility.Collapsed;
+
+        public string PolygonProgressText
+            => $"점 {polygonProgressPointCount}개   Enter 완료   Esc 취소";
+
+        public string PolygonProgressCountText
+            => $"점 {polygonProgressPointCount}개";
+
+        public double PolygonProgressHorizontalOffset
+            => polygonProgressHorizontalOffset;
 
         public string BoxDrawingMethodToolTip
             => SelectedBoxDrawingMethod?.ToolTip
@@ -603,19 +819,23 @@ namespace MvcVisionSystem
 
         public System.Windows.Visibility SmartMaskVisibility
             => smartMaskPresentationWorkflow.GetSnapshot().IsVisible
+                && !IsMaskEditingToolSelected
                 ? System.Windows.Visibility.Visible
                 : System.Windows.Visibility.Collapsed;
 
         public System.Windows.Visibility SmartMaskSessionActionVisibility
-            => smartMaskPresentationWorkflow.GetSnapshot().IsVisible
-                && smartMaskPresentationWorkflow.GetSnapshot().HasSession
-                    ? System.Windows.Visibility.Visible
-                    : System.Windows.Visibility.Collapsed;
+            => SmartMaskVisibility;
 
         public System.Windows.Visibility SmartMaskSessionVisibility
             => smartMaskPresentationWorkflow.GetSnapshot().IsSessionVisible
+                && !IsMaskEditingToolSelected
+                && MaskBrushControlVisibility != System.Windows.Visibility.Visible
                 ? System.Windows.Visibility.Visible
                 : System.Windows.Visibility.Collapsed;
+
+        private bool IsMaskEditingToolSelected
+            => SelectedAnnotationTool?.Tool == WpfAnnotationTool.Brush
+                || SelectedAnnotationTool?.Tool == WpfAnnotationTool.Eraser;
 
         public System.Windows.Visibility SmartMaskCorrectionOptionsVisibility
             => IsSmartMaskCorrectionOptionsExpanded
@@ -639,8 +859,24 @@ namespace MvcVisionSystem
         public string SmartMaskPromptSummaryText
             => smartMaskPresentationWorkflow.GetSnapshot().PromptSummaryText;
 
+        public string SmartMaskStatusText
+            => smartMaskPresentationWorkflow.GetSnapshot().ToolTip;
+
         public string SmartMaskCandidateComparisonText
             => smartMaskPresentationWorkflow.GetSnapshot().CandidateComparisonText;
+
+        public string SmartMaskConfidenceText
+            => smartMaskConfidenceText;
+
+        public string SmartMaskPointInstructionText
+            => T("WpfCanvas.SmartMask.Candidate.Instruction");
+
+        public string SmartMaskApplyActionText
+            => IsNegativeSmartMaskPointMode
+                ? "지우기 적용  Enter"
+                : "채우기 적용  Enter";
+
+        public string SmartMaskResetActionText => "초기화  Esc";
 
         public bool IsSmartMaskPointActionEnabled
             => smartMaskPresentationWorkflow.GetSnapshot().IsPointActionEnabled;
@@ -650,6 +886,9 @@ namespace MvcVisionSystem
 
         public bool IsSmartMaskCancelEnabled
             => smartMaskPresentationWorkflow.GetSnapshot().IsCancelEnabled;
+
+        public bool IsApplySmartMaskCandidateEnabled
+            => smartMaskPresentationWorkflow.GetSnapshot().IsApplyCandidateEnabled;
 
         public bool IsSmartMaskNextInstanceEnabled
             => smartMaskPresentationWorkflow.GetSnapshot().IsNextInstanceEnabled;
@@ -698,12 +937,12 @@ namespace MvcVisionSystem
             => smartMaskPresentationWorkflow.GetSnapshot().IsAutoContourToggleEnabled;
 
         public string SmartMaskAutoContourText
-            => IsSmartMaskAutoContourEnabled ? "자동 윤곽: 켜짐" : "자동 윤곽: 꺼짐";
+            => T(IsSmartMaskAutoContourEnabled ? "WpfCanvas.ToolContext.AutoContourOn" : "WpfCanvas.ToolContext.AutoContourOff");
 
         public string SmartMaskAutoContourToolTip
             => IsSmartMaskAutoContourEnabled
-                ? "새 사각형을 완성하면 MobileSAM 윤곽 후보를 바로 만듭니다. 후보는 확인 전까지 저장되지 않습니다."
-                : "한 번 켜 두면 새 사각형을 완성할 때마다 MobileSAM 윤곽 후보를 바로 만듭니다.";
+                ? "새 박스를 완성하면 스마트 마스크 후보를 만듭니다."
+                : "켜 두면 새 박스를 완성할 때마다 스마트 마스크 후보를 만듭니다.";
 
         public void RestoreSmartMaskAutoContourMode(bool enabled)
         {
@@ -750,6 +989,33 @@ namespace MvcVisionSystem
                 boxDrawingPresentationWorkflow.SetAcceptedPointCount(acceptedPointCount));
         }
 
+        public void SetPolygonProgress(int acceptedPointCount)
+        {
+            int normalized = Math.Max(0, acceptedPointCount);
+            if (polygonProgressPointCount == normalized)
+            {
+                return;
+            }
+
+            polygonProgressPointCount = normalized;
+            OnPropertyChanged(nameof(PolygonProgressVisibility));
+            OnPropertyChanged(nameof(PolygonProgressText));
+            OnPropertyChanged(nameof(PolygonProgressCountText));
+        }
+
+        public void SetPolygonProgressCanvasWidth(double canvasWidth)
+        {
+            double normalizedWidth = Math.Max(0, canvasWidth);
+            double normalizedOffset = Math.Max(12, normalizedWidth - 202);
+            if (Math.Abs(polygonProgressHorizontalOffset - normalizedOffset) < 0.5)
+            {
+                return;
+            }
+
+            polygonProgressHorizontalOffset = normalizedOffset;
+            OnPropertyChanged(nameof(PolygonProgressHorizontalOffset));
+        }
+
         private void ApplyBoxDrawingPresentation(BoxDrawingPresentationSnapshot snapshot)
         {
             if (snapshot == null)
@@ -765,7 +1031,7 @@ namespace MvcVisionSystem
         }
 
         public string SmartMaskActionText
-            => smartMaskPresentationWorkflow.GetSnapshot().ActionText;
+            => TranslateExact(smartMaskPresentationWorkflow.GetSnapshot().ActionText);
 
         public string SmartMaskToolTip
             => smartMaskPresentationWorkflow.GetSnapshot().ToolTip;
@@ -776,10 +1042,60 @@ namespace MvcVisionSystem
             private set => SetProperty(ref brushSizeText, value ?? string.Empty);
         }
 
+        public string BrushSizePercentText
+            => CanvasBrushSizePresentationService.FormatReferencePercent(brushSizeValue);
+
+        public int BrushSizeValue
+        {
+            get => brushSizeValue;
+            set
+            {
+                int normalized = CanvasBrushSizePresentationService.Normalize(value);
+                if (brushSizeValue == normalized)
+                {
+                    return;
+                }
+
+                brushSizeValue = normalized;
+                brushSizeChanged(normalized);
+                OnPropertyChanged(nameof(BrushSizeValue));
+                BrushSizeText = CanvasBrushSizePresentationService.Format(normalized);
+                OnPropertyChanged(nameof(BrushSizePercentText));
+            }
+        }
+
         public System.Windows.Visibility MaskBrushControlVisibility
         {
             get => maskBrushControlVisibility;
             private set => SetProperty(ref maskBrushControlVisibility, value);
+        }
+
+        public System.Windows.Visibility MaskEraserScopeVisibility
+        {
+            get => maskEraserScopeVisibility;
+            private set => SetProperty(ref maskEraserScopeVisibility, value);
+        }
+
+        public WpfMaskEraserScopeItem SelectedMaskEraserScope
+        {
+            get => selectedMaskEraserScope;
+            set
+            {
+                if (value == null || !MaskEraserScopes.Contains(value))
+                {
+                    return;
+                }
+
+                if (SetProperty(ref selectedMaskEraserScope, value))
+                {
+                    maskEraserScopeChanged(value.Scope);
+                }
+            }
+        }
+
+        public void ConfigureMaskEraserScopeWorkflow(Action<MaskEraserScope> scopeChanged)
+        {
+            maskEraserScopeChanged = scopeChanged ?? (_ => { });
         }
 
         public bool IsAnnotationSaveEnabled
@@ -794,15 +1110,38 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isNoObjectCompletionEnabled, value);
         }
 
+        public bool IsSaveAndNextEnabled => IsDisplayAdjustmentEnabled && AnnotationSaveStatusKey != "LoadError";
+
+        public bool IsPreviousLabelsImportEnabled => !isAnomalyImageReviewMode && IsDisplayAdjustmentEnabled && AnnotationSaveStatusKey != "LoadError";
+
+        public bool IsNoObjectSelectionEnabled => IsNoObjectCompletionEnabled && AnnotationSaveStatusKey != "LoadError";
+
+        public bool IsNoObjectSelected
+        {
+            get => isNoObjectSelected;
+            set
+            {
+                if (!IsNoObjectSelectionEnabled || isNoObjectSelected == value) return;
+                ApplyNoObjectCompletionPresentation(noObjectCompletionPresentationWorkflow.SetSelected(value));
+                noObjectSelectionChanged(isNoObjectSelected);
+            }
+        }
+
+        public string NoObjectSelectionToolTip => AnnotationSaveStatusKey == "LoadError"
+            ? AnnotationSaveToolTip
+            : IsNoObjectSelectionEnabled ? OpenVisionLanguageService.T("WpfCanvas.NoObject.Selection.ToolTip") : NoObjectCompletionToolTip;
+
+        public string SaveAndNextGuidanceText => TranslateExact(saveAndNextGuidanceText);
+
         public string AnnotationSaveActionText
         {
-            get => annotationSaveActionText;
+            get => TranslateExact(annotationSaveActionText);
             private set => SetProperty(ref annotationSaveActionText, value ?? string.Empty);
         }
 
         public string AnnotationSaveToolTip
         {
-            get => annotationSaveToolTip;
+            get => TranslateExact(annotationSaveToolTip);
             private set => SetProperty(ref annotationSaveToolTip, value ?? string.Empty);
         }
 
@@ -974,7 +1313,11 @@ namespace MvcVisionSystem
 
         public string CurrentWorkflowToolText
         {
-            get => currentWorkflowToolText;
+            get => currentWorkflowContext?.EffectiveStep is not WpfLearningStep.Infer and not WpfLearningStep.Review
+                && selectedAnnotationTool?.Tool != WpfAnnotationTool.Select
+                && !string.IsNullOrWhiteSpace(selectedAnnotationTool?.Text)
+                ? selectedAnnotationTool.DisplayText
+                : currentWorkflowToolText;
             private set => SetProperty(ref currentWorkflowToolText, value ?? string.Empty);
         }
 
@@ -1026,6 +1369,86 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isInferenceLayerVisible, value);
         }
 
+        public bool ShowSavedGroundTruth
+        {
+            get => layerPresentationWorkflow.ShowSavedGroundTruth;
+            set
+            {
+                if (!layerPresentationWorkflow.SetSavedGroundTruth(value)) return;
+                OnPropertyChanged(nameof(ShowSavedGroundTruth));
+                displayModeChanged?.Invoke(CurrentDisplayMode);
+            }
+        }
+
+        public bool ShowInferenceHeatmap
+        {
+            get => layerPresentationWorkflow.ShowInferenceHeatmap;
+            set
+            {
+                if (!layerPresentationWorkflow.SetInferenceHeatmap(value)) return;
+                OnPropertyChanged(nameof(ShowInferenceHeatmap));
+                displayModeChanged?.Invoke(CurrentDisplayMode);
+            }
+        }
+
+        public bool IsSavedGroundTruthAvailable { get => isSavedGroundTruthAvailable; private set => SetProperty(ref isSavedGroundTruthAvailable, value); }
+        public bool IsInferenceHeatmapAvailable { get => isInferenceHeatmapAvailable; private set => SetProperty(ref isInferenceHeatmapAvailable, value); }
+        public bool IsSavedGroundTruthApplicable { get => isSavedGroundTruthApplicable; private set => SetProperty(ref isSavedGroundTruthApplicable, value); }
+        public bool IsInferenceHeatmapApplicable { get => isInferenceHeatmapApplicable; private set => SetProperty(ref isInferenceHeatmapApplicable, value); }
+        public string GroundTruthOverlayStatusText => OpenVisionLanguageService.T(groundTruthOverlayStatusKey);
+        public string HeatmapOverlayStatusText => OpenVisionLanguageService.T(heatmapOverlayStatusKey);
+
+        public bool AreOverlaysVisible
+        {
+            get => areOverlaysVisible;
+            set
+            {
+                if (areOverlaysVisible == value)
+                {
+                    return;
+                }
+
+                areOverlaysVisible = value;
+                ApplyLayerPresentation(layerPresentationWorkflow.SetOverlaysVisible(value));
+                OnPropertyChanged(nameof(AreOverlaysVisible));
+                displayModeChanged?.Invoke(CurrentDisplayMode);
+            }
+        }
+
+        public bool ShowViewerStatusDetails
+        {
+            get => showViewerStatusDetails;
+            set => SetProperty(ref showViewerStatusDetails, value);
+        }
+
+        public double OverlayOpacity
+        {
+            get => overlayOpacity;
+            set
+            {
+                double normalized = Math.Clamp(value, 0D, 1D);
+                if (overlayOpacity != normalized)
+                {
+                    overlayOpacity = normalized;
+                    OnPropertyChanged(nameof(OverlayOpacityMaximum));
+                    OnPropertyChanged(nameof(OverlayOpacity));
+                    OnPropertyChanged(nameof(OverlayOpacityText));
+                    layerPresentationWorkflow.SetOverlayOpacity(normalized);
+                    displayModeChanged?.Invoke(CurrentDisplayMode);
+                }
+            }
+        }
+
+        public double OverlayOpacityMaximum => Math.Max(0.8D, OverlayOpacity);
+
+        public string OverlayOpacityText => $"{OverlayOpacity:P0}";
+
+        public bool IsTemporaryOriginalView
+        {
+            get => isTemporaryOriginalView;
+            private set => SetProperty(ref isTemporaryOriginalView, value);
+        }
+
         public System.Windows.Visibility AnnotationWorkspaceVisibility
         {
             get => annotationWorkspaceVisibility;
@@ -1040,11 +1463,14 @@ namespace MvcVisionSystem
 
         public void SetAnomalyImageReviewMode(bool enabled)
         {
+            isAnomalyImageReviewMode = enabled;
             CanvasAnomalyReviewPresentationSnapshot presentation = anomalyReviewPresentation.Build(enabled);
             AnnotationWorkspaceVisibility = presentation.IsWorkspaceVisible
                 ? System.Windows.Visibility.Visible
                 : System.Windows.Visibility.Collapsed;
             AnnotationToolRailWidth = new System.Windows.GridLength(presentation.AnnotationToolRailWidth);
+            OnPropertyChanged(nameof(IsPreviousLabelsImportEnabled));
+            (ImportPreviousLabelsCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
 
         public void ConfigureCommands(
@@ -1096,9 +1522,28 @@ namespace MvcVisionSystem
             IncreaseBrushSizeCommand = new RelayCommand(increaseBrushSize ?? NoOpCommand);
         }
 
+        public void ConfigureBrushSizeValue(Action<int> applyBrushSize)
+        {
+            brushSizeChanged = applyBrushSize ?? NoOpBrushSizeChanged;
+        }
+
         public void ConfigureSmartMaskCommand(Action createSmartMask)
         {
             CreateSmartMaskCommand = new RelayCommand(createSmartMask ?? NoOpCommand);
+        }
+
+        public void ConfigureSmartMaskSetupCommand(Action openSetup)
+        {
+            openSmartMaskSetupCommand = new RelayCommand(openSetup ?? NoOpCommand);
+            OnPropertyChanged(nameof(OpenSmartMaskSetupCommand));
+        }
+
+        public void ConfigurePolygonProgressCommands(Action completeDraft, Action cancelDraft)
+        {
+            completePolygonDraftCommand = new RelayCommand(completeDraft ?? NoOpCommand);
+            cancelPolygonDraftCommand = new RelayCommand(cancelDraft ?? NoOpCommand);
+            OnPropertyChanged(nameof(CompletePolygonDraftCommand));
+            OnPropertyChanged(nameof(CancelPolygonDraftCommand));
         }
 
         public void ConfigureSmartMaskCommands(
@@ -1108,6 +1553,7 @@ namespace MvcVisionSystem
             Action undoPoint,
             Action clearPoints,
             Action cancelGeneration,
+            Action applyCandidate,
             Action nextInstance,
             Action showInitialCandidate,
             Action showLatestCandidate,
@@ -1120,6 +1566,7 @@ namespace MvcVisionSystem
             undoSmartMaskPointCommand = new RelayCommand(undoPoint ?? NoOpCommand);
             clearSmartMaskPointsCommand = new RelayCommand(clearPoints ?? NoOpCommand);
             cancelSmartMaskGenerationCommand = new RelayCommand(cancelGeneration ?? NoOpCommand);
+            applySmartMaskCandidateCommand = new RelayCommand(applyCandidate ?? NoOpCommand);
             nextSmartMaskInstanceCommand = new RelayCommand(nextInstance ?? NoOpCommand);
             showInitialSmartMaskCandidateCommand = new RelayCommand(showInitialCandidate ?? NoOpCommand);
             showLatestSmartMaskCandidateCommand = new RelayCommand(showLatestCandidate ?? NoOpCommand);
@@ -1131,6 +1578,7 @@ namespace MvcVisionSystem
             OnPropertyChanged(nameof(UndoSmartMaskPointCommand));
             OnPropertyChanged(nameof(ClearSmartMaskPointsCommand));
             OnPropertyChanged(nameof(CancelSmartMaskGenerationCommand));
+            OnPropertyChanged(nameof(ApplySmartMaskCandidateCommand));
             OnPropertyChanged(nameof(NextSmartMaskInstanceCommand));
             OnPropertyChanged(nameof(ShowInitialSmartMaskCandidateCommand));
             OnPropertyChanged(nameof(ShowLatestSmartMaskCandidateCommand));
@@ -1151,7 +1599,8 @@ namespace MvcVisionSystem
             bool hasProducedCandidate,
             bool canMoveToNextInstance,
             bool hasCandidateComparison = false,
-            WpfSmartMaskCandidateVersion selectedCandidateVersion = WpfSmartMaskCandidateVersion.Latest)
+            WpfSmartMaskCandidateVersion selectedCandidateVersion = WpfSmartMaskCandidateVersion.Latest,
+            bool canApplyCandidate = false)
         {
             ApplySmartMaskPresentation(
                 smartMaskPresentationWorkflow.SetSessionState(
@@ -1163,7 +1612,8 @@ namespace MvcVisionSystem
                     hasProducedCandidate,
                     canMoveToNextInstance,
                     hasCandidateComparison,
-                    selectedCandidateVersion));
+                    selectedCandidateVersion,
+                    canApplyCandidate));
         }
 
         private void ApplySmartMaskPresentation(SmartMaskPresentationSnapshot snapshot)
@@ -1182,10 +1632,14 @@ namespace MvcVisionSystem
             OnPropertyChanged(nameof(SmartMaskCorrectionOptionsText));
             OnPropertyChanged(nameof(SmartMaskCorrectionOptionsGlyph));
             OnPropertyChanged(nameof(SmartMaskPromptSummaryText));
+            OnPropertyChanged(nameof(SmartMaskStatusText));
             OnPropertyChanged(nameof(SmartMaskCandidateComparisonText));
+            OnPropertyChanged(nameof(SmartMaskConfidenceText));
+            OnPropertyChanged(nameof(SmartMaskApplyActionText));
             OnPropertyChanged(nameof(IsSmartMaskPointActionEnabled));
             OnPropertyChanged(nameof(IsSmartMaskPointUndoEnabled));
             OnPropertyChanged(nameof(IsSmartMaskCancelEnabled));
+            OnPropertyChanged(nameof(IsApplySmartMaskCandidateEnabled));
             OnPropertyChanged(nameof(IsSmartMaskNextInstanceEnabled));
             OnPropertyChanged(nameof(IsShowInitialSmartMaskCandidateEnabled));
             OnPropertyChanged(nameof(IsShowLatestSmartMaskCandidateEnabled));
@@ -1199,7 +1653,15 @@ namespace MvcVisionSystem
 
         public void SetBrushSize(int size)
         {
-            BrushSizeText = CanvasBrushSizePresentationService.Format(size);
+            int normalized = CanvasBrushSizePresentationService.Normalize(size);
+            if (brushSizeValue != normalized)
+            {
+                brushSizeValue = normalized;
+                OnPropertyChanged(nameof(BrushSizeValue));
+            }
+
+            BrushSizeText = CanvasBrushSizePresentationService.Format(normalized);
+            OnPropertyChanged(nameof(BrushSizePercentText));
         }
 
         public void ConfigureCandidateReviewCommands(
@@ -1224,21 +1686,29 @@ namespace MvcVisionSystem
             Action<object> annotationToolSelectionChanged)
         {
             // The canvas toolbar mirrors the guide palette but keeps one-shot commands out of the selected-tool list.
-            AnnotationTools.Clear();
-            UndoAnnotationTool = null;
-            RedoAnnotationTool = null;
-            DeleteAnnotationTool = null;
-            CanvasAnnotationToolbarPresentationSnapshot snapshot = annotationToolbarPresentation.Build(tools);
-            foreach (WpfAnnotationToolItem tool in snapshot.SelectableTools)
+            isConfiguringAnnotationTools = true;
+            try
             {
-                AnnotationTools.Add(tool);
-            }
+                AnnotationTools.Clear();
+                UndoAnnotationTool = null;
+                RedoAnnotationTool = null;
+                DeleteAnnotationTool = null;
+                CanvasAnnotationToolbarPresentationSnapshot snapshot = annotationToolbarPresentation.Build(tools);
+                foreach (WpfAnnotationToolItem tool in snapshot.SelectableTools)
+                {
+                    AnnotationTools.Add(tool);
+                }
 
-            UndoAnnotationTool = snapshot.UndoTool;
-            RedoAnnotationTool = snapshot.RedoTool;
-            DeleteAnnotationTool = snapshot.DeleteTool;
-            SetSelectedAnnotationTool(selectedTool ?? AnnotationTools.FirstOrDefault());
-            AnnotationToolSelectionChangedCommand = new RelayCommand<object>(annotationToolSelectionChanged ?? NoOpSelectionCommand);
+                UndoAnnotationTool = snapshot.UndoTool;
+                RedoAnnotationTool = snapshot.RedoTool;
+                DeleteAnnotationTool = snapshot.DeleteTool;
+                SetSelectedAnnotationTool(selectedTool ?? AnnotationTools.FirstOrDefault());
+                AnnotationToolSelectionChangedCommand = new RelayCommand<object>(annotationToolSelectionChanged ?? NoOpSelectionCommand);
+            }
+            finally
+            {
+                isConfiguringAnnotationTools = false;
+            }
         }
 
         public void ConfigureLabelClassSelection(Action<object> labelClassSelectionChanged, Action openClassCatalog = null)
@@ -1287,10 +1757,75 @@ namespace MvcVisionSystem
             }
         }
 
+        public void ConfigureLabelingImageNavigation(Action<int> navigate, Func<bool> canNavigate)
+        {
+            previousLabelingImageCommand = new RelayCommand(() => navigate?.Invoke(-1), () => IsFitEnabled && canNavigate?.Invoke() == true);
+            nextLabelingImageCommand = new RelayCommand(() => navigate?.Invoke(1), () => IsFitEnabled && canNavigate?.Invoke() == true);
+            OnPropertyChanged(nameof(PreviousLabelingImageCommand));
+            OnPropertyChanged(nameof(NextLabelingImageCommand));
+        }
+
+        public void ConfigureInferenceImageNavigation(Action<int> navigate, Func<bool> canNavigate)
+        {
+            previousInferenceImageCommand = new RelayCommand(() => navigate?.Invoke(-1), () => IsFitEnabled && canNavigate?.Invoke() == true);
+            nextInferenceImageCommand = new RelayCommand(() => navigate?.Invoke(1), () => IsFitEnabled && canNavigate?.Invoke() == true);
+            OnPropertyChanged(nameof(PreviousInferenceImageCommand));
+            OnPropertyChanged(nameof(NextInferenceImageCommand));
+        }
+
+        internal void RefreshInferenceImageNavigation()
+        {
+            (previousLabelingImageCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (nextLabelingImageCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (previousInferenceImageCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (nextInferenceImageCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        }
+
         public void ConfigureDisplayModeSelectionWorkflow(Action<WpfCanvasDisplayMode> applyDisplayMode)
         {
             displayModeChanged = applyDisplayMode ?? (_ => { });
             DisplayModeSelectionChangedCommand = new RelayCommand<object>(ExecuteDisplayModeSelectionChanged);
+        }
+
+        public void SetSmartMaskConfidenceText(string text)
+        {
+            string next = string.IsNullOrWhiteSpace(text) ? "신뢰도 —" : text.Trim();
+            if (string.Equals(smartMaskConfidenceText, next, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            smartMaskConfidenceText = next;
+            OnPropertyChanged(nameof(SmartMaskConfidenceText));
+        }
+
+        public void ConfigureTemporaryOriginalViewWorkflow(Action<bool> applyTemporaryOriginalView)
+        {
+            temporaryOriginalViewChanged = applyTemporaryOriginalView ?? (_ => { });
+        }
+
+        public bool BeginTemporaryOriginalView()
+        {
+            if (layerPresentationWorkflow.IsTemporaryOriginalView)
+            {
+                return false;
+            }
+
+            ApplyLayerPresentation(layerPresentationWorkflow.BeginTemporaryOriginalView());
+            temporaryOriginalViewChanged(true);
+            return true;
+        }
+
+        public bool EndTemporaryOriginalView()
+        {
+            if (!layerPresentationWorkflow.IsTemporaryOriginalView)
+            {
+                return false;
+            }
+
+            ApplyLayerPresentation(layerPresentationWorkflow.EndTemporaryOriginalView());
+            temporaryOriginalViewChanged(false);
+            return true;
         }
 
         private void ExecuteDisplayModeSelectionChanged(object selectedItem)
@@ -1304,6 +1839,35 @@ namespace MvcVisionSystem
 
             SetDisplayMode(displayModeItem.Mode);
             displayModeChanged?.Invoke(displayModeItem.Mode);
+        }
+
+        internal void SetReferenceOverlayContext(bool groundTruthApplicable, bool heatmapApplicable, bool hasImage = true)
+        {
+            IsSavedGroundTruthApplicable = groundTruthApplicable;
+            IsInferenceHeatmapApplicable = heatmapApplicable;
+            IsSavedGroundTruthAvailable = groundTruthApplicable && hasImage;
+            IsInferenceHeatmapAvailable = heatmapApplicable && hasImage;
+        }
+
+        internal void SetReferenceOverlayStatus(string groundTruthKey, string heatmapKey)
+        {
+            if (groundTruthOverlayStatusKey != groundTruthKey)
+            {
+                groundTruthOverlayStatusKey = groundTruthKey;
+                OnPropertyChanged(nameof(GroundTruthOverlayStatusText));
+            }
+            if (heatmapOverlayStatusKey != heatmapKey)
+            {
+                heatmapOverlayStatusKey = heatmapKey;
+                OnPropertyChanged(nameof(HeatmapOverlayStatusText));
+            }
+        }
+
+        internal void ResetReferenceOverlayChoices()
+        {
+            layerPresentationWorkflow.ResetReferenceOverlayChoices();
+            OnPropertyChanged(nameof(ShowSavedGroundTruth));
+            OnPropertyChanged(nameof(ShowInferenceHeatmap));
         }
 
         public void SetDisplayMode(WpfCanvasDisplayMode mode)
@@ -1331,35 +1895,56 @@ namespace MvcVisionSystem
 
         public void RefreshLocalizedPresentation()
         {
+            OnPropertyChanged(nameof(GroundTruthOverlayStatusText));
+            OnPropertyChanged(nameof(HeatmapOverlayStatusText));
+            foreach (WpfAnnotationToolItem item in AnnotationTools) item.RefreshLocalizedPresentation();
+            foreach (WpfBoxDrawingMethodItem item in BoxDrawingMethods) item.RefreshLocalizedPresentation();
+            foreach (WpfMaskEraserScopeItem item in MaskEraserScopes) item.RefreshLocalizedPresentation();
+            foreach (WpfCanvasLabelClassItem item in LabelClasses) item.RefreshLocalizedPresentation();
+            foreach (WpfCanvasDisplayModeItem item in DisplayModes) item.RefreshLocalizedPresentation();
+            OnPropertyChanged(nameof(FourPointBoxProgressText));
             OnPropertyChanged(nameof(FirstLabelLoopText));
             OnPropertyChanged(nameof(ShortcutSummaryText));
             OnPropertyChanged(nameof(ShortcutHelpText));
-            string workflowStepSource = currentWorkflowContext?.StepText;
-            string workflowToolSource = currentWorkflowContext?.ToolText;
-            string workflowActionSource = currentWorkflowContext?.ActionText;
-            CurrentWorkflowStepText = TranslateExact(
-                string.IsNullOrWhiteSpace(workflowStepSource) ? "단계" : workflowStepSource);
-            CurrentWorkflowToolText = TranslateExact(
-                string.IsNullOrWhiteSpace(workflowToolSource) ? "선택" : workflowToolSource);
-            CurrentWorkflowActionText = TranslateExact(
-                string.IsNullOrWhiteSpace(workflowActionSource)
-                    ? T("WpfCanvas.Workflow.NoImageAction")
-                    : workflowActionSource);
+            OnPropertyChanged(nameof(SmartMaskActionText));
+            OnPropertyChanged(nameof(SmartMaskAutoContourText));
+            OnPropertyChanged(nameof(SmartMaskPointInstructionText));
+            OnPropertyChanged(nameof(TemporaryOriginalViewActionText));
+            OnPropertyChanged(nameof(TemporaryOriginalViewToolTip));
+            RefreshWorkflowContextPresentation();
 
             ApplyLayerPresentation(layerPresentationWorkflow.GetSnapshot());
             RefreshActiveLabelClassPresentation();
+            ApplyNoObjectCompletionPresentation(noObjectCompletionPresentationWorkflow.GetSnapshot());
             OnPropertyChanged(nameof(AnnotationSaveActionText));
             OnPropertyChanged(nameof(AnnotationSaveToolTip));
+            OnPropertyChanged(nameof(SaveAndNextGuidanceText));
             OnPropertyChanged(nameof(NoObjectCompletionActionText));
             OnPropertyChanged(nameof(NoObjectCompletionToolTip));
+            OnPropertyChanged(nameof(NoObjectSelectionToolTip));
             OnPropertyChanged(nameof(AnnotationSaveStatusTitleText));
             OnPropertyChanged(nameof(AnnotationSaveStatusDetailText));
         }
 
         private void ApplyLayerPresentation(CanvasLayerPresentationSnapshot snapshot)
         {
+            if (areOverlaysVisible != snapshot.AreOverlaysVisible)
+            {
+                areOverlaysVisible = snapshot.AreOverlaysVisible;
+                OnPropertyChanged(nameof(AreOverlaysVisible));
+            }
+
+            if (Math.Abs(overlayOpacity - snapshot.OverlayOpacity) > double.Epsilon)
+            {
+                overlayOpacity = snapshot.OverlayOpacity;
+                OnPropertyChanged(nameof(OverlayOpacityMaximum));
+                OnPropertyChanged(nameof(OverlayOpacity));
+                OnPropertyChanged(nameof(OverlayOpacityText));
+            }
+
             IsLabelLayerVisible = snapshot.ShowLabels;
             IsInferenceLayerVisible = snapshot.ShowInference;
+            IsTemporaryOriginalView = snapshot.IsTemporaryOriginalView;
             CanvasLayerModeTitleText = snapshot.Title;
             CanvasLayerModeDetailText = snapshot.Detail;
             CanvasLabelLayerText = snapshot.LabelText;
@@ -1435,6 +2020,8 @@ namespace MvcVisionSystem
         public bool TryGetRepeatSelection(out WpfAnnotationTool tool, out string className)
             => annotationToolSelectionWorkflow.TryGetRepeatSelection(out tool, out className);
 
+        public void ShowShortcutHelp() => ShortcutHelpVisibility = System.Windows.Visibility.Visible;
+
         public void ToggleShortcutHelp()
         {
             ShortcutHelpVisibility = ShortcutHelpVisibility == System.Windows.Visibility.Visible
@@ -1442,31 +2029,53 @@ namespace MvcVisionSystem
                 : System.Windows.Visibility.Visible;
         }
 
-        public void ConfigureAnnotationCommands(Action undo, Action redo, Action delete)
+        public void ConfigureAnnotationCommands(Action undo, Action redo, Action delete, Action importPreviousLabels = null, Func<bool> canDelete = null)
         {
             UndoAnnotationCommand = new RelayCommand(undo ?? NoOpCommand);
             RedoAnnotationCommand = new RelayCommand(redo ?? NoOpCommand);
-            DeleteAnnotationCommand = new RelayCommand(delete ?? NoOpCommand);
+            DeleteAnnotationCommand = new RelayCommand(() =>
+            {
+                if (!CanDelete()) return;
+                isExecutingDeleteAnnotation = true;
+                try { delete(); }
+                finally { isExecutingDeleteAnnotation = false; }
+            }, CanDelete);
+            ImportPreviousLabelsCommand = new RelayCommand(importPreviousLabels ?? NoOpCommand, () => IsPreviousLabelsImportEnabled);
+
+            bool CanDelete() => delete != null && !isExecutingDeleteAnnotation && (canDelete?.Invoke() ?? true);
         }
 
-        public void ConfigureAnnotationSaveCommand(Action save)
+        public void ConfigureAnnotationSaveCommand(Action save, Action saveAndNext = null)
         {
             // Save is exposed inside the canvas toolbar because operators decide to persist
             // immediately after drawing; the shell still owns the actual persistence command.
             SaveAnnotationCommand = new RelayCommand(save ?? NoOpCommand);
+            SaveAndNextAnnotationCommand = new RelayCommand(saveAndNext ?? NoOpCommand, () => IsSaveAndNextEnabled);
         }
 
-        public void ConfigureNoObjectCompletionCommand(Action completeNoObject)
+        public void ConfigureNoObjectCompletionCommand(Action completeNoObject, Action<bool> selectionChanged = null)
         {
             CompleteNoObjectCommand = new RelayCommand(completeNoObject ?? NoOpCommand);
+            noObjectSelectionChanged = selectionChanged ?? (_ => { });
+            ToggleNoObjectSelectionCommand = new RelayCommand(() => IsNoObjectSelected = !IsNoObjectSelected, () => IsNoObjectSelectionEnabled);
         }
 
-        public void SetNoObjectCompletionState(bool hasImage, bool hasLabelObjects, bool hasPendingCandidates)
+        internal void SetSaveAndNextGuidance(string text)
+        {
+            SetProperty(ref saveAndNextGuidanceText, text ?? string.Empty, nameof(SaveAndNextGuidanceText));
+        }
+
+        internal void RestoreNoObjectSelection(bool selected)
+            => ApplyNoObjectCompletionPresentation(noObjectCompletionPresentationWorkflow.SetSelected(selected));
+
+        public void SetNoObjectCompletionState(bool hasImage, bool hasLabelObjects, bool hasPendingCandidates, string imageKey = null)
         {
             ApplyNoObjectCompletionPresentation(noObjectCompletionPresentationWorkflow.SetState(
                 hasImage,
                 hasLabelObjects,
-                hasPendingCandidates));
+                hasPendingCandidates,
+                imageKey,
+                AnnotationSaveStatusKey));
         }
 
         private void ApplyNoObjectCompletionPresentation(CanvasNoObjectCompletionPresentationSnapshot snapshot)
@@ -1474,6 +2083,10 @@ namespace MvcVisionSystem
             IsNoObjectCompletionEnabled = snapshot.IsEnabled;
             NoObjectCompletionActionText = snapshot.ActionText;
             NoObjectCompletionToolTip = snapshot.ToolTip;
+            SetProperty(ref isNoObjectSelected, snapshot.IsSelected, nameof(IsNoObjectSelected));
+            OnPropertyChanged(nameof(IsNoObjectSelectionEnabled));
+            OnPropertyChanged(nameof(NoObjectSelectionToolTip));
+            (ToggleNoObjectSelectionCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
 
         public void ApplyAnnotationSaveStatePresentation(AnnotationSaveStatePresentation presentation)
@@ -1487,6 +2100,13 @@ namespace MvcVisionSystem
             AnnotationSaveActionText = presentation.CanvasActionText;
             AnnotationSaveToolTip = presentation.CanvasToolTip;
             AnnotationSaveStatusKey = presentation.CanvasStatusKey;
+            OnPropertyChanged(nameof(IsPreviousLabelsImportEnabled));
+            (ImportPreviousLabelsCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            OnPropertyChanged(nameof(IsNoObjectSelectionEnabled));
+            OnPropertyChanged(nameof(NoObjectSelectionToolTip));
+            (ToggleNoObjectSelectionCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            OnPropertyChanged(nameof(IsSaveAndNextEnabled));
+            (SaveAndNextAnnotationCommand as RelayCommand)?.RaiseCanExecuteChanged();
             AnnotationSaveStatusTitleText = presentation.CanvasStatusTitleText;
             AnnotationSaveStatusDetailText = presentation.CanvasStatusDetailText;
         }
@@ -1505,9 +2125,10 @@ namespace MvcVisionSystem
                 return;
             }
 
-            if (AnnotationTools.Contains(selectedTool))
+            WpfAnnotationToolItem resolvedTool = AnnotationTools.FirstOrDefault(item => item.Tool == selectedTool.Tool);
+            if (resolvedTool != null)
             {
-                SelectedAnnotationTool = selectedTool;
+                SelectedAnnotationTool = resolvedTool;
                 RefreshBoxDrawingMethodVisibility();
             }
         }
@@ -1517,6 +2138,12 @@ namespace MvcVisionSystem
             MaskBrushControlVisibility = snapshot != null && snapshot.IsMaskBrushControlVisible
                 ? System.Windows.Visibility.Visible
                 : System.Windows.Visibility.Collapsed;
+            MaskEraserScopeVisibility = snapshot != null && snapshot.IsEraserScopeControlVisible
+                ? System.Windows.Visibility.Visible
+                : System.Windows.Visibility.Collapsed;
+            OnPropertyChanged(nameof(SmartMaskVisibility));
+            OnPropertyChanged(nameof(SmartMaskSessionActionVisibility));
+            OnPropertyChanged(nameof(SmartMaskSessionVisibility));
         }
 
         private void RefreshBoxDrawingMethodVisibility()
@@ -1531,9 +2158,14 @@ namespace MvcVisionSystem
             // Keep this small status strip as ViewModel state so the canvas view does not
             // need to reach into the guide panel or shell to explain the current workflow.
             currentWorkflowContext = context;
-            CurrentWorkflowStepText = string.IsNullOrWhiteSpace(context?.StepText) ? "단계" : context.StepText;
-            CurrentWorkflowToolText = string.IsNullOrWhiteSpace(context?.ToolText) ? "선택" : context.ToolText;
-            CurrentWorkflowActionText = string.IsNullOrWhiteSpace(context?.ActionText) ? "다음 작업을 선택하세요." : context.ActionText;
+            RefreshWorkflowContextPresentation();
+        }
+
+        private void RefreshWorkflowContextPresentation()
+        {
+            CurrentWorkflowStepText = string.IsNullOrWhiteSpace(currentWorkflowContext?.StepText) ? T("WpfShell.Stage.Label") : TranslateExact(currentWorkflowContext.StepText);
+            CurrentWorkflowToolText = string.IsNullOrWhiteSpace(currentWorkflowContext?.ToolText) ? T("WpfAnnotationTool.Select") : TranslateExact(currentWorkflowContext.ToolText);
+            CurrentWorkflowActionText = string.IsNullOrWhiteSpace(currentWorkflowContext?.ActionText) ? T("WpfCanvas.Workflow.NextAction") : TranslateExact(currentWorkflowContext.ActionText);
         }
 
         public void SetWorkflowContext(string stepText, string toolText, string actionText)
@@ -1575,6 +2207,11 @@ namespace MvcVisionSystem
                 hasSelectedCandidate,
                 hasPendingCandidates));
             IsDisplayAdjustmentEnabled = hasImage;
+            OnPropertyChanged(nameof(IsPreviousLabelsImportEnabled));
+            (ImportPreviousLabelsCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            SetSaveAndNextGuidance(string.Empty);
+            OnPropertyChanged(nameof(IsSaveAndNextEnabled));
+            (SaveAndNextAnnotationCommand as RelayCommand)?.RaiseCanExecuteChanged();
             if (!hasImage)
             {
                 IsDisplayAdjustmentOpen = false;
@@ -1650,8 +2287,10 @@ namespace MvcVisionSystem
         }
     }
 
-    public sealed class WpfCanvasLabelClassItem
+    public sealed class WpfCanvasLabelClassItem : WpfObservableViewModel
     {
+        private int objectCount;
+
         public WpfCanvasLabelClassItem(CanvasLabelClassCatalogItem item)
         {
             Text = item?.Text ?? string.Empty;
@@ -1685,15 +2324,24 @@ namespace MvcVisionSystem
         public string CanonicalDisplayText => $"{CanonicalIndex} \u00B7 {Text}";
 
         public string ToolTip => ShortcutIndex > 0
-            ? $"\uB2E8\uCD95\uD0A4 {ShortcutIndex} \u00B7 YOLO \uC778\uB371\uC2A4 {CanonicalIndex} \u00B7 \uB2E4\uC74C \uBC15\uC2A4/\uB9C8\uC2A4\uD06C: {Text}"
-            : $"YOLO \uC778\uB371\uC2A4 {CanonicalIndex} \u00B7 \uB2E4\uC74C \uBC15\uC2A4/\uB9C8\uC2A4\uD06C: {Text}";
+            ? string.Format(OpenVisionLanguageService.T("WpfCanvas.LabelClass.ShortcutToolTip"), ShortcutIndex, CanonicalIndex, Text)
+            : string.Format(OpenVisionLanguageService.T("WpfCanvas.LabelClass.DrawToolTip"), CanonicalIndex, Text);
+
+        public void RefreshLocalizedPresentation() => OnPropertyChanged(nameof(ToolTip));
 
         public DrawingColor DrawColor { get; }
 
         public MediaBrush DrawBrush { get; }
+
+        public string ObjectCountText => objectCount > 0 ? objectCount.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty;
+
+        public void SetObjectCount(int count)
+        {
+            SetProperty(ref objectCount, Math.Max(0, count), nameof(ObjectCountText));
+        }
     }
 
-    public sealed class WpfCanvasDisplayModeItem
+    public sealed class WpfCanvasDisplayModeItem : WpfObservableViewModel
     {
         public WpfCanvasDisplayModeItem(WpfCanvasDisplayMode mode, string text, string toolTip)
         {
@@ -1706,8 +2354,22 @@ namespace MvcVisionSystem
 
         public string Text { get; }
 
-        public string DisplayText => Text;
+        public string DisplayText => Mode switch
+        {
+            WpfCanvasDisplayMode.LabelsOnly => OpenVisionLanguageService.T("WpfCanvas.DisplayMode.Labels"),
+            WpfCanvasDisplayMode.InferenceOnly => OpenVisionLanguageService.T("WpfCanvas.DisplayMode.Inference"),
+            WpfCanvasDisplayMode.Both => OpenVisionLanguageService.T("WpfCanvas.DisplayMode.Both"),
+            _ => Text
+        };
 
         public string ToolTip { get; }
+
+        public string LocalizedToolTip => LocalizationTextRuntimeService.Translate(ToolTip);
+
+        internal void RefreshLocalizedPresentation()
+        {
+            OnPropertyChanged(nameof(DisplayText));
+            OnPropertyChanged(nameof(LocalizedToolTip));
+        }
     }
 }

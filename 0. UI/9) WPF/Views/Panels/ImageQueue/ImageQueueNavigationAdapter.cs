@@ -28,7 +28,7 @@ namespace MvcVisionSystem
 
             if (!TryOpenNextIncompleteQueueImage())
             {
-                context.AppendLog?.Invoke("현재 큐에 남은 미완료 이미지가 없습니다.");
+                context.AppendLog?.Invoke(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.Text.ImageQueueNavigationAdapter.1"));
             }
         }
 
@@ -37,7 +37,7 @@ namespace MvcVisionSystem
 
         internal bool TryOpenNextIncompleteQueueImage(string currentImagePath)
         {
-            IReadOnlyList<string> orderedPaths = (context.QueueItemsProvider?.Invoke() ?? Array.Empty<WpfImageQueueItem>())
+            IReadOnlyList<string> orderedPaths = (context.VisibleQueueItemsProvider?.Invoke() ?? context.QueueItemsProvider?.Invoke() ?? Array.Empty<WpfImageQueueItem>())
                 .Select(item => item.ImagePath)
                 .ToList();
             if (context.IsAnomalyDatasetPurpose?.Invoke() == true)
@@ -69,9 +69,9 @@ namespace MvcVisionSystem
                 return false;
             }
 
-            context.SelectImageQueueItem?.Invoke(nextImagePath);
-            context.LoadNextImage?.Invoke(nextImagePath);
-            return true;
+            bool nextLoaded = context.LoadNextImage?.Invoke(nextImagePath) == true;
+            if (nextLoaded) context.SelectImageQueueItem?.Invoke(nextImagePath);
+            return nextLoaded;
         }
 
         internal void ExecuteOpenSelectedQueueImageCommand()
@@ -107,19 +107,21 @@ namespace MvcVisionSystem
             if (skipIfAlreadyActive
                 && string.Equals(openImagePath, context.ActiveImagePathProvider?.Invoke(), StringComparison.OrdinalIgnoreCase))
             {
+                context.SelectImageQueueItem?.Invoke(item.ImagePath);
                 return true;
             }
 
             bool loaded = context.LoadSelectedImage?.Invoke(openImagePath) == true;
             if (loaded)
             {
+                context.SelectImageQueueItem?.Invoke(item.ImagePath);
                 context.UpdateSelectedQueueImageButton?.Invoke(item);
             }
 
             return loaded;
         }
 
-        internal bool TryOpenAdjacentQueueImage(int direction)
+        internal bool TryOpenAdjacentQueueImage(int direction, bool includeFilteredItems = false)
         {
             IReadOnlyList<WpfImageQueueItem> queueItems = context.QueueItemsProvider?.Invoke();
             if (direction == 0 || queueItems == null || queueItems.Count == 0)
@@ -128,7 +130,7 @@ namespace MvcVisionSystem
             }
 
             WpfImageQueueItem targetItem = context.ImageQueueSelectionService.FindAdjacentOpenableItem(
-                context.VisibleQueueItemsProvider?.Invoke() ?? Array.Empty<WpfImageQueueItem>(),
+                includeFilteredItems ? queueItems : context.VisibleQueueItemsProvider?.Invoke() ?? Array.Empty<WpfImageQueueItem>(),
                 context.ActiveImagePathProvider?.Invoke() ?? string.Empty,
                 context.SelectedQueueItemProvider?.Invoke()?.ImagePath,
                 direction,
@@ -140,6 +142,32 @@ namespace MvcVisionSystem
 
             context.SelectImageQueueItem?.Invoke(targetItem.ImagePath);
             return TryOpenSelectedQueueImage(targetItem, skipIfAlreadyActive: true);
+        }
+
+        internal bool TryOpenNextReviewPendingImage(string currentImagePath, IReadOnlyList<WpfImageQueueItem> orderedItems)
+        {
+            WpfImageQueueItem target = context.ImageQueueSelectionService.FindNextReviewPendingItem(orderedItems, currentImagePath, CanOpenQueueItem)
+                ?? context.ImageQueueSelectionService.FindNextReviewPendingItem(context.QueueItemsProvider?.Invoke(), currentImagePath, CanOpenQueueItem);
+            return target != null && TryOpenSelectedQueueImage(target, skipIfAlreadyActive: true);
+        }
+
+        internal string GetPreviousImagePath()
+        {
+            IReadOnlyList<WpfImageQueueItem> items = context.QueueItemsProvider?.Invoke() ?? Array.Empty<WpfImageQueueItem>();
+            string activePath = context.ActiveImagePathProvider?.Invoke() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(activePath)) return string.Empty;
+            LabelingProjectData data = context.DataProvider();
+            for (int index = 0; index < items.Count; index++)
+            {
+                WpfImageQueueItem item = items[index];
+                bool isActive = string.Equals(item?.ImagePath, activePath, StringComparison.OrdinalIgnoreCase)
+                    || context.ImageQueueSelectionService.TryResolveOpenImagePath(item, data, out string openPath)
+                        && string.Equals(openPath, activePath, StringComparison.OrdinalIgnoreCase);
+                if (!isActive) continue;
+                return index > 0 && context.ImageQueueSelectionService.TryResolveOpenImagePath(items[index - 1], data, out string previousPath)
+                    ? previousPath : string.Empty;
+            }
+            return string.Empty;
         }
 
         internal bool CanOpenQueueItem(WpfImageQueueItem item)

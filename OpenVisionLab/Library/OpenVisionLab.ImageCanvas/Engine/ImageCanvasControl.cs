@@ -28,6 +28,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		public event EventHandler Resized = delegate { };
 		public event EventHandler MouseDoubleClicked = delegate { };
 		public event EventHandler MouseClicked = delegate { };
+		public event EventHandler ZoomChanged = delegate { };
 
 		public new event EventHandler Load = delegate { };
 		public new event EventHandler MouseLeave = delegate { };
@@ -86,9 +87,37 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 
 		public System.Drawing.RectangleF _fitRect = new System.Drawing.RectangleF();
 		private float _zoom = 100000.0f;
+		private bool _showBackgroundGrid;
+		private System.Drawing.Color? _clearColorOverride;
 		private float _aspectRatio;
 		private float _xSpan;
 		private float _ySpan;
+
+		public bool ShowBackgroundGrid
+		{
+			get => _showBackgroundGrid;
+			set
+			{
+				if (_showBackgroundGrid == value)
+				{
+					return;
+				}
+
+				_showBackgroundGrid = value;
+				RefreshGL();
+			}
+		}
+
+		public System.Drawing.Color? ClearColorOverride
+		{
+			get => _clearColorOverride;
+			set
+			{
+				if (_clearColorOverride == value) return;
+				_clearColorOverride = value;
+				RefreshGL();
+			}
+		}
 
 		/// <summary>
 		/// 텍스처 관련 값입니다.
@@ -115,6 +144,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		/// OpenGL은 직접 텍스트 렌더링을 지원하지 않으므로 폰트 비트맵을 display list로 만들어 사용합니다.
 		/// </summary>
 		private readonly List<OpenGlFontBitmapEntry> _fontBitmapEntries = new List<OpenGlFontBitmapEntry>();
+		private readonly Dictionary<string, (uint TextureId, int Width, int Height, IntPtr RenderContext)> _roiLabelTextures = new Dictionary<string, (uint, int, int, IntPtr)>(StringComparer.Ordinal);
 		private readonly object _pixelDatalock = new object();
 		private readonly byte[] _pixelReadbackBuffer = new byte[4];
 		private static readonly long PixelReadbackIntervalTicks = Math.Max(1L, Stopwatch.Frequency / 30);
@@ -127,6 +157,9 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		private System.Drawing.Color _pixelColor = System.Drawing.Color.Black;
 		private int _grayValue;
 		private bool _isShowCrossLine = false;
+		private Point? boxCrosshairPointer;
+		public bool BoxCrosshairEnabled { get; set; }
+		public bool BoxCrosshairOnPointInput { get; set; }
 		protected int _invertValue = 1; // Y축 방향이 좌하단 기준일 때 좌표를 반전하기 위한 값입니다.
 
 		private CanvasInteractionMode _viewMode = CanvasInteractionMode.None;
@@ -237,6 +270,11 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 				_deferredViewportOverlayRefreshTimer.Tick -= OnDeferredViewportOverlayRefreshTimerTick;
 				_deferredRefreshTimer.Dispose();
 				_deferredViewportOverlayRefreshTimer.Dispose();
+				if (_roiLabelTextures.Count != 0)
+				{
+					openGLControl.OpenGL.MakeCurrent();
+					OpenGlDrawing.ReleaseRoiLabelTextures(openGLControl.OpenGL, _roiLabelTextures);
+				}
 				openGlHostAdapter?.Dispose();
 				openGlHostAdapter = null;
 			}
@@ -301,6 +339,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 
 		protected void OnMouseMove(object sender, MouseEventArgs e)
 		{
+			boxCrosshairPointer = new Point(e.X, e.Y);
 			bool isDraggingView = _viewMode == CanvasInteractionMode.Drag;
 			bool isManipulatingOverlay = IsOverlayMouseManipulationMode(_viewMode) && e.Button != MouseButtons.None;
 			if (isDraggingView && e.Button != MouseButtons.None)
@@ -358,7 +397,12 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 			RequestOpenGlRepaint();
 		}
 
-		protected void OnMouseLeave(object sender, EventArgs e) => MouseLeave(sender, e);
+		protected void OnMouseLeave(object sender, EventArgs e)
+		{
+			boxCrosshairPointer = null;
+			MouseLeave(sender, e);
+			if (BoxCrosshairEnabled) RequestOpenGlRepaint();
+		}
 
 		protected void OnMouseWheel(object sender, MouseEventArgs e)
 		{
@@ -371,10 +415,41 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 
 		private void PrepareForDrawing(OpenGL gl)
 		{
+			if (_clearColorOverride is System.Drawing.Color background)
+				gl.ClearColor(background.R / 255F, background.G / 255F, background.B / 255F, background.A / 255F);
+			else
+				gl.ClearColor(_showBackgroundGrid ? 0.071f : 0f, _showBackgroundGrid ? 0.075f : 0f, _showBackgroundGrid ? 0.09f : 0f, 1f);
 			gl.Clear(OpenGL.GL_COLOR_BUFFER_BIT | OpenGL.GL_DEPTH_BUFFER_BIT | OpenGL.GL_STENCIL_BUFFER_BIT);
+			if (_showBackgroundGrid)
+			{
+				DrawBackgroundGrid(gl);
+			}
+
 			gl.LoadIdentity();
 			gl.Translate(_offsetSize.Width, _offsetSize.Height, -0f);
 			gl.Disable(OpenGL.GL_DEPTH_TEST);
+		}
+
+		private void DrawBackgroundGrid(OpenGL gl)
+		{
+			float scale = Math.Max(0.0001f, ZoomScale);
+			float step = 16f * scale;
+			gl.PushAttrib(OpenGL.GL_ENABLE_BIT | OpenGL.GL_POINT_BIT | OpenGL.GL_CURRENT_BIT | OpenGL.GL_TEXTURE_BIT);
+			gl.Disable(OpenGL.GL_TEXTURE_2D);
+			gl.Disable(OpenGL.GL_BLEND);
+			gl.PointSize(1f);
+			gl.Color(0.208f, 0.227f, 0.263f);
+			gl.Begin(OpenGL.GL_POINTS);
+			for (float x = 0f; x < openGLControl.Width * scale; x += step)
+			{
+				for (float y = 0f; y < openGLControl.Height * scale; y += step)
+				{
+					gl.Vertex(x, y);
+				}
+			}
+
+			gl.End();
+			gl.PopAttrib();
 		}
 
 		#region Public methods
@@ -397,7 +472,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 
 		public OpenGlTextDrawOptions GetOpenGlTextDrawOptions()
 		{
-			return new OpenGlTextDrawOptions(_fontBitmapEntries, _xSpan, _ySpan, _offsetSize, ZoomScale);
+			return new OpenGlTextDrawOptions(_fontBitmapEntries, _xSpan, _ySpan, _offsetSize, ZoomScale) { RoiLabelTextures = _roiLabelTextures };
 		}
 
 		public System.Drawing.Size GetMaxTextureSize()
@@ -2378,6 +2453,28 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 				DrawVisibleOverlaysFast(gl, liveOverlay);
 			}
 			if (IsShowCrossLine) { OpenGlDrawing.DrawCrossOfImage(gl, _textureAreas); }
+			if (BoxCrosshairEnabled && boxCrosshairPointer is Point pointer && (_viewMode == CanvasInteractionMode.Drawing || BoxCrosshairOnPointInput && _viewMode == CanvasInteractionMode.None))
+			{
+				PointF point = GetCurrentRobotPosf(pointer.X, pointer.Y);
+				PointF topLeft = GetCurrentRobotPosf(0, 0);
+				PointF bottomRight = GetCurrentRobotPosf(openGLControl.Width, openGLControl.Height);
+				gl.PushAttrib(OpenGL.GL_CURRENT_BIT | OpenGL.GL_LINE_BIT | OpenGL.GL_ENABLE_BIT | OpenGL.GL_COLOR_BUFFER_BIT);
+				try
+				{
+					gl.Disable(OpenGL.GL_TEXTURE_2D);
+					gl.Enable(OpenGL.GL_BLEND);
+					gl.BlendFunc(OpenGL.GL_SRC_ALPHA, OpenGL.GL_ONE_MINUS_SRC_ALPHA);
+					gl.Enable(OpenGL.GL_LINE_STIPPLE);
+					gl.LineStipple(1, 0x0F0F);
+					gl.Color(1F, 1F, 1F, .35F);
+					gl.LineWidth(1);
+					gl.Begin(OpenGL.GL_LINES);
+					gl.Vertex(topLeft.X, point.Y); gl.Vertex(bottomRight.X, point.Y);
+					gl.Vertex(point.X, topLeft.Y); gl.Vertex(point.X, bottomRight.Y);
+					gl.End();
+				}
+				finally { gl.PopAttrib(); }
+			}
 		}
 
 		public void DrawImagePointMarker(System.Drawing.Point imagePoint, int imageHeight)
@@ -2777,7 +2874,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 				}
 				else
 				{
-					OpenGlDrawing.DrawShape(gl, rect, Color.DeepSkyBlue, false, false, rect.LineWidth);
+					OpenGlDrawing.DrawShape(gl, rect, rect.IsLabelAnnotation ? rect.LabelColor : Color.DeepSkyBlue, false, false, rect.LineWidth);
 				}
 				return;
 			}

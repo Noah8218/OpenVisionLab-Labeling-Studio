@@ -13,6 +13,18 @@ namespace OpenVisionLab.ImageCanvas.Views
 			typeof(RoiImageCanvasView),
 			new PropertyMetadata(true));
 
+		public static readonly DependencyProperty IsViewerStatusBarVisibleProperty = DependencyProperty.Register(
+			nameof(IsViewerStatusBarVisible),
+			typeof(bool),
+			typeof(RoiImageCanvasView),
+			new PropertyMetadata(true));
+
+		public static readonly DependencyProperty ShowBackgroundGridProperty = DependencyProperty.Register(
+			nameof(ShowBackgroundGrid),
+			typeof(bool),
+			typeof(RoiImageCanvasView),
+			new PropertyMetadata(false, OnShowBackgroundGridChanged));
+
 		public RoiImageCanvasView()
 		{
 			InitializeComponent();
@@ -28,11 +40,34 @@ namespace OpenVisionLab.ImageCanvas.Views
 			set => SetValue(IsViewerToolBarVisibleProperty, value);
 		}
 
+		public bool IsViewerStatusBarVisible
+		{
+			get => (bool)GetValue(IsViewerStatusBarVisibleProperty);
+			set => SetValue(IsViewerStatusBarVisibleProperty, value);
+		}
+
+		public bool ShowBackgroundGrid
+		{
+			get => (bool)GetValue(ShowBackgroundGridProperty);
+			set => SetValue(ShowBackgroundGridProperty, value);
+		}
+
+		private static void OnShowBackgroundGridChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs e)
+		{
+			if (dependencyObject is RoiImageCanvasView view
+				&& view.DataContext is RoiImageCanvasViewModel viewModel
+				&& viewModel.ImageViewer != null)
+			{
+				viewModel.ImageViewer.ShowBackgroundGrid = e.NewValue is bool isVisible && isVisible;
+			}
+		}
+
 		private void ImageCanvasView_Loaded(object sender, RoutedEventArgs e)
 		{
 			if (DataContext is RoiImageCanvasViewModel viewModel && viewModel.ImageViewer != null)
 			{
 				imageBoxCameraTwoD.Child = viewModel.ImageViewer;
+				viewModel.ImageViewer.ShowBackgroundGrid = ShowBackgroundGrid;
 				viewModel.ConfigureContextMenuHost(new ImageCanvasContextMenuHost(MainGrid.ContextMenu));
 				MainGrid.ContextMenu.DataContext = viewModel;
 

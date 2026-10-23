@@ -12,6 +12,16 @@ namespace MvcVisionSystem
             InitializeComponent();
         }
 
+        private void OnInferenceEvidenceTargetUpdated(object sender, System.Windows.Data.DataTransferEventArgs e)
+        {
+            if (sender is TextBlock text && e.Property == TextBlock.TextProperty && ReferenceEquals(e.TargetObject, text)
+                && text.Parent is Border chip && chip.Parent is Grid row)
+            {
+                chip.InvalidateMeasure();
+                row.InvalidateMeasure();
+            }
+        }
+
         public WpfCandidateReviewPanelViewModel ViewModel => DataContext as WpfCandidateReviewPanelViewModel;
 
         public Slider ConfidenceSlider => CandidateConfidenceSlider;

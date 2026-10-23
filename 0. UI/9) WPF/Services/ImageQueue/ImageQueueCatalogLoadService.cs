@@ -1,6 +1,8 @@
 using MvcVisionSystem.Yolo;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.IO;
 using System.Threading;
 
 namespace MvcVisionSystem
@@ -22,16 +24,24 @@ namespace MvcVisionSystem
             LabelingProjectData data,
             bool isAnomalyPurpose,
             CancellationToken cancellationToken)
+            => Build(data?.ProjectSettings?.AdditionalImageRootPaths?.Count > 0
+                ? data.ProjectSettings.ResolveImageRootPaths(imageRoot) : new[] { imageRoot }, data, isAnomalyPurpose, cancellationToken);
+
+        public ImageQueueCatalogLoadResult Build(
+            IReadOnlyList<string> imageRoots,
+            LabelingProjectData data,
+            bool isAnomalyPurpose,
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            List<string> imagePaths = selectionService.EnumerateImageFiles(imageRoot, cancellationToken);
-            if (isAnomalyPurpose)
-            {
-                imagePaths = selectionService.InterleaveTopLevelFolderImages(
-                    imageRoot,
-                    imagePaths,
-                    cancellationToken);
-            }
+            List<string> imagePaths = isAnomalyPurpose
+                ? imageRoots.SelectMany(root => selectionService.InterleaveTopLevelFolderImages(root,
+                    selectionService.EnumerateImageFiles(root, cancellationToken), cancellationToken)).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
+                : imageRoots.Count == 1 ? selectionService.EnumerateImageFiles(imageRoots[0], cancellationToken)
+                    : selectionService.EnumerateImageFiles(imageRoots, cancellationToken);
+
+            if (imageRoots.Count > 1 && imagePaths.GroupBy(Path.GetFileNameWithoutExtension, StringComparer.OrdinalIgnoreCase).Any(group => group.Count() > 1))
+                throw new InvalidDataException(OpenVisionLab.OpenVisionLanguageService.T("WpfDatasetWorkspace.AddFolder.StoredNameConflict"));
 
             IReadOnlyList<WpfImageQueueCatalogEntry> catalogEntries = selectionService.CreateCatalogEntries(
                 imagePaths,

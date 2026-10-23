@@ -16,12 +16,7 @@ namespace MvcVisionSystem.Yolo
         private const string RasterMaskGeometryType = "RasterMask";
         private const int CanonicalSchemaVersion = 3;
 
-        private static readonly string[] DatasetModes =
-        {
-            YoloDatasetSplitService.TrainMode,
-            YoloDatasetSplitService.ValidMode,
-            YoloDatasetSplitService.TestMode
-        };
+        private static readonly IReadOnlyList<string> DatasetModes = YoloDatasetSplitService.AnnotationModes;
 
         public static void SaveSegmentationAnnotations(
             string imageName,
@@ -123,6 +118,40 @@ namespace MvcVisionSystem.Yolo
             return new Dictionary<string, List<List<Point>>>();
         }
 
+        public static IReadOnlyDictionary<string, List<LabelingSegmentationObject>> LoadSavedPolygonReferencesForImage(
+            string imagePath, IReadOnlyList<LabelClass> classes, LabelingProjectData data, Size imageSize, string expectedSegmentPath = "")
+        {
+            foreach (string segmentPath in GetCandidateSegmentPaths(imagePath, data))
+            {
+                if (!File.Exists(segmentPath)) continue;
+                if (!string.IsNullOrEmpty(expectedSegmentPath)
+                    && !string.Equals(Path.GetFullPath(segmentPath), Path.GetFullPath(expectedSegmentPath), StringComparison.OrdinalIgnoreCase))
+                    throw InvalidSegmentationSchema(segmentPath, "The saved annotation source changed while reading.");
+                YoloAnnotationService.EnsureAnnotationImageIdentity(imagePath, segmentPath);
+                SegmentationAnnotationFile annotation;
+                try { annotation = JsonConvert.DeserializeObject<SegmentationAnnotationFile>(File.ReadAllText(segmentPath)); }
+                catch (JsonException error) { throw InvalidSegmentationSchema(segmentPath, "JSON cannot be parsed.", error); }
+                if (annotation?.Polygons == null) throw InvalidSegmentationSchema(segmentPath, "The polygon document is missing.");
+                // A legacy rectangular record can be mask provenance. Do not turn it into GT
+                // by omitting the mask decoder; ambiguous saved geometry fails closed.
+                if (annotation.Polygons.Any(record =>
+                    record?.Points != null && record.Points.All(point => point != null)
+                    && IsLegacyRasterMaskCandidate(record, imageSize)))
+                    throw InvalidSegmentationSchema(segmentPath, "Legacy polygon/mask provenance is ambiguous.");
+                var polygons = new SegmentationAnnotationFile
+                {
+                    Version = annotation.Version, ImageName = annotation.ImageName,
+                    ImageWidth = annotation.ImageWidth, ImageHeight = annotation.ImageHeight,
+                    Polygons = annotation.Polygons.Where(record => record == null
+                        || !string.Equals(record.GeometryType, RasterMaskGeometryType, StringComparison.OrdinalIgnoreCase)).ToList()
+                };
+                // Reuse canonical validation with no mask path. Explicit raster records
+                // never enter this read-only projection and no mask pixels are decoded.
+                return LoadSegmentationObjects(polygons, segmentPath, string.Empty, classes, imageSize);
+            }
+            return new Dictionary<string, List<LabelingSegmentationObject>>(StringComparer.OrdinalIgnoreCase);
+        }
+
         public static IReadOnlyDictionary<string, List<LabelingSegmentationObject>> LoadSegmentationObjectsForImage(
             string imagePath,
             IReadOnlyList<LabelClass> classes,
@@ -169,10 +198,9 @@ namespace MvcVisionSystem.Yolo
             IReadOnlyList<LabelClass> classes,
             Size imageSize)
         {
-            var result = new Dictionary<string, List<LabelingSegmentationObject>>(StringComparer.OrdinalIgnoreCase);
             if (string.IsNullOrWhiteSpace(segmentPath) || !File.Exists(segmentPath))
             {
-                return result;
+                return new Dictionary<string, List<LabelingSegmentationObject>>(StringComparer.OrdinalIgnoreCase);
             }
 
             SegmentationAnnotationFile annotation;
@@ -185,6 +213,17 @@ namespace MvcVisionSystem.Yolo
                 throw InvalidSegmentationSchema(segmentPath, "JSON cannot be parsed.", ex);
             }
 
+            return LoadSegmentationObjects(annotation, segmentPath, maskPath, classes, imageSize);
+        }
+
+        internal static IReadOnlyDictionary<string, List<LabelingSegmentationObject>> LoadSegmentationObjects(
+            SegmentationAnnotationFile annotation,
+            string segmentPath,
+            string maskPath,
+            IReadOnlyList<LabelClass> classes,
+            Size imageSize)
+        {
+            var result = new Dictionary<string, List<LabelingSegmentationObject>>(StringComparer.OrdinalIgnoreCase);
             if (annotation == null)
             {
                 throw InvalidSegmentationSchema(segmentPath, "The document root is null.");
@@ -309,6 +348,17 @@ namespace MvcVisionSystem.Yolo
 
                 if (isExplicitRaster)
                 {
+                    // A later class can legitimately occlude every pixel of an earlier
+                    // raster component in the composited class-index PNG.  The JSON
+                    // record is still useful provenance, but it cannot be reopened as
+                    // an editable object because no pixels remain for its class.  Do not
+                    // turn that valid overlap into a whole-file read failure; retain
+                    // fail-closed behavior when the declared region is entirely empty.
+                    if (HasAnyNonBackgroundPixelInsideBounds(points, targetSize, maskClassValues))
+                    {
+                        continue;
+                    }
+
                     throw InvalidSegmentationRecord(
                         segmentPath,
                         recordIndex,
@@ -329,6 +379,39 @@ namespace MvcVisionSystem.Yolo
             }
 
             return result;
+        }
+
+        private static bool HasAnyNonBackgroundPixelInsideBounds(
+            IReadOnlyList<Point> points,
+            Size imageSize,
+            byte[] maskClassValues)
+        {
+            if (points == null || maskClassValues == null || maskClassValues.Length != imageSize.Width * imageSize.Height)
+            {
+                return false;
+            }
+
+            Rectangle bounds = Rectangle.Intersect(
+                SegmentationGeometry.GetBounds(points),
+                new Rectangle(Point.Empty, imageSize));
+            if (bounds.IsEmpty)
+            {
+                return false;
+            }
+
+            for (int y = bounds.Top; y < bounds.Bottom; y++)
+            {
+                int rowOffset = y * imageSize.Width;
+                for (int x = bounds.Left; x < bounds.Right; x++)
+                {
+                    if (maskClassValues[rowOffset + x] != 0)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         private static InvalidDataException InvalidSegmentationSchema(
@@ -678,7 +761,7 @@ namespace MvcVisionSystem.Yolo
 
             try
             {
-                using var source = new Bitmap(maskPath);
+                using var source = AppImageLoader.LoadBitmap(maskPath);
                 if (source.Size != imageSize)
                 {
                     failureReason = "the mask dimensions do not match the image";
@@ -894,7 +977,12 @@ namespace MvcVisionSystem.Yolo
 
                 AnnotationFilePersistence.WriteAtomically(
                     maskPath,
-                    temporaryPath => mask.Save(temporaryPath, ImageFormat.Png));
+                    temporaryPath =>
+                    {
+                        using var stream = new MemoryStream();
+                        mask.Save(stream, ImageFormat.Png);
+                        File.WriteAllBytes(temporaryPath, stream.ToArray());
+                    });
             }
         }
 
@@ -955,7 +1043,12 @@ namespace MvcVisionSystem.Yolo
 
                 AnnotationFilePersistence.WriteAtomically(
                     maskPath,
-                    temporaryPath => mask.Save(temporaryPath, ImageFormat.Png));
+                    temporaryPath =>
+                    {
+                        using var stream = new MemoryStream();
+                        mask.Save(stream, ImageFormat.Png);
+                        File.WriteAllBytes(temporaryPath, stream.ToArray());
+                    });
             }
         }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MvcVisionSystem._1._Core;
 
 namespace MvcVisionSystem._3._Communication.TCP
 {
@@ -44,11 +45,15 @@ namespace MvcVisionSystem._3._Communication.TCP
         public string LastDetectionMessage { get; set; } = "";
         public int? LastDetectionProgressPercent { get; set; }
         public string LastTrainingState { get; set; } = "";
+        public string LastTrainingRunId { get; set; } = "";
         public string LastTrainingMessage { get; set; } = "";
         public int? LastTrainingProgressPercent { get; set; }
         public int? LastTrainingEpoch { get; set; }
         public int? LastTrainingTotalEpochs { get; set; }
+        public string LastTrainingMetricsRunId { get; set; } = "";
+        public IReadOnlyList<TrainingEpochMetric> LastTrainingMetrics { get; set; } = Array.Empty<TrainingEpochMetric>();
         public string LastTrainingWeightsPath { get; set; } = "";
+        public string LastTrainingResultWeightsPath { get; set; } = "";
         public DateTime? LastTrainingStatusAtUtc { get; set; }
 
         public PythonCommunicationStatus Clone()
@@ -93,11 +98,15 @@ namespace MvcVisionSystem._3._Communication.TCP
                 LastDetectionMessage = LastDetectionMessage,
                 LastDetectionProgressPercent = LastDetectionProgressPercent,
                 LastTrainingState = LastTrainingState,
+                LastTrainingRunId = LastTrainingRunId,
                 LastTrainingMessage = LastTrainingMessage,
                 LastTrainingProgressPercent = LastTrainingProgressPercent,
                 LastTrainingEpoch = LastTrainingEpoch,
                 LastTrainingTotalEpochs = LastTrainingTotalEpochs,
+                LastTrainingMetricsRunId = LastTrainingMetricsRunId,
+                LastTrainingMetrics = Array.AsReadOnly((LastTrainingMetrics ?? Array.Empty<TrainingEpochMetric>()).ToArray()),
                 LastTrainingWeightsPath = LastTrainingWeightsPath,
+                LastTrainingResultWeightsPath = LastTrainingResultWeightsPath,
                 LastTrainingStatusAtUtc = LastTrainingStatusAtUtc
             };
         }

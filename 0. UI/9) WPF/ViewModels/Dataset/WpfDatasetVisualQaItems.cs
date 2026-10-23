@@ -91,9 +91,9 @@ namespace MvcVisionSystem
             {
                 "라벨 누락" => T("WpfDatasetHealth.VisualQa.LabelMissing"),
                 "라벨 오류" => T("WpfDatasetHealth.VisualQa.LabelError"),
-                "빈 라벨 검토" => T("WpfDatasetHealth.VisualQa.EmptyLabelReview"),
+                var _ when string.Equals(normalized, OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfDatasetHealth.VisualQa.EmptyLabelReview")[0], StringComparison.Ordinal) => T("WpfDatasetHealth.VisualQa.EmptyLabelReview"),
                 "저장 라벨 표본" => T("WpfDatasetHealth.VisualQa.SavedLabelSample"),
-                "미검토" => T("WpfDatasetHealth.Metric.Unreviewed"),
+                var _ when string.Equals(normalized, OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfDatasetHealth.Metric.Unreviewed")[0], StringComparison.Ordinal) => T("WpfDatasetHealth.Metric.Unreviewed"),
                 _ => LocalizationTextRuntimeService.Translate(value ?? string.Empty)
             };
         }
@@ -111,9 +111,9 @@ namespace MvcVisionSystem
 
             return normalized switch
             {
-                "이미지와 짝이 되는 저장 annotation이 없습니다." => T("WpfDatasetHealth.VisualQa.MissingAnnotation"),
-                "배경 이미지로 의도한 빈 라벨인지 확인하세요." => T("WpfDatasetHealth.VisualQa.EmptyLabelHint"),
-                "저장된 geometry를 읽기 전용으로 확인합니다." => T("WpfDatasetHealth.VisualQa.ReadOnlyGeometry"),
+                var _ when string.Equals(normalized, OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfDatasetHealth.VisualQa.MissingAnnotation")[0], StringComparison.Ordinal) => T("WpfDatasetHealth.VisualQa.MissingAnnotation"),
+                var _ when string.Equals(normalized, OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfDatasetHealth.VisualQa.EmptyLabelHint")[0], StringComparison.Ordinal) => T("WpfDatasetHealth.VisualQa.EmptyLabelHint"),
+                var _ when string.Equals(normalized, OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfDatasetHealth.VisualQa.ReadOnlyGeometry")[0], StringComparison.Ordinal) => T("WpfDatasetHealth.VisualQa.ReadOnlyGeometry"),
                 "저장된 이미지 판정 표본입니다." => T("WpfDatasetHealth.VisualQa.ReviewedSample"),
                 "학습 전에 정상 또는 이상으로 판정하세요." => T("WpfDatasetHealth.VisualQa.ReviewBeforeTraining"),
                 _ => LocalizationTextRuntimeService.Translate(value ?? string.Empty)
@@ -156,14 +156,11 @@ namespace MvcVisionSystem
         {
             ClassIndex = classIndex;
             ClassName = className?.Trim() ?? string.Empty;
-            Text = classIndex.HasValue
-                ? $"{classIndex.Value} · {ClassName}"
-                : T("WpfDatasetHealth.VisualQa.AllClasses");
         }
 
         public int? ClassIndex { get; }
         public string ClassName { get; }
-        public string Text { get; }
+        public string Text => ClassIndex.HasValue ? $"{ClassIndex.Value} · {ClassName}" : T("WpfDatasetHealth.VisualQa.AllClasses");
 
         public bool HasSameIdentity(WpfDatasetVisualQaClassFilterItem other)
             => other != null

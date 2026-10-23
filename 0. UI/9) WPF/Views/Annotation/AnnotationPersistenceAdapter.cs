@@ -47,7 +47,7 @@ namespace MvcVisionSystem
             if (context.IsAnnotationSaveBlocked?.Invoke() == true)
             {
                 context.AppendLog?.Invoke(
-                    "라벨 저장 차단: 손상된 원본 라벨을 명시적으로 복구하기 전에는 덮어쓰지 않습니다.");
+                    "라벨 저장 차단: 손상된 원본 라벨을 복구하기 전에는 덮어쓰지 않습니다.");
                 return false;
             }
 
@@ -70,7 +70,9 @@ namespace MvcVisionSystem
             if (savedCount == 0)
             {
                 bool isDirty = context.AnnotationDirtyProvider();
-                bool savedEmpty = isDirty && SaveCurrentEmptyAnnotations();
+                bool savedEmpty = isDirty && (context.ExplicitNoObjectSelectionProvider?.Invoke() == false
+                    ? SaveCurrentUnlabeledAnnotations(activeImage)
+                    : SaveCurrentEmptyAnnotations());
                 if (!savedEmpty)
                 {
                     context.AppendLog?.Invoke(
@@ -113,7 +115,7 @@ namespace MvcVisionSystem
             if (context.IsAnnotationSaveBlocked?.Invoke() == true)
             {
                 context.AppendLog?.Invoke(
-                    "빈 라벨 저장 차단: 손상된 원본 라벨을 명시적으로 복구하기 전에는 덮어쓰지 않습니다.");
+                    "객체 없음 저장 차단: 손상된 원본 라벨을 복구하기 전에는 덮어쓰지 않습니다.");
                 return false;
             }
 
@@ -133,15 +135,23 @@ namespace MvcVisionSystem
                 {
                     bool metadataSaved = context.TrySaveCurrentObjectMetadata(activeImage.ImageName);
                     context.AppendLog?.Invoke(
-                        $"빈 라벨 저장 메타데이터 결과: {metadataSaved} 이미지:{activeImage.ImageName}");
+                        string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.AnnotationPersistenceAdapter.NoObjectsMetadata"), metadataSaved, activeImage.ImageName));
                     return metadataSaved;
                 });
 
             if (saveResult.IsSaved)
             {
-                CompleteSave("빈 라벨 파일 저장 완료");
+                CompleteSave("객체 없음 라벨 파일 저장 완료", noObjectSaved: true);
             }
 
+            return saveResult.IsSaved;
+        }
+
+        private bool SaveCurrentUnlabeledAnnotations(LabelingImageSnapshot activeImage)
+        {
+            AnnotationSaveResult saveResult = context.AnnotationSaveWorkflowService.SaveUnlabeled(activeImage, context.DataProvider(),
+                () => context.TrySaveCurrentObjectMetadata(activeImage.ImageName));
+            if (saveResult.IsSaved) CompleteSave("객체 없음 해제: 라벨 미완료", unlabeled: true);
             return saveResult.IsSaved;
         }
 
@@ -213,11 +223,15 @@ namespace MvcVisionSystem
             return segmentsByClass;
         }
 
-        private void CompleteSave(string reason)
+        private void CompleteSave(string reason, bool noObjectSaved = false, bool unlabeled = false)
         {
-            context.MarkAnnotationsSaved(reason);
+            bool hadChanges = context.AnnotationDirtyProvider();
+            if (unlabeled && context.MarkAnnotationsUnlabeled != null) context.MarkAnnotationsUnlabeled();
+            else if (noObjectSaved && context.MarkAnnotationsNoObjectSaved != null) context.MarkAnnotationsNoObjectSaved(reason);
+            else context.MarkAnnotationsSaved(reason);
             context.DiscardCrashRecoveryJournal();
             context.UpdateApplicationData();
+            context.OnAnnotationsSaved?.Invoke(hadChanges);
         }
 
         private static int CountAnnotationRois(
@@ -332,9 +346,13 @@ namespace MvcVisionSystem
         internal Func<LabelingProjectData> DataProvider { get; init; }
         internal Func<string, bool> TrySaveCurrentObjectMetadata { get; init; }
         internal Action<string> MarkAnnotationsSaved { get; init; }
+        internal Action<string> MarkAnnotationsNoObjectSaved { get; init; }
+        internal Action MarkAnnotationsUnlabeled { get; init; }
+        internal Func<bool?> ExplicitNoObjectSelectionProvider { get; init; }
         internal Action<string> AppendLog { get; init; }
         internal Action DiscardCrashRecoveryJournal { get; init; }
         internal Action UpdateApplicationData { get; init; }
+        internal Action<bool> OnAnnotationsSaved { get; init; }
         internal Action CompleteMaskAnnotationStroke { get; init; }
         internal Action FlushQueuedMaskStrokeCommits { get; init; }
         internal Func<bool> AnnotationDirtyProvider { get; init; }

@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -32,6 +33,37 @@ namespace MvcVisionSystem
             }
         }
 
+        public IReadOnlyList<AnomalyImageReviewStatus> CaptureReviewStates(IEnumerable<string> imagePaths)
+        {
+            lock (syncRoot)
+            {
+                return (imagePaths ?? Array.Empty<string>()).Where(path => !string.IsNullOrWhiteSpace(path))
+                    .Distinct(StringComparer.OrdinalIgnoreCase).Select(path =>
+                    {
+                        AnomalyImageReviewStatus status = GetOrCreateCore(path);
+                        return new AnomalyImageReviewStatus(status.ImagePath)
+                        {
+                            ReviewState = status.ReviewState,
+                            LastUpdatedUtc = status.LastUpdatedUtc
+                        };
+                    }).ToList();
+            }
+        }
+
+        public void RestoreReviewStates(IEnumerable<AnomalyImageReviewStatus> snapshots)
+        {
+            lock (syncRoot)
+            {
+                foreach (AnomalyImageReviewStatus snapshot in snapshots ?? Array.Empty<AnomalyImageReviewStatus>())
+                {
+                    if (snapshot == null || string.IsNullOrWhiteSpace(snapshot.ImagePath)) continue;
+                    AnomalyImageReviewStatus status = GetOrCreateCore(snapshot.ImagePath);
+                    status.ReviewState = snapshot.ReviewState;
+                    status.LastUpdatedUtc = snapshot.LastUpdatedUtc;
+                }
+            }
+        }
+
         public void SetImages(IEnumerable<string> imagePaths)
         {
             lock (syncRoot)
@@ -49,6 +81,39 @@ namespace MvcVisionSystem
             }
 
             return Path.Combine(outputRootPath, FileName);
+        }
+
+        public static bool TryReadSavedVerdict(LabelingProjectData data, string imagePath, out bool? abnormal, out string diagnostic)
+        {
+            abnormal = null;
+            diagnostic = string.Empty;
+            string path = ResolveReviewStatusFilePath(data);
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return false;
+            try
+            {
+                string json = File.ReadAllText(path);
+                JToken document = JToken.Parse(json);
+                if (document is not JArray && (document is not JObject root || (int?)root["schemaVersion"] != CurrentSchemaVersion || root["items"] is not JArray))
+                    throw new InvalidDataException("The saved anomaly review schema is unsupported or incomplete.");
+                List<PersistedReviewStatus> entries = DeserializePersistedItems(json);
+                string key = NormalizeKey(imagePath);
+                PersistedReviewStatus[] matches = entries.Where(item => item != null && (!string.IsNullOrWhiteSpace(item.ImagePath)
+                    ? string.Equals(NormalizeKey(item.ImagePath), key, StringComparison.OrdinalIgnoreCase)
+                    : string.Equals(item.ImageName, Path.GetFileNameWithoutExtension(imagePath), StringComparison.OrdinalIgnoreCase))).ToArray();
+                if (matches.Length == 0) return false;
+                if (matches.Length != 1 || !TryResolveReviewState(matches[0], out AnomalyImageReviewState state)
+                    || !string.IsNullOrWhiteSpace(matches[0].ReviewStateName) && (!Enum.TryParse(matches[0].ReviewStateName, true, out AnomalyImageReviewState named)
+                        || !Enum.IsDefined(typeof(AnomalyImageReviewState), named)))
+                    throw new InvalidDataException("The saved anomaly verdict is ambiguous or malformed.");
+                if (state == AnomalyImageReviewState.Unreviewed) return false;
+                abnormal = state == AnomalyImageReviewState.Abnormal;
+                return true;
+            }
+            catch (Exception error) when (error is IOException || error is InvalidDataException || error is UnauthorizedAccessException || error is JsonException || error is ArgumentException || error is FormatException || error is OverflowException)
+            {
+                diagnostic = error.Message;
+                return false;
+            }
         }
 
         public void LoadReviewStatus(LabelingProjectData data, IEnumerable<string> imagePaths)
@@ -89,6 +154,9 @@ namespace MvcVisionSystem
         }
 
         public void SaveReviewStatus(LabelingProjectData data)
+            => SaveReviewStatus(data, throwOnFailure: false);
+
+        public void SaveReviewStatus(LabelingProjectData data, bool throwOnFailure)
         {
             string filePath = ResolveReviewStatusFilePath(data);
             if (string.IsNullOrWhiteSpace(filePath))
@@ -130,7 +198,8 @@ namespace MvcVisionSystem
                 if (File.Exists(filePath))
                 {
                     string previousJson = File.ReadAllText(filePath);
-                    DeserializePersistedItems(previousJson); // Preserve unreadable Ground Truth for recovery.
+                    try { DeserializePersistedItems(previousJson); } // Preserve unreadable Ground Truth for recovery.
+                    catch (JsonException error) { throw new InvalidDataException("Cannot overwrite unreadable anomaly Ground Truth.", error); }
                     if (string.Equals(previousJson, json, StringComparison.Ordinal)) return;
                 }
 
@@ -139,6 +208,7 @@ namespace MvcVisionSystem
             catch (Exception error)
             {
                 AppLog.ABNORMAL($"Anomaly Ground Truth save failed; previous file retained: {filePath} / {error.Message}");
+                if (throwOnFailure) throw;
             }
         }
 

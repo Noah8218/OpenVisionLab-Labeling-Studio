@@ -78,7 +78,7 @@ namespace MvcVisionSystem._1._Core
                 if (!sent)
                 {
                     ClearPendingDetectionContext();
-                    const string message = "Python 모델 클라이언트가 연결되지 않아 현재 검사 요청을 보내지 못했습니다.";
+                    const string message = "Python 모델 통신 프로세스가 연결되지 않아 현재 이미지 추론을 요청하지 못했습니다.";
                     communication.SetLastError(message);
                     AppLog.ABNORMAL(message);
                     return false;
@@ -137,7 +137,7 @@ namespace MvcVisionSystem._1._Core
             if (!sent)
             {
                 ClearPendingDetectionContext();
-                const string message = "Python 모델 클라이언트가 연결되지 않아 현재 검사 요청을 보내지 못했습니다.";
+                const string message = "Python 모델 통신 프로세스가 연결되지 않아 현재 이미지 추론을 요청하지 못했습니다.";
                 communication.SetLastError(message);
                 AppLog.ABNORMAL(message);
                 return false;

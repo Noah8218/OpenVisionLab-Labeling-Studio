@@ -1,20 +1,24 @@
 using System;
 using System.IO;
 using MvcVisionSystem.Yolo;
+using OpenVisionLab;
 
 namespace MvcVisionSystem
 {
     public class DatasetSetupPresentationService
     {
         public string BuildInvalidRecipeNameMessage()
-            => "Recipe \uC774\uB984\uC5D0 \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uB294 \uBB38\uC790\uAC00 \uC788\uC2B5\uB2C8\uB2E4.";
+            => OpenVisionLanguageService.T("WpfDatasetSetup.Error.InvalidRecipeName");
+
+        public string BuildInvalidRecipeMetadataMessage()
+            => OpenVisionLanguageService.T("WpfDatasetSetup.Error.IdentityTooLong");
 
         public string BuildDuplicateOutputRootMessage(string existingRecipeName)
         {
             string displayName = string.IsNullOrWhiteSpace(existingRecipeName)
-                ? "\uAE30\uC874 \uB370\uC774\uD130\uC14B"
+                ? OpenVisionLanguageService.T("WpfDatasetSetup.ExistingRecipe")
                 : existingRecipeName.Trim();
-            return $"\uB370\uC774\uD130\uC14B \uC800\uC7A5 \uACBD\uB85C\uAC00 \uC774\uBBF8 '{displayName}'\uC5D0\uC11C \uC0AC\uC6A9 \uC911\uC785\uB2C8\uB2E4. \uC0C8 \uB370\uC774\uD130\uC14B\uC740 \uB2E4\uB978 \uBE48 \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
+            return string.Format(OpenVisionLanguageService.T("WpfDatasetSetup.Error.FolderInUse"), displayName);
         }
 
         public string BuildSamplePresetFailureMessage(string sampleError)
@@ -24,8 +28,8 @@ namespace MvcVisionSystem
 
         public string BuildRecipePersistenceFailureMessage(string errorMessage)
             => string.IsNullOrWhiteSpace(errorMessage)
-                ? "Recipe \uC124\uC815\uC744 \uC800\uC7A5\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4."
-                : $"Recipe \uC124\uC815 \uC800\uC7A5 \uC2E4\uD328: {errorMessage.Trim()}";
+                ? OpenVisionLanguageService.T("WpfDatasetSetup.Error.SaveFailed")
+                : string.Format(OpenVisionLanguageService.T("WpfDatasetSetup.Error.SaveFailedDetail"), errorMessage.Trim());
 
         public string BuildReadyStatus(
             string recipeName,
@@ -36,7 +40,7 @@ namespace MvcVisionSystem
             string sampleStatus = sampleResult?.Applied == true && !string.IsNullOrWhiteSpace(sampleResult.SummaryText)
                 ? $" / {sampleResult.SummaryText.Trim()}"
                 : string.Empty;
-            return $"\uC900\uBE44 \uC644\uB8CC: {recipeName} / {purpose} / {Path.GetFileName(manifestPath)}{sampleStatus}";
+            return string.Format(OpenVisionLanguageService.T("WpfDatasetSetup.Status.Ready"), recipeName, DatasetContextPresentationService.FormatPurposeName(purpose), Path.GetFileName(manifestPath), sampleStatus);
         }
 
         public string BuildDatasetReadyStatus(string outputRootPath)
@@ -65,7 +69,7 @@ namespace MvcVisionSystem
             LabelingDatasetPurpose purpose,
             string outputRootPath,
             string manifestPath)
-            => $"\uB370\uC774\uD130\uC14B \uC0DD\uC131 \uC644\uB8CC: recipe={recipeName}, purpose={purpose}, output={outputRootPath}, manifest={manifestPath}";
+            => string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfDataset.Log.Created"), recipeName, purpose, outputRootPath, manifestPath);
     }
 
     [Obsolete("Use DatasetSetupPresentationService.", false)]

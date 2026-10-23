@@ -148,7 +148,7 @@ namespace MvcVisionSystem.Yolo
             {
                 Capability = capability,
                 IsDryRun = isDryRun,
-                WasApplied = !isDryRun
+                WasApplied = false
             };
 
             ValidateRequest(request, capability, report);
@@ -176,7 +176,7 @@ namespace MvcVisionSystem.Yolo
                 }
                 catch (Exception ex)
                 {
-                    report.Issues.Add("내보내기 보존 manifest를 계산하지 못했습니다: " + ex.GetBaseException().Message);
+                    report.Issues.Add("내보내기 보존 목록을 만들지 못했습니다: " + ex.GetBaseException().Message);
                 }
 
                 if (!isDryRun
@@ -189,7 +189,7 @@ namespace MvcVisionSystem.Yolo
                     report.SourceUnchanged = true;
                     report.RequestedTargetUnchanged = true;
                     report.Issues.Add(
-                        "보존되지 않거나 변환 조건이 있는 annotation 의미가 있습니다. manifest를 확인하고 손실 내보내기를 명시적으로 승인하거나 다른 형식을 선택하세요.");
+                        "내보내기에서 일부 라벨 정보가 빠지거나 바뀝니다. 손실 목록을 확인하고 허용하거나 다른 형식을 선택하세요.");
                     CompleteReport(report);
                     return report;
                 }
@@ -260,7 +260,7 @@ namespace MvcVisionSystem.Yolo
 
                 if (isDryRun && !report.RequestedTargetUnchanged)
                 {
-                    report.Issues.Add("Dry-run\uC774 \uC694\uCCAD\uD55C \uB300\uC0C1 \uACBD\uB85C\uB97C \uBCC0\uACBD\uD588\uC2B5\uB2C8\uB2E4.");
+                    report.Issues.Add("사전 점검 중 적용 대상이 변경됐습니다.");
                 }
 
                 if (!string.IsNullOrWhiteSpace(temporaryRoot) && Directory.Exists(temporaryRoot))
@@ -272,9 +272,10 @@ namespace MvcVisionSystem.Yolo
             if (report.SkippedCount > 0)
             {
                 report.Issues.Add(
-                    $"\uC798\uBABB\uB418\uC5C8\uAC70\uB098 \uC9C0\uC6D0\uD558\uC9C0 \uC54A\uB294 \uC774\uBBF8\uC9C0/\uC5B4\uB178\uD14C\uC774\uC158 {report.SkippedCount}\uAC74\uC774 \uAC74\uB108\uB6F0\uC5B4\uC9D1\uB2C8\uB2E4. \uC801\uC6A9 \uC804\uC5D0 \uC218\uC815\uD558\uC138\uC694.");
+                    $"잘못되었거나 지원하지 않는 이미지·라벨 {report.SkippedCount}건을 건너뛰었습니다. 적용 전에 수정하세요.");
             }
 
+            report.WasApplied = !isDryRun && report.Issues.Count == 0;
             CompleteReport(report);
             return report;
         }
@@ -323,8 +324,8 @@ namespace MvcVisionSystem.Yolo
                 if (!sourceExists)
                 {
                     report.Issues.Add(sourceMustBeDirectory
-                        ? "\uC874\uC7AC\uD558\uB294 \uC5B4\uB178\uD14C\uC774\uC158 \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694."
-                        : "\uC874\uC7AC\uD558\uB294 \uC5B4\uB178\uD14C\uC774\uC158 \uB610\uB294 \uC555\uCD95 \uD30C\uC77C\uC744 \uC120\uD0DD\uD558\uC138\uC694.");
+                        ? "존재하는 라벨 폴더를 선택하세요."
+                        : "존재하는 라벨 파일 또는 압축 파일을 선택하세요.");
                 }
 
                 if (RequiresImageRoot(capability.FormatKey) && !Directory.Exists(request.ImageRoot))
@@ -351,6 +352,25 @@ namespace MvcVisionSystem.Yolo
                 else if (IsPathInside(request.TargetPath, request.Data.OutputRootPath))
                 {
                     report.Issues.Add("\uC6D0\uBCF8 \uB370\uC774\uD130\uC14B \uB8E8\uD2B8 \uBC16\uC758 \uB0B4\uBCF4\uB0B4\uAE30 \uB300\uC0C1\uC744 \uC120\uD0DD\uD558\uC138\uC694.");
+                }
+                else
+                {
+                    bool isDirectoryTarget = string.Equals(capability.FormatKey, "pascal-voc-detection", StringComparison.Ordinal);
+                    try
+                    {
+                        bool targetOccupied = File.Exists(request.TargetPath)
+                            || (Directory.Exists(request.TargetPath)
+                                && (!isDirectoryTarget || Directory.EnumerateFileSystemEntries(request.TargetPath).Any()));
+                        string manifestPath = BuildLossManifestPath(request.TargetPath, capability);
+                        if (targetOccupied || File.Exists(manifestPath) || Directory.Exists(manifestPath))
+                        {
+                            report.Issues.Add("기존 출력 또는 보존 목록이 있는 위치에는 내보내지 않습니다. 새 출력 위치를 선택하세요.");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        report.Issues.Add("출력 위치를 확인할 수 없습니다: " + ex.GetBaseException().Message);
+                    }
                 }
             }
         }
@@ -967,7 +987,7 @@ namespace MvcVisionSystem.Yolo
                         ? "Ready to apply with warnings"
                         : "Ready to apply";
                 report.DetailText =
-                    $"\uC774\uBBF8\uC9C0 {report.ImageCount}, \uC5B4\uB178\uD14C\uC774\uC158 {report.AnnotationCount}, \uD074\uB798\uC2A4 {report.CategoryCount}. "
+                    $"\uC774\uBBF8\uC9C0 {report.ImageCount}, \uB77C\uBCA8 {report.AnnotationCount}, \uD074\uB798\uC2A4 {report.CategoryCount}. "
                     + "\uC6D0\uBCF8\uACFC \uC694\uCCAD \uB300\uC0C1\uC740 \uBCC0\uACBD\uB418\uC9C0 \uC54C\uC558\uC2B5\uB2C8\uB2E4."
                     + (string.IsNullOrWhiteSpace(report.LossManifestPath)
                         ? string.Empty
@@ -977,7 +997,7 @@ namespace MvcVisionSystem.Yolo
             {
                 report.StatusText = "Conversion applied";
                 report.DetailText =
-                    $"\uC774\uBBF8\uC9C0 {report.ImageCount}, \uC5B4\uB178\uD14C\uC774\uC158 {report.AnnotationCount}, \uD074\uB798\uC2A4 {report.CategoryCount}.";
+                    $"\uC774\uBBF8\uC9C0 {report.ImageCount}, \uB77C\uBCA8 {report.AnnotationCount}, \uD074\uB798\uC2A4 {report.CategoryCount}.";
             }
         }
 

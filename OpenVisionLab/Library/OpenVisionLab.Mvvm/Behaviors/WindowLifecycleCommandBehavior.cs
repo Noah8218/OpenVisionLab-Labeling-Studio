@@ -22,6 +22,13 @@ namespace OpenVisionLab.Mvvm.Behaviors
                 typeof(WindowLifecycleCommandBehavior),
                 new PropertyMetadata(null, OnClosedCommandChanged));
 
+        public static readonly DependencyProperty DeactivatedCommandProperty =
+            DependencyProperty.RegisterAttached(
+                "DeactivatedCommand",
+                typeof(ICommand),
+                typeof(WindowLifecycleCommandBehavior),
+                new PropertyMetadata(null, OnDeactivatedCommandChanged));
+
         public static ICommand GetLoadedCommand(DependencyObject target)
         {
             return (ICommand)target.GetValue(LoadedCommandProperty);
@@ -40,6 +47,16 @@ namespace OpenVisionLab.Mvvm.Behaviors
         public static void SetClosedCommand(DependencyObject target, ICommand value)
         {
             target.SetValue(ClosedCommandProperty, value);
+        }
+
+        public static ICommand GetDeactivatedCommand(DependencyObject target)
+        {
+            return (ICommand)target.GetValue(DeactivatedCommandProperty);
+        }
+
+        public static void SetDeactivatedCommand(DependencyObject target, ICommand value)
+        {
+            target.SetValue(DeactivatedCommandProperty, value);
         }
 
         public static void RefreshLoadedCommand(DependencyObject target)
@@ -67,6 +84,20 @@ namespace OpenVisionLab.Mvvm.Behaviors
             if (GetClosedCommand(target) != null)
             {
                 window.Closed += OnClosed;
+            }
+        }
+
+        public static void RefreshDeactivatedCommand(DependencyObject target)
+        {
+            if (target is not Window window)
+            {
+                return;
+            }
+
+            window.Deactivated -= OnDeactivated;
+            if (GetDeactivatedCommand(target) != null)
+            {
+                window.Deactivated += OnDeactivated;
             }
         }
 
@@ -98,6 +129,20 @@ namespace OpenVisionLab.Mvvm.Behaviors
             }
         }
 
+        private static void OnDeactivatedCommandChanged(DependencyObject target, DependencyPropertyChangedEventArgs e)
+        {
+            if (target is not Window window)
+            {
+                return;
+            }
+
+            window.Deactivated -= OnDeactivated;
+            if (e.NewValue != null)
+            {
+                window.Deactivated += OnDeactivated;
+            }
+        }
+
         private static void OnLoaded(object sender, RoutedEventArgs e)
         {
             Execute(GetLoadedCommand((DependencyObject)sender), e);
@@ -106,6 +151,11 @@ namespace OpenVisionLab.Mvvm.Behaviors
         private static void OnClosed(object sender, System.EventArgs e)
         {
             Execute(GetClosedCommand((DependencyObject)sender), e);
+        }
+
+        private static void OnDeactivated(object sender, System.EventArgs e)
+        {
+            Execute(GetDeactivatedCommand((DependencyObject)sender), e);
         }
 
         private static void Execute(ICommand command, object parameter)

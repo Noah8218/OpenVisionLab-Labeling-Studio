@@ -26,7 +26,8 @@ namespace MvcVisionSystem
         PanZoom,
         Undo,
         Redo,
-        Delete
+        Delete,
+        SmartMask
     }
 
     public enum WpfLearningStep
@@ -103,6 +104,7 @@ namespace MvcVisionSystem
     public sealed class WpfAnnotationToolItem : WpfObservableViewModel
     {
         private readonly string baseToolTip;
+        private readonly string baseToolTipDescription;
         private bool isActionEnabled = true;
         private string displayCapabilityText = string.Empty;
         private string toolTip = string.Empty;
@@ -110,6 +112,7 @@ namespace MvcVisionSystem
         public WpfAnnotationToolItem(WpfAnnotationTool tool, string text, PackIconMaterialKind iconKind, string toolTip)
         {
             AnnotationToolCapability capability = AnnotationToolCapabilityService.Get(tool);
+            baseToolTipDescription = toolTip ?? string.Empty;
             Tool = tool;
             Text = text ?? string.Empty;
             IconKind = iconKind;
@@ -117,6 +120,7 @@ namespace MvcVisionSystem
                 ? capability.StatusText
                 : $"{toolTip} / {capability.StatusText}";
             string shortcutText = AnnotationProductivityService.GetToolShortcutText(tool);
+            ShortcutText = shortcutText;
             if (!string.IsNullOrWhiteSpace(shortcutText))
             {
                 baseToolTip = $"{baseToolTip} / 단축키 {shortcutText}";
@@ -134,13 +138,59 @@ namespace MvcVisionSystem
 
         public string AutomationId => $"CanvasAnnotationTool{Tool}";
 
-        public string AccessibleName => Text;
+        public string DisplayText => OpenVisionLab.OpenVisionLanguageService.T($"WpfAnnotationTool.{Tool}");
+
+        public string AccessibleName => DisplayText;
+
+        public string ShortcutText { get; }
 
         public PackIconMaterialKind IconKind { get; }
 
         public string ToolTip
         {
-            get => toolTip;
+            get
+            {
+                string capabilityText = LocalizationTextRuntimeService.Translate(CapabilityStatusText);
+                string value = string.IsNullOrWhiteSpace(baseToolTipDescription)
+                    ? capabilityText
+                    : $"{LocalizationTextRuntimeService.Translate(baseToolTipDescription)} / {capabilityText}";
+                if (!string.IsNullOrWhiteSpace(ShortcutText))
+                {
+                    value = string.Format(System.Globalization.CultureInfo.InvariantCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.ToolTip.WithShortcut"), value, ShortcutText);
+                }
+
+                string runtimeSuffix = toolTip.Substring(baseToolTip.Length);
+                if (runtimeSuffix.Length == 0)
+                {
+                    return value;
+                }
+
+                string runtimeStatus = runtimeSuffix.Substring(3);
+                if (Tool == WpfAnnotationTool.Undo || Tool == WpfAnnotationTool.Redo)
+                {
+                    string prefixKey = Tool == WpfAnnotationTool.Undo
+                        ? "WpfLearningWorkflow.AnnotationHistory.UndoAvailable"
+                        : "WpfLearningWorkflow.AnnotationHistory.RedoAvailable";
+                    if (LocalizationTextRuntimeService.TryGetCachedTextPair(prefixKey, out string koreanPrefix, out string englishPrefix))
+                    {
+                        foreach (string prefix in new[] { OpenVisionLab.OpenVisionLanguageService.GetPreviousKoreanDefaults(prefixKey)[0], koreanPrefix, englishPrefix })
+                        {
+                            if (string.IsNullOrEmpty(prefix)) continue;
+                            if (string.Equals(runtimeStatus, prefix, StringComparison.Ordinal) || runtimeStatus.StartsWith(prefix + ": ", StringComparison.Ordinal))
+                            {
+                                string actionSuffix = runtimeStatus.Substring(prefix.Length);
+                                if (actionSuffix.StartsWith(": ", StringComparison.Ordinal))
+                                {
+                                    actionSuffix = ": " + LocalizationTextRuntimeService.TranslateAnnotationEditReason(actionSuffix.Substring(2));
+                                }
+                                return $"{value} / {OpenVisionLab.OpenVisionLanguageService.T(prefixKey)}{actionSuffix}";
+                            }
+                        }
+                    }
+                }
+
+                return $"{value} / {LocalizationTextRuntimeService.Translate(runtimeStatus)}";
+            }
             private set => SetProperty(ref toolTip, value ?? string.Empty);
         }
 
@@ -160,6 +210,13 @@ namespace MvcVisionSystem
         {
             get => isActionEnabled;
             private set => SetProperty(ref isActionEnabled, value);
+        }
+
+        internal void RefreshLocalizedPresentation()
+        {
+            OnPropertyChanged(nameof(DisplayText));
+            OnPropertyChanged(nameof(AccessibleName));
+            OnPropertyChanged(nameof(ToolTip));
         }
 
         public void SetRuntimeAvailability(bool isEnabled, string stateText, string statusText)
@@ -384,6 +441,8 @@ namespace MvcVisionSystem
 
     public sealed class WpfYoloTrainingWorkflowStepItem : WpfObservableViewModel
     {
+        private string title;
+        private string actionText;
         private string stateText = "대기";
         private bool isCompleted;
         private PackIconMaterialKind stateIconKind = PackIconMaterialKind.ClockOutline;
@@ -396,17 +455,17 @@ namespace MvcVisionSystem
             PackIconMaterialKind iconKind)
         {
             Order = order;
-            Title = title ?? string.Empty;
-            ActionText = actionText ?? string.Empty;
+            this.title = title ?? string.Empty;
+            this.actionText = actionText ?? string.Empty;
             ResultText = resultText ?? string.Empty;
             IconKind = iconKind;
         }
 
         public int Order { get; }
 
-        public string Title { get; }
+        public string Title => title;
 
-        public string ActionText { get; }
+        public string ActionText => actionText;
 
         public string ResultText { get; }
 
@@ -428,6 +487,12 @@ namespace MvcVisionSystem
         {
             get => stateIconKind;
             set => SetProperty(ref stateIconKind, value);
+        }
+
+        internal void RefreshLocalizedPresentation(string localizedTitle, string localizedActionText)
+        {
+            SetProperty(ref title, localizedTitle ?? string.Empty, nameof(Title));
+            SetProperty(ref actionText, localizedActionText ?? string.Empty, nameof(ActionText));
         }
     }
 }

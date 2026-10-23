@@ -11,42 +11,63 @@ namespace MvcVisionSystem
         public static ModelComparisonCommandState Build(
             bool isModelComparisonRunning,
             WorkflowCommandState state,
-            YoloDatasetReadinessReport report)
+            YoloDatasetReadinessReport report,
+            bool isInferenceStageActive = false,
+            bool hasSelectedInferenceCandidate = false,
+            bool selectedInferenceCandidateUsesCurrentRuntime = false)
         {
             if (isModelComparisonRunning)
             {
                 return new ModelComparisonCommandState(
                     false,
-                    "비교 실행 중",
-                    "최종 검증 이미지로 기존 모델과 새 학습 모델을 비교하는 중입니다.",
-                    "비교 기준: 최종 검증 이미지에서 기존 모델과 새 모델의 차이를 계산 중입니다.");
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.Running"),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.RunningHelp"),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.RunningBasis"));
             }
 
             if (state?.CanRunGeneralCommands != true)
             {
                 return new ModelComparisonCommandState(
                     false,
-                    "대기",
-                    "현재 다른 명령이 실행 중이므로 완료 후 비교할 수 있습니다.",
-                    "비교 기준: 진행 중인 명령이 완료된 뒤 최종 검증 상태를 다시 확인합니다.");
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.Waiting"),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.BusyHelp"),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.BusyBasis"));
+            }
+
+            if (isInferenceStageActive && !hasSelectedInferenceCandidate)
+            {
+                return new ModelComparisonCommandState(
+                    false,
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.SelectedCompare"),
+                    "추론 화면에서 비교할 학습 모델을 선택하세요.",
+                    "비교 대상: 현재 검사 모델과 선택한 학습 모델");
+            }
+
+            if (isInferenceStageActive && !selectedInferenceCandidateUsesCurrentRuntime)
+            {
+                return new ModelComparisonCommandState(
+                    false,
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.SelectedCompare"),
+                    "선택한 학습 모델이 현재 검사 모델과 같은 실행 환경을 사용하지 않습니다.",
+                    "비교하려면 같은 모델 실행 환경에서 학습한 모델을 선택하세요.");
             }
 
             if (report == null)
             {
                 return new ModelComparisonCommandState(
                     false,
-                    "점검 필요",
-                    "데이터셋 점검으로 학습/검증/최종 검증 상태를 먼저 확인하세요.",
-                    "비교 기준: 데이터셋 점검 후 최종 검증 이미지와 정답 라벨 수를 표시합니다.");
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.CheckNeeded"),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.CheckHelp"),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.CheckBasis"));
             }
 
             if (!report.IsReady)
             {
                 return new ModelComparisonCommandState(
                     false,
-                    "학습 불가",
-                    "모델 비교 전에 데이터셋 학습 불가 항목을 먼저 해결하세요.",
-                    "비교 기준: 학습 가능 상태가 된 후 최종 검증 라벨로 교체 판단을 합니다.");
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.Blocked"),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.BlockedHelp"),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.BlockedBasis"));
             }
 
             int testImageCount = report.Statistics?.TestImageCount ?? 0;
@@ -56,34 +77,38 @@ namespace MvcVisionSystem
             {
                 return new ModelComparisonCommandState(
                     false,
-                    "최종 검증 필요",
-                    "모델 교체 판단 전에 최종 검증 이미지를 1장 이상 확보하세요.",
-                    "비교 기준: 최종 검증 이미지 0장 / 권장 10장 이상");
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.TestNeeded"),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.TestHelp"),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.TestEmpty"));
             }
 
             if (testLabelCount <= 0)
             {
                 return new ModelComparisonCommandState(
                     false,
-                    "최종 라벨 필요",
-                    "최종 검증 이미지는 있지만 정답 라벨 파일이 없습니다. 비교 전 최종 검증 라벨을 저장하세요.",
-                    $"비교 기준: 최종 검증 이미지 {testImageCount}장 / 정답 라벨 0장");
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.LabelsNeeded"),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.LabelsHelp"),
+                    string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.LabelsEmpty"), testImageCount));
             }
 
             if (finalVerificationCount < DatasetDashboardPresentationService.RecommendedModelReplacementTestImageCount)
             {
                 return new ModelComparisonCommandState(
                     true,
-                    "모델 비교",
-                    $"최종 검증 라벨 {finalVerificationCount}장으로 비교는 가능하지만 교체 근거가 약합니다. 권장 {DatasetDashboardPresentationService.RecommendedModelReplacementTestImageCount}장 이상을 확보한 뒤 적용하세요.",
-                    $"비교 기준: 최종 검증 라벨 {finalVerificationCount}장 / 권장 {DatasetDashboardPresentationService.RecommendedModelReplacementTestImageCount}장 이상 - 비교 가능, 교체 근거는 약함");
+                    isInferenceStageActive ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.SelectedCompare") : OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.Compare"),
+                    isInferenceStageActive
+                        ? string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.SelectedHelp"), finalVerificationCount)
+                        : string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.WeakHelp"), finalVerificationCount, DatasetDashboardPresentationService.RecommendedModelReplacementTestImageCount),
+                    string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.WeakBasis"), finalVerificationCount, DatasetDashboardPresentationService.RecommendedModelReplacementTestImageCount));
             }
 
             return new ModelComparisonCommandState(
                 true,
-                "모델 비교",
-                $"최종 검증 라벨 {finalVerificationCount}장으로 기존 모델과 새 학습 모델을 비교합니다.",
-                $"비교 기준: 최종 검증 라벨 {finalVerificationCount}장 / 권장 {DatasetDashboardPresentationService.RecommendedModelReplacementTestImageCount}장 이상 - 비교 후 교체 판단 가능");
+                isInferenceStageActive ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.SelectedCompare") : OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.Compare"),
+                isInferenceStageActive
+                    ? string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.SelectedHelp"), finalVerificationCount)
+                    : string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.ReadyHelp"), finalVerificationCount),
+                string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonCommandStateService.ReadyBasis"), finalVerificationCount, DatasetDashboardPresentationService.RecommendedModelReplacementTestImageCount));
         }
     }
 

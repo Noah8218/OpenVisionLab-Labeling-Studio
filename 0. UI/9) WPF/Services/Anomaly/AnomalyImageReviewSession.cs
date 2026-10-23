@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace MvcVisionSystem
 {
@@ -18,6 +19,7 @@ namespace MvcVisionSystem
         private string reviewStatusFilePath;
         private int? activeCatalogVersion;
         private bool hasActiveState = true;
+        private readonly Stack<AnomalyImageReviewChange> reviewHistory = new Stack<AnomalyImageReviewChange>();
 
         public AnomalyImageReviewSession()
             : this(new AnomalyImageReviewStatusService(), null, null)
@@ -76,10 +78,12 @@ namespace MvcVisionSystem
             folderStateSuggestion = loaded.folderStateSuggestion;
             reviewStatusFilePath = loaded.reviewStatusFilePath;
             hasActiveState = loaded.hasActiveState;
+            reviewHistory.Clear();
         }
 
         public void BeginCatalogLoad(int version)
         {
+            reviewHistory.Clear();
             activeCatalogVersion = version;
         }
 
@@ -109,19 +113,54 @@ namespace MvcVisionSystem
             AnomalyImageReviewState state,
             bool isAnomalyPurpose,
             LabelingProjectData data,
-            bool saveReviewStatus = true)
+            bool saveReviewStatus = true,
+            ImageQualityReviewWorkflowService qualityReview = null)
         {
             if (!isAnomalyPurpose || string.IsNullOrWhiteSpace(imagePath) || !CanReview(data))
             {
                 return AnomalyImageReviewCommandResult.NotApplicable();
             }
 
+            if (saveReviewStatus)
+            {
+                ApplyMany(new[] { imagePath }, state, isAnomalyPurpose, data, qualityReview);
+                return AnomalyImageReviewCommandResult.Applied(reviewWorkflow.GetOrCreate(imagePath));
+            }
+
+            reviewHistory.Clear();
             AnomalyImageReviewResult result = reviewWorkflow.ApplyReviewState(
                 new AnomalyImageReviewRequest(imagePath, imageName, state, saveReviewStatus),
                 data);
             return result?.IsApplicable == true
                 ? AnomalyImageReviewCommandResult.Applied(result.Status)
                 : AnomalyImageReviewCommandResult.NotApplicable();
+        }
+
+        public IReadOnlyList<AnomalyImageReviewStatus> ApplyMany(IEnumerable<string> imagePaths, AnomalyImageReviewState state, bool isAnomalyPurpose, LabelingProjectData data, ImageQualityReviewWorkflowService qualityReview = null)
+        {
+            if (!isAnomalyPurpose || !CanReview(data)) return Array.Empty<AnomalyImageReviewStatus>();
+            AnomalyImageReviewChange change = reviewWorkflow.ApplyReviewStates(imagePaths, state, data, qualityReview);
+            // A bulk decision saves once, while Ctrl+Z restores one image at a time as the grid hint promises.
+            for (int index = 0; index < change.Before.Count; index++)
+                reviewHistory.Push(new AnomalyImageReviewChange(new[] { change.Before[index] }, new[] { change.After[index] }));
+            return change.After;
+        }
+
+        public bool CanUndoReview(LabelingProjectData data)
+        {
+            return CanReview(data) && reviewHistory.Count > 0 && reviewHistory.Peek().After.All(snapshot =>
+            {
+                AnomalyImageReviewStatus current = reviewWorkflow.GetOrCreate(snapshot.ImagePath);
+                return current.ReviewState == snapshot.ReviewState && current.LastUpdatedUtc == snapshot.LastUpdatedUtc;
+            });
+        }
+
+        public IReadOnlyList<AnomalyImageReviewStatus> UndoReview(LabelingProjectData data, ImageQualityReviewWorkflowService qualityReview = null)
+        {
+            if (!CanUndoReview(data)) return Array.Empty<AnomalyImageReviewStatus>();
+            IReadOnlyList<AnomalyImageReviewStatus> restored = reviewWorkflow.UndoReview(reviewHistory.Peek(), data, qualityReview);
+            reviewHistory.Pop();
+            return restored;
         }
 
         public AnomalyImageReviewNextResult FindNextUnreviewed(
@@ -226,6 +265,7 @@ namespace MvcVisionSystem
             AnomalyFolderStateSuggestionApplyResult result = folderSuggestion.Apply(CurrentImageRoot, isAnomalyPurpose, reviewWorkflow);
             if (result.HasChanges)
             {
+                reviewHistory.Clear();
                 reviewWorkflow.SaveReviewStatus(data);
             }
 
@@ -245,6 +285,7 @@ namespace MvcVisionSystem
             reviewStatusFilePath = null;
             activeCatalogVersion = null;
             hasActiveState = false;
+            reviewHistory.Clear();
             folderSuggestion.Reset();
         }
     }

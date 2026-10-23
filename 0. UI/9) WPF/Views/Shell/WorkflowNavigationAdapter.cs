@@ -1,9 +1,11 @@
 using MvcVisionSystem._1._Core;
 using MvcVisionSystem._3._Communication.TCP;
 using MvcVisionSystem.Yolo;
+using OpenVisionLab;
 using OpenVisionLab.ImageCanvas.Canvas;
 using OpenVisionLab.ImageCanvas.ViewModels;
 using System;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -15,6 +17,8 @@ namespace MvcVisionSystem
     internal sealed class WorkflowNavigationAdapter
     {
         private readonly WorkflowNavigationAdapterContext context;
+        private bool isTemporaryPanActive;
+        private CanvasInteractionMode temporaryPanPreviousMode;
 
         private LabelingProjectData projectData => context.DataProvider?.Invoke();
 
@@ -28,8 +32,13 @@ namespace MvcVisionSystem
         #region CanvasWorkflowCommands
         internal bool IsInferenceWorkflowActive => context.ShellViewModel?.IsInferenceModeActive == true;
 
+        internal bool IsTemporaryPanActive => isTemporaryPanActive;
+
         internal void ExecuteFitCanvasCommand()
         {
+            if (context.IsApplicationCloseApproved?.Invoke() == true) return;
+            if (context.TryFitInferenceCanvas?.Invoke() == true) return;
+            if (context.TryFitLabelingCanvas?.Invoke() == true) return;
             context.MainCanvasViewModel?.ImageViewer?.ZoomToFit();
         }
 
@@ -48,6 +57,31 @@ namespace MvcVisionSystem
             context.MainCanvasViewModel.IsTeachingMode = false;
             context.MainCanvasViewModel.ImageViewer.SetViewMode(CanvasInteractionMode.Drag);
             context.AppendLog?.Invoke("캔버스 이동 모드");
+        }
+
+        internal bool BeginTemporaryPan()
+        {
+            if (isTemporaryPanActive || context.MainCanvasViewModel?.ImageViewer == null)
+            {
+                return false;
+            }
+
+            temporaryPanPreviousMode = context.MainCanvasViewModel.ImageViewer.GetViewMode();
+            isTemporaryPanActive = true;
+            context.MainCanvasViewModel.ImageViewer.SetViewMode(CanvasInteractionMode.Drag);
+            return true;
+        }
+
+        internal bool EndTemporaryPan()
+        {
+            if (!isTemporaryPanActive || context.MainCanvasViewModel?.ImageViewer == null)
+            {
+                return false;
+            }
+
+            isTemporaryPanActive = false;
+            context.MainCanvasViewModel.ImageViewer.SetViewMode(temporaryPanPreviousMode);
+            return true;
         }
 
         internal void ExecuteFocusCandidateCommand()
@@ -72,20 +106,40 @@ namespace MvcVisionSystem
 
         internal void ShowSavedLabelsWorkflowView()
         {
-            SetWorkflowMode(isInferenceMode: false);
+            if (!SetWorkflowMode(isInferenceMode: false))
+            {
+                return;
+            }
+
             context.ShellViewModel?.ShowSavedLabelsWorkflow();
             SelectRightWorkflowView(context.ObjectsReviewTab);
         }
 
         internal void ShowCandidateReviewWorkflowView()
         {
-            SetWorkflowMode(isInferenceMode: true);
+            if (context.ShellViewModel?.IsLabelingStageActive == true)
+            {
+                context.ShellViewModel.ShowCandidateReviewWorkflow(keepLabelingStage: true);
+                SelectRightWorkflowView(context.ObjectsReviewTab);
+                ApplyCanvasDisplayMode(WpfCanvasDisplayMode.Both, redraw: true, logChange: false);
+                return;
+            }
+            if (!SetWorkflowMode(isInferenceMode: true))
+            {
+                return;
+            }
+
             context.ShellViewModel?.ShowCandidateReviewWorkflow();
             SelectRightWorkflowView(context.CandidatesReviewTab);
         }
 
         internal void ShowGuideToolsWorkflowView(WpfShellWorkflowStage stage)
         {
+            if (!TryApproveStageChange(stage))
+            {
+                return;
+            }
+
             if (stage == WpfShellWorkflowStage.Dataset)
             {
                 context.LearningWorkflowViewModel?.ShowDatasetOnboarding();
@@ -101,21 +155,30 @@ namespace MvcVisionSystem
 
         internal void ShowClassCatalogWorkflowView(WpfShellWorkflowStage stage)
         {
-            context.ShellViewModel?.ShowClassCatalogWorkflow(stage);
-            SelectRightWorkflowView(context.ClassesReviewTab);
+            context.ShellViewModel?.OpenClassCatalogDialog();
         }
 
         internal void ShowYoloModelCenterWorkflowView()
         {
+            if (!TryApproveStageChange(WpfShellWorkflowStage.TrainingModel))
+            {
+                return;
+            }
+
+            context.ShellViewModel?.SetRecipeLibraryVisible(false);
             context.ShellViewModel?.ShowModelCenterWorkflow();
             SelectRightWorkflowView(context.YoloSettingsReviewTab);
         }
 
         internal void ApplyCanvasDisplayMode(WpfCanvasDisplayMode mode, bool redraw, bool logChange)
         {
+            if (context.LearningWorkflowViewModel != null && context.CanvasPanelViewModel != null)
+                context.LearningWorkflowViewModel.MaskOpacity = context.CanvasPanelViewModel.OverlayOpacity;
+            context.RefreshReferenceDisplay?.Invoke();
             bool changed = context.CanvasPanelViewModel?.CurrentDisplayMode != mode;
             context.CanvasPanelViewModel?.SetDisplayMode(mode);
             RefreshCanvasLayerVisibilityState();
+            context.RefreshCanvasWorkflowContext?.Invoke();
 
             if (redraw)
             {
@@ -132,8 +195,17 @@ namespace MvcVisionSystem
             }
         }
 
+        internal void ApplyTemporaryOriginalViewState(bool _)
+        {
+            context.RefreshReferenceDisplay?.Invoke();
+            context.RedrawReviewRois?.Invoke();
+            context.UpdateDetectionResultOverlay?.Invoke();
+            context.UpdateCanvasCommandButtons?.Invoke();
+        }
+
         internal void RefreshCanvasLayerVisibilityState()
         {
+            context.RefreshReferenceDisplay?.Invoke();
             int labelCount = context.CanvasLabelObjectCountProvider?.Invoke() ?? 0;
             int candidateCount = context.PendingCandidateCountProvider?.Invoke() ?? 0;
             context.CanvasPanelViewModel?.SetLayerVisibilityState(
@@ -142,9 +214,10 @@ namespace MvcVisionSystem
                 candidateCount,
                 context.AnnotationDirtyState?.IsDirty == true);
             context.CanvasPanelViewModel?.SetNoObjectCompletionState(
-                context.ActiveImageAvailableProvider?.Invoke() == true,
+                context.ActiveImageAvailableProvider?.Invoke() == true && context.ShellViewModel?.IsAnnotationWorkflowVisible != false,
                 labelCount > 0,
-                candidateCount > 0);
+                candidateCount > 0,
+                context.ActiveImagePathProvider?.Invoke());
         }
 
         internal void ExecuteResetAiOverlayCommand()
@@ -158,41 +231,92 @@ namespace MvcVisionSystem
             context.AppendLog?.Invoke($"AI 후보 표시 지움: {removedCount}개");
         }
 
-        internal void ExecuteLabelingModeCommand()
+        internal bool ExecuteLabelingModeCommand()
         {
-            EnterLabelingMode(openGuidePanel: true);
+            if (!EnterLabelingMode(openGuidePanel: true))
+            {
+                return false;
+            }
+
             context.AppendLog?.Invoke("라벨링 모드로 전환했습니다. 캔버스는 라벨만 표시합니다.");
+            return true;
         }
 
-        internal void EnterLabelingMode(bool openGuidePanel)
+        internal bool EnterLabelingMode(bool openGuidePanel)
         {
-            SetWorkflowMode(isInferenceMode: false);
+            if (!SetWorkflowMode(isInferenceMode: false))
+            {
+                return false;
+            }
+
+            if (context.ShellViewModel != null)
+            {
+                context.ShellViewModel.IsInferenceInspectionOnly = false;
+            }
+
+            context.ApplyAnnotationToolSelection?.Invoke(context.SelectedAnnotationToolProvider?.Invoke());
+
             if (openGuidePanel)
             {
                 context.FocusAnnotationToolsTab?.Invoke();
             }
 
-            if (context.MainCanvasViewModel?.TeachingCommand?.CanExecute(null) == true
-                && !context.MainCanvasViewModel.IsTeachingMode)
-            {
-                context.MainCanvasViewModel.TeachingCommand.Execute(null);
-            }
+            return true;
         }
 
-        internal void ExecuteInferenceModeCommand()
+        internal bool TrySendInferenceResultsToLabeling(InferenceResultReviewEntry entry, double displayConfidence)
         {
-            SetWorkflowMode(isInferenceMode: true);
+            if (entry?.Result?.Succeeded != true || string.IsNullOrWhiteSpace(entry.Result.Source?.ImagePath) || context.CandidateReviewState == null
+                || context.ShellViewModel?.IsInferenceStageActive != true || context.ShellViewModel.IsAnomalyImageReviewMode
+                || context.IsApplicationCloseApproved?.Invoke() == true || context.ImageDetectionWorkflowService.IsDetecting || context.BatchDetectionWorkflowService.IsRunning
+                || context.AnnotationDirtyState?.IsDirty == true || !CanStartLabeling()
+                || !double.IsFinite(displayConfidence) || displayConfidence < 0 || displayConfidence > 1
+                || entry.Result.Candidates?.Any(candidate => candidate?.ImageLevel == true) == true
+                || context.CandidateReviewState?.HasPendingCandidates == true && !context.ShellViewModel.IsInferenceResultReadOnly
+                || !string.Equals(entry.Result.Source?.ImagePath, context.ActiveImagePathProvider?.Invoke(), StringComparison.OrdinalIgnoreCase)) return false;
+            if (!EnterLabelingMode(openGuidePanel: false)) return false;
+            if (context.CandidateReviewState?.LoadInferenceResultForLabeling(entry, displayConfidence, projectData?.ClassNamedList) != true) return false;
+            context.ShellViewModel.RefreshInferenceResultPresentation();
+            if (!context.ShellViewModel.IsLabelingAssistPanelExpanded) context.ShellViewModel.ToggleLabelingAssistPanelCommand.Execute(null);
+            context.ShellViewModel.ShowCandidateReviewWorkflow(keepLabelingStage: true);
+            SelectRightWorkflowView(context.ObjectsReviewTab);
+            ApplyCanvasDisplayMode(WpfCanvasDisplayMode.Both, redraw: false, logChange: false);
+            context.RefreshCandidateList?.Invoke();
+            context.RedrawReviewRois?.Invoke();
+            context.UpdateDetectionResultOverlay?.Invoke();
+            context.UpdateCandidateActionState?.Invoke();
+            string message = string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfInference.Transfer.Done"), context.CandidateReviewState.PendingCount);
+            context.SetModelStatus?.Invoke(message); context.AppendLog?.Invoke(message);
+            return true;
+        }
+
+        internal bool ExecuteInferenceModeCommand()
+        {
+            if (!SetWorkflowMode(isInferenceMode: true))
+            {
+                return false;
+            }
+
             if (context.MainCanvasViewModel?.TeachingCommand?.CanExecute(null) == true
                 && context.MainCanvasViewModel.IsTeachingMode)
             {
                 context.MainCanvasViewModel.TeachingCommand.Execute(null);
             }
 
-            context.AppendLog?.Invoke("추론 검토 모드로 전환했습니다. 캔버스는 AI 추론 후보만 표시합니다.");
+            context.AppendLog?.Invoke(OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.WorkflowNavigationAdapter.InferenceMode"));
+            return true;
         }
 
-        internal void SetWorkflowMode(bool isInferenceMode)
+        internal bool SetWorkflowMode(bool isInferenceMode)
         {
+            WpfShellWorkflowStage targetStage = isInferenceMode
+                ? WpfShellWorkflowStage.Inference
+                : WpfShellWorkflowStage.Labeling;
+            if (!TryApproveStageChange(targetStage))
+            {
+                return false;
+            }
+
             context.ShellViewModel?.SetWorkflowModeState(
                 isInferenceMode,
                 canSwitchMode: !context.ImageDetectionWorkflowService.IsDetecting
@@ -204,12 +328,14 @@ namespace MvcVisionSystem
             UpdateYoloCommandButtons();
             context.UpdateCandidateActionState?.Invoke();
             context.SetModelStatus?.Invoke(isInferenceMode
-                ? "모드: AI 후보 검토"
-                : "모드: 라벨링");
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Navigation.Mode.InferenceResults")
+                : OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Navigation.Mode.Labeling"));
             context.RefreshCanvasWorkflowContext?.Invoke();
             context.UpdateWorkflowProgressStatus?.Invoke();
             context.ShellViewModel?.SetWorkflowStage(
                 isInferenceMode ? WpfShellWorkflowStage.Inference : WpfShellWorkflowStage.Labeling);
+            context.RefreshReviewModeCommandState?.Invoke();
+            return true;
         }
 
         internal void UpdateWorkflowModeUi()
@@ -226,61 +352,110 @@ namespace MvcVisionSystem
                 return false;
             }
 
-            if (IsInferenceWorkflowActive)
+            if (IsInferenceWorkflowActive || context.ShellViewModel?.IsLabelingAssistPanelExpanded == true)
             {
                 return true;
             }
 
-            context.SetPythonStatus?.Invoke("AI 후보: 검토 모드 필요");
-            context.SetGlobalInferenceStatus?.Invoke("AI 후보 검토 모드 필요", false, true);
-            context.AppendLog?.Invoke("검출 건너뜀. 먼저 AI 후보 검토 모드로 전환하세요.");
+            context.SetPythonStatus?.Invoke(OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Navigation.Inference.NeedsView.Status"));
+            context.SetGlobalInferenceStatus?.Invoke(OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Navigation.Inference.NeedsView.GlobalStatus"), false, true);
+            context.AppendLog?.Invoke(OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Navigation.Inference.NeedsView.Log"));
             UpdateYoloCommandButtons();
             return false;
         }
 
         internal void ExecuteDatasetHomeCommand()
         {
+            if (!TryApproveStageChange(WpfShellWorkflowStage.Dataset))
+            {
+                return;
+            }
+
             context.ShellViewModel?.SetWorkflowStage(WpfShellWorkflowStage.Dataset);
+            context.RefreshReviewModeCommandState?.Invoke();
             context.FocusDatasetOnboardingTab?.Invoke();
-            context.SetModelStatus?.Invoke("작업 단계: 데이터셋 홈");
+            context.SetModelStatus?.Invoke(OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Navigation.Stage.Dataset.Status"));
             context.AppendLog?.Invoke("작업 단계 이동: 데이터셋 홈");
         }
 
+        internal bool CanStartLabeling() => string.IsNullOrWhiteSpace(context.LabelingStartUnavailableHintProvider?.Invoke());
+
         internal void ExecuteLabelingWorkbenchCommand()
         {
-            EnterLabelingWorkbenchStartView();
-            context.SetModelStatus?.Invoke("작업 단계: 라벨링 워크벤치");
+            string unavailableHint = context.LabelingStartUnavailableHintProvider?.Invoke();
+            if (!string.IsNullOrWhiteSpace(unavailableHint))
+            {
+                context.SetModelStatus?.Invoke(unavailableHint);
+                context.AppendLog?.Invoke(unavailableHint);
+                return;
+            }
+
+            if (!EnterLabelingWorkbenchStartView())
+            {
+                return;
+            }
+
+            context.SetModelStatus?.Invoke(OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Navigation.Stage.Labeling.Status"));
             context.AppendLog?.Invoke("작업 단계 이동: 라벨링 워크벤치");
         }
 
-        internal void EnterLabelingWorkbenchStartView()
+        internal bool EnterLabelingWorkbenchStartView()
         {
+            if (!EnterLabelingMode(openGuidePanel: false))
+            {
+                return false;
+            }
+
             context.LearningWorkflowViewModel?.ShowLabelingTask();
-            EnterLabelingMode(openGuidePanel: false);
             context.ShellViewModel?.SetRightWorkflowShortcut(WpfRightWorkflowShortcut.SavedLabels);
-            context.ShellViewModel?.SetRightWorkflowDockExpanded(false);
+            context.ShellViewModel?.SetRightWorkflowDockExpanded(true);
             SelectRightWorkflowView(context.ObjectsReviewTab);
+            return true;
         }
 
         internal void ExecuteInferenceReviewCommand()
         {
-            ExecuteInferenceModeCommand();
+            bool enteringInference = context.ShellViewModel?.IsInferenceStageActive != true;
+            if (!ExecuteInferenceModeCommand())
+            {
+                return;
+            }
+
+            if (enteringInference && context.ShellViewModel != null)
+            {
+                context.ShellViewModel.IsInferenceInspectionOnly = true;
+            }
             ShowCandidateReviewWorkflowView();
-            context.SetModelStatus?.Invoke("작업 단계: 추론 검토");
-            context.AppendLog?.Invoke("작업 단계 이동: 추론 검토");
+            context.SetModelStatus?.Invoke(OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Navigation.Stage.InferenceResults.Status"));
+            context.AppendLog?.Invoke(OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Navigation.Stage.InferenceResults.Log"));
         }
 
         internal void ExecuteTrainingModelCenterCommand()
         {
+            if (!TryApproveStageChange(WpfShellWorkflowStage.TrainingModel))
+            {
+                return;
+            }
+
             context.ShellViewModel?.SetWorkflowStage(WpfShellWorkflowStage.TrainingModel);
+            context.RefreshReviewModeCommandState?.Invoke();
             context.FocusYoloSettingsTab?.Invoke();
-            context.SetModelStatus?.Invoke("작업 단계: 학습/모델 센터");
-            context.AppendLog?.Invoke("작업 단계 이동: 학습/모델 센터");
+            context.SetModelStatus?.Invoke(OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Navigation.Stage.Training.Status"));
+            context.AppendLog?.Invoke(OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Navigation.Stage.Training.Log"));
         }
 
         internal void ExecuteReviewCandidateModelCommand()
         {
-            ExecuteInferenceModeCommand();
+            if (context.OpenModelComparisonWorkspace != null)
+            {
+                ExecuteModelComparisonCommand();
+                return;
+            }
+            if (!ExecuteInferenceModeCommand())
+            {
+                return;
+            }
+
             WpfTrainingWeightsComparison comparison = context.BuildCurrentTrainingWeightsComparison?.Invoke();
             if (comparison != null)
             {
@@ -288,11 +463,20 @@ namespace MvcVisionSystem
             }
 
             ShowCandidateReviewWorkflowView();
-            context.SetModelStatus?.Invoke("후보 모델 검증: 학습 후보 검토 탭");
+            context.SetModelStatus?.Invoke(OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Navigation.TrainedModelCheck.Status"));
             context.SetYoloCommandStatus?.Invoke(
-                "학습 후 후보 검토 탭으로 이동했습니다. 현재 이미지 검사는 현재 검사 버튼에서 실행합니다.",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Navigation.TrainedModelCheck.Detail"),
                 false);
-            context.AppendLog?.Invoke("작업 단계 이동: 학습 후보 검토");
+            context.AppendLog?.Invoke(OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Navigation.Stage.TrainedModelCheck.Log"));
+        }
+
+        internal void ExecuteModelComparisonCommand()
+        {
+            if (!TryApproveStageChange(WpfShellWorkflowStage.ModelComparison)) return;
+            context.ShellViewModel?.SetWorkflowStage(WpfShellWorkflowStage.ModelComparison);
+            context.RefreshReviewModeCommandState?.Invoke();
+            context.OpenModelComparisonWorkspace?.Invoke();
+            context.SetModelStatus?.Invoke(OpenVisionLanguageService.T("WpfComparisonWorkspace.Title"));
         }
 
         internal void ApplyWorkflowDatasetPurposeSelection(LabelingDatasetPurpose purpose)
@@ -305,7 +489,10 @@ namespace MvcVisionSystem
 
             projectData.ProjectSettings.DatasetPurpose = purpose;
             context.RefreshCanvasAnnotationToolScope?.Invoke();
-            context.ApplyAnnotationToolSelection?.Invoke(context.SelectedAnnotationToolProvider?.Invoke());
+            if (IsStageActive(WpfShellWorkflowStage.Labeling))
+            {
+                context.ApplyAnnotationToolSelection?.Invoke(context.SelectedAnnotationToolProvider?.Invoke());
+            }
             context.RefreshCanvasWorkflowContext?.Invoke();
             context.RefreshAnnotationVisibilityForDatasetPurpose?.Invoke(true);
             context.RefreshTrainingReadinessPanel?.Invoke(false);
@@ -321,16 +508,52 @@ namespace MvcVisionSystem
                     break;
 
                 case WpfLearningModeWorkflowAction.LabelingAndFocusYoloSettings:
-                    SetWorkflowMode(isInferenceMode: false);
+                    if (!SetWorkflowMode(isInferenceMode: false))
+                    {
+                        return;
+                    }
+
                     context.FocusYoloSettingsTab?.Invoke();
                     break;
 
                 default:
-                    SetWorkflowMode(isInferenceMode: false);
+                    if (!SetWorkflowMode(isInferenceMode: false))
+                    {
+                        return;
+                    }
+
                     context.ApplyAnnotationToolSelection?.Invoke(context.SelectedAnnotationToolProvider?.Invoke());
                     break;
             }
         }
+
+        private bool TryApproveStageChange(WpfShellWorkflowStage targetStage)
+        {
+            if (context.IsComparisonConfirmationOpen?.Invoke() == true) return false;
+            if (IsStageActive(targetStage))
+            {
+                return true;
+            }
+
+            WorkflowTransitionApproval approval = context.WorkflowTransitionAdapter?.TryApprove(
+                WorkflowStagePresentationService.Build(targetStage).TitleText,
+                replacesRecipe: false, allowCapturedTrainingBrowse: targetStage != WpfShellWorkflowStage.Labeling) ?? WorkflowTransitionApproval.Allowed;
+            return approval.IsAllowed
+                && (approval.DiscardAnnotations || approval.DiscardSettings
+                    ? context.WorkflowTransitionAdapter?.ApplyDiscard(approval) == true
+                    : true);
+        }
+
+        private bool IsStageActive(WpfShellWorkflowStage stage)
+            => stage switch
+            {
+                WpfShellWorkflowStage.Dataset => context.ShellViewModel?.IsDatasetStageActive == true,
+                WpfShellWorkflowStage.Labeling => context.ShellViewModel?.IsLabelingStageActive == true,
+                WpfShellWorkflowStage.Inference => context.ShellViewModel?.IsInferenceStageActive == true,
+                WpfShellWorkflowStage.TrainingModel => context.ShellViewModel?.IsTrainingModelStageActive == true,
+                WpfShellWorkflowStage.ModelComparison => context.ShellViewModel?.IsModelComparisonStageActive == true,
+                _ => false
+            };
         #endregion
 
         #region WorkflowCommandStateFanout
@@ -346,21 +569,47 @@ namespace MvcVisionSystem
                 isDetecting: context.ImageDetectionWorkflowService.IsDetecting,
                 isBatchDetectionRunning: context.BatchDetectionWorkflowService.IsRunning,
                 isTrainingCommandRunning: context.TrainingCommandLifecycleService.IsRunning
-                    || context.TrainingRuntimeWorkflowService.IsTrainingWorkflowRunning,
+                    || context.TrainingRuntimeWorkflowService.IsTrainingWorkflowRunning
+                    || context.TrainingRuntimeWorkflowService.IsQueueBusy || context.TrainingRuntimeWorkflowService.HasPendingQueueCandidate,
                 isTrainingStopAvailable: TrainingProgressPresentationService.IsTrainingStopAvailable(
                     context.CommunicationStatusProvider()),
                 hasCurrentRecipeName: !string.IsNullOrWhiteSpace(context.GetCurrentRecipeName?.Invoke()),
                 canRunModelTraining: runtimeState?.CanRunTraining == true,
                 canRunModelInference: runtimeState?.CanRunInference == true,
-                modelRuntimeUnavailableHint: runtimeState?.NextActionText);
+                modelRuntimeUnavailableHint: runtimeState?.NextActionText,
+                canRunTrialModelInference: context.ShellViewModel?.SelectedInferenceModelHistoryItem?.CanRunInferenceTrial == true,
+                canRunInferenceTargetFromLabelingAssist: context.ShellViewModel?.IsLabelingAssistPanelExpanded == true);
+            WpfModelRegistryHistoryItem selectedInferenceModel = context.ShellViewModel?.SelectedInferenceModelHistoryItem;
+            PythonModelSettings currentModel = context.DataProvider?.Invoke()?.ProjectSettings?.PythonModel;
+            bool hasSelectedInferenceCandidate = selectedInferenceModel?.CanRunInferenceTrial == true
+                && !string.Equals(
+                    selectedInferenceModel.WeightsPath?.Trim(),
+                    currentModel?.WeightsPath?.Trim(),
+                    StringComparison.OrdinalIgnoreCase);
+            bool selectedInferenceCandidateUsesCurrentRuntime = hasSelectedInferenceCandidate
+                && string.Equals(
+                    PythonModelSettings.NormalizeModelEngine(selectedInferenceModel.ModelEngine),
+                    PythonModelSettings.NormalizeModelEngine(currentModel?.ModelEngine),
+                    StringComparison.OrdinalIgnoreCase)
+                && string.Equals(
+                    selectedInferenceModel.ProjectRootPath?.Trim().TrimEnd('\\', '/'),
+                    currentModel?.ProjectRootPath?.Trim().TrimEnd('\\', '/'),
+                    StringComparison.OrdinalIgnoreCase);
 
             context.ApplyWorkflowCommandState?.Invoke(
                 state,
                 ModelComparisonCommandStateService.Build(
                     context.ModelComparisonWorkflowService.IsModelComparisonRunning,
                     state,
-                    context.LastTrainingReadinessReportProvider?.Invoke()));
+                    context.LastTrainingReadinessReportProvider?.Invoke(),
+                    isInferenceStageActive: context.ShellViewModel?.IsInferenceStageActive == true,
+                    hasSelectedInferenceCandidate: hasSelectedInferenceCandidate,
+                    selectedInferenceCandidateUsesCurrentRuntime: selectedInferenceCandidateUsesCurrentRuntime));
             UpdateDetectionCommandHints(state);
+            context.ShellViewModel?.RefreshInferenceReviewState();
+            context.RefreshInferenceQueuePresentation?.Invoke();
+            context.RefreshModelErrorReviewCommands?.Invoke();
+            context.RefreshReviewModeCommandState?.Invoke();
             UpdateWorkflowModeUi();
         }
 
@@ -385,12 +634,16 @@ namespace MvcVisionSystem
 
     internal sealed class WorkflowNavigationAdapterContext
     {
+        internal Func<bool> IsComparisonConfirmationOpen { get; init; }
         internal Func<LabelingProjectData> DataProvider { get; init; }
+        internal WorkflowTransitionAdapter WorkflowTransitionAdapter { get; init; }
         internal Func<PythonCommunicationStatus> CommunicationStatusProvider { get; init; }
         internal WpfLabelingShellViewModel ShellViewModel { get; init; }
         internal WpfLearningWorkflowPanelViewModel LearningWorkflowViewModel { get; init; }
         internal WpfCanvasPanelViewModel CanvasPanelViewModel { get; init; }
         internal RoiImageCanvasViewModel MainCanvasViewModel { get; init; }
+        internal Func<bool> TryFitInferenceCanvas { get; init; }
+        internal Func<bool> TryFitLabelingCanvas { get; init; }
         internal CandidateReviewStateService CandidateReviewState { get; init; }
         internal AnnotationDirtyState AnnotationDirtyState { get; init; }
         internal ImageDetectionWorkflowService ImageDetectionWorkflowService { get; init; }
@@ -407,6 +660,8 @@ namespace MvcVisionSystem
         internal Func<int> CanvasLabelObjectCountProvider { get; init; }
         internal Func<int> PendingCandidateCountProvider { get; init; }
         internal Func<bool> ActiveImageAvailableProvider { get; init; }
+        internal Func<string> ActiveImagePathProvider { get; init; }
+        internal Func<string> LabelingStartUnavailableHintProvider { get; init; }
         internal Func<bool> IsApplicationCloseApproved { get; init; }
         internal Func<WpfAnnotationToolItem> SelectedAnnotationToolProvider { get; init; }
         internal Action<string, bool, bool> SetGlobalInferenceStatus { get; init; }
@@ -415,6 +670,7 @@ namespace MvcVisionSystem
         internal Action<string> SetModelStatus { get; init; }
         internal Action<string> AppendLog { get; init; }
         internal Func<bool, bool> FocusSelectedCandidateInViewer { get; init; }
+        internal Action RefreshReferenceDisplay { get; init; }
         internal Action RedrawReviewRois { get; init; }
         internal Action UpdateDetectionResultOverlay { get; init; }
         internal Action UpdateCanvasCommandButtons { get; init; }
@@ -439,6 +695,10 @@ namespace MvcVisionSystem
         internal Action<bool> RefreshAnnotationVisibilityForDatasetPurpose { get; init; }
         internal Action<bool> RefreshTrainingReadinessPanel { get; init; }
         internal Action RefreshYoloTrainingStepCompletion { get; init; }
+        internal Action RefreshModelErrorReviewCommands { get; init; }
+        internal Action RefreshInferenceQueuePresentation { get; init; }
+        internal Action RefreshReviewModeCommandState { get; init; }
+        internal Action OpenModelComparisonWorkspace { get; init; }
         internal FrameworkElement DetectButton { get; init; }
         internal FrameworkElement DetectSelectedQueueButton { get; init; }
         internal FrameworkElement BatchDetectQueueButton { get; init; }

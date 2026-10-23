@@ -8,6 +8,7 @@ namespace MvcVisionSystem
     {
         None,
         InvalidRecipeName,
+        InvalidRecipeMetadata,
         DuplicateOutputRoot,
         SamplePreset,
         RecipePersistence
@@ -96,6 +97,13 @@ namespace MvcVisionSystem
                 return result;
             }
 
+            if ((request.ProductCode?.Trim().Length ?? 0) > LabelingProjectSettings.RecipeProductCodeMaxLength
+                || (request.RecipeDescription?.Trim().Length ?? 0) > LabelingProjectSettings.RecipeDescriptionMaxLength)
+            {
+                result.Failure = WpfDatasetSetupExecutionFailure.InvalidRecipeMetadata;
+                return result;
+            }
+
             string outputRootPath = string.IsNullOrWhiteSpace(request.OutputRootPath)
                 ? pathService.ResolveOutputRoot(recipeName, defaultOutputRootPath, recipeRootPath)
                 : request.OutputRootPath.Trim();
@@ -110,6 +118,8 @@ namespace MvcVisionSystem
             data.ProjectSettings.EnsureDefaults();
             PythonModelRuntimePathResolver.ApplyDefaults(data.ProjectSettings);
             data.ProjectSettings.DatasetPurpose = request.Purpose;
+            data.ProjectSettings.ProductCode = request.ProductCode?.Trim() ?? string.Empty;
+            data.ProjectSettings.RecipeDescription = request.RecipeDescription?.Trim() ?? string.Empty;
             data.ProjectSettings.PythonModel.ModelEngine = PythonModelSettings.NormalizeModelEngine(request.ModelEngine);
             data.ProjectSettings.PythonModel.WeightsPath = request.WeightsPath?.Trim() ?? string.Empty;
             if (request.Purpose == LabelingDatasetPurpose.AnomalyDetection)

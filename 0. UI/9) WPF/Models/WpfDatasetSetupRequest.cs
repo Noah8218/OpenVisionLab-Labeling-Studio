@@ -14,6 +14,10 @@ namespace MvcVisionSystem
 
         public string RecipeName { get; set; } = string.Empty;
 
+        public string ProductCode { get; set; } = string.Empty;
+
+        public string RecipeDescription { get; set; } = string.Empty;
+
         public string OutputRootPath { get; set; } = string.Empty;
 
         public IReadOnlyList<string> ClassNames { get; set; } = Array.Empty<string>();

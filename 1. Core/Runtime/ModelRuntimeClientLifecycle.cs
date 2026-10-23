@@ -15,6 +15,8 @@ namespace MvcVisionSystem._1._Core
         private readonly Func<LabelingProjectData> dataAccessor;
         private readonly Action<LabelingProjectData> dataSetter;
         private readonly Action<IReadOnlyList<DefectInfo>, string, string> detectionResultSink;
+        private readonly Action<DetectionResultParseResult> rawDetectionResultSink;
+        private readonly Func<string, string, string, bool> detectionFailureSink;
         private readonly Lazy<YoloPythonClientProcessService> pythonClientProcess =
             new Lazy<YoloPythonClientProcessService>(() => new YoloPythonClientProcessService());
         private Lazy<PythonModelCommunication> deepLearning;
@@ -23,10 +25,28 @@ namespace MvcVisionSystem._1._Core
             Func<LabelingProjectData> dataAccessor,
             Action<LabelingProjectData> dataSetter,
             Action<IReadOnlyList<DefectInfo>, string, string> detectionResultSink = null)
+            : this(dataAccessor, dataSetter, detectionResultSink, null)
+        {
+        }
+
+        public ModelRuntimeClientLifecycle(
+            Func<LabelingProjectData> dataAccessor,
+            Action<LabelingProjectData> dataSetter,
+            Action<IReadOnlyList<DefectInfo>, string, string> detectionResultSink,
+            Func<string, string, string, bool> detectionFailureSink)
+            : this(dataAccessor, dataSetter, detectionResultSink, detectionFailureSink, null)
+        {
+        }
+
+        public ModelRuntimeClientLifecycle(Func<LabelingProjectData> dataAccessor, Action<LabelingProjectData> dataSetter,
+            Action<IReadOnlyList<DefectInfo>, string, string> detectionResultSink, Func<string, string, string, bool> detectionFailureSink,
+            Action<DetectionResultParseResult> rawDetectionResultSink)
         {
             this.dataAccessor = dataAccessor ?? throw new ArgumentNullException(nameof(dataAccessor));
             this.dataSetter = dataSetter ?? throw new ArgumentNullException(nameof(dataSetter));
             this.detectionResultSink = detectionResultSink;
+            this.rawDetectionResultSink = rawDetectionResultSink;
+            this.detectionFailureSink = detectionFailureSink;
             deepLearning = new Lazy<PythonModelCommunication>(() => CreateCommunication());
         }
 
@@ -247,6 +267,8 @@ namespace MvcVisionSystem._1._Core
         private PythonModelCommunication ConfigureCommunication(PythonModelCommunication communication)
         {
             communication?.SetDetectionResultSink(detectionResultSink);
+            communication?.SetRawDetectionResultSink(rawDetectionResultSink);
+            communication?.SetDetectionFailureSink(detectionFailureSink);
             return communication;
         }
 

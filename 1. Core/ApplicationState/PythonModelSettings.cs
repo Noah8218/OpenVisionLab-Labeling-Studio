@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 
 namespace MvcVisionSystem
 {
@@ -34,6 +37,10 @@ namespace MvcVisionSystem
         public int DetectionTimeoutSeconds { get; set; } = 30;
 
         public bool AutoStartClient { get; set; } = true;
+
+        public static string BuildCandidateSettingsIdentity(PythonModelSettings settings, string modelIdentity)
+            => settings == null || string.IsNullOrWhiteSpace(modelIdentity) ? string.Empty
+                : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(modelIdentity + "|" + JsonSerializer.Serialize(settings))));
 
         /// <summary>
         /// Normalizes persisted values without inspecting the host environment or filesystem.

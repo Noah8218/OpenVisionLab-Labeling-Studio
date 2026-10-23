@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace MvcVisionSystem
 {
@@ -20,6 +21,9 @@ namespace MvcVisionSystem
         public int UndoCount => historyStack.UndoCount;
 
         public int RedoCount => historyStack.RedoCount;
+
+        public IReadOnlyList<string> GetRecentUndoActionNames(int maximumCount = 12)
+            => historyStack.GetRecentUndoActionNames(maximumCount);
 
         public bool Push(WpfAnnotationHistorySnapshot snapshot)
         {

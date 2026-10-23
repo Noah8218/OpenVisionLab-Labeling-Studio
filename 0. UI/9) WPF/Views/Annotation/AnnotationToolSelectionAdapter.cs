@@ -20,36 +20,61 @@ namespace MvcVisionSystem
         }
 
         internal void ExecuteCanvasAnnotationToolSelectionChanged(object selectedItem)
-            => ApplyAnnotationToolSelection(
-                (selectedItem as WpfAnnotationToolItem)
-                ?? context.CanvasPanelViewModel?.SelectedAnnotationTool);
-
-        internal void ApplyAnnotationToolSelection(WpfAnnotationToolItem selectedToolItem)
         {
-            if (selectedToolItem == null)
+            if (context.CanvasPanelViewModel?.IsConfiguringAnnotationTools == true)
             {
                 return;
             }
 
-            CancelPendingAnnotationToolEdits(selectedToolItem.Tool);
+            if (selectedItem is WpfAnnotationToolItem selectedToolItem)
+            {
+                ApplyAnnotationToolSelection(selectedToolItem);
+            }
+        }
+
+        internal bool ApplyAnnotationToolSelection(WpfAnnotationToolItem selectedToolItem)
+        {
+            if (selectedToolItem == null)
+            {
+                return false;
+            }
+
             if (!CanSelectAnnotationToolForCurrentPurpose(selectedToolItem))
             {
                 RejectAnnotationToolOutsideCurrentPurpose(selectedToolItem.Tool);
-                return;
+                return false;
             }
 
             if (isApplyingSelection)
             {
                 SynchronizeAnnotationToolSelection(selectedToolItem);
-                return;
+                return true;
             }
 
             isApplyingSelection = true;
             try
             {
-                SynchronizeAnnotationToolSelection(selectedToolItem);
                 AnnotationToolWorkflowAction action = AnnotationWorkflowService.ResolveToolAction(selectedToolItem.Tool);
+                if (action.Kind != WpfAnnotationToolWorkflowActionKind.Undo
+                    && action.Kind != WpfAnnotationToolWorkflowActionKind.Redo
+                    && context.SetLabelingWorkflowMode?.Invoke() == false)
+                {
+                    RestoreActiveAnnotationToolSelection();
+                    return false;
+                }
+
+                context.CancelPendingSegmentationSplit?.Invoke();
+                context.CancelPendingSegmentationHoleEdit?.Invoke();
+                CancelPendingAnnotationToolEdits(selectedToolItem.Tool);
+                SynchronizeAnnotationToolSelection(selectedToolItem);
                 ApplyResolvedAnnotationTool(action);
+                if (action.Kind != WpfAnnotationToolWorkflowActionKind.Pending
+                    && !AnnotationWorkflowService.IsOneShotCommandTool(selectedToolItem.Tool))
+                {
+                    SynchronizeAnnotationToolSelection(selectedToolItem);
+                }
+                context.RefreshCanvasWorkflowContext?.Invoke();
+                return true;
             }
             finally
             {
@@ -64,10 +89,6 @@ namespace MvcVisionSystem
                 return;
             }
 
-            context.CancelPendingSegmentationSplit?.Invoke();
-            context.CancelPendingSegmentationHoleEdit?.Invoke();
-            CancelPendingAnnotationToolEdits(tool);
-
             WpfAnnotationToolItem selectedTool = ResolveSelectableAnnotationTool(tool);
             if (selectedTool == null)
             {
@@ -75,8 +96,7 @@ namespace MvcVisionSystem
                 return;
             }
 
-            ApplyAnnotationToolSelection(selectedTool);
-            if (revealInGuide)
+            if (ApplyAnnotationToolSelection(selectedTool) && revealInGuide)
             {
                 context.ShowAnnotationToolPalette?.Invoke();
             }
@@ -167,7 +187,6 @@ namespace MvcVisionSystem
             switch (action.Kind)
             {
                 case WpfAnnotationToolWorkflowActionKind.DrawRoi:
-                    context.SetLabelingWorkflowMode?.Invoke();
                     context.FocusLabelingSidePanelForTool?.Invoke(action.Tool);
                     context.MainCanvasViewModel.DrawingShapeKind = action.ShapeKind;
                     if (action.Tool == WpfAnnotationTool.Rectangle)
@@ -197,22 +216,26 @@ namespace MvcVisionSystem
                     break;
 
                 case WpfAnnotationToolWorkflowActionKind.PanZoom:
-                    context.SetLabelingWorkflowMode?.Invoke();
                     context.FocusLabelingSidePanelForTool?.Invoke(action.Tool);
                     context.ExecutePanCanvasCommand?.Invoke();
                     break;
 
                 case WpfAnnotationToolWorkflowActionKind.Delete:
-                    context.SetLabelingWorkflowMode?.Invoke();
                     context.FocusLabelingSidePanelForTool?.Invoke(action.Tool);
                     context.ExecuteDeleteObjectCommand?.Invoke();
                     break;
 
                 case WpfAnnotationToolWorkflowActionKind.Select:
-                    context.SetLabelingWorkflowMode?.Invoke();
                     context.MainCanvasViewModel.IsTeachingMode = false;
                     context.MainCanvasViewModel.IsImagePointInputMode = context.IsManualSegmentSelected?.Invoke() == true;
                     context.SetModelStatus?.Invoke("도구: 선택");
+                    context.FocusLabelingSidePanelForTool?.Invoke(action.Tool);
+                    break;
+
+                case WpfAnnotationToolWorkflowActionKind.LabelingFallback when action.Tool == WpfAnnotationTool.SmartMask:
+                    context.ActivateSmartMaskTool?.Invoke();
+                    context.SetModelStatus?.Invoke("도구: 스마트 마스크");
+                    context.SetYoloCommandStatus?.Invoke("스마트 마스크 버튼을 눌러 후보를 만드세요.", false);
                     context.FocusLabelingSidePanelForTool?.Invoke(action.Tool);
                     break;
 
@@ -225,7 +248,6 @@ namespace MvcVisionSystem
                     break;
 
                 default:
-                    context.SetLabelingWorkflowMode?.Invoke();
                     break;
             }
         }
@@ -249,11 +271,10 @@ namespace MvcVisionSystem
         private void SetPendingAnnotationToolStatus(AnnotationToolCapability capability)
         {
             string toolName = capability?.DisplayName ?? string.Empty;
-            context.SetLabelingWorkflowMode?.Invoke();
             context.MainCanvasViewModel.IsTeachingMode = false;
             context.SetModelStatus?.Invoke($"도구 대기: {toolName}");
             context.SetYoloCommandStatus?.Invoke(
-                capability?.StatusText ?? "\uC2E4\uC81C \uB4DC\uB85C\uC789 \uACBD\uB85C \uAC80\uC99D \uC804\uC785\uB2C8\uB2E4.",
+                capability?.StatusText ?? OpenVisionLab.OpenVisionLanguageService.T("WpfAnnotationTool.StateUnavailable"),
                 false);
             context.AppendLog?.Invoke($"{toolName} 도구 대기: {capability?.StatusText}");
         }
@@ -276,6 +297,17 @@ namespace MvcVisionSystem
             context.AppendLog?.Invoke($"도구 선택 차단: purpose={purposeName}, tool={toolName}");
             context.RefreshCanvasWorkflowContext?.Invoke();
         }
+
+        private void RestoreActiveAnnotationToolSelection()
+        {
+            WpfAnnotationTool activeTool = context.ActiveAnnotationToolProvider?.Invoke() ?? WpfAnnotationTool.Select;
+            WpfAnnotationToolItem activeToolItem = context.LearningWorkflowViewModel?.AnnotationTools
+                .FirstOrDefault(item => item.Tool == activeTool);
+            if (activeToolItem != null)
+            {
+                SynchronizeAnnotationToolSelection(activeToolItem);
+            }
+        }
     }
 
     internal sealed class AnnotationToolSelectionAdapterContext
@@ -294,11 +326,12 @@ namespace MvcVisionSystem
         internal Action CancelPendingSegmentationHoleEdit { get; init; }
         internal Action CancelPendingPolygonVertexEdit { get; init; }
         internal Action CancelPendingIntelligentScissors { get; init; }
+        internal Func<WpfAnnotationTool> ActiveAnnotationToolProvider { get; init; }
         internal Action<bool> EndPolygonAnnotationMode { get; init; }
         internal Action EndMaskAnnotationMode { get; init; }
         internal Action FocusAnnotationToolsTab { get; init; }
         internal Action<WpfAnnotationTool> SetActiveAnnotationTool { get; init; }
-        internal Action SetLabelingWorkflowMode { get; init; }
+        internal Func<bool> SetLabelingWorkflowMode { get; init; }
         internal Action<WpfAnnotationTool> FocusLabelingSidePanelForTool { get; init; }
         internal Action ApplyRectangleDrawingInputMode { get; init; }
         internal Action BeginPolygonAnnotationMode { get; init; }
@@ -311,6 +344,7 @@ namespace MvcVisionSystem
         internal Action<string> SetModelStatus { get; init; }
         internal Action<string, bool> SetYoloCommandStatus { get; init; }
         internal Action<string> AppendLog { get; init; }
+        internal Action ActivateSmartMaskTool { get; init; }
         internal Action ShowAnnotationToolPalette { get; init; }
     }
 }

@@ -32,7 +32,8 @@ namespace MvcVisionSystem
             LabelingProjectData data,
             TrainingWeightsService trainingWeightsService,
             string task = "test",
-            string baselineWeightsOverride = "")
+            string baselineWeightsOverride = "",
+            string candidateWeightsOverride = "")
         {
             data?.NormalizeOutputPaths();
             data?.NormalizeTrainingSettings();
@@ -40,11 +41,14 @@ namespace MvcVisionSystem
             PythonModelRuntimePathResolver.ApplyPathDefaults(settings);
             TrainingSettings training = data?.GetTrainingSettings() ?? new TrainingSettings();
             string projectRoot = settings.ProjectRootPath?.Trim() ?? string.Empty;
-            string candidateWeights = string.Empty;
-            trainingWeightsService?.TryFindLatestTrainingWeights(projectRoot, data?.OutputRootPath ?? string.Empty, out candidateWeights);
+            string candidateWeights = candidateWeightsOverride?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(candidateWeights))
+            {
+                trainingWeightsService?.TryFindLatestTrainingWeights(projectRoot, data?.OutputRootPath ?? string.Empty, out candidateWeights);
+            }
             string baselineWeights = ResolveBaselineWeightsPath(settings, baselineWeightsOverride);
 
-            return new ModelComparisonRunRequest
+            ModelComparisonRunRequest request = new()
             {
                 ScriptPath = Path.Combine(repositoryRoot, "scripts", "compare-yolo-models.ps1"),
                 PythonExecutablePath = PythonModelSettingsValidator.ResolvePythonExecutable(settings),
@@ -61,6 +65,8 @@ namespace MvcVisionSystem
                 UiConfidence = settings.MinimumDetectionConfidence,
                 OutputDirectory = Path.Combine(repositoryRoot, "artifacts", "yolo-model-comparison")
             };
+            SetDatasetIdentity(request, data);
+            return request;
         }
 
         public ModelComparisonRunRequest BuildYoloV5YoloV8DetectionRequest(
@@ -104,7 +110,7 @@ namespace MvcVisionSystem
                 registry,
                 normalizedCandidateEngine);
 
-            return new ModelComparisonRunRequest
+            ModelComparisonRunRequest request = new()
             {
                 ScriptPath = Path.Combine(repositoryRoot, "scripts", "compare-yolo-models.ps1"),
                 PythonExecutablePath = baseline.PythonExecutablePath,
@@ -128,6 +134,16 @@ namespace MvcVisionSystem
                 OutputDirectory = Path.Combine(repositoryRoot, "artifacts", "yolo-model-comparison"),
                 IsEngineComparison = true
             };
+            SetDatasetIdentity(request, data);
+            return request;
+        }
+
+        private static void SetDatasetIdentity(ModelComparisonRunRequest request, LabelingProjectData data)
+        {
+            if (data == null || string.IsNullOrWhiteSpace(data.OutputRootPath) || data.ProjectSettings?.ExternalYoloDataset?.UseForTraining == true) return;
+            RecipeDatasetVersionSnapshot snapshot = RecipeDatasetVersionService.CreateSnapshot(data);
+            request.DatasetVersionId = snapshot.DatasetVersionId;
+            request.DatasetContentSha256 = snapshot.ContentSha256;
         }
 
         public IReadOnlyList<string> ValidateRequest(ModelComparisonRunRequest request)
@@ -296,6 +312,8 @@ namespace MvcVisionSystem
             AddOptionalArgument(arguments, "-CandidatePythonExe", request.CandidatePythonExecutablePath);
             AddOptionalArgument(arguments, "-CandidateYoloSourceRoot", request.CandidateYoloSourceRootPath);
             AddOptionalArgument(arguments, "-CandidateEngine", request.CandidateModelEngine);
+            AddOptionalArgument(arguments, "-DatasetVersionId", request.DatasetVersionId);
+            AddOptionalArgument(arguments, "-DatasetContentSha256", request.DatasetContentSha256);
 
             return arguments;
         }
@@ -595,6 +613,10 @@ namespace MvcVisionSystem
 
         public string DataYamlPath { get; set; } = string.Empty;
 
+        public string DatasetVersionId { get; set; } = string.Empty;
+
+        public string DatasetContentSha256 { get; set; } = string.Empty;
+
         public string BaselineWeightsPath { get; set; } = string.Empty;
 
         public string CandidateWeightsPath { get; set; } = string.Empty;
@@ -672,6 +694,8 @@ namespace MvcVisionSystem
                 YoloProjectRootPath = source.YoloProjectRootPath,
                 YoloSourceRootPath = source.YoloSourceRootPath,
                 DataYamlPath = source.DataYamlPath,
+                DatasetVersionId = source.DatasetVersionId,
+                DatasetContentSha256 = source.DatasetContentSha256,
                 BaselineWeightsPath = source.BaselineWeightsPath,
                 CandidateWeightsPath = source.CandidateWeightsPath,
                 ImageSize = source.ImageSize,
@@ -725,7 +749,7 @@ namespace MvcVisionSystem
         {
         }
 
-        public new WpfModelComparisonRunRequest BuildRequest(
+        public WpfModelComparisonRunRequest BuildRequest(
             LabelingProjectData data,
             TrainingWeightsService trainingWeightsService,
             string task = "test",

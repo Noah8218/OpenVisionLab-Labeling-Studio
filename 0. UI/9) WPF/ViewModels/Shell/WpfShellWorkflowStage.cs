@@ -5,6 +5,7 @@ namespace MvcVisionSystem
         Dataset,
         Labeling,
         Inference,
-        TrainingModel
+        TrainingModel,
+        ModelComparison
     }
 }

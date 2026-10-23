@@ -1,0 +1,257 @@
+<UserControl x:Class="MvcVisionSystem.WpfTrainingWorkspacePanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:MvcVisionSystem"
+             FontFamily="{DynamicResource UiFontFamily}" FontSize="13"
+             Foreground="{DynamicResource RecipeTextBrush}" Background="{DynamicResource RecipePageBrush}"
+             AutomationProperties.AutomationId="TrainingWorkspace">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries><ResourceDictionary Source="../../Themes/WpfButtonStateTemplates.xaml" /></ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="TrainingBooleanToVisibility" />
+            <local:RuntimeDetailTextConverter x:Key="RuntimeDetailText" />
+            <SolidColorBrush x:Key="TrainingSettingsSelectedTextBrush" Color="#C9DDFF" />
+            <SolidColorBrush x:Key="TrainingInfoTextBrush" Color="#B9D3FF" />
+            <Style x:Key="TrainingSettingsTabFocusStyle" TargetType="Control">
+                <Setter Property="Template"><Setter.Value><ControlTemplate><Border Margin="-3" BorderBrush="{DynamicResource RecipeFocusBrush}" BorderThickness="2" CornerRadius="9" /></ControlTemplate></Setter.Value></Setter>
+            </Style>
+            <Style x:Key="TrainingSettingsTabStyle" TargetType="TabItem">
+                <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" /><Setter Property="Background" Value="Transparent" /><Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="Padding" Value="10,5" /><Setter Property="Margin" Value="0,0,6,0" /><Setter Property="MinHeight" Value="30" /><Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FocusVisualStyle" Value="{StaticResource TrainingSettingsTabFocusStyle}" />
+                <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabItem">
+                    <Border x:Name="TabChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" TextBlock.LineHeight="18.85" TextBlock.LineStackingStrategy="BlockLineHeight" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                        <Trigger Property="IsSelected" Value="True"><Setter Property="Foreground" Value="{DynamicResource TrainingSettingsSelectedTextBrush}" /><Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeSelectedBorderBrush}" /></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /><Setter Property="Cursor" Value="Arrow" /></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate></Setter.Value></Setter>
+            </Style>
+            <Style x:Key="TrainingCardStyle" TargetType="Border">
+                <Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="8" /><Setter Property="Padding" Value="14,12" /><Setter Property="Margin" Value="0,0,0,12" />
+            </Style>
+            <Style x:Key="TrainingCaptionStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" /><Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" /><Setter Property="TextWrapping" Value="Wrap" /><Setter Property="LineHeight" Value="17.4" /><Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+            </Style>
+            <Style x:Key="TrainingSectionTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource TrainingCaptionStyle}"><Setter Property="FontWeight" Value="SemiBold" /></Style>
+            <Style x:Key="TrainingDisclosureButtonStyle" TargetType="ToggleButton" BasedOn="{StaticResource RecipeButtonBaseStyle}">
+                <Setter Property="MinHeight" Value="18" /><Setter Property="Padding" Value="0" /><Setter Property="FontSize" Value="12" /><Setter Property="HorizontalContentAlignment" Value="Left" />
+                <Setter Property="Background" Value="Transparent" /><Setter Property="BorderBrush" Value="Transparent" /><Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" />
+            </Style>
+            <Style x:Key="TrainingAdvancedStyle" TargetType="Expander">
+                <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Expander">
+                    <StackPanel>
+                        <ToggleButton x:Name="TrainingDisclosureButton" Style="{StaticResource TrainingDisclosureButtonStyle}" HorizontalAlignment="Left" IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource TemplatedParent}}">
+                            <StackPanel Orientation="Horizontal"><TextBlock x:Name="TrainingDisclosureGlyph" Text="▸" Margin="0,0,5,0" /><ContentPresenter Content="{TemplateBinding Header}" VerticalAlignment="Center" /></StackPanel>
+                        </ToggleButton>
+                        <ContentPresenter x:Name="TrainingDisclosureContent" Margin="0" Content="{TemplateBinding Content}" Visibility="Collapsed" />
+                    </StackPanel>
+                    <ControlTemplate.Triggers><Trigger Property="IsExpanded" Value="True"><Setter TargetName="TrainingDisclosureContent" Property="Visibility" Value="Visible" /><Setter TargetName="TrainingDisclosureGlyph" Property="Text" Value="▾" /></Trigger></ControlTemplate.Triggers>
+                </ControlTemplate></Setter.Value></Setter>
+            </Style>
+            <ControlTemplate x:Key="TrainingModelCardTemplate" TargetType="ToggleButton">
+                <Grid>
+                    <Border x:Name="ButtonChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" SnapsToDevicePixels="True">
+                        <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" TextElement.Foreground="{TemplateBinding Foreground}" RecognizesAccessKey="True" />
+                    </Border>
+                    <Border x:Name="FocusCue" BorderBrush="Transparent" BorderThickness="2" CornerRadius="8" IsHitTestVisible="False" />
+                </Grid>
+                <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="FocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger><Trigger Property="IsEnabled" Value="False"><Setter TargetName="FocusCue" Property="BorderBrush" Value="Transparent" /></Trigger></ControlTemplate.Triggers>
+            </ControlTemplate>
+            <Style x:Key="TrainingTitleStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="15" /><Setter Property="FontWeight" Value="SemiBold" /><Setter Property="TextWrapping" Value="Wrap" /><Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" /><Setter Property="LineHeight" Value="21.75" /><Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+            </Style>
+            <ControlTemplate x:Key="TrainingHistoryRowTemplate" TargetType="Button">
+                <Grid>
+                    <Border x:Name="ButtonChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="0" SnapsToDevicePixels="True">
+                        <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" TextElement.Foreground="{TemplateBinding Foreground}" RecognizesAccessKey="True" />
+                    </Border>
+                    <Border x:Name="FocusCue" BorderBrush="Transparent" BorderThickness="2" CornerRadius="0" IsHitTestVisible="False" />
+                </Grid>
+                <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="FocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger><Trigger Property="IsEnabled" Value="False"><Setter TargetName="FocusCue" Property="BorderBrush" Value="Transparent" /></Trigger></ControlTemplate.Triggers>
+            </ControlTemplate>
+            <Style x:Key="TrainingHistoryRowStyle" TargetType="Button" BasedOn="{StaticResource RecipeQuietButtonStyle}">
+                <Setter Property="Template" Value="{StaticResource TrainingHistoryRowTemplate}" /><Setter Property="BorderThickness" Value="0,0,0,1" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeBorderBrush}" />
+                <Setter Property="Padding" Value="12,8" /><Setter Property="MinHeight" Value="30" /><Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Style.Triggers><MultiTrigger><MultiTrigger.Conditions><Condition Property="IsMouseOver" Value="True" /><Condition Property="IsPressed" Value="False" /><Condition Property="IsEnabled" Value="True" /></MultiTrigger.Conditions><Setter Property="Background" Value="{DynamicResource RecipeRowHoverBrush}" /></MultiTrigger></Style.Triggers>
+            </Style>
+            <Style x:Key="TrainingHistoryTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource TrainingTitleStyle}">
+                <Setter Property="FontSize" Value="13" /><Setter Property="LineHeight" Value="18.85" /><Setter Property="LineStackingStrategy" Value="BlockLineHeight" /><Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+            </Style>
+            <Style x:Key="TrainingHistoryCaptionStyle" TargetType="TextBlock" BasedOn="{StaticResource TrainingCaptionStyle}">
+                <Setter Property="LineHeight" Value="17.4" /><Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="280" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+        <Border Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,0,1,0">
+            <Grid><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                <Border Padding="12,10" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,0,0,1">
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <WrapPanel VerticalAlignment="Center"><TextBlock Style="{StaticResource TrainingTitleStyle}" Text="{Binding Language[WpfTrainingWorkspace.History]}" /><TextBlock Margin="8,0,0,0" Style="{StaticResource TrainingCaptionStyle}" Text="{Binding HistoryCountText}" /></WrapPanel>
+                        <Button x:Name="TrainingNewButton" Grid.Column="1" Height="24" MinHeight="24" Padding="8,2" FontSize="12" Style="{StaticResource RecipePrimaryButtonStyle}" Command="{Binding NewCommand}" Content="{Binding Language[WpfTrainingWorkspace.New]}" />
+                    </Grid>
+                </Border>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
+                        <Button x:Name="TrainingLiveHistoryButton" Command="{Binding SelectLiveCommand}" Visibility="{Binding HasQueue, Converter={StaticResource TrainingBooleanToVisibility}}">
+                            <Button.Style><Style TargetType="Button" BasedOn="{StaticResource TrainingHistoryRowStyle}"><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding IsLiveVisible}" Value="True" /><Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="False" /><Condition Binding="{Binding IsPressed, RelativeSource={RelativeSource Self}}" Value="False" /><Condition Binding="{Binding IsEnabled, RelativeSource={RelativeSource Self}}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" /></MultiDataTrigger></Style.Triggers></Style></Button.Style>
+                            <StackPanel><TextBlock Style="{StaticResource TrainingHistoryTitleStyle}" Text="{Binding Language[WpfTrainingWorkspace.Live]}" /><TextBlock Style="{StaticResource TrainingHistoryCaptionStyle}" Text="{Binding LiveCountText}" /><TextBlock Style="{StaticResource TrainingHistoryCaptionStyle}" Text="{Binding LiveModelText}" /></StackPanel>
+                        </Button>
+                        <ItemsControl x:Name="TrainingHistoryRows" ItemsSource="{Binding History}">
+                            <ItemsControl.ItemTemplate><DataTemplate>
+                                <Button Command="{Binding DataContext.SelectRunCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                    <Button.Style><Style TargetType="Button" BasedOn="{StaticResource TrainingHistoryRowStyle}"><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding IsSelected}" Value="True" /><Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="False" /><Condition Binding="{Binding IsPressed, RelativeSource={RelativeSource Self}}" Value="False" /><Condition Binding="{Binding IsEnabled, RelativeSource={RelativeSource Self}}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" /></MultiDataTrigger></Style.Triggers></Style></Button.Style>
+                                    <StackPanel><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <TextBlock Style="{StaticResource TrainingHistoryTitleStyle}" Text="{Binding Name}" />
+                                        <Border Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Top">
+                                            <Border.Style><Style TargetType="Border"><Setter Property="Background" Value="Transparent" /><Setter Property="BorderBrush" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="Padding" Value="0" /><Setter Property="CornerRadius" Value="0" /><Style.Triggers><DataTrigger Binding="{Binding IsInspectionModel}" Value="True"><Setter Property="Background" Value="{DynamicResource DatasetReadyBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource DatasetReadyBorderBrush}" /><Setter Property="BorderThickness" Value="1" /><Setter Property="Padding" Value="8,1" /><Setter Property="CornerRadius" Value="10.2" /></DataTrigger></Style.Triggers></Style></Border.Style>
+                                            <TextBlock Text="{Binding RoleText}"><TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource TrainingHistoryCaptionStyle}"><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /><Style.Triggers><DataTrigger Binding="{Binding IsInspectionModel}" Value="True"><Setter Property="Foreground" Value="{DynamicResource DatasetReadyTextBrush}" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                                        </Border>
+                                    </Grid><TextBlock Margin="0,2,0,0" Style="{StaticResource TrainingHistoryCaptionStyle}" Text="{Binding SummaryText}" Typography.NumeralAlignment="Tabular" /></StackPanel>
+                                </Button>
+                            </DataTemplate></ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Margin="12,20" Text="{Binding Language[WpfTrainingWorkspace.EmptyHistory]}">
+                            <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource TrainingCaptionStyle}"><Setter Property="Visibility" Value="Visible" /><Style.Triggers><DataTrigger Binding="{Binding HasHistory}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                </ScrollViewer>
+                <Border Grid.Row="2" Padding="12,8" Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,1,0,0">
+                    <TextBlock Style="{StaticResource TrainingCaptionStyle}"><Run Text="{Binding InspectionModelCaption, Mode=OneWay}" /><Run Text=": " /><Run Text="{Binding InspectionModelName, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource RecipeTextBrush}" /></TextBlock>
+                </Border>
+            </Grid>
+        </Border>
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+            <Border Padding="24,12" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,0,0,1">
+                <TabControl x:Name="TrainingSettingsTabs" SelectedIndex="{Binding SelectedSettingsTabIndex, Mode=TwoWay}" ItemContainerStyle="{StaticResource TrainingSettingsTabStyle}">
+                    <TabControl.Template><ControlTemplate TargetType="TabControl"><TabPanel IsItemsHost="True" KeyboardNavigation.TabIndex="1" HorizontalAlignment="Left" /></ControlTemplate></TabControl.Template>
+                    <TabItem Header="{Binding Language[WpfTrainingWorkspace.TrainingTab]}" />
+                    <TabItem Header="{Binding Language[WpfTrainingWorkspace.RuntimeTab]}" />
+                    <TabItem Header="{Binding Language[WpfTrainingWorkspace.InspectionTab]}" />
+                </TabControl>
+            </Border>
+        <ScrollViewer x:Name="TrainingMainScroll" Grid.Row="1" Visibility="{Binding IsTrainingTabVisible, Converter={StaticResource TrainingBooleanToVisibility}}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="24,20">
+                <Border Style="{StaticResource TrainingCardStyle}" Visibility="{Binding HasStatus, Converter={StaticResource TrainingBooleanToVisibility}}"><TextBlock x:Name="TrainingOperationStatus" Text="{Binding Status}" TextWrapping="Wrap" /></Border>
+                <StackPanel x:Name="TrainingForm" Visibility="{Binding IsFormVisible, Converter={StaticResource TrainingBooleanToVisibility}}">
+                    <TextBlock FontSize="20" FontWeight="SemiBold" LineHeight="29" LineStackingStrategy="BlockLineHeight" Text="{Binding Language[WpfTrainingWorkspace.NewTitle]}" />
+                    <TextBlock Margin="0,4,0,16" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" Text="{Binding Language[WpfTrainingWorkspace.Introduction]}" />
+                    <Border Style="{StaticResource TrainingCardStyle}"><StackPanel>
+                        <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource TrainingSectionTitleStyle}" Text="{Binding Language[WpfTrainingWorkspace.DataSection]}" />
+                            <Button Grid.Column="1" Height="24" MinHeight="24" Padding="8,2" FontSize="12" Style="{StaticResource RecipeQuietButtonStyle}" Command="{Binding OpenDatasetCommand}" Content="{Binding Language[WpfTrainingWorkspace.ChangeSplit]}" />
+                        </Grid>
+                        <WrapPanel><Border CornerRadius="10.7" Padding="8,1" BorderThickness="1" BorderBrush="{DynamicResource RecipeSelectedBorderBrush}" Background="{DynamicResource RecipeSelectedBrush}" Margin="0,0,8,0"><TextBlock FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Foreground="{StaticResource TrainingInfoTextBrush}" Text="{Binding VersionText}" TextWrapping="Wrap" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" /></Border><TextBlock Margin="0,0,8,0" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" VerticalAlignment="Center" Text="{Binding InputCountText}" /><TextBlock VerticalAlignment="Center" Style="{StaticResource TrainingCaptionStyle}" Text="{Binding ExcludedText}" /></WrapPanel>
+                        <CheckBox x:Name="TrainingOnlyReviewedCheck" Style="{StaticResource RecipeCheckBoxStyle}" MinHeight="18" TextBlock.LineHeight="17.4" TextBlock.LineStackingStrategy="BlockLineHeight" Margin="0,8,0,0" IsChecked="{Binding OnlyReviewed}" IsEnabled="{Binding CanEdit}" FontSize="12" Content="{Binding Language[WpfTrainingWorkspace.OnlyReviewed]}" />
+                    </StackPanel></Border>
+                    <Border Style="{StaticResource TrainingCardStyle}"><StackPanel>
+                        <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBlock Style="{StaticResource TrainingSectionTitleStyle}" Text="{Binding Language[WpfTrainingWorkspace.ModelSection]}" /><TextBlock Grid.Column="1" Margin="8,0,0,0" Style="{StaticResource TrainingCaptionStyle}" Foreground="{DynamicResource RecipeDisabledTextBrush}" Text="{Binding Language[WpfTrainingWorkspace.MultipleModels]}" /></Grid>
+                        <ItemsControl x:Name="TrainingModelCards" ItemsSource="{Binding Models}" IsEnabled="{Binding CanEdit}" Margin="0,0,-8,-8">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="3" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate><DataTemplate>
+                                <Border CornerRadius="8" BorderThickness="0" Margin="0,0,8,8">
+                                    <ToggleButton MinHeight="58" Padding="10" BorderThickness="1" Template="{StaticResource TrainingModelCardTemplate}" HorizontalContentAlignment="Stretch" IsChecked="{Binding IsSelected, Mode=OneWay}" IsEnabled="{Binding IsAvailable}" Command="{Binding DataContext.ToggleModelCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                        <ToggleButton.Style><Style TargetType="ToggleButton" BasedOn="{StaticResource RecipeFilterToggleStyle}"><Style.Triggers><MultiTrigger><MultiTrigger.Conditions><Condition Property="IsChecked" Value="True" /><Condition Property="IsEnabled" Value="True" /><Condition Property="IsMouseOver" Value="False" /><Condition Property="IsPressed" Value="False" /></MultiTrigger.Conditions><Setter Property="Background" Value="{DynamicResource RecipeSelectedCardBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeSelectedCardBorderBrush}" /></MultiTrigger></Style.Triggers></Style></ToggleButton.Style>
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="18" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                            <Border Width="16" Height="16" CornerRadius="4" BorderThickness="1" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,2,0,0"><Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonBorderBrush}" /><Style.Triggers><DataTrigger Binding="{Binding IsSelected}" Value="True"><Setter Property="Background" Value="{DynamicResource RecipePrimaryBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeAccentBrush}" /></DataTrigger></Style.Triggers></Style></Border.Style><TextBlock Text="{Binding SelectionGlyph}" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
+                                            <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                                <TextBlock Text="{Binding Name}"><TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource TrainingTitleStyle}"><Setter Property="FontSize" Value="13" /><Setter Property="LineHeight" Value="18.85" /><Style.Triggers><DataTrigger Binding="{Binding IsEnabled, RelativeSource={RelativeSource AncestorType=ToggleButton}}" Value="False"><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                                                <WrapPanel><TextBlock Style="{StaticResource TrainingCaptionStyle}" LineHeight="18.85" Text="{Binding Note}" /><TextBlock Margin="4,0,0,0" FontSize="12" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" Foreground="{DynamicResource RecipeDisabledTextBrush}" Text="{Binding AvailabilityText}" /></WrapPanel>
+                                            </StackPanel>
+                                        </Grid>
+                                    </ToggleButton>
+                                </Border>
+                            </DataTemplate></ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel></Border>
+                    <Border Style="{StaticResource TrainingCardStyle}"><StackPanel>
+                        <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBlock Style="{StaticResource TrainingSectionTitleStyle}" Text="{Binding Language[WpfTrainingWorkspace.SettingsSection]}" /><TextBlock Grid.Column="1" Margin="8,0,0,0" Style="{StaticResource TrainingCaptionStyle}" Foreground="{DynamicResource RecipeDisabledTextBrush}" Text="{Binding Language[WpfTrainingWorkspace.SharedSettings]}" /></Grid>
+                        <Grid IsEnabled="{Binding CanEdit}"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0"><TextBlock Margin="0,0,0,4" Style="{StaticResource TrainingCaptionStyle}" Text="{Binding Language[WpfTrainingWorkspace.Epochs]}" /><TextBox x:Name="TrainingEpochsInput" Height="30" FontSize="12" Padding="8,5" Style="{StaticResource RecipeInputStyle}" Text="{Binding EpochsText, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                            <StackPanel Grid.Column="2"><TextBlock Margin="0,0,0,4" Style="{StaticResource TrainingCaptionStyle}" Text="{Binding Language[WpfTrainingWorkspace.ImageSize]}" /><TextBox x:Name="TrainingImageSizeInput" Height="30" FontSize="12" Padding="8,5" Style="{StaticResource RecipeInputStyle}" Text="{Binding ImageSizeText, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                            <StackPanel Grid.Column="4"><TextBlock Margin="0,0,0,4" Style="{StaticResource TrainingCaptionStyle}" Text="{Binding Language[WpfTrainingWorkspace.BatchSize]}" /><TextBox x:Name="TrainingBatchSizeInput" Height="30" FontSize="12" Padding="8,5" Style="{StaticResource RecipeInputStyle}" Text="{Binding BatchSizeText, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                        </Grid>
+                        <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource ErrorBrush}" Text="{Binding ValidationError}" Visibility="{Binding HasValidationError, Converter={StaticResource TrainingBooleanToVisibility}}" />
+                        <Expander x:Name="TrainingAdvancedExpander" Style="{StaticResource TrainingAdvancedStyle}" Margin="0,10,0,0" Header="{Binding Language[WpfTrainingWorkspace.Advanced]}" FontSize="12" Foreground="{DynamicResource RecipeMutedTextBrush}"><TextBlock Margin="0,8,0,0" Style="{StaticResource TrainingCaptionStyle}" Text="{Binding Language[WpfTrainingWorkspace.AdvancedDefaults]}" /></Expander>
+                    </StackPanel></Border>
+                    <Border Style="{StaticResource TrainingCardStyle}" Margin="0,0,0,16"><StackPanel>
+                        <TextBlock Margin="0,0,0,8" Style="{StaticResource TrainingSectionTitleStyle}" Text="{Binding Language[WpfTrainingWorkspace.Preflight]}" />
+                        <TextBlock Text="{Binding SavedInputText}" TextWrapping="Wrap" /><TextBlock Margin="0,6,0,0" Text="{Binding EnvironmentText}" TextWrapping="Wrap" />
+                        <ItemsControl Margin="0,6,0,0" ItemsSource="{Binding Warnings}"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Margin="0,4,0,0" TextWrapping="Wrap" Foreground="{DynamicResource WarningBrush}"><Run Text="!  " /><Run Text="{Binding Mode=OneWay}" /></TextBlock></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                    </StackPanel></Border>
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBlock Margin="0,0,12,0" VerticalAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource RecipeMutedTextBrush}" Text="{Binding SelectedCountText}" />
+                        <Button x:Name="TrainingStartButton" Grid.Column="1" MinHeight="31" FontSize="13" FontWeight="SemiBold" Padding="10,5" Style="{StaticResource RecipePrimaryButtonStyle}" Command="{Binding StartCommand}" Content="{Binding StartText}" />
+                    </Grid>
+                    <Button Visibility="Collapsed" Margin="0,8,0,0" Height="24" MinHeight="24" Padding="8,2" FontSize="12" HorizontalAlignment="Left" Style="{StaticResource RecipeQuietButtonStyle}" Command="{Binding OpenEnvironmentCommand}" Content="{Binding Language[WpfTrainingWorkspace.OpenEnvironment]}" />
+                </StackPanel>
+                <StackPanel x:Name="TrainingLive" Visibility="{Binding IsLiveVisible, Converter={StaticResource TrainingBooleanToVisibility}}">
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel><TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding Language[WpfTrainingWorkspace.Live]}" /><TextBlock Margin="0,4,12,0" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" Text="{Binding Language[WpfTrainingWorkspace.LiveHint]}" /></StackPanel>
+                        <WrapPanel Grid.Column="1"><Button x:Name="TrainingStopCurrentButton" Height="30" MinHeight="30" Padding="10,5" Style="{StaticResource RecipeSecondaryButtonStyle}" Command="{Binding StopCommand}" Content="{Binding Language[WpfTrainingWorkspace.StopCurrent]}" /><Button x:Name="TrainingCancelAllButton" Margin="8,0,0,0" Height="30" MinHeight="30" Padding="10,5" Style="{StaticResource RecipeSecondaryButtonStyle}" Command="{Binding CancelCommand}" Content="{Binding Language[WpfTrainingWorkspace.CancelAll]}" /></WrapPanel>
+                    </Grid>
+                    <Border Style="{StaticResource TrainingCardStyle}" Margin="0,14,0,14"><StackPanel>
+                        <TextBlock Text="{Binding Language[WpfTrainingWorkspace.CapturingInput]}" Visibility="{Binding IsPreparing, Converter={StaticResource TrainingBooleanToVisibility}}" />
+                        <ItemsControl x:Name="TrainingQueueRows" ItemsSource="{Binding QueueRows}"><ItemsControl.ItemTemplate><DataTemplate>
+                            <Grid Margin="0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="20" /><ColumnDefinition Width="150" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Glyph}" /><TextBlock Grid.Column="1" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding ModelName}" />
+                                <ProgressBar Style="{StaticResource RecipeProgressStyle}" Grid.Column="2" Height="6" Margin="8,5,12,0" Maximum="100" Value="{Binding Progress, Mode=OneWay}" IsIndeterminate="{Binding IsIndeterminate}" Foreground="{DynamicResource AccentBrush}" Visibility="{Binding IsRunning, Converter={StaticResource TrainingBooleanToVisibility}}" />
+                                <TextBlock Grid.Column="3" Style="{StaticResource TrainingCaptionStyle}" Text="{Binding ProgressText}" />
+                            </Grid>
+                        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                    </StackPanel></Border>
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Border x:Name="TrainingLossCard" Grid.Column="0" Style="{StaticResource TrainingCardStyle}" Padding="10" Margin="0"><StackPanel>
+                            <TextBlock Style="{StaticResource TrainingCaptionStyle}"><Run Text="{Binding Language[WpfTrainingWorkspace.LossCaption], Mode=OneWay}" /><Run Text=" · " /><Run Foreground="#60A5FA" Text="{Binding Language[WpfTrainingWorkspace.TrainSeries], Mode=OneWay}" /><Run Text=" · " /><Run Foreground="#F5A524" Text="{Binding Language[WpfTrainingWorkspace.ValidationSeries], Mode=OneWay}" /></TextBlock>
+                            <Border Height="150" Background="#0F141A" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1" CornerRadius="6">
+                                <local:TrainingMetricCurve x:Name="TrainingLossCurve" FontFamily="{DynamicResource UiFontFamily}" FontSize="12" Foreground="{DynamicResource RecipeMutedTextBrush}" Metrics="{Binding LiveMetrics}" Epochs="{Binding LiveMetricEpochs}" EmptyText="{Binding Language[WpfTrainingWorkspace.NoLiveMetrics]}" AutomationProperties.Name="{Binding Language[WpfTrainingWorkspace.LossCaption]}" />
+                            </Border>
+                        </StackPanel></Border>
+                        <Border x:Name="TrainingValidationCard" Grid.Column="2" Style="{StaticResource TrainingCardStyle}" Padding="10" Margin="0"><StackPanel>
+                            <TextBlock x:Name="TrainingValidationCurveCaption" Style="{StaticResource TrainingCaptionStyle}" Text="{Binding LiveValidationCaption}" />
+                            <Border Height="150" Background="#0F141A" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1" CornerRadius="6">
+                                <local:TrainingMetricCurve x:Name="TrainingValidationCurve" FontFamily="{DynamicResource UiFontFamily}" FontSize="12" Foreground="{DynamicResource RecipeMutedTextBrush}" Metrics="{Binding LiveMetrics}" Epochs="{Binding LiveMetricEpochs}" MetricOnly="True" EmptyText="{Binding Language[WpfTrainingWorkspace.NoLiveMetrics]}" AutomationProperties.Name="{Binding LiveValidationCaption}" />
+                            </Border>
+                        </StackPanel></Border>
+                    </Grid>
+                    <Border Style="{StaticResource TrainingCardStyle}" Margin="0,12,0,0"><TextBlock FontSize="12" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" Text="{Binding LiveLogText}" /></Border>
+                    <Border Style="{StaticResource TrainingCardStyle}" Margin="0,12,0,0" Visibility="{Binding CanRetrySave, Converter={StaticResource TrainingBooleanToVisibility}}"><StackPanel><TextBlock TextWrapping="Wrap" Text="{Binding Language[WpfTrainingWorkspace.SaveFailedHint]}" />
+                        <TextBox x:Name="TrainingRetainedWeightsPath" Margin="0,8,0,0" MinHeight="30" Padding="10,5" Style="{StaticResource RecipeInputStyle}" FontSize="12" IsReadOnly="True" TextWrapping="Wrap" Text="{Binding PendingWeightsPath, Mode=OneWay}" />
+                        <WrapPanel Margin="0,8,0,0"><Button x:Name="TrainingRetrySaveButton" Height="30" MinHeight="30" Padding="10,5" Style="{StaticResource RecipePrimaryButtonStyle}" Command="{Binding RetrySaveCommand}" Content="{Binding Language[WpfTrainingWorkspace.RetrySave]}" /><Button x:Name="TrainingKeepFileButton" Margin="8,0,0,0" Height="30" MinHeight="30" Padding="10,5" Style="{StaticResource RecipeSecondaryButtonStyle}" Command="{Binding KeepFileCommand}" Content="{Binding Language[WpfTrainingWorkspace.KeepFile]}" /></WrapPanel></StackPanel></Border>
+                </StackPanel>
+                <StackPanel x:Name="TrainingDetails" Visibility="{Binding IsDetailVisible, Converter={StaticResource TrainingBooleanToVisibility}}">
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <Grid HorizontalAlignment="Left">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <TextBlock x:Name="TrainingResultTitle" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding SelectedRun.Name}" />
+                            <Border x:Name="TrainingResultInspectionBadge" Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center" Padding="8,1" BorderThickness="1" CornerRadius="10.2"
+                                    Background="{DynamicResource DatasetReadyBrush}" BorderBrush="{DynamicResource DatasetReadyBorderBrush}" Visibility="{Binding SelectedRun.IsInspectionModel, Converter={StaticResource TrainingBooleanToVisibility}}">
+                                <TextBlock x:Name="TrainingResultInspectionText" Style="{StaticResource TrainingHistoryCaptionStyle}" Foreground="{DynamicResource DatasetReadyTextBrush}" Text="{Binding SelectedRun.RoleText}" />
+                            </Border>
+                        </Grid>
+                        <WrapPanel Grid.Column="1"><Button Height="30" MinHeight="30" Padding="10,5" Style="{StaticResource RecipeSecondaryButtonStyle}" Command="{Binding OpenInferenceCommand}" Content="{Binding Language[WpfTrainingWorkspace.InferResult]}" /><Button Margin="8,0,0,0" Height="30" MinHeight="30" Padding="10,5" Style="{StaticResource RecipeSecondaryButtonStyle}" Command="{Binding OpenComparisonCommand}" Content="{Binding Language[WpfTrainingWorkspace.CompareResult]}" /><Button x:Name="TrainingRepeatButton" Margin="8,0,0,0" Height="30" MinHeight="30" Padding="10,5" Style="{StaticResource RecipeSecondaryButtonStyle}" Command="{Binding RepeatCommand}" Content="{Binding Language[WpfTrainingWorkspace.Repeat]}" /></WrapPanel>
+                        <TextBlock x:Name="TrainingResultSettingsText" Grid.Row="1" Grid.ColumnSpan="2" Margin="0,4,12,0" Style="{StaticResource TrainingCaptionStyle}" Text="{Binding SelectedRun.SettingsText}" />
+                    </Grid>
+                    <Grid Margin="0,16,0,0" HorizontalAlignment="Left"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <ItemsControl x:Name="TrainingResultMetricCards" MinWidth="{Binding SelectedRun.MetricCardsMinimumWidth, FallbackValue=0}" ItemsSource="{Binding SelectedRun.MetricCells}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate>
+                            <Border x:Name="TrainingMetricCard" Style="{StaticResource TrainingCardStyle}" MinWidth="130" Padding="16,10" Margin="0,0,12,12"><StackPanel><TextBlock x:Name="TrainingMetricCaption" Style="{StaticResource TrainingCaptionStyle}" Text="{Binding Caption}" /><TextBlock x:Name="TrainingMetricValue" FontSize="22" FontWeight="SemiBold" LineHeight="31.9" LineStackingStrategy="BlockLineHeight" Text="{Binding Text}" /></StackPanel></Border>
+                        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                        <Border x:Name="TrainingDurationCard" Grid.Column="1" VerticalAlignment="Top" Style="{StaticResource TrainingCardStyle}" MinWidth="130" Padding="16,10"><StackPanel><TextBlock Style="{StaticResource TrainingCaptionStyle}" Text="{Binding Language[WpfTrainingWorkspace.Duration]}" /><TextBlock FontSize="22" FontWeight="SemiBold" LineHeight="31.9" LineStackingStrategy="BlockLineHeight" Text="{Binding SelectedRun.DurationText}" /></StackPanel></Border>
+                    </Grid>
+                    <TextBlock Style="{StaticResource TrainingCaptionStyle}" Text="{Binding SelectedRun.EvaluationNote}" />
+                    <Border x:Name="TrainingAdoptionHint" Margin="0,14,0,0">
+                        <Border.Style><Style TargetType="Border" BasedOn="{StaticResource TrainingCardStyle}"><Style.Triggers><DataTrigger Binding="{Binding SelectedRun.IsInspectionModel}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Border.Style>
+                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBlock Margin="0,0,12,0" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding Language[WpfTrainingWorkspace.AdoptionBoundary]}" /><Button Grid.Column="1" Height="30" MinHeight="30" Padding="10,5" Style="{StaticResource RecipePrimaryButtonStyle}" Command="{Binding OpenComparisonCommand}" Content="{Binding Language[WpfTrainingWorkspace.CompareAndAdopt]}" /></Grid></Border>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+            <ScrollViewer x:Name="TrainingSettingsScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Visibility="{Binding IsSettingsTabVisible, Converter={StaticResource TrainingBooleanToVisibility}}"><StackPanel Margin="24,20"><TextBlock FontSize="20" FontWeight="SemiBold" LineHeight="29" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="{Binding Language[WpfTrainingWorkspace.RuntimeTab]}"/><Style.Triggers><DataTrigger Binding="{Binding SelectedSettingsTabIndex}" Value="2"><Setter Property="Text" Value="{Binding Language[WpfTrainingWorkspace.InspectionTab]}"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock><TextBlock Margin="0,4,0,16" Foreground="{DynamicResource RecipeMutedTextBrush}" FontSize="13" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="{Binding Language[WpfTrainingSettings.RuntimeIntroduction]}"/><Style.Triggers><DataTrigger Binding="{Binding SelectedSettingsTabIndex}" Value="2"><Setter Property="Text" Value="{Binding Language[WpfTrainingSettings.InspectionIntroduction]}"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock><ContentPresenter IsEnabled="{Binding CanEdit}" Content="{Binding SettingsContent, RelativeSource={RelativeSource AncestorType=local:WpfTrainingWorkspacePanel}}"/></StackPanel></ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

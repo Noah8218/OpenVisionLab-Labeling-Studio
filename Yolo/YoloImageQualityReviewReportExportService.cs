@@ -70,15 +70,15 @@ namespace MvcVisionSystem.Yolo
             builder.AppendLine();
             builder.AppendLine($"- 생성 시각 (UTC): {generatedAtUtc.ToUniversalTime():yyyy-MM-dd HH:mm:ss}");
             builder.AppendLine($"- 전체 이미지: {items.Count}");
-            builder.AppendLine($"- 미검토: {items.Count(item => item.QualityReviewState == YoloImageQualityReviewState.Unreviewed)}");
-            builder.AppendLine($"- 수정 필요: {needsFixItems.Count}");
+            builder.AppendLine($"- 검수 대기: {items.Count(item => item.QualityReviewState == YoloImageQualityReviewState.Unreviewed)}");
+            builder.AppendLine($"- 수정 대상: {needsFixItems.Count}");
             builder.AppendLine($"- 검수 완료: {items.Count(item => item.QualityReviewState == YoloImageQualityReviewState.Reviewed)}");
             builder.AppendLine();
-            builder.AppendLine("## 수정 필요 이미지");
+            builder.AppendLine("## 수정 대상 이미지");
             builder.AppendLine();
             if (needsFixItems.Count == 0)
             {
-                builder.AppendLine("수정 필요 이미지가 없습니다.");
+                builder.AppendLine("수정할 이미지가 없습니다.");
                 return builder.ToString();
             }
 

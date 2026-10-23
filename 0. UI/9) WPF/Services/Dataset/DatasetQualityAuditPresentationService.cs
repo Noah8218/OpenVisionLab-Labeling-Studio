@@ -48,7 +48,11 @@ namespace MvcVisionSystem
                 return string.Empty;
             }
 
-            return $"\uB2E4\uC74C: \uB204\uB77D \uB77C\uBCA8 {report.TotalMissingLabelCount}\uC7A5, invalid \uB77C\uBCA8 {report.TotalInvalidLabelLineCount}\uC904\uC744 \uC815\uB9AC\uD558\uC138\uC694.";
+            return string.Format(
+                System.Globalization.CultureInfo.CurrentCulture,
+                OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.DatasetDashboard.Issue.Quality"),
+                report.TotalMissingLabelCount,
+                report.TotalInvalidLabelLineCount);
         }
 
         private static string BuildClassDistributionSummary(IReadOnlyDictionary<string, int> classCounts)

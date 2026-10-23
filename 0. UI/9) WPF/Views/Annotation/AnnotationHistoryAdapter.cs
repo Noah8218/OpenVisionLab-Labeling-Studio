@@ -39,7 +39,8 @@ namespace MvcVisionSystem
         internal AnnotationHistoryWorkflowService WorkflowService => workflowService;
 
         internal WpfAnnotationHistorySnapshot CaptureAnnotationHistory(string actionName)
-            => AnnotationHistoryService.Capture(
+        {
+            WpfAnnotationHistorySnapshot snapshot = AnnotationHistoryService.Capture(
                 actionName,
                 context.ManualRois.ToList(),
                 context.ManualRoiClassNames.ToList(),
@@ -47,13 +48,20 @@ namespace MvcVisionSystem
                 context.ManualSegments.ToList(),
                 context.PendingCandidates.ToList(),
                 context.ConfirmedCandidates.ToList());
+            snapshot.NoObjectSelected = context.NoObjectSelectionProvider?.Invoke();
+            return snapshot;
+        }
 
         internal WpfAnnotationHistorySnapshot CaptureManualRoiHistory(string actionName)
-            => AnnotationHistoryService.CaptureManualRoiList(
+        {
+            WpfAnnotationHistorySnapshot snapshot = AnnotationHistoryService.CaptureManualRoiList(
                 actionName,
                 context.ManualRois.ToList(),
                 context.ManualRoiClassNames.ToList(),
                 context.ManualRoiShapeKinds.ToList());
+            snapshot.NoObjectSelected = context.NoObjectSelectionProvider?.Invoke();
+            return snapshot;
+        }
 
         internal void RegisterAnnotationHistoryBeforeChange(string actionName, bool markDirty = true)
             => PushAnnotationHistorySnapshot(CaptureAnnotationHistory(actionName), markDirty);
@@ -102,6 +110,7 @@ namespace MvcVisionSystem
                 hasPendingMaskStrokeUndo,
                 context.GetPendingMaskStrokeUndoActionName?.Invoke());
             context.ApplyToolState(toolState);
+            context.ApplyRecentHistory?.Invoke(workflowService.GetRecentUndoActionNames());
         }
 
         internal bool UndoWpfAnnotationHistory()
@@ -145,9 +154,9 @@ namespace MvcVisionSystem
 
             RestoreAnnotationHistorySnapshot(transition.Target);
             string displayActionName = transition.DisplayActionName;
-            context.SetYoloCommandStatus?.Invoke($"다시 적용: {displayActionName}", false);
-            context.AppendLog?.Invoke($"다시 적용: {displayActionName}");
-            context.MarkAnnotationsDirty($"다시 적용 {displayActionName}");
+            context.SetYoloCommandStatus?.Invoke(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.AnnotationHistoryAdapter.RedoStatus"), displayActionName), false);
+            context.AppendLog?.Invoke(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.AnnotationHistoryAdapter.RedoStatus"), displayActionName));
+            context.MarkAnnotationsDirty(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.AnnotationHistoryAdapter.RedoReason"), displayActionName));
             RefreshAnnotationHistoryToolState();
             return true;
         }
@@ -191,6 +200,8 @@ namespace MvcVisionSystem
                 context.PopulateClassList?.Invoke();
                 context.UpdateDetectionResultOverlay?.Invoke();
                 context.RefreshActiveImageQueueStatus?.Invoke(context.PendingCandidates.Count > 0);
+                context.RefreshSmartMaskCommandState?.Invoke();
+                if (snapshot.NoObjectSelected.HasValue) context.RestoreNoObjectSelection?.Invoke(snapshot.NoObjectSelected.Value);
                 context.SetPythonStatus?.Invoke($"추론: 대기 {context.PendingCandidates.Count} / 확정 {context.ConfirmedCandidates.Count}");
             }
             finally
@@ -203,6 +214,8 @@ namespace MvcVisionSystem
     internal sealed class AnnotationHistoryAdapterContext
     {
         internal AnnotationHistoryWorkflowService AnnotationHistoryWorkflowService { get; init; }
+        internal Func<bool> NoObjectSelectionProvider { get; init; }
+        internal Action<bool> RestoreNoObjectSelection { get; init; }
         internal IList<Rectangle> ManualRois { get; init; }
         internal IList<string> ManualRoiClassNames { get; init; }
         internal IList<CanvasRoiShapeKind> ManualRoiShapeKinds { get; init; }
@@ -226,10 +239,12 @@ namespace MvcVisionSystem
         internal Action PopulateClassList { get; init; }
         internal Action UpdateDetectionResultOverlay { get; init; }
         internal Action<bool> RefreshActiveImageQueueStatus { get; init; }
+        internal Action RefreshSmartMaskCommandState { get; init; }
         internal Action<string> SetPythonStatus { get; init; }
         internal Action<string, bool> SetYoloCommandStatus { get; init; }
         internal Action<string> AppendLog { get; init; }
         internal Action<string> MarkAnnotationsDirty { get; init; }
         internal Action<AnnotationHistoryToolState> ApplyToolState { get; init; }
+        internal Action<IReadOnlyList<string>> ApplyRecentHistory { get; init; }
     }
 }

@@ -4,16 +4,15 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-                 Title="데이터셋 상태 분석"
-                 Width="1320"
-                 Height="820"
-                 MinWidth="980"
-                 MinHeight="650"
-                 Background="{DynamicResource AppBackgroundBrush}"
+                 xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+                 Title="{Binding LanguageViewModel[WpfDatasetHealth.Title]}"
+                 Background="{DynamicResource RecipePageBrush}"
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="None"
                  WindowCornerPreference="Round"
-                 WindowStartupLocation="CenterOwner">
+                 WindowStartupLocation="CenterOwner" FontFamily="{DynamicResource UiFontFamily}" FontSize="13">
+    <ui:FluentWindow.CommandBindings><CommandBinding Command="{x:Static SystemCommands.CloseWindowCommand}" Executed="OnCloseRequested" /></ui:FluentWindow.CommandBindings>
+    <ui:FluentWindow.InputBindings><KeyBinding Key="Escape" Command="{x:Static SystemCommands.CloseWindowCommand}" /></ui:FluentWindow.InputBindings>
     <ui:FluentWindow.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -39,80 +38,234 @@
             <SolidColorBrush x:Key="ProblemBrush" Color="#EF4444" />
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
 
-            <Style x:Key="DatasetHealthActionButtonStyle" TargetType="{x:Type ui:Button}">
-                <Setter Property="Template" Value="{StaticResource WpfUiDarkButtonTemplate}" />
-                <Setter Property="Height" Value="32" />
-                <Setter Property="Padding" Value="11,4" />
-                <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
-                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+            <Style x:Key="DatasetHealthSummaryCellStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" /><Setter Property="LineHeight" Value="17.4" /><Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+                <Setter Property="TextWrapping" Value="Wrap" /><Setter Property="VerticalAlignment" Value="Center" /><Setter Property="Margin" Value="8,0" />
+            </Style>
+            <Style x:Key="DatasetHealthSummaryHeaderStyle" TargetType="TextBlock" BasedOn="{StaticResource DatasetHealthSummaryCellStyle}">
+                <Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" /><Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
+            <Style x:Key="DatasetHealthActionButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource RecipeSecondaryButtonStyle}">
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" /><Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
+            <Style x:Key="DatasetHealthComboBoxStyle" TargetType="ComboBox" BasedOn="{StaticResource RecipeComboBoxStyle}">
+                <Setter Property="Height" Value="Auto" /><Setter Property="MinHeight" Value="38" /><Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Background" Value="{DynamicResource RecipePageBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonBorderBrush}" />
+                <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" /><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /></Trigger></Style.Triggers>
+            </Style>
+            <Style x:Key="DatasetHealthProblemsOnlyStyle" TargetType="CheckBox">
+                <Setter Property="FontSize" Value="13" /><Setter Property="MinHeight" Value="38" /><Setter Property="Cursor" Value="Hand" /><Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
+                    <Grid Background="Transparent"><Grid.ColumnDefinitions><ColumnDefinition Width="28" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Grid Width="28" Height="28"><Border x:Name="CheckChrome" Margin="4" CornerRadius="4" Background="{DynamicResource RecipePageBrush}" BorderBrush="{DynamicResource RecipeButtonBorderBrush}" BorderThickness="1" /><Path x:Name="CheckMark" Data="M 8,14 L 12,18 L 20,9" Stroke="{DynamicResource RecipeTextBrush}" StrokeThickness="2" Visibility="Collapsed" /></Grid>
+                        <ContentPresenter Grid.Column="1" ContentSource="Content" Margin="6,0" VerticalAlignment="Center" />
+                        <Border x:Name="CheckFocusCue" Grid.ColumnSpan="2" CornerRadius="7" BorderThickness="2" BorderBrush="Transparent" IsHitTestVisible="False" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}" /><Setter TargetName="CheckChrome" Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                        <Trigger Property="IsChecked" Value="True"><Setter TargetName="CheckMark" Property="Visibility" Value="Visible" /><Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource RecipePrimaryBrush}" /><Setter TargetName="CheckChrome" Property="BorderBrush" Value="{DynamicResource RecipeAccentBrush}" /></Trigger>
+                        <Trigger Property="IsPressed" Value="True"><Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource RecipeButtonPressedBrush}" /></Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="CheckFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /><Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource RecipeDisabledBrush}" /><Setter TargetName="CheckMark" Property="Stroke" Value="{DynamicResource RecipeDisabledTextBrush}" /><Setter Property="Cursor" Value="Arrow" /></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate></Setter.Value></Setter>
+            </Style>
+            <Style x:Key="DatasetHealthTabStyle" TargetType="{x:Type TabItem}">
+                <Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" /><Setter Property="Background" Value="{DynamicResource RecipeButtonBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonBorderBrush}" /><Setter Property="Padding" Value="14,9" />
+                <Setter Property="Margin" Value="0,0,5,6" /><Setter Property="FontSize" Value="13" /><Setter Property="MinHeight" Value="38" />
+                <Setter Property="Cursor" Value="Hand" /><Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value><ControlTemplate TargetType="{x:Type TabItem}">
+                        <Grid>
+                            <Border x:Name="TabChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="7">
+                                <ContentPresenter ContentSource="Header" Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" />
+                            </Border>
+                            <Border x:Name="TabFocusCue" CornerRadius="7" BorderThickness="2" BorderBrush="Transparent" IsHitTestVisible="False" />
+                        </Grid>
+                        <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="TabFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger></ControlTemplate.Triggers>
+                    </ControlTemplate></Setter.Value>
+                </Setter>
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                    <Trigger Property="IsSelected" Value="True"><Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" /><Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeSelectedBorderBrush}" /><Setter Property="FontWeight" Value="SemiBold" /></Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /><Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" /><Setter Property="Cursor" Value="Arrow" /></Trigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="DatasetHealthQaListItemStyle" TargetType="{x:Type ListBoxItem}">
+                <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+                <Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeBorderBrush}" />
                 <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="11" />
+                <Setter Property="Margin" Value="0,0,0,8" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value><ControlTemplate TargetType="{x:Type ListBoxItem}">
+                        <Grid>
+                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="7">
+                                <ContentPresenter HorizontalAlignment="Stretch" />
+                            </Border>
+                            <Border x:Name="QaFocusCue" BorderThickness="2" BorderBrush="Transparent" CornerRadius="7" IsHitTestVisible="False" />
+                        </Grid>
+                        <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="QaFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger></ControlTemplate.Triggers>
+                    </ControlTemplate></Setter.Value>
+                </Setter>
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeRowHoverBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                    <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeSelectedBorderBrush}" /></Trigger>
+                </Style.Triggers>
+            </Style>
+            <Style TargetType="{x:Type DataGrid}">
+                <Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeBorderBrush}" />
+                <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource RecipeBorderBrush}" />
+                <Setter Property="VerticalGridLinesBrush" Value="{DynamicResource RecipeBorderBrush}" />
+                <Setter Property="RowBackground" Value="{DynamicResource RecipeSurfaceBrush}" />
+                <Setter Property="AlternatingRowBackground" Value="{DynamicResource RecipePageBrush}" />
+                <Setter Property="HeadersVisibility" Value="Column" /><Setter Property="FontSize" Value="13" /><Setter Property="CanUserSortColumns" Value="False" />
+                <Setter Property="AutoGenerateColumns" Value="False" />
+                <Setter Property="CanUserAddRows" Value="False" />
+                <Setter Property="CanUserDeleteRows" Value="False" />
+                <Setter Property="CanUserReorderColumns" Value="False" />
+                <Setter Property="CanUserResizeRows" Value="False" />
+                <Setter Property="IsReadOnly" Value="True" />
+                <Setter Property="SelectionMode" Value="Single" />
+                <Setter Property="SelectionUnit" Value="FullRow" />
+                <Setter Property="RowHeaderWidth" Value="0" />
+                <Setter Property="GridLinesVisibility" Value="Horizontal" />
+                <Setter Property="MinColumnWidth" Value="80" />
+            </Style>
+
+            <Style TargetType="{x:Type DataGridColumnHeader}">
+                <Setter Property="ContentTemplate"><Setter.Value><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" /></DataTemplate></Setter.Value></Setter>
+                <Setter Property="MinHeight" Value="40" />
+                <Setter Property="Background" Value="{DynamicResource RecipeButtonBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeBorderBrush}" />
+                <Setter Property="BorderThickness" Value="0,0,1,1" />
+                <Setter Property="Padding" Value="8,7" />
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+                <Setter Property="FontSize" Value="13" />
                 <Setter Property="FontWeight" Value="SemiBold" />
             </Style>
 
-            <Style x:Key="DatasetHealthTabStyle" TargetType="{x:Type TabItem}">
-                <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
-                <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
-                <Setter Property="Padding" Value="15,7" />
-                <Setter Property="Margin" Value="0,0,4,0" />
-                <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="11" />
+            <Style TargetType="{x:Type DataGridCell}">
+                <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="8,5" />
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
                 <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                 <Style.Triggers>
                     <Trigger Property="IsSelected" Value="True">
-                        <Setter Property="Foreground" Value="#151515" />
-                        <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
-                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                        <Setter Property="FontWeight" Value="SemiBold" />
+                        <Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
                     </Trigger>
                 </Style.Triggers>
             </Style>
 
-            <Style TargetType="{x:Type DataGrid}">
-                <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
-                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
-                <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource GridLineBrush}" />
-                <Setter Property="VerticalGridLinesBrush" Value="{DynamicResource GridLineBrush}" />
-                <Setter Property="RowBackground" Value="{DynamicResource PanelBrush}" />
-                <Setter Property="AlternatingRowBackground" Value="{DynamicResource CanvasBrush}" />
-                <Setter Property="HeadersVisibility" Value="Column" />
-                <Setter Property="AutoGenerateColumns" Value="False" />
-                <Setter Property="CanUserAddRows" Value="False" />
-                <Setter Property="CanUserDeleteRows" Value="False" />
-                <Setter Property="CanUserResizeRows" Value="False" />
-                <Setter Property="CanUserSortColumns" Value="False" />
-                <Setter Property="SelectionMode" Value="Single" />
-                <Setter Property="SelectionUnit" Value="FullRow" />
-                <Setter Property="GridLinesVisibility" Value="Horizontal" />
-                <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="11" />
-                <Setter Property="RowHeight" Value="38" />
-                <Setter Property="IsReadOnly" Value="True" />
+            <Style TargetType="{x:Type DataGridRow}">
+                <Setter Property="MinHeight" Value="44" />
+                <Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource RecipeRowHoverBrush}" />
+                    </Trigger>
+                    <Trigger Property="IsSelected" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+                    </Trigger>
+                </Style.Triggers>
             </Style>
 
-            <Style TargetType="{x:Type DataGridColumnHeader}">
-                <Setter Property="Background" Value="{DynamicResource GridHeaderBrush}" />
-                <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource GridLineBrush}" />
-                <Setter Property="BorderThickness" Value="0,0,0,1" />
-                <Setter Property="Padding" Value="9,7" />
-                <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="10" />
-                <Setter Property="FontWeight" Value="SemiBold" />
+            <Style x:Key="DatasetHealthWrappedCellTextStyle" TargetType="{x:Type TextBlock}">
+                <Setter Property="TextWrapping" Value="Wrap" /><Setter Property="Margin" Value="8,7" />
+                <Setter Property="TextTrimming" Value="None" />
+                <Setter Property="VerticalAlignment" Value="Center" />
             </Style>
         </ResourceDictionary>
     </ui:FluentWindow.Resources>
 
-    <Grid Margin="20,18,20,20">
+    <Grid Background="{DynamicResource RecipeSurfaceBrush}">
+        <Border x:Name="DatasetHealthSummaryCard" Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeButtonBorderBrush}" BorderThickness="1" CornerRadius="12">
+            <Border.Style><Style TargetType="Border"><Style.Triggers><DataTrigger Binding="{Binding IsDetailsExpanded}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Border.Style>
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                <Grid Margin="20,16,20,10">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <TextBlock x:Name="DatasetHealthSummaryTitleText" Text="{Binding LanguageViewModel[WpfDatasetHealth.Summary.Title]}" LineHeight="21.75" LineStackingStrategy="BlockLineHeight" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource RecipeTextBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                    <ui:Button x:Name="DatasetHealthSummaryCloseButton" Grid.Column="1" Content="✕" Width="30" Height="30" MinHeight="30" Padding="4" Style="{StaticResource RecipeQuietButtonStyle}"
+                               Command="{x:Static SystemCommands.CloseWindowCommand}" shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                               AutomationProperties.Name="{Binding LanguageViewModel[WpfDatasetHealth.Action.Close]}" ToolTip="{Binding LanguageViewModel[WpfDatasetHealth.Action.Close]}" />
+                </Grid>
+                <Grid Grid.Row="1" Margin="20,6,20,16">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <Border x:Name="DatasetHealthSummaryHeaderSurface" Grid.Row="0" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,0,0,1" Padding="0,7">
+                        <Border.Style><Style TargetType="Border"><Style.Triggers>
+                            <DataTrigger Binding="{Binding ComputedVerticalScrollBarVisibility, ElementName=DatasetHealthSummarySurface}" Value="Visible"><Setter Property="Margin" Value="0,0,16,0" /></DataTrigger>
+                        </Style.Triggers></Style></Border.Style>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="55*" /><ColumnDefinition Width="40*" /><ColumnDefinition Width="40*" /><ColumnDefinition Width="40*" /><ColumnDefinition Width="52*" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding LanguageViewModel[WpfDatasetHealth.Label.Classes]}" Style="{StaticResource DatasetHealthSummaryHeaderStyle}" />
+                            <TextBlock x:Name="DatasetHealthSummaryCountHeader" Grid.Column="1">
+                                <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource DatasetHealthSummaryHeaderStyle}">
+                                    <Setter Property="Text" Value="{Binding LanguageViewModel[WpfDatasetHealth.Summary.Objects]}" />
+                                    <Style.Triggers><DataTrigger Binding="{Binding IsAnomalyDataset}" Value="True"><Setter Property="Text" Value="{Binding LanguageViewModel[WpfDatasetHealth.Label.Images]}" /></DataTrigger></Style.Triggers>
+                                </Style></TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Grid.Column="2" Text="{Binding LanguageViewModel[WpfDatasetHealth.Split.Train]}" TextAlignment="Right" Style="{StaticResource DatasetHealthSummaryHeaderStyle}" />
+                            <TextBlock Grid.Column="3" Text="{Binding LanguageViewModel[WpfDatasetHealth.Split.Valid]}" TextAlignment="Right" Style="{StaticResource DatasetHealthSummaryHeaderStyle}" />
+                            <TextBlock Grid.Column="4" Text="{Binding LanguageViewModel[WpfDatasetHealth.Summary.Test]}" TextAlignment="Right" Style="{StaticResource DatasetHealthSummaryHeaderStyle}" />
+                        </Grid>
+                    </Border>
+                    <ScrollViewer x:Name="DatasetHealthSummarySurface" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers>
+                                <DataTrigger Binding="{Binding ComputedVerticalScrollBarVisibility, ElementName=DatasetHealthSummarySurface}" Value="Visible"><Setter Property="Margin" Value="0,0,16,0" /></DataTrigger>
+                            </Style.Triggers></Style></StackPanel.Style>
+                            <ItemsControl x:Name="DatasetHealthSummaryClassRows" ItemsSource="{Binding SummaryClassRows}" AutomationProperties.Name="{Binding LanguageViewModel[WpfDatasetHealth.Summary.Title]}">
+                                <ItemsControl.ItemTemplate><DataTemplate>
+                                    <Border BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,0,0,1" Padding="0,7">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="55*" /><ColumnDefinition Width="40*" /><ColumnDefinition Width="40*" /><ColumnDefinition Width="40*" /><ColumnDefinition Width="52*" /></Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding DisplayClassName}" TextWrapping="Wrap" TextTrimming="None" Style="{StaticResource DatasetHealthSummaryCellStyle}" />
+                                            <TextBlock Grid.Column="1" Text="{Binding CountText}" Style="{StaticResource DatasetHealthSummaryCellStyle}" />
+                                            <TextBlock Grid.Column="2" Text="{Binding TrainCountText}" TextAlignment="Right" Style="{StaticResource DatasetHealthSummaryCellStyle}" />
+                                            <TextBlock Grid.Column="3" Text="{Binding ValidCountText}" TextAlignment="Right" Style="{StaticResource DatasetHealthSummaryCellStyle}" />
+                                            <TextBlock Grid.Column="4" Text="{Binding TestCountText}" TextAlignment="Right" Style="{StaticResource DatasetHealthSummaryCellStyle}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate></ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="{Binding LanguageViewModel[WpfDatasetHealth.Summary.UnavailableDetail]}" FontSize="12" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" Margin="0,12,0,0"
+                                       Visibility="{Binding HasUnavailableSummaryCounts, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        </StackPanel>
+                    </ScrollViewer>
+                    <TextBlock x:Name="DatasetHealthSummaryReadOnlyText" Grid.Row="2" Text="{Binding LanguageViewModel[WpfDatasetHealth.Summary.ReadOnly]}" FontSize="12" LineHeight="17.4" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" Margin="0,12,0,0" />
+                </Grid>
+                <Border Grid.Row="2" Background="{DynamicResource DatasetHeaderBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,1,0,0" Padding="20,12" CornerRadius="0,0,12,12">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <ui:Button x:Name="DatasetHealthSummaryDetailsToggleButton" HorizontalAlignment="Left" FontSize="12" Style="{StaticResource DatasetHealthActionButtonStyle}"
+                                   Command="{Binding ToggleDetailsCommand}" Content="{Binding DetailsToggleText}" AutomationProperties.Name="{Binding DetailsToggleText}" />
+                        <ui:Button x:Name="DatasetHealthCloseButton" Grid.Column="1" MinHeight="30" FontSize="13" Padding="10,5" Margin="8,0,0,0" IsDefault="True" Style="{StaticResource RecipePrimaryButtonStyle}"
+                                   Command="{x:Static SystemCommands.CloseWindowCommand}" Content="{Binding LanguageViewModel[WpfDatasetHealth.Action.Close]}" AutomationProperties.Name="{Binding LanguageViewModel[WpfDatasetHealth.Action.Close]}" />
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+    <DockPanel LastChildFill="True" Background="{DynamicResource RecipePageBrush}" Visibility="{Binding IsDetailsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+        <ui:TitleBar x:Name="DatasetHealthTitleBar" DockPanel.Dock="Top" Height="30" Title="{Binding LanguageViewModel[WpfDatasetHealth.Title]}" Background="{DynamicResource RecipePageBrush}" Foreground="{DynamicResource RecipeTextBrush}" ButtonsForeground="{DynamicResource RecipeTextBrush}" ButtonsBackground="{DynamicResource RecipeButtonHoverBrush}" />
+    <Grid Margin="24,16,24,20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0" Margin="0,0,0,12">
@@ -123,46 +276,46 @@
             </Grid.ColumnDefinitions>
             <Border Width="36"
                     Height="36"
-                    Background="{DynamicResource CanvasBrush}"
-                    BorderBrush="{DynamicResource BorderBrushDark}"
+                    Background="{DynamicResource RecipeSurfaceBrush}"
+                    BorderBrush="{DynamicResource RecipeBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="5"
+                    CornerRadius="7"
                     Margin="0,0,10,0">
                 <iconPacks:PackIconMaterial Kind="DatabaseCheckOutline"
                                             Width="20"
                                             Height="20"
-                                            Foreground="{DynamicResource AccentBrush}"
+                                            Foreground="{DynamicResource RecipeAccentBrush}"
                                             HorizontalAlignment="Center"
                                             VerticalAlignment="Center" />
             </Border>
             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                <StackPanel Orientation="Horizontal">
+                <WrapPanel>
                     <TextBlock x:Name="DatasetHealthTitleText"
-                               Text="데이터셋 상태 분석"
-                               Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="16"
-                               FontWeight="SemiBold" />
-                    <Border Background="{DynamicResource CanvasBrush}"
-                            BorderBrush="{DynamicResource BorderBrushDark}"
+                               Text="{Binding LanguageViewModel[WpfDatasetHealth.Title]}"
+                               Foreground="{DynamicResource RecipeTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="20"
+                               FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <Border Background="{DynamicResource RecipeSurfaceBrush}"
+                            BorderBrush="{DynamicResource RecipeBorderBrush}"
                             BorderThickness="1"
                             CornerRadius="3"
                             Padding="6,2"
                             Margin="9,1,0,0">
                         <TextBlock x:Name="DatasetHealthPurposeText"
                                    Text="{Binding PurposeText}"
-                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="9.5"
+                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="13"
                                    FontWeight="SemiBold" />
                     </Border>
-                </StackPanel>
+                </WrapPanel>
                 <TextBlock x:Name="DatasetHealthDatasetNameText"
                            Text="{Binding DatasetName}"
-                           Foreground="{DynamicResource SecondaryTextBrush}"
-                           FontFamily="Segoe UI"
-                           FontSize="10.5"
-                           TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                           FontFamily="{DynamicResource UiFontFamily}"
+                           FontSize="13"
+                           TextWrapping="Wrap"
                            ToolTip="{Binding OutputRootText}"
                            Margin="0,3,0,0" />
             </StackPanel>
@@ -170,27 +323,27 @@
                 <ui:Button x:Name="DatasetHealthRefreshButton"
                            Style="{StaticResource DatasetHealthActionButtonStyle}"
                            Command="{Binding RefreshCommand}"
-                           AutomationProperties.Name="데이터셋 상태 분석 새로고침"
-                           ToolTip="현재 Recipe 저장 데이터를 다시 읽습니다. 라벨이나 분할은 변경하지 않습니다.">
+                           AutomationProperties.Name="{Binding LanguageViewModel[WpfDatasetHealth.Refresh.Automation]}"
+                           ToolTip="{Binding LanguageViewModel[WpfDatasetHealth.Refresh.ToolTip]}">
                     <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconMaterial Kind="Refresh" Width="14" Height="14" Margin="0,0,5,0" />
-                        <TextBlock Text="새로고침" VerticalAlignment="Center" />
+                        <iconPacks:PackIconMaterial Kind="Refresh" Width="16" Height="16" Margin="0,0,8,0" />
+                        <TextBlock Text="{Binding LanguageViewModel[WpfDatasetHealth.Refresh.Name]}" VerticalAlignment="Center" />
                     </StackPanel>
                 </ui:Button>
                 <TextBlock Text="{Binding GeneratedAtText}"
-                           Foreground="{DynamicResource SecondaryTextBrush}"
-                           FontFamily="Segoe UI"
-                           FontSize="9"
+                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                           FontFamily="{DynamicResource UiFontFamily}"
+                           FontSize="13"
                            HorizontalAlignment="Right"
                            Margin="0,5,0,0" />
             </StackPanel>
         </Grid>
 
         <Border Grid.Row="1"
-                Background="{DynamicResource CanvasBrush}"
-                BorderBrush="{DynamicResource BorderBrushDark}"
+                Background="{DynamicResource RecipeSurfaceBrush}"
+                BorderBrush="{DynamicResource RecipeBorderBrush}"
                 BorderThickness="1"
-                CornerRadius="5"
+                CornerRadius="7"
                 Padding="12,10"
                 Margin="0,0,0,14">
             <Grid>
@@ -201,48 +354,55 @@
                 <iconPacks:PackIconMaterial Kind="ChartBoxOutline"
                                             Width="18"
                                             Height="18"
-                                            Foreground="{DynamicResource AccentBrush}"
+                                            Foreground="{DynamicResource RecipeAccentBrush}"
                                             VerticalAlignment="Top"
                                             Margin="0,1,10,0" />
                 <StackPanel Grid.Column="1">
                     <TextBlock x:Name="DatasetHealthStatusText"
                                Text="{Binding StatusText}"
-                               Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="12"
+                               Foreground="{DynamicResource RecipeTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                FontWeight="SemiBold" />
                     <TextBlock x:Name="DatasetHealthStatusDetailText"
                                Text="{Binding StatusDetailText}"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="10.5"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                TextWrapping="Wrap"
                                Margin="0,4,0,0" />
                     <TextBlock x:Name="DatasetHealthScopeText"
                                Text="{Binding DataScopeText}"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="9.5"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                TextWrapping="Wrap"
                                Margin="0,5,0,0"
-                               Opacity="0.88" />
+                               Opacity="0.88"
+                               Visibility="{Binding IsDetailsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 </StackPanel>
             </Grid>
         </Border>
 
+        <ui:Button x:Name="DatasetHealthDetailsToggleButton" Grid.Row="3" Margin="0,14,0,0" HorizontalAlignment="Right"
+                   Style="{StaticResource DatasetHealthActionButtonStyle}" Command="{Binding ToggleDetailsCommand}" Content="{Binding DetailsToggleText}"
+                   AutomationProperties.AutomationId="DatasetHealthDetailsToggleButton" AutomationProperties.Name="{Binding DetailsToggleText}" />
+
         <TabControl x:Name="DatasetHealthTabs"
                     Grid.Row="2"
+                    Visibility="{Binding IsDetailsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}"
                     Background="Transparent"
                     BorderThickness="0"
                     SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}"
                     ItemContainerStyle="{StaticResource DatasetHealthTabStyle}">
-            <TabItem x:Name="DatasetHealthOverviewTab" Header="개요">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <TabControl.Template><ControlTemplate TargetType="TabControl"><Grid KeyboardNavigation.TabNavigation="Local"><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions><TabPanel IsItemsHost="True" KeyboardNavigation.TabIndex="1" /><ContentPresenter x:Name="PART_SelectedContentHost" Grid.Row="1" ContentSource="SelectedContent" KeyboardNavigation.TabIndex="2" /></Grid></ControlTemplate></TabControl.Template>
+            <TabItem x:Name="DatasetHealthOverviewTab" Header="{Binding LanguageViewModel[WpfDatasetHealth.Tab.Overview]}">
+                <ScrollViewer x:Name="DatasetHealthOverviewSurface" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="0,12,0,0">
-                        <Border Background="{DynamicResource PanelBrush}"
-                                BorderBrush="{DynamicResource BorderBrushDark}"
+                        <Border Background="{DynamicResource RecipeSurfaceBrush}"
+                                BorderBrush="{DynamicResource RecipeBorderBrush}"
                                 BorderThickness="1"
-                                CornerRadius="5"
+                                CornerRadius="7"
                                 Padding="0"
                                 Margin="0,0,0,14">
                             <ItemsControl x:Name="DatasetHealthMetrics" ItemsSource="{Binding Metrics}">
@@ -253,18 +413,18 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border BorderBrush="{DynamicResource BorderBrushDark}"
+                                        <Border BorderBrush="{DynamicResource RecipeBorderBrush}"
                                                 BorderThickness="0,0,1,0"
                                                 Padding="14,13">
                                             <StackPanel>
                                                 <TextBlock Text="{Binding Title}"
-                                                           Foreground="{DynamicResource SecondaryTextBrush}"
-                                                           FontFamily="Segoe UI"
-                                                           FontSize="10"
+                                                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                           FontFamily="{DynamicResource UiFontFamily}"
+                                                           FontSize="13"
                                                            FontWeight="SemiBold" />
                                                 <TextBlock Text="{Binding Value}"
-                                                           Foreground="{DynamicResource PrimaryTextBrush}"
-                                                           FontFamily="Segoe UI"
+                                                           Foreground="{DynamicResource RecipeTextBrush}"
+                                                           FontFamily="{DynamicResource UiFontFamily}"
                                                            FontSize="22"
                                                            FontWeight="SemiBold"
                                                            TextTrimming="CharacterEllipsis"
@@ -273,16 +433,16 @@
                                                         <Style TargetType="TextBlock">
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding IsProblem}" Value="True">
-                                                                    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource RecipeAccentBrush}" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
                                                     </TextBlock.Style>
                                                 </TextBlock>
                                                 <TextBlock Text="{Binding Detail}"
-                                                           Foreground="{DynamicResource SecondaryTextBrush}"
-                                                           FontFamily="Segoe UI"
-                                                           FontSize="9.5"
+                                                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                           FontFamily="{DynamicResource UiFontFamily}"
+                                                           FontSize="13"
                                                            TextWrapping="Wrap"
                                                            Margin="0,5,0,0" />
                                             </StackPanel>
@@ -297,10 +457,10 @@
                                 <ColumnDefinition Width="1.45*" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Border Background="{DynamicResource PanelBrush}"
-                                    BorderBrush="{DynamicResource BorderBrushDark}"
+                            <Border Background="{DynamicResource RecipeSurfaceBrush}"
+                                    BorderBrush="{DynamicResource RecipeBorderBrush}"
                                     BorderThickness="1"
-                                    CornerRadius="5"
+                                    CornerRadius="7"
                                     Padding="14"
                                     Margin="0,0,12,0">
                                 <Grid>
@@ -308,10 +468,10 @@
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="*" />
                                     </Grid.RowDefinitions>
-                                    <TextBlock Text="확인 항목"
-                                               Foreground="{DynamicResource PrimaryTextBrush}"
-                                               FontFamily="Segoe UI"
-                                               FontSize="12"
+                                    <TextBlock Text="{Binding LanguageViewModel[WpfDatasetHealth.Label.CheckItems]}"
+                                               Foreground="{DynamicResource RecipeTextBrush}"
+                                               FontFamily="{DynamicResource UiFontFamily}"
+                                               FontSize="13"
                                                FontWeight="SemiBold" />
                                     <Grid Grid.Row="1" Margin="0,10,0,0">
                                         <ItemsControl x:Name="DatasetHealthIssueItems"
@@ -334,7 +494,7 @@
                                                                 <Style TargetType="iconPacks:PackIconMaterial">
                                                                     <Style.Triggers>
                                                                         <DataTrigger Binding="{Binding IsBlocking}" Value="True">
-                                                                            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                                                            <Setter Property="Foreground" Value="{DynamicResource RecipeAccentBrush}" />
                                                                         </DataTrigger>
                                                                     </Style.Triggers>
                                                                 </Style>
@@ -342,9 +502,9 @@
                                                         </iconPacks:PackIconMaterial>
                                                         <TextBlock Grid.Column="1"
                                                                    Text="{Binding Text}"
-                                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                                   FontFamily="Segoe UI"
-                                                                   FontSize="10.5"
+                                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                                   FontSize="13"
                                                                    TextWrapping="Wrap" />
                                                     </Grid>
                                                 </DataTemplate>
@@ -352,8 +512,8 @@
                                         </ItemsControl>
                                         <TextBlock Text="저장된 데이터에서 추가 확인이 필요한 구조적 문제는 없습니다."
                                                    Foreground="{DynamicResource SuccessBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="10.5"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
                                                    TextWrapping="Wrap">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
@@ -370,28 +530,28 @@
                                 </Grid>
                             </Border>
                             <Border Grid.Column="1"
-                                    Background="{DynamicResource CanvasBrush}"
-                                    BorderBrush="{DynamicResource BorderBrushDark}"
+                                    Background="{DynamicResource RecipeSurfaceBrush}"
+                                    BorderBrush="{DynamicResource RecipeBorderBrush}"
                                     BorderThickness="1"
-                                    CornerRadius="5"
+                                    CornerRadius="7"
                                     Padding="14">
                                 <StackPanel>
-                                    <TextBlock Text="모델 채택 근거"
-                                               Foreground="{DynamicResource PrimaryTextBrush}"
-                                               FontFamily="Segoe UI"
-                                               FontSize="12"
+                                    <TextBlock Text="{Binding LanguageViewModel[WpfDatasetHealth.Label.ModelEvidence]}"
+                                               Foreground="{DynamicResource RecipeTextBrush}"
+                                               FontFamily="{DynamicResource UiFontFamily}"
+                                               FontSize="13"
                                                FontWeight="SemiBold" />
                                     <TextBlock x:Name="DatasetHealthEvidenceBoundaryText"
                                                Text="{Binding EvidenceBoundaryText}"
-                                               Foreground="{DynamicResource SecondaryTextBrush}"
-                                               FontFamily="Segoe UI"
-                                               FontSize="10.5"
+                                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                               FontFamily="{DynamicResource UiFontFamily}"
+                                               FontSize="13"
                                                TextWrapping="Wrap"
                                                Margin="0,8,0,0" />
-                                    <TextBlock Text="이 화면의 점검 결과가 정상이어도 모델 정확도·TaktTime·현장 대표성을 대신하지 않습니다."
-                                               Foreground="{DynamicResource SecondaryTextBrush}"
-                                               FontFamily="Segoe UI"
-                                               FontSize="9.5"
+                                    <TextBlock Text="{Binding LanguageViewModel[WpfDatasetHealth.Label.EvidenceWarning]}"
+                                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                               FontFamily="{DynamicResource UiFontFamily}"
+                                               FontSize="13"
                                                TextWrapping="Wrap"
                                                Margin="0,12,0,0" />
                                 </StackPanel>
@@ -401,16 +561,16 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem x:Name="DatasetHealthSplitTab" Header="분할 / 라벨">
-                <Grid Margin="0,12,0,0">
+            <TabItem x:Name="DatasetHealthSplitTab" Header="{Binding LanguageViewModel[WpfDatasetHealth.Tab.SplitLabels]}">
+                <Grid x:Name="DatasetHealthSplitSurface" Margin="0,12,0,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
                     <TextBlock Text="분할별 저장 상태"
-                               Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="12"
+                               Foreground="{DynamicResource RecipeTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                FontWeight="SemiBold" />
                     <DataGrid x:Name="DatasetHealthSplitGrid"
                               Grid.Row="1"
@@ -418,39 +578,39 @@
                               Visibility="{Binding IsYoloDataset, Converter={StaticResource BooleanToVisibilityConverter}}"
                               Margin="0,10,0,0">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="분할" Binding="{Binding SplitText}" Width="130" />
-                            <DataGridTextColumn Header="이미지" Binding="{Binding ImageCount}" Width="90" />
-                            <DataGridTextColumn Header="주 라벨" Binding="{Binding PrimaryAnnotationText}" Width="180" />
-                            <DataGridTextColumn Header="상태" Binding="{Binding CoverageText}" Width="230" />
-                            <DataGridTextColumn Header="세부" Binding="{Binding DetailText}" Width="*" />
+                            <DataGridTextColumn Header="분할" Binding="{Binding SplitText}" Width="130" ElementStyle="{StaticResource DatasetHealthWrappedCellTextStyle}" />
+                            <DataGridTextColumn Header="이미지" Binding="{Binding ImageCount}" Width="90" ElementStyle="{StaticResource DatasetHealthWrappedCellTextStyle}" />
+                            <DataGridTextColumn Header="객체" Binding="{Binding PrimaryAnnotationText}" Width="180" ElementStyle="{StaticResource DatasetHealthWrappedCellTextStyle}" />
+                            <DataGridTextColumn Header="상태" Binding="{Binding CoverageText}" Width="230" ElementStyle="{StaticResource DatasetHealthWrappedCellTextStyle}" />
+                            <DataGridTextColumn Header="세부" Binding="{Binding DetailText}" Width="*" ElementStyle="{StaticResource DatasetHealthWrappedCellTextStyle}" />
                         </DataGrid.Columns>
                     </DataGrid>
                     <Border x:Name="DatasetHealthAnomalyDetailsPanel"
                             Grid.Row="1"
-                            Background="{DynamicResource PanelBrush}"
-                            BorderBrush="{DynamicResource BorderBrushDark}"
+                            Background="{DynamicResource RecipeSurfaceBrush}"
+                            BorderBrush="{DynamicResource RecipeBorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="5"
+                            CornerRadius="7"
                             Padding="16"
                             Margin="0,10,0,0"
                             Visibility="{Binding IsAnomalyDataset, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <StackPanel>
-                            <TextBlock Text="정상 / 이상 검토와 학습 분할"
-                                       Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="12"
+                            <TextBlock Text="{Binding LanguageViewModel[WpfDatasetHealth.Label.AnomalyReview]}"
+                                       Foreground="{DynamicResource RecipeTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
                                        FontWeight="SemiBold" />
                             <TextBlock x:Name="DatasetHealthAnomalyDetailText"
                                        Text="{Binding AnomalyDetailText}"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10.5"
+                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
                                        TextWrapping="Wrap"
                                        Margin="0,8,0,0" />
-                            <TextBlock Text="분류용 데이터 내보내기는 학습 시작 시점에 수행되며, 이 창은 원본 이미지의 검토 상태를 기준으로 표시합니다."
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="9.5"
+                            <TextBlock Text="{Binding LanguageViewModel[WpfDatasetHealth.Label.TrainingExportNote]}"
+                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
                                        TextWrapping="Wrap"
                                        Margin="0,10,0,0" />
                         </StackPanel>
@@ -458,98 +618,128 @@
                 </Grid>
             </TabItem>
 
-            <TabItem x:Name="DatasetHealthVisualQaTab" Header="시각 QA">
-                <Grid Margin="0,12,0,0">
+            <TabItem x:Name="DatasetHealthVisualQaTab" Header="{Binding LanguageViewModel[WpfDatasetHealth.Tab.VisualQa]}">
+                <Grid x:Name="DatasetHealthVisualQaSurface" Margin="0,12,0,0">
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
                     <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock Text="이미지별 저장 라벨 확인"
-                                       Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="12"
-                                       FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding LanguageViewModel[WpfDatasetHealth.Label.VisualQaImages]}"
+                                       Foreground="{DynamicResource RecipeTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold" TextWrapping="Wrap" />
                             <TextBlock x:Name="DatasetHealthVisualQaStatusText"
                                        Text="{Binding VisualQaStatusText}"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="9.5"
-                                       Margin="0,4,0,0" />
+                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
+                                       TextWrapping="Wrap"
+                                       Margin="0,4,12,0" />
                         </StackPanel>
-                        <StackPanel Grid.Column="1"
-                                    Orientation="Horizontal"
-                                    VerticalAlignment="Center">
-                            <TextBlock Text="클래스"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10.5"
+                    </Grid>
+                    <WrapPanel Grid.Row="1" Margin="0,12,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding LanguageViewModel[WpfDatasetHealth.Label.Classes]}"
+                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
                                        FontWeight="SemiBold"
                                        Margin="0,0,6,0"
                                        VerticalAlignment="Center" />
                             <ComboBox x:Name="DatasetHealthVisualQaClassFilter"
-                                      Width="126"
-                                      Height="28"
+                                      Width="300"
+                                      Style="{StaticResource DatasetHealthComboBoxStyle}"
                                       ItemsSource="{Binding VisualQaClassFilters}"
                                       SelectedItem="{Binding SelectedVisualQaClassFilter, Mode=TwoWay}"
-                                      DisplayMemberPath="Text"
                                       IsEnabled="{Binding IsVisualQaClassFilterEnabled}"
-                                      Foreground="{DynamicResource PrimaryTextBrush}"
-                                      Background="{DynamicResource ToolbarButtonBrush}"
-                                      BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
-                                      FontFamily="Segoe UI"
-                                      FontSize="10.5"
+                                      Foreground="{DynamicResource RecipeTextBrush}"
+                                      Background="{DynamicResource RecipeButtonBrush}"
+                                      BorderBrush="{DynamicResource RecipeButtonBorderBrush}"
+                                      FontFamily="{DynamicResource UiFontFamily}"
+                                      FontSize="13"
                                       AutomationProperties.AutomationId="DatasetHealthVisualQaClassFilter"
-                                      AutomationProperties.Name="시각 QA 클래스 필터"
-                                      ToolTip="현재 Recipe의 실제 클래스 중 하나를 선택해 해당 저장 객체가 있는 이미지만 읽기 전용으로 다시 읽습니다." />
-                            <TextBlock Text="분할"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10.5"
+                                      AutomationProperties.Name="{Binding LanguageViewModel[WpfDatasetHealth.Filter.ClassAutomation]}"
+                                      ToolTip="{Binding LanguageViewModel[WpfDatasetHealth.Filter.ClassToolTip]}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock MaxWidth="254" TextWrapping="Wrap">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="{Binding Text}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding ClassIndex}" Value="{x:Null}">
+                                                            <Setter Property="Text" Value="{Binding DataContext.LanguageViewModel[WpfDatasetHealth.VisualQa.AllClasses], ElementName=DatasetHealthWindow}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Text="{Binding LanguageViewModel[WpfDatasetHealth.Label.Split]}"
+                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
                                        FontWeight="SemiBold"
                                        Margin="14,0,6,0"
                                        VerticalAlignment="Center" />
                             <ComboBox x:Name="DatasetHealthVisualQaSplitFilter"
-                                      Width="104"
-                                      Height="28"
+                                      Width="140"
+                                      Style="{StaticResource DatasetHealthComboBoxStyle}"
                                       ItemsSource="{Binding VisualQaSplitFilters}"
                                       SelectedItem="{Binding SelectedVisualQaSplitFilter, Mode=TwoWay}"
                                       IsEnabled="{Binding IsVisualQaSplitFilterEnabled}"
-                                      Foreground="{DynamicResource PrimaryTextBrush}"
-                                      Background="{DynamicResource ToolbarButtonBrush}"
-                                      BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
-                                      FontFamily="Segoe UI"
-                                      FontSize="10.5"
+                                      Foreground="{DynamicResource RecipeTextBrush}"
+                                      Background="{DynamicResource RecipeButtonBrush}"
+                                      BorderBrush="{DynamicResource RecipeButtonBorderBrush}"
+                                      FontFamily="{DynamicResource UiFontFamily}"
+                                      FontSize="13"
                                       AutomationProperties.AutomationId="DatasetHealthVisualQaSplitFilter"
-                                      AutomationProperties.Name="시각 QA 데이터 분할 필터"
-                                      ToolTip="현재 목록에 실제로 있는 train, valid, test 분할로 읽기 전용 검토 범위를 좁힙니다." />
+                                      AutomationProperties.Name="{Binding LanguageViewModel[WpfDatasetHealth.Filter.SplitAutomation]}"
+                                      ToolTip="{Binding LanguageViewModel[WpfDatasetHealth.Filter.SplitToolTip]}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock TextWrapping="Wrap">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="{Binding}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding}" Value="전체">
+                                                            <Setter Property="Text" Value="{Binding DataContext.LanguageViewModel[WpfDatasetHealth.VisualQa.AllSplits], ElementName=DatasetHealthWindow}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
                             <CheckBox x:Name="DatasetHealthVisualQaProblemsOnlyCheckBox"
-                                      Content="문제만"
+                                      Style="{StaticResource DatasetHealthProblemsOnlyStyle}"
+                                      Content="{Binding LanguageViewModel[WpfDatasetHealth.Label.ProblemOnly]}"
                                       IsChecked="{Binding ShowOnlyVisualQaProblems}"
-                                      Foreground="{DynamicResource SecondaryTextBrush}"
-                                      FontFamily="Segoe UI"
-                                      FontSize="10.5"
+                                      Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                      FontFamily="{DynamicResource UiFontFamily}"
+                                      FontSize="13"
                                       Margin="14,0,0,0"
                                       VerticalAlignment="Center"
-                                      AutomationProperties.Name="문제 이미지만 표시"
-                                      ToolTip="선택한 분할 안에서 라벨 누락, 손상 또는 미검토 이미지로 목록을 좁힙니다." />
-                        </StackPanel>
-                    </Grid>
+                                      AutomationProperties.Name="{Binding LanguageViewModel[WpfDatasetHealth.Label.ProblemImagesOnly]}"
+                                      ToolTip="{Binding LanguageViewModel[WpfDatasetHealth.Filter.ProblemToolTip]}" />
+                    </WrapPanel>
 
-                    <Grid Grid.Row="1" Margin="0,10,0,0">
+                    <Grid Grid.Row="2" Margin="0,12,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="340" MinWidth="280" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Border Background="{DynamicResource PanelBrush}"
-                                BorderBrush="{DynamicResource BorderBrushDark}"
+                        <Border Background="{DynamicResource RecipeSurfaceBrush}"
+                                BorderBrush="{DynamicResource RecipeBorderBrush}"
                                 BorderThickness="1"
-                                CornerRadius="5"
+                                CornerRadius="7"
                                 Padding="6"
                                 Margin="0,0,12,0">
                             <ListBox x:Name="DatasetHealthVisualQaList"
@@ -557,28 +747,14 @@
                                      SelectedItem="{Binding SelectedVisualQaItem}"
                                      Background="Transparent"
                                      BorderThickness="0"
-                                     Foreground="{DynamicResource PrimaryTextBrush}"
+                                     Foreground="{DynamicResource RecipeTextBrush}"
+                                     ItemContainerStyle="{StaticResource DatasetHealthQaListItemStyle}"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                                <ListBox.ItemContainerStyle>
-                                    <Style TargetType="{x:Type ListBoxItem}">
-                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                        <Setter Property="Padding" Value="0" />
-                                        <Setter Property="Margin" Value="0,0,0,4" />
-                                        <Setter Property="Background" Value="Transparent" />
-                                        <Setter Property="BorderThickness" Value="0" />
-                                        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-                                        <Style.Triggers>
-                                            <Trigger Property="IsSelected" Value="True">
-                                                <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
-                                            </Trigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </ListBox.ItemContainerStyle>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
                                         <Border Padding="9,8"
                                                 Background="Transparent"
-                                                BorderBrush="{DynamicResource GridLineBrush}"
+                                                BorderBrush="{DynamicResource RecipeBorderBrush}"
                                                 BorderThickness="0,0,0,1">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
@@ -602,24 +778,24 @@
                                                 </Ellipse>
                                                 <StackPanel Grid.Column="1">
                                                     <TextBlock Text="{Binding ImageName}"
-                                                               Foreground="{DynamicResource PrimaryTextBrush}"
-                                                               FontFamily="Segoe UI"
-                                                               FontSize="10.5"
+                                                               Foreground="{DynamicResource RecipeTextBrush}"
+                                                               FontFamily="{DynamicResource UiFontFamily}"
+                                                               FontSize="13"
                                                                FontWeight="SemiBold"
-                                                               TextTrimming="CharacterEllipsis"
+                                                               TextWrapping="Wrap"
                                                                ToolTip="{Binding ImagePath}" />
-                                                    <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                                    <WrapPanel Margin="0,5,0,0">
                                                         <TextBlock Text="{Binding DisplaySplitText}"
-                                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                                   FontFamily="Segoe UI"
-                                                                   FontSize="9.5" />
+                                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                                   FontSize="13" />
                                                         <TextBlock Text=" · "
-                                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                                   FontFamily="Segoe UI"
-                                                                   FontSize="9.5" />
+                                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                                   FontSize="13" />
                                                         <TextBlock Text="{Binding StatusText}"
-                                                                   FontFamily="Segoe UI"
-                                                                   FontSize="9.5">
+                                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                                   FontSize="13">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="{x:Type TextBlock}">
                                                                     <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
@@ -632,20 +808,19 @@
                                                             </TextBlock.Style>
                                                         </TextBlock>
                                                         <TextBlock Text=" · "
-                                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                                   FontFamily="Segoe UI"
-                                                                   FontSize="9.5" />
+                                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                                   FontSize="13" />
                                                         <TextBlock Text="{Binding ObjectCountText}"
-                                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                                   FontFamily="Segoe UI"
-                                                                   FontSize="9.5" />
-                                                    </StackPanel>
+                                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                                   FontSize="13" />
+                                                    </WrapPanel>
                                                     <TextBlock Text="{Binding DetailText}"
-                                                               Foreground="{DynamicResource SecondaryTextBrush}"
-                                                               FontFamily="Segoe UI"
-                                                               FontSize="9"
+                                                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                               FontFamily="{DynamicResource UiFontFamily}"
+                                                               FontSize="13"
                                                                TextWrapping="Wrap"
-                                                               MaxHeight="31"
                                                                Margin="0,3,0,0" />
                                                 </StackPanel>
                                             </Grid>
@@ -656,10 +831,10 @@
                         </Border>
 
                         <Border Grid.Column="1"
-                                Background="{DynamicResource CanvasBrush}"
-                                BorderBrush="{DynamicResource BorderBrushDark}"
+                                Background="{DynamicResource RecipeSurfaceBrush}"
+                                BorderBrush="{DynamicResource RecipeBorderBrush}"
                                 BorderThickness="1"
-                                CornerRadius="5"
+                                CornerRadius="7"
                                 Padding="12">
                             <Grid>
                                 <Grid x:Name="DatasetHealthVisualQaPreviewPanel"
@@ -669,7 +844,7 @@
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
                                     <Border Background="#090D12"
-                                            BorderBrush="{DynamicResource GridLineBrush}"
+                                            BorderBrush="{DynamicResource RecipeBorderBrush}"
                                             BorderThickness="1"
                                             CornerRadius="3"
                                             Padding="6">
@@ -677,43 +852,40 @@
                                                Source="{Binding SelectedVisualQaItem.PreviewSource}"
                                                Stretch="Uniform"
                                                SnapsToDevicePixels="True"
-                                               AutomationProperties.Name="선택 이미지와 저장 라벨 오버레이 미리보기" />
+                                               AutomationProperties.Name="{Binding LanguageViewModel[WpfDatasetHealth.Label.VisualQaPreview]}" />
                                     </Border>
                                     <Grid Grid.Row="1" Margin="0,10,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                                         <StackPanel>
                                             <TextBlock Text="{Binding SelectedVisualQaItem.ImageName}"
-                                                       Foreground="{DynamicResource PrimaryTextBrush}"
-                                                       FontFamily="Segoe UI"
-                                                       FontSize="11.5"
+                                                       Foreground="{DynamicResource RecipeTextBrush}"
+                                                       FontFamily="{DynamicResource UiFontFamily}"
+                                                       FontSize="13"
                                                        FontWeight="SemiBold"
-                                                       TextTrimming="CharacterEllipsis" />
+                                                       TextWrapping="Wrap" />
                                             <TextBlock Text="{Binding SelectedVisualQaItem.DetailText}"
-                                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                                       FontFamily="Segoe UI"
-                                                       FontSize="9.5"
+                                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                       FontFamily="{DynamicResource UiFontFamily}"
+                                                       FontSize="13"
                                                        TextWrapping="Wrap"
                                                        Margin="0,4,0,0" />
-                                            <TextBlock Text="읽기 전용 · 수정은 기존 라벨링 편집기에서 수행합니다."
-                                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                                       FontFamily="Segoe UI"
-                                                       FontSize="9"
+                                            <TextBlock Text="{Binding LanguageViewModel[WpfDatasetHealth.Label.ReadOnly]}"
+                                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                       FontFamily="{DynamicResource UiFontFamily}"
+                                                       FontSize="13" TextWrapping="Wrap"
                                                        Margin="0,4,0,0" />
                                         </StackPanel>
                                         <ui:Button x:Name="DatasetHealthOpenInEditorButton"
-                                                   Grid.Column="1"
+                                                   Grid.Row="1" HorizontalAlignment="Right"
                                                    Style="{StaticResource DatasetHealthActionButtonStyle}"
                                                    Command="{Binding OpenSelectedVisualQaImageCommand}"
-                                                   Margin="12,0,0,0"
+                                                   Margin="0,10,0,0"
                                                    VerticalAlignment="Center"
-                                                   AutomationProperties.Name="선택 이미지를 기존 라벨링 편집기에서 열기"
-                                                   ToolTip="Dataset Health를 닫고 선택 이미지를 기존 라벨링 작업 화면에서 엽니다.">
+                                                   AutomationProperties.Name="{Binding LanguageViewModel[WpfDatasetHealth.Label.OpenInEditorAutomation]}"
+                                                   ToolTip="{Binding LanguageViewModel[WpfDatasetHealth.Label.OpenInEditorToolTip]}">
                                             <StackPanel Orientation="Horizontal">
-                                                <iconPacks:PackIconMaterial Kind="OpenInNew" Width="14" Height="14" Margin="0,0,5,0" />
-                                                <TextBlock Text="편집기에서 열기" VerticalAlignment="Center" />
+                                                <iconPacks:PackIconMaterial Kind="OpenInNew" Width="16" Height="16" Margin="0,0,8,0" />
+                                                <TextBlock Text="{Binding LanguageViewModel[WpfDatasetHealth.Label.OpenInEditor]}" VerticalAlignment="Center" />
                                             </StackPanel>
                                         </ui:Button>
                                     </Grid>
@@ -733,12 +905,12 @@
                                     <iconPacks:PackIconMaterial Kind="ImageSearchOutline"
                                                                 Width="30"
                                                                 Height="30"
-                                                                Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                Foreground="{DynamicResource RecipeMutedTextBrush}"
                                                                 HorizontalAlignment="Center" />
-                                    <TextBlock Text="표시할 저장 이미지가 없습니다."
-                                               Foreground="{DynamicResource SecondaryTextBrush}"
-                                               FontFamily="Segoe UI"
-                                               FontSize="10.5"
+                                    <TextBlock Text="{Binding LanguageViewModel[WpfDatasetHealth.Label.NoSavedImages]}"
+                                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                               FontFamily="{DynamicResource UiFontFamily}"
+                                               FontSize="13" TextWrapping="Wrap" MaxWidth="360" TextAlignment="Center"
                                                Margin="0,8,0,0" />
                                 </StackPanel>
                             </Grid>
@@ -747,24 +919,24 @@
                 </Grid>
             </TabItem>
 
-            <TabItem x:Name="DatasetHealthClassesTab" Header="클래스 분포">
-                <Grid Margin="0,12,0,0">
+            <TabItem x:Name="DatasetHealthClassesTab" Header="{Binding LanguageViewModel[WpfDatasetHealth.Tab.Classes]}">
+                <Grid x:Name="DatasetHealthClassesSurface" Margin="0,12,0,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <TextBlock Text="주 라벨 기준 클래스 분포"
-                               Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="12"
+                    <TextBlock Text="{Binding ClassDistributionTitleText}"
+                               Foreground="{DynamicResource RecipeTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                FontWeight="SemiBold" />
                     <DataGrid x:Name="DatasetHealthClassGrid"
                               Grid.Row="1"
                               ItemsSource="{Binding ClassRows}"
                               Margin="0,10,0,0">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="클래스" Binding="{Binding ClassName}" Width="2*" />
-                            <DataGridTextColumn Header="주 라벨 수" Binding="{Binding Count}" Width="120" />
+                            <DataGridTextColumn Header="클래스" Binding="{Binding DisplayClassName}" Width="2*" ElementStyle="{StaticResource DatasetHealthWrappedCellTextStyle}" />
+                            <DataGridTextColumn x:Name="DatasetHealthClassCountColumn" Binding="{Binding Count}" Width="120" ElementStyle="{StaticResource DatasetHealthWrappedCellTextStyle}" />
                             <DataGridTemplateColumn Header="비율" Width="2*">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
@@ -773,28 +945,30 @@
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="48" />
                                             </Grid.ColumnDefinitions>
-                                            <ProgressBar Value="{Binding SharePercent}"
+                                            <ProgressBar Value="{Binding SharePercent, Mode=OneWay}"
                                                          Minimum="0"
                                                          Maximum="100"
                                                          Height="8"
                                                          VerticalAlignment="Center"
                                                          Foreground="{DynamicResource SuccessBrush}"
-                                                         Background="{DynamicResource CanvasBrush}" />
+                                                         Background="{DynamicResource RecipeSurfaceBrush}" />
                                             <TextBlock Grid.Column="1"
                                                        Text="{Binding ShareText}"
-                                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                                       FontSize="10"
+                                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                       FontSize="13"
                                                        TextAlignment="Right"
                                                        VerticalAlignment="Center" />
                                         </Grid>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="판정" Binding="{Binding StatusText}" Width="140" />
+                            <DataGridTextColumn Header="판정" Binding="{Binding StatusText}" Width="140" ElementStyle="{StaticResource DatasetHealthWrappedCellTextStyle}" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>
             </TabItem>
         </TabControl>
+    </Grid>
+    </DockPanel>
     </Grid>
 </ui:FluentWindow>

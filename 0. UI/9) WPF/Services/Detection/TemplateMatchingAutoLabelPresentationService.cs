@@ -69,8 +69,8 @@ namespace MvcVisionSystem
 
         public string BuildGuideBody(string message)
         {
-            string safeMessage = NormalizeMessage(message, "템플릿 작업을 계속하려면 기준 이미지와 기준 라벨을 먼저 준비하세요.");
-            return $"{safeMessage}{Environment.NewLine}{Environment.NewLine}사용 순서:{Environment.NewLine}1. 기준 이미지에서 찾고 싶은 모양을 라벨 박스로 저장합니다.{Environment.NewLine}2. 객체 검토 목록에서 그 라벨 박스 1개를 선택합니다.{Environment.NewLine}3. 도구 > 현재 이미지 라벨 초안 생성으로 기준 템플릿을 등록합니다.{Environment.NewLine}4. 다른 이미지를 열고 현재 이미지 라벨 초안 생성 또는 전체 이미지 자동 저장을 실행합니다.{Environment.NewLine}5. 현재 이미지에 생성된 라벨 초안은 위치를 확인한 뒤 라벨 저장을 누릅니다.{Environment.NewLine}6. 전체 이미지 자동 저장은 라벨 없는 이미지에 바로 저장됩니다.";
+            string safeMessage = NormalizeMessage(message, OpenVisionLab.OpenVisionLanguageService.T("WpfTemplate.Guide.Prepare"));
+            return string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfTemplate.Guide.Body"), safeMessage, Environment.NewLine, Environment.NewLine, Environment.NewLine, Environment.NewLine, Environment.NewLine, Environment.NewLine, Environment.NewLine, Environment.NewLine);
         }
 
         private static string NormalizeMessage(string message, string fallback)

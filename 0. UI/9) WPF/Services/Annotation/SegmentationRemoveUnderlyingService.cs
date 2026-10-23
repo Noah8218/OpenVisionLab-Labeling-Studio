@@ -16,7 +16,17 @@ namespace MvcVisionSystem
             Size imageSize,
             out WpfSegmentationRemoveUnderlyingPlan plan,
             out string error)
+            => TryAnalyzeWithFailureObjectNumber(segments, selectedIndex, imageSize, out plan, out error, out _);
+
+        internal bool TryAnalyzeWithFailureObjectNumber(
+            IReadOnlyList<LabelingSegmentationObject> segments,
+            int selectedIndex,
+            Size imageSize,
+            out WpfSegmentationRemoveUnderlyingPlan plan,
+            out string error,
+            out int? failureObjectNumber)
         {
+            failureObjectNumber = null;
             plan = null;
             error = string.Empty;
             if (segments == null
@@ -27,7 +37,7 @@ namespace MvcVisionSystem
                 || imageSize.Width <= 0
                 || imageSize.Height <= 0)
             {
-                error = "\uB4A4\uCABD \uAC1D\uCCB4\uC640 \uACB9\uCE68\uC744 \uBD84\uC11D\uD560 \uC138\uADF8\uBA3C\uD2B8\uB97C \uD558\uB098 \uC120\uD0DD\uD558\uC138\uC694.";
+                error = "뒤쪽 객체와 겹침을 분석할 세그먼트를 하나 선택하세요.";
                 return false;
             }
 
@@ -42,8 +52,9 @@ namespace MvcVisionSystem
                         out byte[] mask,
                         out Rectangle bounds))
                 {
+                    failureObjectNumber = index + 1;
                     error = FormattableString.Invariant(
-                        $"\uC138\uADF8\uBA3C\uD2B8 {index + 1}\uC758 \uC720\uD6A8\uD55C \uD3F4\uB9AC\uACE4/\uB9C8\uC2A4\uD06C geometry\uB97C \uC77D\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+                        $"세그먼트 {index + 1}의 폴리곤·마스크 정보를 읽을 수 없습니다.");
                     return false;
                 }
 
@@ -57,7 +68,7 @@ namespace MvcVisionSystem
             int selectedOrderIndex = orderedIndices.IndexOf(selectedIndex);
             if (selectedOrderIndex <= 0)
             {
-                error = "\uC120\uD0DD\uD55C \uC138\uADF8\uBA3C\uD2B8 \uB4A4\uC5D0 \uBD84\uC11D\uD560 \uAC1D\uCCB4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
+                error = "선택한 세그먼트 뒤에 분석할 객체가 없습니다.";
                 return false;
             }
 
@@ -100,7 +111,7 @@ namespace MvcVisionSystem
 
             if (changes.Count == 0)
             {
-                error = "\uC120\uD0DD\uD55C \uC138\uADF8\uBA3C\uD2B8\uC640 \uACB9\uCE58\uB294 \uB4A4\uCABD \uAC1D\uCCB4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
+                error = "선택한 세그먼트와 겹치는 뒤쪽 객체가 없습니다.";
                 return false;
             }
 

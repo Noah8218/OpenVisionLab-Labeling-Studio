@@ -136,9 +136,9 @@ namespace MvcVisionSystem
 
             return detectionText switch
             {
-                "Requested" => "검사중",
+                "Requested" => OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfImageQueue.FilterOption.Requested")[0],
                 "Failed" => status?.DetectionAttemptCount > 1 ? $"실패 x{status.DetectionAttemptCount}" : "실패",
-                "No Candidate" => "객체 없음",
+                "No Candidate" => status.LabelText == "Empty Label" ? "객체 없음" : "AI 후보 0",
                 "Confirmed" => "저장됨",
                 "Skipped" => "후보 숨김",
                 _ => "대기"
@@ -231,7 +231,7 @@ namespace MvcVisionSystem
 
             if (status.QualityReviewState == YoloImageQualityReviewState.NeedsFix)
             {
-                return "수정 필요";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfImageQueuePresenter.Rejected");
             }
 
             if (status.QualityReviewState == YoloImageQualityReviewState.Reviewed)
@@ -243,7 +243,7 @@ namespace MvcVisionSystem
             {
                 YoloImageReviewState.Requested => status.DetectionAttemptCount > 1
                     ? $"검사 {status.DetectionAttemptCount}"
-                    : "검사중",
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfImageQueuePresenter.Running"),
                 YoloImageReviewState.Candidate => status.DetectionCandidateCount > 0
                     ? $"AI {status.DetectionCandidateCount}"
                     : "AI",
@@ -252,7 +252,7 @@ namespace MvcVisionSystem
                     : "실패",
                 YoloImageReviewState.Confirmed => "저장",
                 YoloImageReviewState.Skipped => "숨김",
-                YoloImageReviewState.NoCandidate => "없음",
+                YoloImageReviewState.NoCandidate => status.LabelText == "Empty Label" ? "없음" : "AI 후보 0",
                 _ => status.IsLabeled ? "저장" : string.Empty
             };
         }
@@ -266,7 +266,7 @@ namespace MvcVisionSystem
 
             if (status.QualityReviewState == YoloImageQualityReviewState.NeedsFix)
             {
-                return $"수정 필요: 라벨 {FormatLabelStatus(status.LabelText)}";
+                return string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfImageQueuePresenter.RejectedSummary"), FormatLabelStatus(status.LabelText));
             }
 
             if (status.QualityReviewState == YoloImageQualityReviewState.Reviewed)
@@ -281,7 +281,7 @@ namespace MvcVisionSystem
 
             if (status.ReviewState == YoloImageReviewState.Candidate && status.DetectionCandidateCount > 0)
             {
-                return $"AI 후보 {status.DetectionCandidateCount}개 검토 필요";
+                return string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfImageQueuePresenter.SuggestionsToCheck"), status.DetectionCandidateCount);
             }
 
             string label = FormatLabelStatus(status.LabelText);
@@ -292,7 +292,7 @@ namespace MvcVisionSystem
 
             if (status.ReviewState == YoloImageReviewState.NoCandidate)
             {
-                return $"객체 없음 완료: 라벨 {label}";
+                return status.LabelText == "Empty Label" ? $"객체 없음 완료: 라벨 {label}" : $"저장 라벨 {label} / AI 후보 0";
             }
 
             if (status.ReviewState == YoloImageReviewState.Skipped)
@@ -313,7 +313,7 @@ namespace MvcVisionSystem
 
             return message.Trim() switch
             {
-                "Detection failed." => "검사 실패",
+                "Detection failed." => OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfImageQueuePresenter.Failed"),
                 "Detection request failed." => "요청 실패",
                 "Batch detection timed out." => "시간 초과",
                 "YOLO client is not connected." => "YOLO 미연결",
@@ -361,9 +361,9 @@ namespace MvcVisionSystem
         {
             return state switch
             {
-                YoloImageQualityReviewState.NeedsFix => "수정 필요",
-                YoloImageQualityReviewState.Reviewed => "검수 완료",
-                _ => "미검토"
+                YoloImageQualityReviewState.NeedsFix => OpenVisionLanguageService.T("WpfReview.Status.Rejected"),
+                YoloImageQualityReviewState.Reviewed => OpenVisionLanguageService.T("WpfReview.Status.Reviewed"),
+                _ => OpenVisionLanguageService.T("WpfDatasetHealth.Metric.Unreviewed")
             };
         }
 
@@ -376,19 +376,20 @@ namespace MvcVisionSystem
 
             string displayReason = string.IsNullOrWhiteSpace(reason) ? "라벨 편집" : reason.Trim();
             item.IsSaveRequired = true;
-            item.LabelStatus = "저장 필요";
+            item.LabelStatus = OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfImageQueue.Current.SaveRequired.Badge")[0];
             item.QueueIconKind = PackIconMaterialKind.AlertCircleOutline;
             item.QueueIconBrush = WpfImageQueueItem.WarningBrush;
             item.QueueBadgeBackgroundBrush = WpfImageQueueItem.WarningBadgeBrush;
             item.QueueRowAccentBrush = WpfImageQueueItem.WarningBrush;
-            item.QueueBadgeText = "저장 필요";
-            item.QueueStatusSummary = $"라벨 저장 필요: {displayReason}";
+            item.QueueBadgeText = OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfImageQueuePresenter.Unsaved");
+            item.QueueStatusSummary = string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfImageQueuePresenter.UnsavedSummary"), displayReason);
             item.Detail = $"{item.FileName}{Environment.NewLine}파일에 반영하려면 라벨 저장을 눌러야 합니다.{Environment.NewLine}{displayReason}";
         }
 
         public static void ApplyAnomalyReviewStatusToItem(
             WpfImageQueueItem item,
-            AnomalyImageReviewStatus status)
+            AnomalyImageReviewStatus status,
+            YoloImageReviewStatus qualityReview = null)
         {
             if (item == null || status == null)
             {
@@ -396,6 +397,10 @@ namespace MvcVisionSystem
             }
 
             item.AnomalyReviewState = status.ReviewState;
+            item.IsAnomalyReviewItem = true;
+            item.HasSavedLabelFile = qualityReview?.LabelStatus?.HasLabelFile == true;
+            item.ReviewState = qualityReview?.ReviewState ?? YoloImageReviewState.Unreviewed;
+            item.QualityReviewState = qualityReview?.QualityReviewState ?? YoloImageQualityReviewState.Unreviewed;
             item.IsLabeled = status.IsReviewed;
             item.IsSaveRequired = false;
             item.DetectStatus = status.IsReviewed ? "완료" : "확인 필요";
@@ -429,6 +434,22 @@ namespace MvcVisionSystem
                     item.QueueRowAccentBrush = WpfImageQueueItem.TransparentBrush;
                     break;
             }
+            if (status.IsReviewed)
+            {
+                string reviewText = item.QualityReviewState == YoloImageQualityReviewState.Unreviewed
+                    ? OpenVisionLanguageService.T("WpfReview.Filter.Pending") : FormatQualityReviewState(item.QualityReviewState);
+                item.QueueStatusSummary += " · " + reviewText;
+                item.Detail = string.IsNullOrWhiteSpace(qualityReview?.QualityReviewNote) ? reviewText : reviewText + " — " + qualityReview.QualityReviewNote;
+                if (item.QualityReviewState == YoloImageQualityReviewState.NeedsFix)
+                {
+                    item.QueueBadgeText = OpenVisionLanguageService.T("WpfImageQueue.Current.NeedsFix.Badge");
+                    item.QueueIconKind = PackIconMaterialKind.AlertCircleOutline;
+                    item.QueueIconBrush = WpfImageQueueItem.ErrorBrush;
+                    item.QueueBadgeBackgroundBrush = WpfImageQueueItem.ErrorBadgeBrush;
+                    item.QueueRowAccentBrush = WpfImageQueueItem.ErrorBrush;
+                }
+            }
+            else item.Detail = string.Empty;
         }
     }
 }

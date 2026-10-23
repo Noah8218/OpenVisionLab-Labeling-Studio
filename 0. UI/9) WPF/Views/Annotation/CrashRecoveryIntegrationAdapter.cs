@@ -117,9 +117,9 @@ namespace MvcVisionSystem
             if (result.Status == WpfCrashRecoveryReadStatus.Invalid)
             {
                 string quarantineDetail = string.IsNullOrWhiteSpace(result.QuarantinePath)
-                    ? "손상된 초안은 제거되었습니다."
-                    : $"검토용 격리 위치: {result.QuarantinePath}";
-                context.AppendLog($"비정상 종료 복구 초안을 사용할 수 없습니다: {result.Error} {quarantineDetail}");
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfCrashRecovery.InvalidDraft.DeleteAttempt")
+                    : string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.CrashRecoveryIntegrationAdapter.Quarantine"), result.QuarantinePath);
+                context.AppendLog(string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfCrashRecovery.InvalidDraft.UnavailableLog"), result.Error, quarantineDetail));
                 return false;
             }
 
@@ -127,7 +127,7 @@ namespace MvcVisionSystem
             if (decision != WpfMessageDialogResult.Yes)
             {
                 DiscardCrashRecoveryJournal();
-                context.AppendLog("비정상 종료 복구 초안을 폐기했습니다.");
+                context.AppendLog(OpenVisionLab.OpenVisionLanguageService.T("WpfCrashRecovery.StartWithoutDraft"));
                 return false;
             }
 
@@ -179,8 +179,8 @@ namespace MvcVisionSystem
             }
 
             context.MarkAnnotationsDirty("비정상 종료 편집 복구");
-            context.SetYoloCommandStatus("편집 초안 복구 완료 · 검토 후 라벨 저장이 필요합니다.", false);
-            context.AppendLog("비정상 종료 편집 초안을 미저장 상태로 복구했습니다. AI 후보 승인이나 라벨 저장은 실행하지 않았습니다.");
+            context.SetYoloCommandStatus(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.CrashRecoveryIntegrationAdapter.Recovered"), false);
+            context.AppendLog("비정상 종료 편집 초안을 미저장 상태로 복구했습니다. AI 후보 확정이나 라벨 저장은 실행하지 않았습니다.");
             return true;
         }
 

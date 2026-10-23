@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
+using OpenVisionLab;
 using OpenVisionLab.Mvvm;
 using MvcVisionSystem._1._Core;
 using MvcVisionSystem.Yolo;
@@ -94,7 +95,7 @@ namespace MvcVisionSystem
         public ObservableCollection<ModelAdapterCatalogItem> ModelAdapterCatalogItems { get; } = new ObservableCollection<ModelAdapterCatalogItem>();
 
         public string ModelAdapterCatalogBoundaryText
-            => "레시피는 기준 원본입니다. 표시된 포맷 또는 런타임은 선언된 작업·데이터·실행기·근거 계약 안에서만 사용할 수 있습니다.";
+            => "레시피의 작업·데이터 설정에 맞는 모델과 실행 환경을 사용하세요.";
 
         public ICommand BrowsePythonCommand
         {
@@ -214,7 +215,7 @@ namespace MvcVisionSystem
             }
         }
 
-        public string RuntimeProfileHeaderText => "\uBAA8\uB378 \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uC0C1\uD0DC";
+        public string RuntimeProfileHeaderText => OpenVisionLanguageService.T("WpfModelSettings.RuntimeConnectionTitle");
 
         public string RuntimeProfileActionStatusText
         {
@@ -344,56 +345,60 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isRuntimeUninstallPackageEnabled, value);
         }
 
-        public string SettingsSummaryTitleText => "현재 적용 검사 모델 프로필";
+        public string SettingsSummaryTitleText => OpenVisionLanguageService.T("WpfModelSettings.SettingsSummaryTitleText");
 
         public string SettingsSummaryModelText
             => string.Format(
                 CultureInfo.CurrentCulture,
-                "모델 프로필: {0} / 검사 모델: {1}",
+                OpenVisionLanguageService.T("WpfModelSettings.SummaryModel"),
                 FormatModelProfileName(appliedModelSettings.ModelEngine),
-                FormatPathLeaf(appliedModelSettings.WeightsPath, "미설정"));
+                FormatPathLeaf(appliedModelSettings.WeightsPath, OpenVisionLanguageService.T("WpfTrainingWorkspace.NoModel")));
 
         public string SettingsSummaryRuntimeText
             => string.Format(
                 CultureInfo.CurrentCulture,
-                "\uC2E0\uB8B0\uB3C4 {0} / \uC774\uBBF8\uC9C0 {1} / \uCD5C\uB300 \uD6C4\uBCF4 {2} / \uC2DC\uAC04 {3}\uCD08",
-                appliedModelSettings.MinimumDetectionConfidence.ToString("0.##", CultureInfo.InvariantCulture),
+                OpenVisionLanguageService.T("WpfModelSettings.SummaryRuntime"),
+                appliedModelSettings.MinimumDetectionConfidence.ToString("R", CultureInfo.InvariantCulture),
                 appliedModelSettings.InferenceImageSize.ToString(CultureInfo.InvariantCulture),
                 appliedModelSettings.MaximumDetectionCandidates.ToString(CultureInfo.InvariantCulture),
                 appliedModelSettings.DetectionTimeoutSeconds.ToString(CultureInfo.InvariantCulture));
 
         public string SettingsSummaryRuntimeStatusText
-            => PythonModelRuntimeExecutionSummaryService.Build(
+            => LocalizeRuntimeSummary(PythonModelRuntimeExecutionSummaryService.Build(
                 appliedModelSettings,
                 workerSupportedModels,
                 workerTrainingModels,
-                workerDetectionModels).SummaryText;
+                workerDetectionModels).SummaryText);
 
         public string SettingsSummaryPathText
             => string.Format(
                 CultureInfo.CurrentCulture,
-                "\uC774\uBBF8\uC9C0: {0} / Python: {1}",
-                FormatPathLeaf(appliedModelSettings.ImageRootPath, "미설정"),
-                FormatPathLeaf(appliedModelSettings.PythonExecutablePath, "미설정"));
+                OpenVisionLanguageService.T("WpfModelSettings.SummaryPath"),
+                FormatPathLeaf(appliedModelSettings.ImageRootPath, OpenVisionLanguageService.T("WpfTrainingWorkspace.NoModel")),
+                FormatPathLeaf(appliedModelSettings.PythonExecutablePath, OpenVisionLanguageService.T("WpfTrainingWorkspace.NoModel")));
 
         public string SettingsSummaryActionText
-            => "아래 편집 값은 아직 검사에 사용되지 않습니다. 확인 후 ‘Recipe에 저장 및 적용’을 눌러야 현재 적용 모델이 바뀝니다.";
+            => OpenVisionLanguageService.T("WpfModelSettings.SettingsSummaryActionText");
 
-        public string EditingSummaryTitleText => "편집 중";
+        public string EditingSummaryTitleText => OpenVisionLanguageService.T("WpfModelSettings.EditingSummaryTitleText");
 
         public string EditingSummaryText
             => string.Format(
                 CultureInfo.CurrentCulture,
                 "{0} / {1}",
                 FormatModelProfileName(SelectedModelEngine),
-                FormatPathLeaf(WeightsPath, "모델 파일 미설정"));
+                FormatPathLeaf(WeightsPath, OpenVisionLanguageService.T("WpfModelSettings.ModelFileUnconfigured")));
 
         public string EditStateText
             => IsSettingsDirty
-                ? "적용 전 변경 사항이 있습니다. 검사에는 위의 현재 적용 모델이 계속 사용됩니다."
-                : "현재 적용 값과 같습니다.";
+                ? OpenVisionLanguageService.T("WpfModelSettings.Dirty")
+                : OpenVisionLanguageService.T("WpfModelSettings.Clean");
 
         public string AppliedWeightsPath => appliedModelSettings.WeightsPath ?? string.Empty;
+
+        public string SettingsSaveScopeText
+            => string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfTrainingSettings.SaveScope"),
+                OpenVisionLanguageService.T(IsSettingsDirty ? "WpfTrainingSettings.Unsaved" : "WpfTrainingSettings.Saved"));
 
         public bool IsSettingsDirty
         {
@@ -403,22 +408,23 @@ namespace MvcVisionSystem
                 if (SetProperty(ref isSettingsDirty, value))
                 {
                     OnPropertyChanged(nameof(EditStateText));
+                    OnPropertyChanged(nameof(SettingsSaveScopeText));
                 }
             }
         }
 
-        public string AnomalyMappingHeaderText => "\uC774\uC0C1 \uD0D0\uC9C0 \uD310\uC815 \uB9E4\uD551";
+        public string AnomalyMappingHeaderText => OpenVisionLanguageService.T("WpfAnomalyMapping.Title");
 
         public string AnomalyMappingSummaryText
             => string.Format(
                 CultureInfo.CurrentCulture,
-                "\uC815\uC0C1 {0}\uAC1C / \uC774\uC0C1 {1}\uAC1C / \uCD5C\uC18C \uC2E0\uB8B0\uB3C4 {2}",
+                OpenVisionLanguageService.T("WpfAnomalyMapping.Summary"),
                 CountClassNames(AnomalyNormalClassNamesText),
                 CountClassNames(AnomalyAbnormalClassNamesText),
                 FormatAnomalyConfidence(AnomalyMinimumConfidenceText));
 
         public string AdvancedSettingsHeaderText
-            => "\uBAA8\uB378 \uC2E4\uD589 \uD658\uACBD \uC0C1\uC138";
+            => OpenVisionLanguageService.T("WpfModelSettings.AdvancedTitle");
 
         public string ModelEngineHintText
         {
@@ -426,12 +432,12 @@ namespace MvcVisionSystem
             {
                 return SelectedModelEngine switch
                 {
-                    PythonModelSettings.EngineYoloV8 => "\uBAA8\uB378 \uD504\uB85C\uD544: YOLOv8 Ultralytics. \uB370\uC774\uD130\uC14B \uBAA9\uC801\uC5D0 \uB530\uB77C \uAC1D\uCCB4\uD0D0\uC9C0, \uC138\uADF8\uBA58\uD14C\uC774\uC158, \uC774\uC0C1\uD0D0\uC9C0 \uBD84\uB958 \uC2E4\uD589 \uACBD\uB85C\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4.",
-                    PythonModelSettings.EngineYolo11 => "\uBAA8\uB378 \uD504\uB85C\uD544: YOLO11 Ultralytics. \uB370\uC774\uD130\uC14B \uBAA9\uC801\uACFC \uC5F0\uACB0\uB41C worker \uAE30\uB2A5\uC5D0 \uB530\uB77C \uD559\uC2B5\u00B7\uAC80\uC0AC \uC9C0\uC6D0 \uBC94\uC704\uAC00 \uACB0\uC815\uB429\uB2C8\uB2E4.",
-                    PythonModelSettings.EngineUnet => "\uBAA8\uB378 \uD504\uB85C\uD544: PyTorch U-Net \uc138\uadf8\uba58\ud14c\uc774\uc158. \ub3d9\uc77c\ud55c recipe\uc758 mask/polygon\uc744 \uc571 \uc804\uc6a9 export\ub85c \ubcc0\ud658\ud558\uc5ec \ud559\uc2b5\ud558\uace0, \uacb0\uacfc best.pt\ub85c \uac80\uc0ac\ud569\ub2c8\ub2e4.",
-                    PythonModelSettings.EnginePatchCore => "모델 프로필: PatchCore one-class 이상탐지. 정상 이미지만 학습하며 이미지 판정과 검토용 결함 위치 후보를 함께 만듭니다.",
-                    PythonModelSettings.EngineOnnx => "\uBAA8\uB378 \uD504\uB85C\uD544: ONNX \uCD94\uB860 \uBAA8\uB378. \uD559\uC2B5 \uC644\uB8CC \uBAA8\uB378\uC744 \uBE60\uB978 \uAC80\uC0AC \uC2E4\uD589\uAE30\uB85C \uC5F0\uACB0\uD558\uB294 \uC6A9\uB3C4\uC785\uB2C8\uB2E4.",
-                    _ => "\uBAA8\uB378 \uD504\uB85C\uD544: YOLOv5 \uAC1D\uCCB4\uD0D0\uC9C0. \uD604\uC7AC \uAE30\uBCF8 \uC2E4\uD589 \uC5B4\uB311\uD130\uC774\uBA70, \uBC15\uC2A4 \uB77C\uBCA8 \uB370\uC774\uD130\uC14B\uC744 \uD559\uC2B5/\uCD94\uB860\uC5D0 \uC0AC\uC6A9\uD569\uB2C8\uB2E4."
+                    PythonModelSettings.EngineYoloV8 => OpenVisionLanguageService.T("WpfModelSettings.Hint0"),
+                    PythonModelSettings.EngineYolo11 => OpenVisionLanguageService.T("WpfModelSettings.Hint1"),
+                    PythonModelSettings.EngineUnet => OpenVisionLanguageService.T("WpfModelSettings.Hint2"),
+                    PythonModelSettings.EnginePatchCore => OpenVisionLanguageService.T("WpfModelSettings.Hint3"),
+                    PythonModelSettings.EngineOnnx => OpenVisionLanguageService.T("WpfModelSettings.Hint4"),
+                    _ => OpenVisionLanguageService.T("WpfModelSettings.Hint5")
                 };
             }
         }
@@ -765,7 +771,7 @@ namespace MvcVisionSystem
                 return;
             }
 
-            string selectedPath = callbacks?.SelectFolder?.Invoke("이미지 루트 폴더 선택", ImageRootPath);
+            string selectedPath = callbacks?.SelectFolder?.Invoke(OpenVisionLab.OpenVisionLanguageService.T("WpfDataset.Picker.ImageFolder"), ImageRootPath);
             if (string.IsNullOrWhiteSpace(selectedPath)
                 || callbacks?.IsApplicationCloseApproved?.Invoke() == true)
             {
@@ -815,7 +821,7 @@ namespace MvcVisionSystem
             settings.EnsureDefaults();
             AnomalyNormalClassNamesText = FormatClassNames(settings.NormalClassNames);
             AnomalyAbnormalClassNamesText = FormatClassNames(settings.AbnormalClassNames);
-            AnomalyMinimumConfidenceText = settings.MinimumConfidence.ToString("0.##", CultureInfo.InvariantCulture);
+            AnomalyMinimumConfidenceText = settings.MinimumConfidence.ToString("R", CultureInfo.InvariantCulture);
             appliedEditorSignature = BuildEditorSignature();
             RefreshDirtyState();
         }
@@ -1071,14 +1077,40 @@ namespace MvcVisionSystem
 
         private void ExecuteRuntimeInstallPackage()
         {
-            RuntimeProfileActionStatusText = "\uC120\uD0DD \uBAA8\uB378 \uC2E4\uD589\uAE30 \uD328\uD0A4\uC9C0 \uC124\uCE58\uB97C \uC2DC\uC791\uD569\uB2C8\uB2E4. \uC9C4\uD589 \uC0C1\uD0DC\uB294 \uBAA8\uB378 \uC2E4\uD589\uAE30 \uC0C1\uD0DC\uC640 \uB85C\uADF8\uC5D0 \uD45C\uC2DC\uD569\uB2C8\uB2E4.";
+            RuntimeProfileActionStatusText = "\uc120\ud0dd\ud55c \uc2e4\ud589 \ud658\uacbd\uc758 \ud328\ud0a4\uc9c0 \uc124\uce58\ub97c \uc2dc\uc791\ud569\ub2c8\ub2e4. \uc9c4\ud589 \uc0c1\ud0dc\ub294 \uc2e4\ud589 \ud658\uacbd \uc0c1\ud0dc\uc640 \ub85c\uadf8\uc5d0 \ud45c\uc2dc\ud569\ub2c8\ub2e4.";
             runtimeInstallPackageAction();
         }
 
         private void ExecuteRuntimeUninstallPackage()
         {
-            RuntimeProfileActionStatusText = "\uC120\uD0DD \uBAA8\uB378 \uC2E4\uD589\uAE30 \uD328\uD0A4\uC9C0 \uC81C\uAC70\uB97C \uC2DC\uC791\uD569\uB2C8\uB2E4. \uC81C\uAC70 \uD6C4 self-test\uB97C \uB2E4\uC2DC \uD655\uC778\uD569\uB2C8\uB2E4.";
+            RuntimeProfileActionStatusText = "\uc120\ud0dd\ud55c \uc2e4\ud589 \ud658\uacbd\uc758 \ud328\ud0a4\uc9c0 \uc81c\uac70\ub97c \uc2dc\uc791\ud569\ub2c8\ub2e4. \uc81c\uac70 \ud6c4 \uc2e4\ud589 \ud658\uacbd\uc744 \ub2e4\uc2dc \uc810\uac80\ud569\ub2c8\ub2e4.";
             runtimeUninstallPackageAction();
+        }
+
+        private static string LocalizeRuntimeSummary(string summary)
+        {
+            foreach (string key in new[] { "WpfModelSettings.StatusUnknown", "WpfModelSettings.StatusReady", "WpfModelSettings.StatusInspectOnly", "WpfModelSettings.StatusTrainOnly", "WpfModelSettings.StatusIncomplete", "WpfModelSettings.StatusMissing" })
+            {
+                IReadOnlyList<string> previous = OpenVisionLanguageService.GetPreviousKoreanDefaults(key);
+                foreach (string source in previous)
+                {
+                    if (summary.EndsWith(source, StringComparison.Ordinal)) return summary.Substring(0, summary.Length - source.Length) + OpenVisionLanguageService.T(key);
+                }
+                if (LocalizationTextRuntimeService.TryGetCachedTextPair(key, out string korean, out string english))
+                {
+                    foreach (string source in new[] { korean, english })
+                    {
+                        if (source.Length > 0 && summary.EndsWith(source, StringComparison.Ordinal)) return summary.Substring(0, summary.Length - source.Length) + OpenVisionLanguageService.T(key);
+                    }
+                }
+            }
+            return summary;
+        }
+
+        internal void RefreshLocalizedPresentation()
+        {
+            foreach (string property in new[] { nameof(SettingsSummaryTitleText), nameof(SettingsSummaryActionText), nameof(EditingSummaryTitleText), nameof(EditStateText), nameof(SettingsSaveScopeText), nameof(ModelEngineHintText), nameof(AnomalyMappingHeaderText), nameof(AnomalyMappingSummaryText), nameof(AdvancedSettingsHeaderText), nameof(RuntimeProfileHeaderText) }) OnPropertyChanged(property);
+            NotifyAppliedSettingsChanged();
         }
 
         private void NotifySettingsSummaryChanged()
@@ -1105,7 +1137,7 @@ namespace MvcVisionSystem
             ClientScriptPath = settings.ClientScriptPath ?? string.Empty;
             WeightsPath = settings.WeightsPath ?? string.Empty;
             ImageRootPath = settings.ImageRootPath ?? string.Empty;
-            MinimumConfidenceText = settings.MinimumDetectionConfidence.ToString("0.##", CultureInfo.InvariantCulture);
+            MinimumConfidenceText = settings.MinimumDetectionConfidence.ToString("R", CultureInfo.InvariantCulture);
             MaximumCandidatesText = settings.MaximumDetectionCandidates.ToString(CultureInfo.InvariantCulture);
             InferenceImageSizeText = settings.InferenceImageSize.ToString(CultureInfo.InvariantCulture);
             TimeoutSecondsText = settings.DetectionTimeoutSeconds.ToString(CultureInfo.InvariantCulture);
@@ -1293,7 +1325,7 @@ namespace MvcVisionSystem
         private static string FormatAnomalyConfidence(string text)
         {
             return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double confidence)
-                ? Math.Clamp(confidence, 0D, 1D).ToString("0.##", CultureInfo.InvariantCulture)
+                ? Math.Clamp(confidence, 0D, 1D).ToString("R", CultureInfo.InvariantCulture)
                 : "-";
         }
 
@@ -1302,24 +1334,24 @@ namespace MvcVisionSystem
             string normalized = PythonModelSettings.NormalizeModelEngine(engine);
             return normalized switch
             {
-                PythonModelSettings.EngineYoloV8 => "YOLOv8 \uAC1D\uCCB4\uD0D0\uC9C0",
-                PythonModelSettings.EngineYolo11 => "YOLO11 \uAC1D\uCCB4\uD0D0\uC9C0",
-                PythonModelSettings.EngineUnet => "U-Net \uc138\uadf8\uba58\ud14c\uc774\uc158",
-                PythonModelSettings.EnginePatchCore => "PatchCore 이상탐지",
-                PythonModelSettings.EngineOnnx => "ONNX \uCD94\uB860",
-                _ => "YOLOv5 \uAC1D\uCCB4\uD0D0\uC9C0"
+                PythonModelSettings.EngineYoloV8 => OpenVisionLanguageService.T("WpfModelSettings.EngineName.YoloV8"),
+                PythonModelSettings.EngineYolo11 => OpenVisionLanguageService.T("WpfModelSettings.EngineName.Yolo11"),
+                PythonModelSettings.EngineUnet => OpenVisionLanguageService.T("WpfModelSettings.EngineName.Unet"),
+                PythonModelSettings.EnginePatchCore => OpenVisionLanguageService.T("WpfModelSettings.EngineName.PatchCore"),
+                PythonModelSettings.EngineOnnx => OpenVisionLanguageService.T("WpfModelSettings.EngineName.Onnx"),
+                _ => OpenVisionLanguageService.T("WpfModelSettings.EngineName.YoloV5")
             };
         }
 
         private static string FormatRuntimeProfileActionStatusText(string engine)
             => PythonModelSettings.NormalizeModelEngine(engine) switch
             {
-                PythonModelSettings.EngineYoloV8 => "YOLOv8 \uC120\uD0DD\uB428. \uB2E4\uC74C \uC791\uC5C5\uC740 Ultralytics \uC2E4\uD589\uAE30 \uC124\uCE58 \uB610\uB294 Python \uACBD\uB85C \uC5F0\uACB0\uC785\uB2C8\uB2E4.",
-                PythonModelSettings.EngineYolo11 => "YOLO11 \uC120\uD0DD\uB428. \uB2E4\uC74C \uC791\uC5C5\uC740 Ultralytics \uC2E4\uD589\uAE30 \uC124\uCE58 \uB610\uB294 Python \uACBD\uB85C \uC5F0\uACB0\uC785\uB2C8\uB2E4.",
-                PythonModelSettings.EngineUnet => "U-Net \uc120\ud0dd \uc644\ub8cc. C:\\Git\\unet \ud504\ub85c\ud544\uc5d0\uc11c PyTorch \uc2e4\ud589\uae30\uc640 \ubc88\ub4e4 worker\ub97c \uc790\ub3d9 \uc801\uc6a9\ud569\ub2c8\ub2e4.",
-                PythonModelSettings.EnginePatchCore => "PatchCore 선택 완료. 정상-only 학습용 PyTorch 실행기와 bundled worker를 적용합니다.",
-                PythonModelSettings.EngineOnnx => "ONNX \uC120\uD0DD\uB428. \uAC80\uC0AC\uC5D0 \uC4F8 .onnx \uBAA8\uB378 \uD30C\uC77C\uC744 \uC120\uD0DD\uD558\uACE0 \uC800\uC7A5\uD558\uC138\uC694.",
-                _ => "YOLOv5 \uC120\uD0DD\uB428. \uAE30\uC874 YOLOv5 \uD3F4\uB354\uB97C \uC5F0\uACB0\uD55C \uB4A4 \uC800\uC7A5\uD558\uBA74 \uC774 \uD504\uB85C\uD544\uB85C \uD559\uC2B5/\uAC80\uC0AC\uB97C \uC2E4\uD589\uD569\uB2C8\uB2E4."
+                PythonModelSettings.EngineYoloV8 => "YOLOv8 \uc120\ud0dd\ub428. Ultralytics \uc2e4\ud589 \ud658\uacbd\uc744 \uc124\uce58\ud558\uac70\ub098 Python \uacbd\ub85c\ub97c \uc5f0\uacb0\ud558\uc138\uc694.",
+                PythonModelSettings.EngineYolo11 => "YOLO11 \uc120\ud0dd\ub428. Ultralytics \uc2e4\ud589 \ud658\uacbd\uc744 \uc124\uce58\ud558\uac70\ub098 Python \uacbd\ub85c\ub97c \uc5f0\uacb0\ud558\uc138\uc694.",
+                PythonModelSettings.EngineUnet => "U-Net \uc120\ud0dd\ub428. C:\\Git\\unet\uc758 PyTorch \uc2e4\ud589 \ud658\uacbd\uacfc \ubc88\ub4e4 \ud504\ub85c\uadf8\ub7a8\uc774 \uc790\ub3d9 \uc801\uc6a9\ub429\ub2c8\ub2e4.",
+                PythonModelSettings.EnginePatchCore => "PatchCore 선택됨. 정상 이미지 학습용 PyTorch 환경과 번들 프로그램이 적용됩니다.",
+                PythonModelSettings.EngineOnnx => "ONNX \uc120\ud0dd\ub428. \ucd94\ub860\uc5d0 \uc4f8 .onnx \ubaa8\ub378 \ud30c\uc77c\uc744 \uc120\ud0dd\ud558\uace0 \uc800\uc7a5\ud558\uc138\uc694.",
+                _ => "YOLOv5 \uc120\ud0dd\ub428. \uae30\uc874 YOLOv5 \ud3f4\ub354\ub97c \uc5f0\uacb0\ud558\uace0 \uc800\uc7a5\ud558\uba74 \uc774 \ud658\uacbd\uc5d0\uc11c \ud559\uc2b5\u00b7\ucd94\ub860\uc744 \uc2e4\ud589\ud569\ub2c8\ub2e4."
             };
     }
 

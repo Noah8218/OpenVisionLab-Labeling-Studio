@@ -237,6 +237,7 @@ namespace MvcVisionSystem
                 index);
             row?.ApplySessionState(objectSessionStateService.GetManualRoiState(index));
             row?.ApplyPersistentMetadata(objectMetadataStateService.GetManualRoiMetadata(index));
+            ApplyObjectClassBrush(row);
             return row;
         }
 
@@ -253,6 +254,7 @@ namespace MvcVisionSystem
             }
 
             bool replaced;
+            bool classChanged = !string.Equals(ObjectReviewViewModel.Objects[manualRoiIndex].ClassName, row.ClassName, StringComparison.OrdinalIgnoreCase);
             using (ObjectReviewViewModel.SuppressSelectionNotifications())
             {
                 replaced = ObjectReviewViewModel.TryReplaceObject(
@@ -261,6 +263,7 @@ namespace MvcVisionSystem
                     select);
             }
 
+            if (replaced && classChanged) RefreshClassObjectCounts();
             SyncObjectClassEditorToSelection();
             UpdateObjectReviewActionState();
             return replaced;
@@ -282,6 +285,7 @@ namespace MvcVisionSystem
                     selectedItem?.Index ?? -1);
             }
 
+            RefreshClassObjectCounts();
             SyncObjectClassEditorToSelection();
         }
 
@@ -310,13 +314,30 @@ namespace MvcVisionSystem
                 row?.ApplyPersistentMetadata(
                     objectMetadataStateService.GetManualSegmentMetadata(manualSegments[manualSegmentIndex]));
             }
+            ApplyObjectClassBrush(row);
             return row;
+        }
+
+        private void ApplyObjectClassBrush(WpfObjectReviewListItem row)
+        {
+            if (row == null) return;
+            row.ApplyClassBrush(context.LabelClassesProvider?.Invoke()?.FirstOrDefault(item => string.Equals(item.Text, row.ClassName, StringComparison.OrdinalIgnoreCase))?.DrawBrush);
+        }
+
+        private void RefreshClassObjectCounts()
+        {
+            IReadOnlyList<WpfCanvasLabelClassItem> classes = context.LabelClassesProvider?.Invoke();
+            if (classes == null || ObjectReviewViewModel == null) return;
+            Dictionary<string, int> counts = ObjectReviewViewModel.Objects.Where(row => row.IsEnabled && !string.IsNullOrWhiteSpace(row.ClassName))
+                .GroupBy(row => row.ClassName, StringComparer.OrdinalIgnoreCase).ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase);
+            foreach (WpfCanvasLabelClassItem item in classes) item.SetObjectCount(counts.TryGetValue(item.Text, out int count) ? count : 0);
         }
 
         private void ApplyObjectSessionStates(IEnumerable<WpfObjectReviewListItem> rows)
         {
             foreach (WpfObjectReviewListItem row in rows ?? Enumerable.Empty<WpfObjectReviewListItem>())
             {
+                ApplyObjectClassBrush(row);
                 row?.ApplySessionState(row.Payload is WpfObjectReviewItemRef item
                     ? GetObjectSessionState(item)
                     : WpfObjectSessionState.Default);
@@ -333,6 +354,8 @@ namespace MvcVisionSystem
             }
 
             bool updated;
+            bool classChanged = objectRowIndex >= ObjectReviewViewModel.Objects.Count
+                || !string.Equals(ObjectReviewViewModel.Objects[objectRowIndex].ClassName, row.ClassName, StringComparison.OrdinalIgnoreCase);
             using (ObjectReviewViewModel.SuppressSelectionNotifications())
             {
                 updated = ObjectReviewViewModel.TryUpsertObject(
@@ -342,6 +365,7 @@ namespace MvcVisionSystem
                     select);
             }
 
+            if (updated && classChanged) RefreshClassObjectCounts();
             SyncObjectClassEditorToSelection();
             UpdateObjectReviewActionState();
             return updated;
@@ -386,6 +410,8 @@ namespace MvcVisionSystem
                 ? ObjectReviewViewModel.SelectedClassName
                 : selectedName;
             ObjectReviewViewModel.SetClassNames(GetClassNames(), viewModelSelection);
+            RefreshClassObjectCounts();
+            foreach (WpfObjectReviewListItem row in ObjectReviewViewModel.Objects) ApplyObjectClassBrush(row);
         }
 
         private IReadOnlyList<string> GetClassNames()
@@ -400,13 +426,151 @@ namespace MvcVisionSystem
                 .Where(ClassCatalogService.IsActiveClass)
                 .Select(item => item.Text)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
         #endregion
 
         #region ObjectReviewCommands
         // Object commands mutate one selected object at a time; incremental delete avoids forcing a full canvas/list rebuild.
+        internal IReadOnlyList<LabelSuspicionAnnotation> CaptureLabelSuspicionPreview()
+        {
+            var labels = new List<LabelSuspicionAnnotation>();
+            var occurrences = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (int index = 0; index < manualRois.Count; index++)
+            {
+                string name = index < manualRoiClassNames.Count ? manualRoiClassNames[index] : string.Empty;
+                int occurrence = occurrences.TryGetValue(name, out int count) ? count : 0;
+                occurrences[name] = occurrence + 1;
+                DrawingRectangle bounds = manualRois[index];
+                labels.Add(new("box:" + name + ":" + occurrence, name, bounds.X, bounds.Y, bounds.Width, bounds.Height, occurrence));
+            }
+            occurrences.Clear();
+            foreach (LabelingSegmentationObject segment in manualSegments)
+            {
+                string name = segment.ClassName;
+                int occurrence = occurrences.TryGetValue(name, out int count) ? count : 0;
+                occurrences[name] = occurrence + 1;
+                DrawingRectangle bounds = segment.Bounds;
+                labels.Add(new("segment:" + name + ":" + occurrence, name, bounds.X, bounds.Y, bounds.Width, bounds.Height, occurrence, segment.ObjectId));
+            }
+            for (int index = 0; index < confirmedDetectionCandidates.Count; index++)
+            {
+                YoloWorkerSmokeCandidate candidate = confirmedDetectionCandidates[index];
+                if (candidate?.ImageLevel != false) continue;
+                labels.Add(new("confirmed:" + index, candidate.ClassName, candidate.X, candidate.Y, candidate.Width, candidate.Height, index));
+            }
+            return labels;
+        }
+
+        internal bool ApplyLabelSuspicionFix(LabelSuspicionItem suspicion)
+        {
+            if (suspicion == null || context.CanEditLabelSuspicion?.Invoke() != true) return false;
+            if (suspicion.Kind == LabelSuspicionKind.AnomalyVerdict)
+                return context.PreviewAnomalySuspicionVerdict?.Invoke(suspicion.Prediction) == true;
+
+            WpfObjectReviewItemRef selected = ResolveSuspicionLabel(suspicion.Label);
+            if (suspicion.Kind != LabelSuspicionKind.Missing && selected == null) return false;
+            if (suspicion.Kind == LabelSuspicionKind.Unnecessary)
+            {
+                RefreshObjectListWithSelection(selected);
+                if (MainCanvasViewModel != null) ExecuteObjectSelectionChangedCommand(ObjectReviewViewModel?.SelectedObject);
+                return true;
+            }
+            if (selected != null && !CanMutateSelectedObject(selected, requireVisible: false, out string error))
+            {
+                SetYoloCommandStatus(error, false);
+                return false;
+            }
+
+            YoloWorkerSmokeCandidate candidate = suspicion.Prediction;
+            LabelClass targetClass = projectData?.ClassNamedList?.FirstOrDefault(item => ClassCatalogService.IsActiveClass(item)
+                && string.Equals(item.Text, candidate?.ClassName, StringComparison.Ordinal));
+            if (candidate == null || targetClass == null) return false;
+            DrawingRectangle bounds = CandidateReviewPresentationService.ClipCandidateBounds(candidate, activeImageSize);
+            bool segmentation = projectData.ProjectSettings?.DatasetPurpose == LabelingDatasetPurpose.Segmentation;
+            List<System.Drawing.Point> points = segmentation && suspicion.Kind != LabelSuspicionKind.Class
+                ? CandidateReviewPresentationService.GetCandidateContourPoints(candidate, activeImageSize)
+                    .Select(point => new System.Drawing.Point((int)Math.Round(point.X), (int)Math.Round(point.Y))).Distinct().ToList() : null;
+            if (suspicion.Kind != LabelSuspicionKind.Class && (bounds.IsEmpty || segmentation && (points.Count < 3 || SegmentationGeometry.GetBounds(points).IsEmpty))) return false;
+            WpfAnnotationHistorySnapshot before = CaptureAnnotationHistory("Fix label suspicion");
+            if (before == null) return false;
+            if (suspicion.Kind == LabelSuspicionKind.Class)
+            {
+                if (!ObjectReviewEditService.TryApplyClass(selected, manualRois, manualRoiClassNames, manualSegments,
+                    candidateReviewState.MutableConfirmedCandidates, targetClass.Text, out _, targetClass)) return false;
+            }
+            else if (suspicion.Kind == LabelSuspicionKind.Missing)
+            {
+                if (segmentation)
+                {
+                    manualSegments.Add(new LabelingSegmentationObject(points, targetClass) { ObjectId = Guid.NewGuid().ToString("N"), ZOrder = manualSegments.Count });
+                    selected = WpfObjectReviewItemRef.ManualSegment(manualSegments.Count - 1);
+                }
+                else
+                {
+                    manualRois.Add(bounds);
+                    manualRoiClassNames.Add(targetClass.Text);
+                    manualRoiShapeKinds.Add(OpenVisionLab.ImageCanvas.CanvasShapes.CanvasRoiShapeKind.Rectangle);
+                    manualRoiOverlayIds.Add(string.Empty);
+                    selected = WpfObjectReviewItemRef.Manual(manualRois.Count - 1);
+                }
+            }
+            else if (selected.Source == WpfObjectReviewSource.ManualRoi)
+                manualRois[selected.Index] = bounds;
+            else if (selected.Source == WpfObjectReviewSource.ConfirmedAi)
+            {
+                YoloWorkerSmokeCandidate current = candidateReviewState.MutableConfirmedCandidates[selected.Index];
+                current.X = bounds.X; current.Y = bounds.Y; current.Width = bounds.Width; current.Height = bounds.Height;
+                YoloWorkerSmokeCandidate geometry = AnnotationHistoryService.CloneCandidate(candidate);
+                current.PolygonPoints = geometry.PolygonPoints;
+                current.NormalizedPolygonPoints = geometry.NormalizedPolygonPoints;
+                current.SegmentationType = candidate.SegmentationType;
+            }
+            else
+            {
+                LabelingSegmentationObject segment = manualSegments[selected.Index];
+                segment.Points = points;
+                segment.MaskData = null;
+                segment.MaskSize = DrawingSize.Empty;
+                segment.MaskBounds = DrawingRectangle.Empty;
+                segment.CutoutPolygons.Clear();
+                segment.RenderVersion++;
+            }
+            PushAnnotationHistorySnapshot(before);
+            RedrawReviewRois();
+            RefreshPolygonOverlays();
+            RefreshObjectListWithSelection(selected);
+            if (MainCanvasViewModel != null) ExecuteObjectSelectionChangedCommand(ObjectReviewViewModel?.SelectedObject);
+            MarkAnnotationsDirty(OpenVisionLab.OpenVisionLanguageService.T("WpfLabelSuspicion.Edited"));
+            context.RefreshLabelSuspicionReview?.Invoke();
+            return true;
+        }
+
+        private WpfObjectReviewItemRef ResolveSuspicionLabel(LabelSuspicionAnnotation label)
+        {
+            if (label == null) return null;
+            bool MatchesBounds(DrawingRectangle bounds) => bounds.X == label.X && bounds.Y == label.Y && bounds.Width == label.Width && bounds.Height == label.Height;
+            if (label.Identity.StartsWith("confirmed:", StringComparison.Ordinal))
+            {
+                int index = label.OccurrenceIndex;
+                YoloWorkerSmokeCandidate candidate = index >= 0 && index < confirmedDetectionCandidates.Count ? confirmedDetectionCandidates[index] : null;
+                return candidate != null && candidate.ClassName == label.ClassName && candidate.X == label.X && candidate.Y == label.Y
+                    && candidate.Width == label.Width && candidate.Height == label.Height ? WpfObjectReviewItemRef.ConfirmedAi(index) : null;
+            }
+            if (label.Identity.StartsWith("segment:", StringComparison.Ordinal))
+            {
+                int index = !string.IsNullOrEmpty(label.SegmentObjectId)
+                    ? manualSegments.FindIndex(segment => string.Equals(segment?.ObjectId, label.SegmentObjectId, StringComparison.Ordinal))
+                    : manualSegments.Select((segment, i) => (segment, i)).Where(item => item.segment?.ClassName == label.ClassName)
+                        .Skip(label.OccurrenceIndex).Select(item => item.i).DefaultIfEmpty(-1).First();
+                return index >= 0 && manualSegments[index]?.ClassName == label.ClassName && MatchesBounds(manualSegments[index].Bounds)
+                    ? WpfObjectReviewItemRef.ManualSegment(index) : null;
+            }
+            int roi = manualRois.Select((bounds, i) => (bounds, i)).Where(item => item.i < manualRoiClassNames.Count && manualRoiClassNames[item.i] == label.ClassName)
+                .Skip(label.OccurrenceIndex).Select(item => item.i).DefaultIfEmpty(-1).First();
+            return roi >= 0 && MatchesBounds(manualRois[roi]) ? WpfObjectReviewItemRef.Manual(roi) : null;
+        }
+
         internal void ExecuteObjectSelectionChangedCommand(object selectedItem)
         {
             if (ObjectReviewViewModel?.IsSelectionNotificationSuppressed == true)
@@ -467,12 +631,21 @@ namespace MvcVisionSystem
                 MainCanvasViewModel.IsImagePointInputMode = canEditSelectedSegment;
             }
 
-            if (ObjectReviewViewModel?.IsSelectedSource(WpfObjectReviewSource.ManualRoi) != true)
+            if (selectedItem is WpfObjectReviewListItem roiRow
+                && roiRow.Payload is WpfObjectReviewItemRef roiRef
+                && roiRef.Source == WpfObjectReviewSource.ManualRoi
+                && !roiRow.IsHidden && !roiRow.IsLocked)
+            {
+                int roiIndex = ObjectReviewSelectionService.ResolveManualRoiIndex(roiRef, manualRoiOverlayIds, manualRois.Count);
+                MainCanvasViewModel?.SelectRoiOverlayById(ObjectReviewSelectionService.GetManualRoiOverlayId(manualRoiOverlayIds, roiIndex));
+            }
+            else
             {
                 MainCanvasViewModel.ClearRoiSelection();
             }
 
             RefreshPolygonOverlays();
+            context.RefreshSmartMaskCommandState?.Invoke();
         }
 
         internal void ExecuteApplyObjectClassCommand()
@@ -524,6 +697,78 @@ namespace MvcVisionSystem
             MarkAnnotationsDirty($"\uAC1D\uCCB4 \uD074\uB798\uC2A4 \uBCC0\uACBD: {appliedClassName}");
 
             AppendLog($"Changed object class: {appliedClassName}");
+        }
+
+        internal void ExecuteApplySelectedObjectsClassCommand()
+        {
+            IReadOnlyList<int> selectedIndices = ObjectReviewViewModel?.GetMergeSelectedManualSegmentIndices()
+                ?? Array.Empty<int>();
+            if (selectedIndices.Count < 2)
+            {
+                const string message = "클래스를 일괄 적용하려면 편집 가능한 세그먼트를 2개 이상 선택하세요.";
+                SetYoloCommandStatus(message, false);
+                AppendLog(message);
+                return;
+            }
+
+            var validatedIndices = new List<int>(selectedIndices.Count);
+            foreach (int index in selectedIndices)
+            {
+                if (index < 0 || index >= manualSegments.Count)
+                {
+                    const string message = "일괄 적용 대상 객체가 현재 이미지 상태와 일치하지 않습니다. 목록을 새로 고친 뒤 다시 시도하세요.";
+                    SetYoloCommandStatus(message, false);
+                    AppendLog(message);
+                    return;
+                }
+
+                WpfObjectReviewItemRef item = WpfObjectReviewItemRef.ManualSegment(index);
+                if (!CanMutateSelectedObject(item, requireVisible: true, out string stateError))
+                {
+                    SetYoloCommandStatus(stateError, false);
+                    AppendLog(stateError);
+                    return;
+                }
+
+                validatedIndices.Add(index);
+            }
+
+            string className = ObjectReviewEditService.NormalizeClassName(ObjectReviewViewModel?.SelectedClassName);
+            LabelClass classItem = classCatalogWorkflowService.EnsureClassItem(projectData, className);
+            WpfAnnotationHistorySnapshot beforeChange = CaptureAnnotationHistory("Batch object class change");
+            int changedCount = 0;
+            foreach (int index in validatedIndices)
+            {
+                WpfObjectReviewItemRef item = WpfObjectReviewItemRef.ManualSegment(index);
+
+                if (ObjectReviewEditService.TryApplyClass(
+                    item,
+                    manualRois,
+                    manualRoiClassNames,
+                    manualSegments,
+                    candidateReviewState.MutableConfirmedCandidates,
+                    className,
+                    out _,
+                    classItem))
+                {
+                    changedCount++;
+                }
+            }
+
+            if (changedCount == 0)
+            {
+                const string message = "선택 객체의 클래스가 변경되지 않았습니다.";
+                SetYoloCommandStatus(message, false);
+                return;
+            }
+
+            PushAnnotationHistorySnapshot(beforeChange);
+            ClearMaskStrokePreview();
+            RefreshPolygonOverlays();
+            RefreshObjectList();
+            MarkAnnotationsDirty($"{changedCount}개 객체 클래스 일괄 변경: {className}");
+            SetYoloCommandStatus($"{changedCount}개 객체에 클래스 {className}을 일괄 적용했습니다. 한 번에 실행 취소할 수 있습니다.", false);
+            AppendLog($"Batch class change: {changedCount} objects / {className}");
         }
 
         internal void ExecuteDeleteObjectCommand()
@@ -740,6 +985,7 @@ namespace MvcVisionSystem
                 }
             }
 
+            RefreshClassObjectCounts();
             SyncObjectClassEditorToSelection();
             UpdateObjectReviewActionState();
         }
@@ -768,6 +1014,7 @@ namespace MvcVisionSystem
         internal Func<DrawingSize> ActiveImageSizeProvider { get; init; }
         internal Func<IReadOnlyList<YoloWorkerSmokeCandidate>> PendingDetectionCandidatesProvider { get; init; }
         internal Func<WpfObjectReviewPanelViewModel> ObjectReviewViewModelProvider { get; init; }
+        internal Func<IReadOnlyList<WpfCanvasLabelClassItem>> LabelClassesProvider { get; init; }
         internal Func<RoiImageCanvasViewModel> MainCanvasViewModelProvider { get; init; }
         internal Func<WpfAnnotationTool> ActiveAnnotationToolProvider { get; init; }
         internal Func<WpfSegmentationSplitOrientation?> PendingSegmentationSplitOrientationProvider { get; init; }
@@ -798,6 +1045,7 @@ namespace MvcVisionSystem
         internal Action<bool> SetCanvasImagePointInputMode { get; init; }
         internal Action RedrawReviewRois { get; init; }
         internal Action RefreshPolygonOverlays { get; init; }
+        internal Action RefreshSmartMaskCommandState { get; init; }
         internal Func<string, WpfAnnotationHistorySnapshot> CaptureAnnotationHistory { get; init; }
         internal Func<string, WpfAnnotationHistorySnapshot> CaptureManualRoiHistory { get; init; }
         internal Action<WpfAnnotationHistorySnapshot> PushAnnotationHistorySnapshot { get; init; }
@@ -809,5 +1057,8 @@ namespace MvcVisionSystem
         internal Action<int, bool> ApplyManualRoiOverlayColor { get; init; }
         internal Action<bool, bool> ClearMaskStrokePreview { get; init; }
         internal Action<bool> QueueActiveImageQueueStatusRefresh { get; init; }
+        internal Func<bool> CanEditLabelSuspicion { get; init; }
+        internal Func<YoloWorkerSmokeCandidate, bool> PreviewAnomalySuspicionVerdict { get; init; }
+        internal Action RefreshLabelSuspicionReview { get; init; }
     }
 }

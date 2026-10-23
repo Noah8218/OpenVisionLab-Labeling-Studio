@@ -3,19 +3,22 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
         xmlns:local="clr-namespace:MvcVisionSystem"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="{Binding WindowTitleText}"
-        Width="900"
-        Height="820"
-        MinWidth="820"
-        MinHeight="680"
+        FontFamily="{DynamicResource UiFontFamily}"
+        Width="640"
+        SizeToContent="Height"
+        MinWidth="600"
+        MinHeight="480"
         WindowStartupLocation="CenterOwner"
-        Background="#151515"
-        Foreground="#F3F4F6"
-        WindowStyle="None"
-        ResizeMode="CanResize">
+        Background="Transparent"
+        Foreground="#E6EBF2"
+        WindowStyle="None" AllowsTransparency="True"
+        ResizeMode="CanResize"
+        FocusManager.FocusedElement="{Binding ElementName=WizardRecipeNameBox}">
     <shell:WindowChrome.WindowChrome>
-        <shell:WindowChrome CaptionHeight="0"
+        <shell:WindowChrome CaptionHeight="44"
                             ResizeBorderThickness="6"
                             GlassFrameThickness="0"
                             CornerRadius="0" />
@@ -23,90 +26,241 @@
     <Window.Resources>
         <ResourceDictionary>
         <ResourceDictionary.MergedDictionaries>
+            <ui:ThemesDictionary Theme="Dark" />
+            <ui:ControlsDictionary />
             <ResourceDictionary Source="../../Themes/WpfButtonStateTemplates.xaml" />
         </ResourceDictionary.MergedDictionaries>
-        <SolidColorBrush x:Key="PanelBrush" Color="#1F1F1F" />
-        <SolidColorBrush x:Key="PanelAltBrush" Color="#242424" />
-        <SolidColorBrush x:Key="BorderBrush" Color="#3A3A3A" />
-        <SolidColorBrush x:Key="AccentBrush" Color="#EF4444" />
-        <SolidColorBrush x:Key="PrimaryActionBrush" Color="#B91C1C" />
-        <SolidColorBrush x:Key="SecondaryTextBrush" Color="#B8BDC7" />
+        <local:KoreanWordBoundaryConverter x:Key="KoreanWordBoundaryConverter" />
+        <SolidColorBrush x:Key="PanelBrush" Color="#161B22" />
+        <SolidColorBrush x:Key="PanelAltBrush" Color="#1B212A" />
+        <SolidColorBrush x:Key="BorderBrush" Color="#364152" />
+        <SolidColorBrush x:Key="PrimaryActionBrush" Color="#285E9E" />
+        <SolidColorBrush x:Key="SecondaryTextBrush" Color="#9AA6B6" />
+        <SolidColorBrush x:Key="ClassPlaceholderBrush" Color="#757575" />
+        <ControlTemplate x:Key="WizardDialogScrollTemplate" TargetType="ScrollViewer">
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                                        CanContentScroll="{TemplateBinding CanContentScroll}" Margin="{TemplateBinding Padding}" />
+                <ScrollBar x:Name="PART_VerticalScrollBar" Grid.Column="1" Width="15" Orientation="Vertical" Focusable="False"
+                           Maximum="{TemplateBinding ScrollableHeight}" ViewportSize="{TemplateBinding ViewportHeight}"
+                           Value="{Binding VerticalOffset, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}"
+                           Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
+            </Grid>
+        </ControlTemplate>
+        <Style x:Key="WizardPlaceholderStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="LineHeight" Value="17.4" /><Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+            <Setter Property="Foreground" Value="{StaticResource ClassPlaceholderBrush}" />
+            <Setter Property="Margin" Value="9,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="Visibility" Value="Collapsed" />
+        </Style>
         <Style x:Key="WizardLabelStyle" TargetType="TextBlock">
-            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Margin" Value="0,0,0,5" />
+            <Setter Property="LineHeight" Value="17.4" /><Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+            <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}" />
+            <Setter Property="Margin" Value="0,0,0,4" />
         </Style>
-        <Style x:Key="WizardInputStyle" TargetType="TextBox">
-            <Setter Property="Background" Value="#252525" />
-            <Setter Property="Foreground" Value="#F3F4F6" />
-            <Setter Property="BorderBrush" Value="#3D3D3D" />
+        <Style x:Key="WizardFormSectionStyle" TargetType="Border">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+        <Style x:Key="WizardInputStyle" TargetType="TextBox" BasedOn="{StaticResource RecipeInputStyle}">
+            <Setter Property="Background" Value="#11161D" />
+            <Setter Property="Foreground" Value="#E6EBF2" />
+            <Setter Property="BorderBrush" Value="#364152" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="8,6" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
             <Setter Property="FontSize" Value="12" />
+            <Setter Property="MinHeight" Value="30" />
         </Style>
-        <Style x:Key="WizardButtonStyle" TargetType="Button">
-            <Setter Property="Template" Value="{StaticResource WpfDarkButtonTemplate}" />
-            <Setter Property="Background" Value="#2D2D2D" />
-            <Setter Property="Foreground" Value="#F3F4F6" />
-            <Setter Property="BorderBrush" Value="#454545" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="13,7" />
-            <Setter Property="MinWidth" Value="76" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
+        <ControlTemplate x:Key="WizardFormInputTemplate" TargetType="TextBox">
+            <Grid>
+                <Border x:Name="WizardInputBorder" Background="{TemplateBinding Background}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
+                    <ScrollViewer x:Name="PART_ContentHost" />
+                </Border>
+                <Border x:Name="WizardInputFocusCue" Margin="-3" BorderThickness="2" BorderBrush="Transparent" CornerRadius="9" IsHitTestVisible="False" />
+            </Grid>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="WizardInputFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger>
+                <Trigger Property="Validation.HasError" Value="True">
+                    <Setter TargetName="WizardInputBorder" Property="BorderBrush" Value="{DynamicResource ErrorBrush}" />
+                    <Setter TargetName="WizardInputFocusCue" Property="BorderBrush" Value="{DynamicResource ErrorBrush}" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False"><Setter TargetName="WizardInputFocusCue" Property="BorderBrush" Value="Transparent" /></Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+        <Style x:Key="WizardButtonStyle" TargetType="Button" BasedOn="{StaticResource RecipeSecondaryButtonStyle}">
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Padding" Value="10,5" />
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
         </Style>
-        <Style x:Key="WizardPrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource WizardButtonStyle}">
-            <Setter Property="Background" Value="{StaticResource PrimaryActionBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+        <CollectionViewSource x:Key="WizardClassTagSource" Source="{Binding ClassTags}" />
+        <Style x:Key="WizardClassRemoveButtonStyle" TargetType="Button" BasedOn="{StaticResource RecipeQuietButtonStyle}">
+            <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}" />
+        </Style>
+        <Style x:Key="WizardClassInputStyle" TargetType="TextBox" BasedOn="{StaticResource WizardInputStyle}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="MinHeight" Value="24" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Grid>
+                            <Border Background="{TemplateBinding Background}" CornerRadius="6">
+                                <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+                            </Border>
+                            <Border x:Name="ClassInputFocusCue" Margin="-3" BorderThickness="2" BorderBrush="Transparent" CornerRadius="9" IsHitTestVisible="False" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="ClassInputFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger>
+                            <Trigger Property="Validation.HasError" Value="True"><Setter TargetName="ClassInputFocusCue" Property="BorderBrush" Value="{DynamicResource ErrorBrush}" /></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="ClassInputFocusCue" Property="BorderBrush" Value="Transparent" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="WizardPrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource RecipePrimaryButtonStyle}">
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
         </Style>
         <Style x:Key="WizardListBoxStyle" TargetType="ListBox">
-            <Setter Property="Background" Value="#252525" />
-            <Setter Property="BorderBrush" Value="#3D3D3D" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="4" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
             <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBox">
+                        <Border x:Name="WizardListBoxChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}">
+                            <ScrollViewer x:Name="PART_ScrollViewer" Focusable="False" Background="{TemplateBinding Background}" Padding="0"
+                                          CanContentScroll="{TemplateBinding ScrollViewer.CanContentScroll}"
+                                          HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}"
+                                          VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}">
+                                <ItemsPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+                            </ScrollViewer>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style x:Key="WizardListItemStyle" TargetType="ListBoxItem">
-            <Setter Property="Foreground" Value="#F3F4F6" />
-            <Setter Property="Background" Value="#2D2D2D" />
-            <Setter Property="BorderBrush" Value="#454545" />
+            <Setter Property="Foreground" Value="#E6EBF2" />
+            <Setter Property="Background" Value="#1E2229" />
+            <Setter Property="BorderBrush" Value="#364152" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="9,7" />
+            <Setter Property="Padding" Value="12,9" />
             <Setter Property="Margin" Value="0,0,6,6" />
-            <Setter Property="MinWidth" Value="146" />
+            <Setter Property="MinWidth" Value="150" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding Text}" />
+            <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="WizardListItemChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="WizardListItemChrome" Property="BorderBrush" Value="#8AB4FF" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="WizardListItemChrome" Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
             <Style.Triggers>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-                    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                    <Setter Property="Background" Value="#243B55" />
+                    <Setter Property="BorderBrush" Value="#88B8F1" />
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <Style x:Key="WizardPurposeListItemStyle" TargetType="ListBoxItem" BasedOn="{StaticResource WizardListItemStyle}">
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="70" />
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Background" Value="#222A35" />
+            <Setter Property="Foreground" Value="#9AA6B6" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="PurposeOptionChrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="PurposeOptionChrome" Property="Background" Value="#2A3341" />
+                                <Setter TargetName="PurposeOptionChrome" Property="BorderBrush" Value="#4A586D" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="PurposeOptionChrome" Property="Background" Value="#1C2F4D" />
+                                <Setter TargetName="PurposeOptionChrome" Property="BorderBrush" Value="#4C74B5" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="PurposeOptionChrome" Property="BorderBrush" Value="#8AB4FF" />
+                                <Setter TargetName="PurposeOptionChrome" Property="BorderThickness" Value="2" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="PurposeOptionChrome" Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <DataTemplate x:Key="PurposeItemTemplate">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <iconPacks:PackIconMaterial Kind="{Binding IconKind}"
-                                            Width="15"
-                                            Height="15"
-                                            Margin="0,0,7,0"
-                                            VerticalAlignment="Center" />
+            <StackPanel>
                 <TextBlock Text="{Binding Text}"
-                           FontFamily="Segoe UI"
-                           FontSize="12"
-                           VerticalAlignment="Center" />
+                           FontFamily="{DynamicResource UiFontFamily}"
+                           FontSize="12" FontWeight="Bold" LineHeight="17.4" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" />
+                <TextBlock x:Name="PurposeOptionDescriptionText"
+                           Text="{Binding ToolTip}"
+                           Foreground="{StaticResource SecondaryTextBrush}"
+                           FontFamily="{DynamicResource UiFontFamily}"
+                           FontSize="12" LineHeight="17.4"
+                           TextWrapping="Wrap"
+                           Margin="0,3,0,0" />
             </StackPanel>
         </DataTemplate>
         <DataTemplate x:Key="SamplePresetItemTemplate">
             <StackPanel>
                 <TextBlock Text="{Binding Text}"
-                           FontFamily="Segoe UI"
+                           FontFamily="{DynamicResource UiFontFamily}"
                            FontSize="12"
                            FontWeight="SemiBold" />
                 <TextBlock Text="{Binding AvailabilityText}"
                            Foreground="{StaticResource SecondaryTextBrush}"
-                           FontFamily="Segoe UI"
+                           FontFamily="{DynamicResource UiFontFamily}"
                            FontSize="11"
                            TextWrapping="Wrap"
                            Margin="0,3,0,0" />
@@ -115,423 +269,401 @@
         </ResourceDictionary>
     </Window.Resources>
 
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-
-        <local:WpfWindowTitleBar Grid.Row="0"
-                                 TitleText="{Binding WindowTitleText}"
-                                 SubtitleText="OpenVisionLab Labeling Studio"
-                                 IconKind="FolderPlusOutline" />
-
-        <Grid Grid.Row="1" Margin="18">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-
-            <StackPanel Grid.Row="0" Margin="0,0,0,14">
-                <TextBlock x:Name="WizardSummaryText"
-                           AutomationProperties.AutomationId="WizardSummaryText"
-                           Text="{Binding SetupSummaryText}"
-                           Foreground="{StaticResource SecondaryTextBrush}"
-                           FontFamily="Segoe UI"
-                           FontSize="12"
-                           TextWrapping="Wrap" />
-                <Border x:Name="DatasetSetupSourceRuleSection"
-                        AutomationProperties.AutomationId="DatasetSetupSourceRuleSection"
-                        Background="#211C1C"
-                        BorderBrush="{StaticResource AccentBrush}"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="12"
-                        Margin="0,10,0,0">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <iconPacks:PackIconMaterial Kind="DatabaseCogOutline"
-                                                    Width="20"
-                                                    Height="20"
-                                                    Foreground="{StaticResource AccentBrush}"
-                                                    VerticalAlignment="Top"
-                                                    Margin="0,2,10,0" />
-                        <StackPanel Grid.Column="1">
-                            <TextBlock x:Name="WizardSourceRuleTitleText"
-                                       AutomationProperties.AutomationId="WizardSourceRuleTitleText"
-                                       Text="{Binding SetupSourceRuleTitleText}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="13"
-                                       FontWeight="SemiBold"
-                                       TextWrapping="Wrap" />
-                            <TextBlock x:Name="WizardSourceRuleDetailText"
-                                       AutomationProperties.AutomationId="WizardSourceRuleDetailText"
-                                       Text="{Binding SetupSourceRuleDetailText}"
-                                       Foreground="{StaticResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="11"
-                                       TextWrapping="Wrap"
-                                       Margin="0,5,0,0" />
-                            <TextBlock x:Name="WizardSourceRuleChecklistText"
-                                       AutomationProperties.AutomationId="WizardSourceRuleChecklistText"
-                                       Text="{Binding SetupSourceRuleChecklistText}"
-                                       Foreground="#E5E7EB"
-                                       FontFamily="Segoe UI"
-                                       FontSize="11"
-                                       FontWeight="SemiBold"
-                                       TextWrapping="Wrap"
-                                       Margin="0,6,0,0" />
+    <Border Background="#161B22" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12">
+        <ScrollViewer x:Name="WizardSetupScrollViewer" Template="{StaticResource WizardDialogScrollTemplate}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+            <Grid Margin="20,16,20,10">
+                <TextBlock x:Name="WizardTitleText" Text="{Binding WindowTitleText}" FontSize="15" FontWeight="SemiBold" LineHeight="21.75" LineStackingStrategy="BlockLineHeight" VerticalAlignment="Center" />
+                <ToggleButton x:Name="WizardAdvancedToggle" Style="{StaticResource RecipeFilterToggleStyle}" Content="{Binding AdvancedButtonText}"
+                              IsChecked="{Binding IsExpanded, ElementName=WizardAdvancedSettingsExpander, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0,0,36,0" FontSize="12"
+                              Height="30" MinHeight="30" Padding="8,4" shell:WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="{Binding AdvancedSettingsText}" AutomationProperties.AutomationId="WizardAdvancedToggle" />
+                <Button x:Name="WizardCloseButton" HorizontalAlignment="Right" Style="{StaticResource RecipeQuietButtonStyle}" Content="✕" Command="{Binding CancelCommand}"
+                        Width="30" Height="30" MinHeight="30" Padding="4" shell:WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="{Binding CloseButtonText}"
+                        AutomationProperties.AutomationId="WizardCloseButton" AutomationProperties.Name="{Binding CloseButtonText}" />
+            </Grid>
+                <StackPanel Grid.Row="1" Margin="20,6,20,16">
+                    <Border x:Name="DatasetRecipeSection" Style="{StaticResource WizardFormSectionStyle}">
+                        <StackPanel>
+                            <TextBlock x:Name="WizardRecipeNameSectionTitle" Text="{Binding RecipeNameSectionText}" Style="{StaticResource WizardLabelStyle}" />
+                            <Grid>
+                                <TextBox x:Name="WizardRecipeNameBox" Style="{StaticResource WizardInputStyle}" Template="{StaticResource WizardFormInputTemplate}" FocusVisualStyle="{x:Null}" AutomationProperties.AutomationId="WizardRecipeNameBox"
+                                         AutomationProperties.Name="{Binding RecipeNameSectionText}" MaxLength="{x:Static local:WpfDatasetSetupWizardViewModel.RecipeNameMaxLength}"
+                                         Text="{Binding RecipeName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding RecipeName}" />
+                                <TextBlock x:Name="WizardRecipeNamePlaceholderText" Text="{Binding RecipeNamePlaceholderText}" Style="{StaticResource WizardPlaceholderStyle}"
+                                           Visibility="{Binding RecipeNamePlaceholderVisibility}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="8" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="{Binding RecipeProductCodeLabelText}" Style="{StaticResource WizardLabelStyle}" />
+                            <Grid>
+                                <TextBox x:Name="WizardProductCodeBox" Style="{StaticResource WizardInputStyle}" Template="{StaticResource WizardFormInputTemplate}" FocusVisualStyle="{x:Null}" AutomationProperties.AutomationId="WizardProductCodeBox"
+                                         AutomationProperties.Name="{Binding RecipeProductCodeLabelText}" MaxLength="{x:Static local:LabelingProjectSettings.RecipeProductCodeMaxLength}"
+                                         Text="{Binding ProductCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock x:Name="WizardProductCodePlaceholderText" Text="{Binding ProductCodePlaceholderText}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource WizardPlaceholderStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ProductCode}" Value=""><Setter Property="Visibility" Value="Visible" /></DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="{Binding ImageFolderLabelText}" Style="{StaticResource WizardLabelStyle}" />
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <TextBox x:Name="WizardImageRootPathBox" Style="{StaticResource WizardInputStyle}" Template="{StaticResource WizardFormInputTemplate}" FocusVisualStyle="{x:Null}" AutomationProperties.AutomationId="WizardImageRootPathBox"
+                                         AutomationProperties.Name="{Binding ImageFolderLabelText}" Text="{Binding ImageRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding ImageRootPath}" />
+                                <TextBlock x:Name="WizardImageRootPlaceholderText" Text="{Binding ImageRootPlaceholderText}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource WizardPlaceholderStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ImageRootPath}" Value=""><Setter Property="Visibility" Value="Visible" /></DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <Button x:Name="WizardBrowseImageRootButton" Grid.Column="1" Style="{StaticResource WizardButtonStyle}" Command="{Binding BrowseImageRootCommand}"
+                                        Content="{Binding BrowseText}" MinWidth="46" Margin="8,0,0,0" AutomationProperties.AutomationId="WizardBrowseImageRootButton" />
+                            </Grid>
                         </StackPanel>
                     </Grid>
-                </Border>
-            </StackPanel>
-
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                <StackPanel>
-                    <Border x:Name="DatasetPurposeSection"
-                            Background="{StaticResource PanelBrush}"
-                            BorderBrush="{StaticResource BorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="6"
-                            Padding="12"
-                            Margin="0,0,0,10">
+                    <Border x:Name="DatasetPurposeSection" Style="{StaticResource WizardFormSectionStyle}">
                         <StackPanel>
-                            <TextBlock Text="&#xB370;&#xC774;&#xD130;&#xC14B; &#xBAA9;&#xC801;" Style="{StaticResource WizardLabelStyle}" />
-                            <ListBox x:Name="WizardDatasetPurposeListBox"
-                                     Style="{StaticResource WizardListBoxStyle}"
-                                     ItemContainerStyle="{StaticResource WizardListItemStyle}"
-                                     ItemTemplate="{StaticResource PurposeItemTemplate}"
-                                     ItemsSource="{Binding DatasetPurposeModes}"
-                                     SelectedItem="{Binding SelectedDatasetPurposeMode, Mode=TwoWay}">
-                                <ListBox.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </ListBox.ItemsPanel>
+                            <TextBlock x:Name="WizardDatasetPurposeSectionTitle" Text="{Binding DatasetPurposeSectionText}" Style="{StaticResource WizardLabelStyle}" />
+                            <ListBox x:Name="WizardDatasetPurposeListBox" Style="{StaticResource WizardListBoxStyle}" ItemContainerStyle="{StaticResource WizardPurposeListItemStyle}"
+                                     ItemTemplate="{StaticResource PurposeItemTemplate}" ItemsSource="{Binding DatasetPurposeModes}" SelectedItem="{Binding SelectedDatasetPurposeMode, Mode=TwoWay}">
+                                <ListBox.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="3" Margin="0,0,-8,0" /></ItemsPanelTemplate></ListBox.ItemsPanel>
                             </ListBox>
                         </StackPanel>
                     </Border>
-
-                    <Border x:Name="DatasetSamplePresetSection"
-                            Background="{StaticResource PanelBrush}"
-                            BorderBrush="{StaticResource BorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="6"
-                            Padding="12"
-                            Margin="0,0,0,10">
+                    <Border x:Name="DatasetClassesSection" Style="{StaticResource WizardFormSectionStyle}">
                         <StackPanel>
-                            <TextBlock Text="&#xC2DC;&#xC791; &#xB370;&#xC774;&#xD130;" Style="{StaticResource WizardLabelStyle}" />
-                            <ListBox x:Name="WizardSamplePresetListBox"
-                                     Style="{StaticResource WizardListBoxStyle}"
-                                     ItemTemplate="{StaticResource SamplePresetItemTemplate}"
-                                     ItemsSource="{Binding SamplePresets}"
-                                     SelectedItem="{Binding SelectedSamplePreset, Mode=TwoWay}">
-                                <ListBox.ItemContainerStyle>
-                                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource WizardListItemStyle}">
-                                        <Setter Property="IsEnabled" Value="{Binding IsAvailable}" />
-                                        <Setter Property="ToolTip" Value="{Binding ToolTip}" />
-                                    </Style>
-                                </ListBox.ItemContainerStyle>
-                                <ListBox.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </ListBox.ItemsPanel>
-                            </ListBox>
-                            <TextBlock x:Name="WizardImageSourceText"
-                                       AutomationProperties.AutomationId="WizardImageSourceText"
-                                       Text="{Binding ImageSourcePreviewText}"
-                                       Foreground="{StaticResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="11"
-                                       TextWrapping="Wrap"
-                                       Margin="0,8,0,0" />
+                            <TextBlock x:Name="WizardClassesSectionTitle" Text="{Binding RecipeClassesSectionText}" Style="{StaticResource WizardLabelStyle}" />
+                                <TextBlock Text="{Binding ClassEntryHelpText}" Foreground="#6F7B8C" FontSize="12" LineHeight="17.4" Margin="0,0,0,4" TextWrapping="Wrap" />
+                            <Border x:Name="WizardClassEntryBorder" Background="#11161D" BorderBrush="#364152" BorderThickness="1" CornerRadius="6" Padding="6">
+                                    <ItemsControl x:Name="WizardClassTags" HorizontalContentAlignment="Stretch">
+                                        <ItemsControl.ItemsSource>
+                                            <CompositeCollection>
+                                                <CollectionContainer Collection="{Binding Source={StaticResource WizardClassTagSource}}" />
+                                                <Grid MinWidth="120" DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
+                                                    <TextBox x:Name="WizardClassTagInput" Style="{StaticResource WizardClassInputStyle}" Text="{Binding NewClassName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             AutomationProperties.AutomationId="WizardClassTagInput" AutomationProperties.Name="{Binding ClassEntryPlaceholderText}">
+                                                        <TextBox.InputBindings><KeyBinding Key="Enter" Command="{Binding AddClassCommand}" /></TextBox.InputBindings>
+                                                    </TextBox>
+                                                    <TextBlock Text="{Binding ClassEntryPlaceholderText}" Foreground="{StaticResource ClassPlaceholderBrush}" Margin="4,0" VerticalAlignment="Center" IsHitTestVisible="False">
+                                                        <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding NewClassName}" Value=""><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                                                    </TextBlock>
+                                                </Grid>
+                                            </CompositeCollection>
+                                        </ItemsControl.ItemsSource>
+                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><local:ClassEntryPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                        <ItemsControl.Resources>
+                                            <DataTemplate DataType="{x:Type local:DatasetSetupClassTag}">
+                                                <Border Background="#222A35" BorderBrush="#364152" BorderThickness="1" CornerRadius="14" Padding="8,1" Margin="0,0,6,0">
+                                                    <DockPanel>
+                                                        <Button DockPanel.Dock="Right" Style="{StaticResource WizardClassRemoveButtonStyle}" Content="✕" Padding="8,2" Margin="5,0,0,0" MinWidth="0" MinHeight="24" FontSize="12"
+                                                                AutomationProperties.Name="{Binding Name}" Command="{Binding DataContext.RemoveClassCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Name}" />
+                                                        <TextBlock Text="{Binding Caption}" Foreground="{StaticResource SecondaryTextBrush}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="490" FontSize="12" />
+                                                    </DockPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.Resources>
+                                    </ItemsControl>
+                            </Border>
                         </StackPanel>
                     </Border>
-
-                    <Border x:Name="DatasetInitialRuntimeSection"
-                            AutomationProperties.AutomationId="DatasetInitialRuntimeSection"
-                            Background="{StaticResource PanelBrush}"
-                            BorderBrush="{StaticResource BorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="6"
-                            Padding="12"
-                            Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="원본 이미지와 최초 검사 모델" Style="{StaticResource WizardLabelStyle}" />
-                            <TextBlock Text="Recipe 생성 후 별도 화면을 오가지 않도록 이미지 폴더와 모델을 여기서 함께 정합니다. 모델 파일은 선택 사항입니다."
-                                       Foreground="{StaticResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="11"
-                                       TextWrapping="Wrap"
-                                       Margin="0,0,0,8" />
-                            <TextBlock Text="원본 이미지 폴더" Style="{StaticResource WizardLabelStyle}" />
+                    <TextBlock Text="{Binding RecipeFolderNoteText, Mode=OneWay, Converter={StaticResource KoreanWordBoundaryConverter}}" AutomationProperties.Name="{Binding RecipeFolderNoteText, Mode=OneWay}" Foreground="{StaticResource SecondaryTextBrush}" FontSize="12" LineHeight="17.4" TextWrapping="Wrap" Margin="0" />
+                    <Expander x:Name="WizardAdvancedSettingsExpander" Header="{Binding AdvancedSettingsText}" FontSize="12">
+                        <Expander.Template>
+                            <ControlTemplate TargetType="Expander">
+                                <ContentPresenter x:Name="AdvancedContent" ContentSource="Content" Visibility="Collapsed" />
+                                <ControlTemplate.Triggers><Trigger Property="IsExpanded" Value="True"><Setter TargetName="AdvancedContent" Property="Visibility" Value="Visible" /></Trigger></ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Expander.Template>
+                        <StackPanel Margin="0,12,0,0">
+                            <TextBlock x:Name="WizardImageStorageSectionTitle" Text="{Binding ImageStorageSectionText}" Style="{StaticResource WizardLabelStyle}" />
+                            <TextBlock Text="{Binding RecipeDescriptionLabelText}" Style="{StaticResource WizardLabelStyle}" />
+                            <TextBox x:Name="WizardRecipeDescriptionBox" Style="{StaticResource WizardInputStyle}" MinHeight="60" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                                     MaxLength="{x:Static local:LabelingProjectSettings.RecipeDescriptionMaxLength}" Text="{Binding RecipeDescription, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock Text="{Binding OutputRootLabelText}" Style="{StaticResource WizardLabelStyle}" Margin="0,12,0,5" />
                             <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="WizardImageRootPathBox"
-                                         Style="{StaticResource WizardInputStyle}"
-                                         AutomationProperties.AutomationId="WizardImageRootPathBox"
-                                         AutomationProperties.Name="원본 이미지 폴더"
-                                         Text="{Binding ImageRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                         ToolTip="{Binding ImageRootPath}" />
-                                <Button x:Name="WizardBrowseImageRootButton"
-                                        Grid.Column="1"
-                                        Style="{StaticResource WizardButtonStyle}"
-                                        AutomationProperties.AutomationId="WizardBrowseImageRootButton"
-                                        AutomationProperties.Name="원본 이미지 폴더 찾기"
-                                        Command="{Binding BrowseImageRootCommand}"
-                                        Margin="8,0,0,0"
-                                        MinWidth="68">
-                                    <StackPanel Orientation="Horizontal">
-                                        <iconPacks:PackIconMaterial Kind="FolderImage" Width="14" Height="14" Margin="0,0,5,0" />
-                                        <TextBlock Text="찾기" />
-                                    </StackPanel>
-                                </Button>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <TextBox x:Name="WizardOutputRootPathBox" Style="{StaticResource WizardInputStyle}" AutomationProperties.AutomationId="WizardOutputRootPathBox"
+                                         Text="{Binding OutputRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding OutputRootPath}" />
+                                <Button x:Name="WizardBrowseOutputRootButton" Grid.Column="1" Style="{StaticResource WizardButtonStyle}" Content="{Binding BrowseText}" Command="{Binding BrowseOutputRootCommand}" Margin="6,0,0,0" />
                             </Grid>
+                            <TextBlock x:Name="WizardImageSourceText" Text="{Binding ImageSourcePreviewText}" TextWrapping="Wrap" Foreground="{StaticResource SecondaryTextBrush}" FontSize="11" Margin="0,6,0,0" />
+                            <Expander x:Name="WizardSourceRuleExpander" Header="{Binding SetupSourceRuleTitleText}" Margin="0,8,0,12">
+                                <StackPanel>
+                                    <TextBlock x:Name="WizardStorageHelpText" Text="{Binding StorageHelpText}" TextWrapping="Wrap" FontSize="11" />
+                                    <TextBlock x:Name="WizardSourceRuleDetailText" Text="{Binding SetupSourceRuleDetailText}" TextWrapping="Wrap" FontSize="11" />
+                                    <TextBlock x:Name="WizardSourceRuleChecklistText" Text="{Binding SetupSourceRuleChecklistText}" TextWrapping="Wrap" FontSize="11" />
+                                </StackPanel>
+                            </Expander>
+                            <TextBlock Text="{Binding ClassEntryHelpText}" Style="{StaticResource WizardLabelStyle}" />
+                            <TextBox x:Name="WizardClassNamesBox" Style="{StaticResource WizardInputStyle}" AutomationProperties.AutomationId="WizardClassNamesBox"
+                                     Text="{Binding ClassNamesText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" VerticalScrollBarVisibility="Auto" />
+                            <TextBlock x:Name="WizardClassSummaryText" Text="{Binding ClassSummaryText}" TextWrapping="Wrap" FontSize="11" Margin="0,5,0,12" />
+                                                    <Border x:Name="DatasetSamplePresetSection"
+                                Background="{StaticResource PanelBrush}"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="12"
+                                Margin="0,0,0,10">
+                            <StackPanel>
+                                <TextBlock Text="{Binding StartingDataTitleText}" Style="{StaticResource WizardLabelStyle}" />
+                                <ListBox x:Name="WizardSamplePresetListBox"
+                                         Style="{StaticResource WizardListBoxStyle}"
+                                         ItemTemplate="{StaticResource SamplePresetItemTemplate}"
+                                         ItemsSource="{Binding SamplePresets}"
+                                         SelectedItem="{Binding SelectedSamplePreset, Mode=TwoWay}">
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource WizardListItemStyle}">
+                                            <Setter Property="IsEnabled" Value="{Binding IsAvailable}" />
+                                            <Setter Property="ToolTip" Value="{Binding ToolTip}" />
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                    <ListBox.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ListBox.ItemsPanel>
+                                </ListBox>
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="DatasetInitialRuntimeSection"
+                                AutomationProperties.AutomationId="DatasetInitialRuntimeSection"
+                                Background="{StaticResource PanelBrush}"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="12"
+                                Margin="0,0,0,10">
+                            <StackPanel>
+                                <TextBlock Text="{Binding ModelSectionTitleText}" Style="{StaticResource WizardLabelStyle}" />
+                                <TextBlock x:Name="WizardModelSetupIntroText"
+                                           Text="{Binding ModelSetupIntroText}"
+                                           Foreground="{StaticResource SecondaryTextBrush}"
+                                           FontFamily="{DynamicResource UiFontFamily}"
+                                           FontSize="11"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,8" />
 
-                            <TextBlock Text="모델 프로필" Style="{StaticResource WizardLabelStyle}" Margin="0,10,0,5" />
-                            <ListBox x:Name="WizardModelEngineListBox"
-                                     Style="{StaticResource WizardListBoxStyle}"
-                                     ItemContainerStyle="{StaticResource WizardListItemStyle}"
-                                     ItemsSource="{Binding ModelEngineOptions}"
-                                     SelectedItem="{Binding SelectedModelEngine, Mode=TwoWay}"
-                                     AutomationProperties.AutomationId="WizardModelEngineListBox"
-                                     AutomationProperties.Name="최초 모델 프로필">
-                                <ListBox.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </ListBox.ItemsPanel>
-                            </ListBox>
 
-                            <TextBlock Text="검사 모델 파일 (선택)" Style="{StaticResource WizardLabelStyle}" Margin="0,4,0,5" />
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="WizardWeightsPathBox"
-                                         Style="{StaticResource WizardInputStyle}"
-                                         AutomationProperties.AutomationId="WizardWeightsPathBox"
-                                         AutomationProperties.Name="최초 검사 모델 파일"
-                                         Text="{Binding WeightsPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                         ToolTip="{Binding WeightsPath}" />
-                                <Button x:Name="WizardBrowseWeightsButton"
-                                        Grid.Column="1"
-                                        Style="{StaticResource WizardButtonStyle}"
-                                        AutomationProperties.AutomationId="WizardBrowseWeightsButton"
-                                        AutomationProperties.Name="최초 검사 모델 파일 찾기"
-                                        Command="{Binding BrowseWeightsCommand}"
-                                        Margin="8,0,0,0"
-                                        MinWidth="68">
-                                    <StackPanel Orientation="Horizontal">
-                                        <iconPacks:PackIconMaterial Kind="FileOutline" Width="14" Height="14" Margin="0,0,5,0" />
-                                        <TextBlock Text="찾기" />
-                                    </StackPanel>
-                                </Button>
-                            </Grid>
-                            <TextBlock Text="{Binding ModelSetupHelpText}"
-                                       Foreground="{StaticResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="11"
-                                       TextWrapping="Wrap"
-                                       Margin="0,6,0,0" />
+                                <TextBlock Text="{Binding ModelEngineLabelText}" Style="{StaticResource WizardLabelStyle}" Margin="0,10,0,5" />
+                                <ListBox x:Name="WizardModelEngineListBox"
+                                         Style="{StaticResource WizardListBoxStyle}"
+                                         ItemContainerStyle="{StaticResource WizardListItemStyle}"
+                                         ItemsSource="{Binding ModelEngineOptions}"
+                                         SelectedItem="{Binding SelectedModelEngine, Mode=TwoWay}"
+                                         AutomationProperties.AutomationId="WizardModelEngineListBox"
+                                         AutomationProperties.Name="{Binding InitialModelEngineNameText}">
+                                    <ListBox.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ListBox.ItemsPanel>
+                                </ListBox>
 
-                            <Grid Visibility="{Binding AnomalySettingsVisibility}" Margin="0,10,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="120" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-                                <TextBlock Grid.ColumnSpan="2" Text="이상탐지 클래스 매핑" Style="{StaticResource WizardLabelStyle}" />
-                                <TextBlock Grid.Row="1" Text="정상 클래스" Style="{StaticResource WizardLabelStyle}" Margin="0,7,8,0" />
-                                <TextBox x:Name="WizardAnomalyNormalClassesBox"
-                                         Grid.Row="1"
-                                         Grid.Column="1"
-                                         Style="{StaticResource WizardInputStyle}"
-                                         AutomationProperties.Name="이상탐지 정상 클래스"
-                                         Text="{Binding AnomalyNormalClassNamesText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                <TextBlock Grid.Row="2" Text="이상 클래스" Style="{StaticResource WizardLabelStyle}" Margin="0,7,8,0" />
-                                <TextBox x:Name="WizardAnomalyAbnormalClassesBox"
-                                         Grid.Row="2"
-                                         Grid.Column="1"
-                                         Style="{StaticResource WizardInputStyle}"
-                                         AutomationProperties.Name="이상탐지 이상 클래스"
-                                         Text="{Binding AnomalyAbnormalClassNamesText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
+                                <TextBlock Text="{Binding ModelFileLabelText}" Style="{StaticResource WizardLabelStyle}" Margin="0,4,0,5" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="WizardWeightsPathBox"
+                                             Style="{StaticResource WizardInputStyle}"
+                                             AutomationProperties.AutomationId="WizardWeightsPathBox"
+                                             AutomationProperties.Name="{Binding InitialModelFileNameText}"
+                                             Text="{Binding WeightsPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="{Binding WeightsPath}" />
+                                    <Button x:Name="WizardBrowseWeightsButton"
+                                            Grid.Column="1"
+                                            Style="{StaticResource WizardButtonStyle}"
+                                            AutomationProperties.AutomationId="WizardBrowseWeightsButton"
+                                            AutomationProperties.Name="{Binding BrowseInitialModelFileNameText}"
+                                            Command="{Binding BrowseWeightsCommand}"
+                                            Margin="8,0,0,0"
+                                            MinWidth="68">
+                                        <StackPanel Orientation="Horizontal">
+                                            <iconPacks:PackIconMaterial Kind="FileOutline" Width="14" Height="14" Margin="0,0,5,0" />
+                                            <TextBlock Text="{Binding BrowseText}" />
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+                                <TextBlock Text="{Binding ModelSetupHelpText}"
+                                           Foreground="{StaticResource SecondaryTextBrush}"
+                                           FontFamily="{DynamicResource UiFontFamily}"
+                                           FontSize="11"
+                                           TextWrapping="Wrap"
+                                           Margin="0,6,0,0" />
 
-                    <Border x:Name="DatasetRecipeSection"
-                            Background="{StaticResource PanelBrush}"
-                            BorderBrush="{StaticResource BorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="6"
-                            Padding="12"
-                            Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="Recipe &#xC774;&#xB984;" Style="{StaticResource WizardLabelStyle}" />
-                            <TextBox x:Name="WizardRecipeNameBox"
-                                     Style="{StaticResource WizardInputStyle}"
-                                     AutomationProperties.AutomationId="WizardRecipeNameBox"
-                                     AutomationProperties.Name="Recipe &#xC774;&#xB984;"
-                                     Text="{Binding RecipeName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="{Binding RecipeName}" />
-                        </StackPanel>
-                    </Border>
+                                <Grid Visibility="{Binding AnomalySettingsVisibility}" Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.ColumnSpan="2" Text="{Binding AnomalyClassesTitleText}" Style="{StaticResource WizardLabelStyle}" />
+                                    <TextBlock Grid.Row="1" Text="{Binding NormalClassLabelText}" Style="{StaticResource WizardLabelStyle}" Margin="0,7,8,0" />
+                                    <TextBox x:Name="WizardAnomalyNormalClassesBox"
+                                             Grid.Row="1"
+                                             Grid.Column="1"
+                                             Style="{StaticResource WizardInputStyle}"
+                                             AutomationProperties.Name="{Binding NormalClassNameText}"
+                                             Text="{Binding AnomalyNormalClassNamesText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBlock Grid.Row="2" Text="{Binding AnomalousClassLabelText}" Style="{StaticResource WizardLabelStyle}" Margin="0,7,8,0" />
+                                    <TextBox x:Name="WizardAnomalyAbnormalClassesBox"
+                                             Grid.Row="2"
+                                             Grid.Column="1"
+                                             Style="{StaticResource WizardInputStyle}"
+                                             AutomationProperties.Name="{Binding AnomalousClassNameText}"
+                                             Text="{Binding AnomalyAbnormalClassNamesText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
 
-                    <Border x:Name="DatasetOutputRootSection"
-                            Background="{StaticResource PanelBrush}"
-                            BorderBrush="{StaticResource BorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="6"
-                            Padding="12"
-                            Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="&#xC800;&#xC7A5; &#xACBD;&#xB85C;" Style="{StaticResource WizardLabelStyle}" />
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="WizardOutputRootPathBox"
-                                         Grid.Column="0"
-                                         Style="{StaticResource WizardInputStyle}"
-                                         AutomationProperties.AutomationId="WizardOutputRootPathBox"
-                                         AutomationProperties.Name="&#xB370;&#xC774;&#xD130;&#xC14B; &#xC800;&#xC7A5; &#xACBD;&#xB85C;"
-                                         Text="{Binding OutputRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                         ToolTip="{Binding OutputRootPath}" />
-                                <Button x:Name="WizardBrowseOutputRootButton"
-                                        Grid.Column="1"
-                                        Style="{StaticResource WizardButtonStyle}"
-                                        AutomationProperties.AutomationId="WizardBrowseOutputRootButton"
-                                        AutomationProperties.Name="&#xB370;&#xC774;&#xD130;&#xC14B; &#xC800;&#xC7A5; &#xACBD;&#xB85C; &#xCC3E;&#xAE30;"
-                                        Command="{Binding BrowseOutputRootCommand}"
-                                        Margin="8,0,0,0"
-                                        MinWidth="68">
-                                    <StackPanel Orientation="Horizontal">
-                                        <iconPacks:PackIconMaterial Kind="FolderOpenOutline" Width="14" Height="14" Margin="0,0,5,0" />
-                                        <TextBlock Text="&#xCC3E;&#xAE30;" />
-                                    </StackPanel>
-                                </Button>
-                            </Grid>
-                            <TextBlock x:Name="WizardStorageHelpText"
-                                       AutomationProperties.AutomationId="WizardStorageHelpText"
-                                       Text="{Binding StorageHelpText}"
-                                       Foreground="{StaticResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="11"
-                                       TextWrapping="Wrap"
-                                       Margin="0,7,0,0" />
-                        </StackPanel>
-                    </Border>
+                                            <Border x:Name="DatasetPreviewSection"
 
-                    <Border x:Name="DatasetClassesSection"
-                            Background="{StaticResource PanelBrush}"
-                            BorderBrush="{StaticResource BorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="6"
-                            Padding="12">
-                        <StackPanel>
-                            <TextBlock Text="&#xCD08;&#xAE30; &#xD074;&#xB798;&#xC2A4; (&#xC5EC;&#xB7EC; &#xAC1C; &#xAC00;&#xB2A5;)" Style="{StaticResource WizardLabelStyle}" />
-                            <TextBox x:Name="WizardClassNamesBox"
-                                     Style="{StaticResource WizardInputStyle}"
-                                     AutomationProperties.AutomationId="WizardClassNamesBox"
-                                     AutomationProperties.Name="&#xCD08;&#xAE30; &#xD074;&#xB798;&#xC2A4; (&#xC5EC;&#xB7EC; &#xAC1C; &#xAC00;&#xB2A5;)"
-                                     Text="{Binding ClassNamesText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                     AcceptsReturn="True"
-                                     TextWrapping="Wrap"
-                                     VerticalScrollBarVisibility="Auto"
-                                     MinHeight="70" />
-                            <TextBlock Text="&#xC27C;&#xD45C;(,) &#xB610;&#xB294; &#xC904;&#xBC14;&#xAFC8;&#xC73C;&#xB85C; &#xAD6C;&#xBD84;&#xD558;&#xC138;&#xC694;. &#xC608;: Defect, OK, NG"
-                                       Foreground="{StaticResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="11"
-                                       TextWrapping="Wrap"
-                                       Margin="0,6,0,0" />
-                            <TextBlock x:Name="WizardClassSummaryText"
-                                       Text="{Binding ClassSummaryText}"
+                        Background="Transparent"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="0"
+                        Padding="0,12,0,0">
+                    <StackPanel x:Name="WizardPreviewSummaryPanel" AutomationProperties.HelpText="{Binding PreviewText}">
+                        <TextBlock x:Name="WizardCreateSummaryTitle"
+                                   Text="{Binding CreateSummaryTitleText}"
+                                   Style="{StaticResource WizardLabelStyle}"
+                                   FontSize="16"
+                                   Margin="0,0,0,10" />
+                        <TextBlock x:Name="WizardSummaryRecipeLabelText"
+                                   Text="{Binding CreateSummaryRecipeLabelText}"
+                                   Foreground="{StaticResource SecondaryTextBrush}"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="12" />
+                        <TextBlock x:Name="WizardSummaryRecipeNameText"
+                                   Text="{Binding RecipeNameSummaryText}"
+                                   Foreground="#E5E7EB"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   Margin="0,2,0,9" />
+                        <TextBlock x:Name="WizardSummaryPurposeLabelText"
+                                   Text="{Binding CreateSummaryPurposeLabelText}"
+                                   Foreground="{StaticResource SecondaryTextBrush}"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="12" />
+                        <TextBlock x:Name="WizardSummaryPurposeText"
+                                   Text="{Binding SelectedDatasetPurposeMode.Text}"
+                                   Foreground="#E5E7EB"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   Margin="0,2,0,9" />
+                        <TextBlock x:Name="WizardSummaryImageLabelText"
+                                   Text="{Binding CreateSummaryImageLabelText}"
+                                   Foreground="{StaticResource SecondaryTextBrush}"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="12" />
+                        <TextBlock x:Name="WizardPreviewImageSourceText"
+                                   AutomationProperties.AutomationId="WizardPreviewImageSourceText"
+                                   Text="{Binding ImageSummaryText}"
+                                   Foreground="#E5E7EB"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   Margin="0,2,0,9" />
+                        <TextBlock x:Name="WizardSummaryClassesLabelText"
+                                   Text="{Binding CreateSummaryClassesLabelText}"
+                                   Foreground="{StaticResource SecondaryTextBrush}"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="12" />
+                        <ItemsControl x:Name="WizardSummaryClassesItems"
+                                      AutomationProperties.AutomationId="WizardSummaryClassesItems"
+                                      AutomationProperties.HelpText="{Binding ClassSummaryText}"
+                                      ItemsSource="{Binding SummaryClassItems}"
+                                      Margin="0,2,0,0">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#272E38"
+                                            BorderBrush="#424F60"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Padding="7,5"
+                                            Margin="0,0,6,6">
+                                        <TextBlock Text="{Binding}"
+                                                   Foreground="#E5E7EB"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="11" TextWrapping="Wrap" MaxWidth="540" />
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button x:Name="WizardJumpToClassesButton"
+                                Style="{StaticResource WizardButtonStyle}"
+                                AutomationProperties.AutomationId="WizardJumpToClassesButton"
+                                Click="OnJumpToClassesClick"
+                                Margin="0,8,0,0"
+                                HorizontalAlignment="Stretch">
+                            <TextBlock Text="{Binding JumpToClassesText}" TextWrapping="Wrap" />
+                        </Button>
+                        <Border x:Name="WizardCreateSummaryNote"
+                                Background="#202A38"
+                                BorderBrush="{StaticResource AccentBrush}"
+                                BorderThickness="2,0,0,0"
+                                Padding="12"
+                                Margin="0,12,0,0">
+                            <TextBlock x:Name="WizardSummaryNoteText"
+                                       Text="{Binding CreateSummaryNoteText}"
                                        Foreground="#E5E7EB"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="12"
-                                       FontWeight="SemiBold"
-                                       TextWrapping="Wrap"
-                                       Margin="0,5,0,0" />
+                                       TextWrapping="Wrap" />
+                        </Border>
+                        <TextBlock x:Name="WizardSummaryExplainText"
+                                   Text="{Binding CreateSummaryExplainText}"
+                                   Foreground="{StaticResource SecondaryTextBrush}"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   Margin="0,12,0,0" />
+                    </StackPanel>
+                </Border>
+
                         </StackPanel>
-                    </Border>
+                    </Expander>
                 </StackPanel>
-            </ScrollViewer>
-
-            <Border x:Name="DatasetPreviewSection"
-                    Grid.Row="2"
-                    Background="{StaticResource PanelAltBrush}"
-                    BorderBrush="{StaticResource AccentBrush}"
-                    BorderThickness="1"
-                    CornerRadius="6"
-                    Padding="12"
-                    Margin="0,12,0,0">
-                <StackPanel>
-                    <TextBlock Text="&#xC0DD;&#xC131; &#xBBF8;&#xB9AC;&#xBCF4;&#xAE30;" Style="{StaticResource WizardLabelStyle}" />
-                    <TextBlock x:Name="WizardPreviewText"
-                               Text="{Binding PreviewText}"
-                               Foreground="#E5E7EB"
-                               FontFamily="Segoe UI"
-                               FontSize="12"
-                               TextWrapping="Wrap" />
-                    <TextBlock x:Name="WizardIsolationHelpText"
-                               AutomationProperties.AutomationId="WizardIsolationHelpText"
-                               Text="{Binding IsolationHelpText}"
-                               Foreground="{StaticResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="11"
-                               TextWrapping="Wrap"
-                               Margin="0,7,0,0" />
-                </StackPanel>
+            <Border Grid.Row="2" Background="#1B212A" BorderBrush="#283040" BorderThickness="0,1,0,0" Padding="20,12" CornerRadius="0,0,12,12">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <TextBlock x:Name="WizardStatusText" Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding StatusText}" Foreground="#FFB3B3" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0">
+                        <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed" /></Trigger></Style.Triggers></Style></TextBlock.Style>
+                    </TextBlock>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button x:Name="WizardCancelButton" Style="{StaticResource WizardButtonStyle}" FontSize="13" IsCancel="True" Command="{Binding CancelCommand}" Content="{Binding CancelButtonText}" AutomationProperties.AutomationId="WizardCancelButton" Margin="0,0,8,0" />
+                        <Button x:Name="WizardCreateButton" Style="{StaticResource WizardPrimaryButtonStyle}" Command="{Binding CreateCommand}" Content="{Binding CreateButtonText}"
+                                CommandParameter="{Binding SelectedItem, ElementName=WizardDatasetPurposeListBox}" AutomationProperties.AutomationId="WizardCreateButton" />
+                    </StackPanel>
+                </Grid>
             </Border>
-
-            <Grid Grid.Row="3" Margin="0,14,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock x:Name="WizardStatusText"
-                           Grid.Column="0"
-                           Text="{Binding StatusText}"
-                           Foreground="{StaticResource SecondaryTextBrush}"
-                           FontFamily="Segoe UI"
-                           FontSize="12"
-                           TextWrapping="Wrap"
-                           VerticalAlignment="Center"
-                           Margin="0,0,12,0" />
-                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button x:Name="WizardCancelButton"
-                            Style="{StaticResource WizardButtonStyle}"
-                            AutomationProperties.AutomationId="WizardCancelButton"
-                            AutomationProperties.Name="&#xB370;&#xC774;&#xD130;&#xC14B; &#xC0DD;&#xC131; &#xCDE8;&#xC18C;"
-                            Command="{Binding CancelCommand}"
-                            Margin="0,0,8,0"
-                            Content="&#xCDE8;&#xC18C;" />
-                    <Button x:Name="WizardCreateButton"
-                            Style="{StaticResource WizardPrimaryButtonStyle}"
-                            AutomationProperties.AutomationId="WizardCreateButton"
-                            AutomationProperties.Name="Recipe 생성 및 적용"
-                            Command="{Binding CreateCommand}"
-                            CommandParameter="{Binding SelectedItem, ElementName=WizardDatasetPurposeListBox}"
-                            Content="Recipe 생성 및 적용" />
-                </StackPanel>
-            </Grid>
         </Grid>
-    </Grid>
+        </ScrollViewer>
+    </Border>
 </Window>

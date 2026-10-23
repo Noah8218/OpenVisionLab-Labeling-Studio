@@ -1,6 +1,7 @@
 using OpenVisionLab;
 using OpenVisionLab.Mvvm.Behaviors;
 using System;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -33,6 +34,7 @@ namespace MvcVisionSystem
                 context.ProjectRecipeApplyWorkflowService,
                 context.ApplicationStateProvider,
                 context.CloseApprovedProvider);
+            context.ProjectConfigViewModel.ConfigureRecipeApplyWorkflow(context.ApplyRecipeWorkflow);
             context.ProjectConfigViewModel.ConfigureNavigationWorkflow(context.CreateNavigationCallbacks);
             context.ProjectConfigViewModel.ConfigureArchiveWorkflow(
                 context.ProjectArchiveWorkflowService,
@@ -55,6 +57,7 @@ namespace MvcVisionSystem
         internal WpfProjectConfigPanelViewModel ProjectConfigViewModel { get; init; }
         internal ProjectRecipeSessionService ProjectRecipeSessionService { get; init; }
         internal ProjectRecipeApplyWorkflowService ProjectRecipeApplyWorkflowService { get; init; }
+        internal Func<string, Task<ProjectRecipeApplyResult>> ApplyRecipeWorkflow { get; init; }
         internal Func<LabelingApplicationState> ApplicationStateProvider { get; init; }
         internal Func<bool> CloseApprovedProvider { get; init; }
         internal Func<ProjectConfigNavigationCallbacks> CreateNavigationCallbacks { get; init; }

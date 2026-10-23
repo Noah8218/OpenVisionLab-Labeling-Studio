@@ -29,15 +29,15 @@ namespace MvcVisionSystem
             return new WpfAnomalyClassificationEvaluationPresentation
             {
                 RecommendationText = canAdopt
-                    ? "\uC774\uC0C1\uD0D0\uC9C0 \uD3C9\uAC00: \uCC44\uD0DD \uAC00\uB2A5"
-                    : "\uC774\uC0C1\uD0D0\uC9C0 \uD3C9\uAC00: \uBCF4\uB958",
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Recommendation.Ready")
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Recommendation.Held"),
                 MetricsText = BuildMetricsText(report),
                 DetailText = canAdopt
                     ? BuildAdoptDetailText(options)
                     : BuildHoldDetailText(report, options),
                 ActionText = canAdopt
-                    ? "\uC608\uC2DC \uC774\uBBF8\uC9C0\uB97C \uAC80\uD1A0\uD55C \uB4A4 \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694."
-                    : "\uC815\uC0C1/\uC774\uC0C1 held-out \uC774\uBBF8\uC9C0\uB97C \uB354 \uBAA8\uC73C\uAC70\uB098 \uC7AC\uD559\uC2B5\uD55C \uB4A4 \uB2E4\uC2DC \uD3C9\uAC00\uD558\uC138\uC694."
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Action.Assign")
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Action.Hold")
             };
         }
 
@@ -45,7 +45,7 @@ namespace MvcVisionSystem
         {
             return string.Format(
                 CultureInfo.InvariantCulture,
-                "{0} / \uD3C9\uAC00 {1}\uC7A5 / \uC815\uC0C1 {2}/{3}, \uC774\uC0C1 {4}/{5} / balanced {6} / \uC815\uC0C1 \uC624\uAC80\uCD9C {7}, \uC774\uC0C1 \uBBF8\uAC80\uCD9C {8} / \uB0AE\uC740 \uC2E0\uB8B0\uB3C4 \uC815\uB2F5 {9}\uAC74",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Metrics"),
                 FormatModelName(report.ModelName),
                 report.TotalImageCount,
                 report.NormalCorrectCount,
@@ -65,7 +65,7 @@ namespace MvcVisionSystem
                 "yolov8" => "YOLOv8",
                 "yolo11" => "YOLO11",
                 "patchcore" => "PatchCore",
-                _ => "\uBAA8\uB378 \uBBF8\uAE30\uB85D"
+                _ => OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Model.Unrecorded")
             };
         }
 
@@ -73,7 +73,7 @@ namespace MvcVisionSystem
         {
             return string.Format(
                 CultureInfo.InvariantCulture,
-                "\uAE30\uC900 \uD1B5\uACFC: \uCD5C\uC18C {0}\uC7A5, \uD074\uB798\uC2A4\uBCC4 {1}\uC7A5, \uC804\uCCB4 \uC815\uD655\uB3C4 {2}, \uD074\uB798\uC2A4\uBCC4 \uC815\uD655\uB3C4 {3}, \uCD5C\uC18C \uC2E0\uB8B0\uB3C4 {4} \uAE30\uC900\uC744 \uCDA9\uC871\uD588\uC2B5\uB2C8\uB2E4.",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Detail.Passed"),
                 Math.Max(1, options.MinimumTotalImageCount),
                 Math.Max(1, options.MinimumPerClassImageCount),
                 FormatPercent(options.MinimumAccuracy),
@@ -88,42 +88,42 @@ namespace MvcVisionSystem
             var blockers = new List<string>();
             if (report.TotalImageCount < Math.Max(1, options.MinimumTotalImageCount))
             {
-                blockers.Add($"\uAC80\uC99D \uC774\uBBF8\uC9C0 {report.TotalImageCount}/{Math.Max(1, options.MinimumTotalImageCount)}\uC7A5");
+                blockers.Add(string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Detail.ImageCount"), report.TotalImageCount, Math.Max(1, options.MinimumTotalImageCount)));
             }
 
             if (report.NormalImageCount < Math.Max(1, options.MinimumPerClassImageCount))
             {
-                blockers.Add($"\uC815\uC0C1 {report.NormalImageCount}/{Math.Max(1, options.MinimumPerClassImageCount)}\uC7A5");
+                blockers.Add(string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Detail.NormalCount"), report.NormalImageCount, Math.Max(1, options.MinimumPerClassImageCount)));
             }
 
             if (report.AbnormalImageCount < Math.Max(1, options.MinimumPerClassImageCount))
             {
-                blockers.Add($"\uC774\uC0C1 {report.AbnormalImageCount}/{Math.Max(1, options.MinimumPerClassImageCount)}\uC7A5");
+                blockers.Add(string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Detail.AbnormalCount"), report.AbnormalImageCount, Math.Max(1, options.MinimumPerClassImageCount)));
             }
 
             if (report.Accuracy < Clamp01(options.MinimumAccuracy))
             {
-                blockers.Add($"\uC804\uCCB4 \uC815\uD655\uB3C4 {FormatPercent(report.Accuracy)} / \uAE30\uC900 {FormatPercent(options.MinimumAccuracy)}");
+                blockers.Add(string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Detail.Accuracy"), FormatPercent(report.Accuracy), FormatPercent(options.MinimumAccuracy)));
             }
 
             if (report.NormalAccuracy < Clamp01(options.MinimumPerClassAccuracy))
             {
-                blockers.Add($"\uC815\uC0C1 \uC815\uD655\uB3C4 {FormatPercent(report.NormalAccuracy)} / \uAE30\uC900 {FormatPercent(options.MinimumPerClassAccuracy)}");
+                blockers.Add(string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Detail.NormalAccuracy"), FormatPercent(report.NormalAccuracy), FormatPercent(options.MinimumPerClassAccuracy)));
             }
 
             if (report.AbnormalAccuracy < Clamp01(options.MinimumPerClassAccuracy))
             {
-                blockers.Add($"\uC774\uC0C1 \uC815\uD655\uB3C4 {FormatPercent(report.AbnormalAccuracy)} / \uAE30\uC900 {FormatPercent(options.MinimumPerClassAccuracy)}");
+                blockers.Add(string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Detail.AbnormalAccuracy"), FormatPercent(report.AbnormalAccuracy), FormatPercent(options.MinimumPerClassAccuracy)));
             }
 
             if (report.LowConfidenceClassMatchCount > 0)
             {
-                blockers.Add($"\uC2E0\uB8B0\uB3C4 \uBBF8\uB2EC \uC815\uB2F5 {report.LowConfidenceClassMatchCount}\uAC74 / \uAE30\uC900 {FormatPercent(options.MinimumConfidence)}");
+                blockers.Add(string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Detail.Confidence"), report.LowConfidenceClassMatchCount, FormatPercent(options.MinimumConfidence)));
             }
 
             return blockers.Count == 0
-                ? "\uBCF4\uB958 \uC0AC\uC720\uB97C \uC0C1\uC138 \uD3C9\uAC00 \uB9AC\uD3EC\uD2B8\uC5D0\uC11C \uD655\uC778\uD558\uC138\uC694."
-                : "\uBCF4\uB958 \uC0AC\uC720: " + string.Join(" / ", blockers);
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Detail.HoldReport")
+                : OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Detail.HoldPrefix") + " " + string.Join(" / ", blockers);
         }
 
         private static string FormatPercent(double value)

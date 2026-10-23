@@ -34,7 +34,7 @@ namespace MvcVisionSystem.Yolo
                 {
                     return new[]
                     {
-                        $"Anomaly classification dataset ready. TrainImages:{Statistics.TrainImageCount}, ValidImages:{Statistics.ValidImageCount}, TestImages:{Statistics.TestImageCount}, Normal:{Statistics.AnomalyNormalImageCount}, Abnormal:{Statistics.AnomalyAbnormalImageCount}, Unreviewed:{Statistics.AnomalyUnreviewedImageCount}",
+                        $"Anomaly detection dataset ready. TrainImages:{Statistics.TrainImageCount}, ValidImages:{Statistics.ValidImageCount}, TestImages:{Statistics.TestImageCount}, Normal:{Statistics.AnomalyNormalImageCount}, Abnormal:{Statistics.AnomalyAbnormalImageCount}, Unreviewed:{Statistics.AnomalyUnreviewedImageCount}",
                         $"Dataset purpose summary. {BuildPurposeSummary(Purpose, Statistics)}"
                     };
                 }
@@ -67,7 +67,7 @@ namespace MvcVisionSystem.Yolo
                 LabelingDatasetPurpose.Segmentation =>
                     $"Segmentation uses segment JSON/mask PNG annotations as primary labels. SegmentObjects:{statistics.TotalSegmentationObjectCount}, SegmentFiles:{statistics.TotalSegmentFileCount}, MaskFiles:{statistics.TotalMaskFileCount}, BoxLabelsAuxiliary:{statistics.TotalObjectCount}",
                 LabelingDatasetPurpose.AnomalyDetection =>
-                    $"AnomalyDetection uses reviewed normal/abnormal images for image-level classification. Normal:{statistics.AnomalyNormalImageCount}, Abnormal:{statistics.AnomalyAbnormalImageCount}, Unreviewed:{statistics.AnomalyUnreviewedImageCount}",
+                    $"AnomalyDetection uses reviewed normal/abnormal images for image-level judgements. Normal:{statistics.AnomalyNormalImageCount}, Abnormal:{statistics.AnomalyAbnormalImageCount}, Unreviewed:{statistics.AnomalyUnreviewedImageCount}",
                 _ =>
                     $"ObjectDetection uses YOLO box .txt labels. BoxLabels:{statistics.TotalObjectCount}, SegmentationArtifactsExcluded:{statistics.TotalSegmentationArtifactFileCount}"
             };

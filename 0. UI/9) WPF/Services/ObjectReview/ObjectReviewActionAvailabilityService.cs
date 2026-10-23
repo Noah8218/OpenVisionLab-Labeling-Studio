@@ -13,6 +13,12 @@ namespace MvcVisionSystem
     {
         private const string DefaultZOrderStatusText = "선택한 세그먼트의 앞뒤 표시 순서를 변경합니다.";
 
+        public static bool CanEditRow(WpfObjectReviewListItem row)
+            => row?.IsEnabled == true && !row.IsLocked;
+
+        public static bool CanRepairMaskQualityMarker(WpfObjectReviewListItem row, bool pendingEdit)
+            => row?.IsManualSegment == true && CanEditRow(row) && !row.IsHidden && !pendingEdit;
+
         public ObjectReviewActionAvailabilitySnapshot Build(
             WpfObjectReviewListItem selectedObject,
             IReadOnlyList<WpfObjectReviewListItem> objects,
@@ -85,7 +91,7 @@ namespace MvcVisionSystem
             return new ObjectReviewActionAvailabilitySnapshot(
                 isSegmentContextVisible,
                 isPolygonVertexContextVisible,
-                hasSelectedObject && !selectedLocked,
+                CanEditRow(selectedObject),
                 canApplyClass,
                 canEditSegment,
                 canEditSegment,
@@ -101,7 +107,8 @@ namespace MvcVisionSystem
                     && !isVertexEditPending
                     && !isIntelligentScissorsPending
                     && !isRemoveUnderlyingPreviewPending,
-                FormattableString.Invariant($"병합 선택 {mergeSelectionCount}개 · 같은 클래스 2개 이상"));
+                FormattableString.Invariant($"병합 선택 {mergeSelectionCount}개 · 같은 클래스 2개 이상"),
+                selectedSegmentIndex, manualSegmentCount, canChangeZOrder, mergeSelectionCount);
         }
     }
 
@@ -123,7 +130,11 @@ namespace MvcVisionSystem
             string zOrderStatusText,
             bool isRemoveUnderlyingPreviewEnabled,
             bool isMergeSelectedSegmentsEnabled,
-            string mergeSelectionText)
+            string mergeSelectionText,
+            int selectedSegmentIndex = -1,
+            int manualSegmentCount = 0,
+            bool canChangeZOrder = false,
+            int mergeSelectionCount = 0)
         {
             IsSegmentContextVisible = isSegmentContextVisible;
             IsPolygonVertexContextVisible = isPolygonVertexContextVisible;
@@ -141,6 +152,10 @@ namespace MvcVisionSystem
             IsRemoveUnderlyingPreviewEnabled = isRemoveUnderlyingPreviewEnabled;
             IsMergeSelectedSegmentsEnabled = isMergeSelectedSegmentsEnabled;
             MergeSelectionText = mergeSelectionText ?? string.Empty;
+            SelectedSegmentIndex = selectedSegmentIndex;
+            ManualSegmentCount = manualSegmentCount;
+            CanChangeZOrder = canChangeZOrder;
+            MergeSelectionCount = mergeSelectionCount;
         }
 
         public bool IsSegmentContextVisible { get; }
@@ -174,5 +189,13 @@ namespace MvcVisionSystem
         public bool IsMergeSelectedSegmentsEnabled { get; }
 
         public string MergeSelectionText { get; }
+
+        public int SelectedSegmentIndex { get; }
+
+        public int ManualSegmentCount { get; }
+
+        public bool CanChangeZOrder { get; }
+
+        public int MergeSelectionCount { get; }
     }
 }

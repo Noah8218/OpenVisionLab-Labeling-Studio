@@ -1,3 +1,4 @@
+using OpenVisionLab;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -16,9 +17,9 @@ namespace MvcVisionSystem
         private string selectedRecipeName = string.Empty;
         private string configPath = string.Empty;
         private string manifestPath = string.Empty;
-        private string datasetVersionText = "저장 후 생성";
-        private string datasetVersionDetailText = "Recipe를 저장하면 이미지·라벨·클래스·분할의 SHA-256 버전을 기록합니다.";
-        private string statusText = "현재 recipe 설정 위치를 확인하세요.";
+        private string datasetVersionText = new RecipeDatasetVersionPresentation().VersionText;
+        private string datasetVersionDetailText = new RecipeDatasetVersionPresentation().DetailText;
+        private string statusText = OpenVisionLanguageService.T("WpfProjectConfig.Status.Initial");
         private string recipeRootPath = string.Empty;
         private bool isApplyRecipeEnabled = true;
         private bool isRefreshRecipeListEnabled = true;
@@ -39,6 +40,7 @@ namespace MvcVisionSystem
         private Func<bool> closeApprovedProvider;
         private Func<ProjectConfigNavigationCallbacks> navigationCallbacksProvider;
         private Func<ProjectConfigArchiveCallbacks> archiveCallbacksProvider;
+        private Func<string, Task<ProjectRecipeApplyResult>> applyRecipeWorkflow;
         private Func<string, bool> recipeSelectionGuard = _ => true;
         private int recipeApplyInFlight;
 
@@ -240,6 +242,9 @@ namespace MvcVisionSystem
             OpenProjectConfigFolderCommand = new RelayCommand(ExecuteOpenProjectConfigFolder);
         }
 
+        public void ConfigureRecipeApplyWorkflow(Func<string, Task<ProjectRecipeApplyResult>> workflow)
+            => applyRecipeWorkflow = workflow;
+
         public void ConfigureArchiveWorkflow(
             ProjectArchiveWorkflowService workflowService,
             Func<ProjectConfigArchiveCallbacks> callbacksProvider)
@@ -268,7 +273,7 @@ namespace MvcVisionSystem
 
             if (callbacks?.RefreshRecipeList?.Invoke(selectedRecipeName) == true)
             {
-                StatusText = "Recipe 목록을 다시 읽었습니다. 적용할 항목을 선택하세요.";
+                StatusText = OpenVisionLanguageService.T("WpfProjectConfig.Status.ListRefreshed");
             }
         }
 
@@ -362,7 +367,7 @@ namespace MvcVisionSystem
 
             string archivePath = callbacks.SelectFile?.Invoke(
                 "프로젝트 아카이브 가져오기",
-                "OpenVisionLab 프로젝트 (*.ovl-project.zip;*.zip)|*.ovl-project.zip;*.zip",
+                "OpenVisionLab 레시피 (*.ovlrecipe;*.ovl-project.zip;*.zip)|*.ovlrecipe;*.ovl-project.zip;*.zip",
                 Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
             if (string.IsNullOrWhiteSpace(archivePath))
             {
@@ -392,9 +397,9 @@ namespace MvcVisionSystem
                     });
                 callbacks.ImportedRecipeLoaded?.Invoke(result.RecipeName);
                 string referenceText = result.ExternalReferenceCount > 0
-                    ? $" 외부 실행기/가중치 참조 {result.ExternalReferenceCount}개는 이 PC에서 다시 확인해야 합니다."
+                    ? string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.ExternalReferences"), result.ExternalReferenceCount)
                     : string.Empty;
-                StatusText = $"가져오기 완료: {result.RecipeName}. 자동 적용하지 않았습니다. 목록에서 `적용`을 누르세요.{referenceText}";
+                StatusText = string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.ImportComplete"), result.RecipeName, referenceText);
                 callbacks.AppendLog?.Invoke(
                     $"프로젝트 아카이브 가져오기: {result.ArchivePath} -> {result.RecipeDirectory} / {result.DatasetRootPath}");
             }
@@ -463,7 +468,7 @@ namespace MvcVisionSystem
             string currentRecipeName = RecipeName?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(currentRecipeName))
             {
-                StatusText = "Recipe 이름이 없어 설정을 저장하지 않았습니다.";
+                StatusText = OpenVisionLanguageService.T("WpfProjectConfig.Status.NoRecipeNameForSave");
                 return;
             }
 
@@ -504,18 +509,18 @@ namespace MvcVisionSystem
             if (string.IsNullOrWhiteSpace(recipeName))
             {
                 Interlocked.Exchange(ref recipeApplyInFlight, 0);
-                StatusText = "적용할 recipe 이름을 입력하세요.";
+                StatusText = OpenVisionLanguageService.T("WpfProjectConfig.Status.EnterRecipeName");
                 return;
             }
 
             if (!ProjectRecipeService.IsValidRecipeName(recipeName))
             {
                 Interlocked.Exchange(ref recipeApplyInFlight, 0);
-                StatusText = "Recipe 이름에 사용할 수 없는 문자가 있습니다.";
+                StatusText = OpenVisionLanguageService.T("WpfProjectConfig.Status.InvalidRecipeName");
                 return;
             }
 
-            StatusText = $"Recipe 적용 중: {recipeName}";
+            StatusText = string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.Applying"), recipeName);
             _ = ApplyRecipeAsync(recipeName);
         }
 
@@ -523,9 +528,9 @@ namespace MvcVisionSystem
         {
             try
             {
-                ProjectRecipeApplyResult result = await projectRecipeApplyWorkflowService.ApplyAsync(
-                    applicationProvider(),
-                    recipeName);
+                ProjectRecipeApplyResult result = applyRecipeWorkflow != null
+                    ? await applyRecipeWorkflow(recipeName)
+                    : await projectRecipeApplyWorkflowService.ApplyAsync(applicationProvider(), recipeName);
                 if (result.IsApplied)
                 {
                     ProjectRecipeApplied?.Invoke(recipeName, result);
@@ -533,7 +538,7 @@ namespace MvcVisionSystem
             }
             catch (Exception ex)
             {
-                string failure = $"Recipe 적용 실패: {ex.Message}";
+                string failure = string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.ApplyFailed"), ex.Message);
                 StatusText = failure;
                 WorkflowError?.Invoke(failure);
             }

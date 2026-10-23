@@ -19,22 +19,37 @@ namespace MvcVisionSystem
             YoloTrainingGuideHistory history,
             ModelRegistrySettings registry,
             bool hasPendingInspectionModelSelection)
+            => Build(settings, comparison, history, registry, hasPendingInspectionModelSelection, null);
+
+        public static WpfModelRegistryPresentation Build(
+            PythonModelSettings settings,
+            WpfTrainingWeightsComparison comparison,
+            YoloTrainingGuideHistory history,
+            ModelRegistrySettings registry,
+            bool hasPendingInspectionModelSelection,
+            PythonModelRuntimeState runtimeState)
         {
             settings ??= new PythonModelSettings();
             history?.EnsureDefaults();
             registry?.EnsureDefaults();
 
-            return new WpfModelRegistryPresentation
+            Func<string> candidateTextSource;
+            Func<string> actionTextSource;
+            var presentation = new WpfModelRegistryPresentation
             {
                 ProfileText = BuildProfileText(settings, registry),
                 TrainingRunText = BuildTrainingRunText(history, comparison, registry),
-                CandidateModelText = BuildCandidateModelText(comparison, settings.WeightsPath, registry),
-                InspectionModelText = BuildInspectionModelText(settings, registry, hasPendingInspectionModelSelection),
-                ActionText = BuildActionText(comparison, settings.WeightsPath, registry, hasPendingInspectionModelSelection),
+                CandidateModelText = (candidateTextSource = BuildCandidateModelTextSource(comparison, settings.WeightsPath, registry))(),
+                InspectionModelText = BuildInspectionModelText(settings, registry, hasPendingInspectionModelSelection, runtimeState),
+                ActionText = (actionTextSource = BuildActionTextSource(comparison, settings.WeightsPath, registry, hasPendingInspectionModelSelection))(),
                 SummaryPrimaryText = BuildSummaryPrimaryText(settings, comparison, registry, hasPendingInspectionModelSelection),
-                SummarySecondaryText = BuildSummarySecondaryText(settings, history, registry, hasPendingInspectionModelSelection),
-                HistoryItems = ModelRegistryHistoryPresentationService.BuildHistoryItems(registry)
+                SummarySecondaryText = BuildSummarySecondaryText(settings, history, registry, hasPendingInspectionModelSelection, runtimeState),
+                HistoryItems = ModelRegistryHistoryPresentationService.IncludeConfiguredModel(ModelRegistryHistoryPresentationService.BuildHistoryItems(registry), hasPendingInspectionModelSelection ? null : settings)
             };
+            string originCandidate = presentation.CandidateModelText;
+            string originAction = presentation.ActionText;
+            presentation.DecisionTextSource = (renderCandidate, renderAction) => (originCandidate, originAction, renderCandidate ? candidateTextSource() : string.Empty, renderAction ? actionTextSource() : string.Empty);
+            return presentation;
         }
 
         private static string BuildProfileText(PythonModelSettings settings, ModelRegistrySettings registry)
@@ -42,19 +57,19 @@ namespace MvcVisionSystem
             string engine = PythonModelSettings.NormalizeModelEngine(settings?.ModelEngine);
             string profileName = engine switch
             {
-                PythonModelSettings.EngineYoloV8 => "YOLOv8 \uAC1D\uCCB4\uD0D0\uC9C0",
-                PythonModelSettings.EngineYolo11 => "YOLO11 \uAC1D\uCCB4\uD0D0\uC9C0",
-                PythonModelSettings.EngineOnnx => "ONNX \uCD94\uB860",
-                _ => "YOLOv5 \uAC1D\uCCB4\uD0D0\uC9C0"
+                PythonModelSettings.EngineYoloV8 => OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Profile.Engine.YoloV8"),
+                PythonModelSettings.EngineYolo11 => OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Profile.Engine.Yolo11"),
+                PythonModelSettings.EngineOnnx => OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Profile.Engine.Onnx"),
+                _ => OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Profile.Engine.YoloV5")
             };
 
             string protocol = settings?.GetProtocolModelName() ?? string.Empty;
             string registrySuffix = registry?.Profiles?.Count > 0
-                ? $" / \uB4F1\uB85D \uD504\uB85C\uD544 {registry.Profiles.Count}"
+                ? string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Profile.RegisteredCount"), registry.Profiles.Count)
                 : string.Empty;
             string text = string.IsNullOrWhiteSpace(protocol)
-                ? $"\uBAA8\uB378 \uD504\uB85C\uD544: {profileName}"
-                : $"\uBAA8\uB378 \uD504\uB85C\uD544: {profileName} / \uC2E4\uD589 \uC5B4\uB311\uD130 {protocol}";
+                ? string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Profile.Value"), profileName)
+                : string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Profile.WithProtocol"), profileName, protocol);
             return text + registrySuffix;
         }
 
@@ -68,7 +83,7 @@ namespace MvcVisionSystem
             string current = ModelRegistryTextPresentationService.FormatModelPath(currentPath);
             if (string.IsNullOrWhiteSpace(current))
             {
-                current = "\uC5C6\uC74C";
+                current = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Summary.Current.None");
             }
 
             ModelCandidate latestRecord = ModelRegistryService.FindLatestCandidate(registry);
@@ -77,31 +92,32 @@ namespace MvcVisionSystem
             string candidateText;
             if (string.IsNullOrWhiteSpace(candidate))
             {
-                candidateText = "\uD559\uC2B5 \uD6C4\uBCF4: \uC5C6\uC74C";
+                candidateText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Summary.TrainedModelNone");
             }
             else if (!hasPendingSelection
                 && !string.IsNullOrWhiteSpace(currentPath)
                 && string.Equals(candidatePath, currentPath, StringComparison.OrdinalIgnoreCase))
             {
-                candidateText = "\uD559\uC2B5 \uD6C4\uBCF4: \uD604\uC7AC \uBAA8\uB378\uACFC \uAC19\uC74C";
+                candidateText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Summary.TrainedModelSame");
             }
             else
             {
-                candidateText = $"\uD559\uC2B5 \uD6C4\uBCF4: {candidate}";
+                candidateText = string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Summary.TrainedModelValue"), candidate);
             }
 
-            return $"\uD604\uC7AC \uAC80\uC0AC: {current} / {candidateText}";
+            return string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Summary.Primary"), current, candidateText);
         }
 
         private static string BuildSummarySecondaryText(
             PythonModelSettings settings,
             YoloTrainingGuideHistory history,
             ModelRegistrySettings registry,
-            bool hasPendingSelection)
+            bool hasPendingSelection,
+            PythonModelRuntimeState runtimeState)
         {
-            string profile = BuildSelectedRuntimeSummaryText(settings);
+            string profile = BuildSelectedRuntimeSummaryText(settings, runtimeState);
 
-            string trainingState = "\uC5C6\uC74C";
+            string trainingState = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Summary.Training.None");
             TrainingRun latestRun = ModelRegistryService.FindLatestTrainingRun(registry);
             if (latestRun != null)
             {
@@ -119,17 +135,20 @@ namespace MvcVisionSystem
             int historyCount = registry?.Candidates?.Count ?? 0;
             ModelCandidate latestCandidate = ModelRegistryService.FindLatestCandidate(registry);
             string candidateState = hasPendingSelection
-                ? "\uC120\uD0DD \uD6C4\uBCF4 recipe \uC800\uC7A5 \uC804"
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Summary.Selection.Pending")
                 : latestCandidate?.SavedToRecipe == true
-                    ? "\uD6C4\uBCF4 recipe \uC800\uC7A5\uB428"
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Summary.Selection.Saved")
                     : latestCandidate != null
-                        ? "\uD6C4\uBCF4 \uC800\uC7A5 \uB300\uAE30"
-                        : "\uD6C4\uBCF4 \uC5C6\uC74C";
+                        ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Summary.Selection.Unsaved")
+                        : OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Summary.Selection.None");
 
-            return $"{profile} / \uCD5C\uADFC \uD559\uC2B5 {trainingState} / \uC774\uB825 {historyCount}\uAC74 / {candidateState}";
+            return string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Summary.Secondary"), profile, trainingState, historyCount, candidateState);
         }
 
         public static string BuildSelectedRuntimeSummaryText(PythonModelSettings settings)
+            => BuildSelectedRuntimeSummaryText(settings, null);
+
+        public static string BuildSelectedRuntimeSummaryText(PythonModelSettings settings, PythonModelRuntimeState runtimeState)
         {
             settings ??= new PythonModelSettings();
             PythonModelRuntimeProfile selectedProfile = PythonModelRuntimeProfileService
@@ -137,7 +156,9 @@ namespace MvcVisionSystem
                 .FirstOrDefault(item => item?.IsSelected == true);
 
             string runtimeName = BuildRuntimeName(selectedProfile, settings.ModelEngine);
-            string readinessText = BuildRuntimeReadinessText(selectedProfile);
+            string readinessText = runtimeState == null
+                ? BuildRuntimeReadinessText(selectedProfile)
+                : BuildRuntimeReadinessText(runtimeState.CanRunInference, runtimeState.CanRunTraining, runtimeState.State != PythonModelRuntimeStateKind.NotInstalled);
             return string.IsNullOrWhiteSpace(runtimeName)
                 ? readinessText
                 : $"{runtimeName} / {readinessText}";
@@ -172,27 +193,32 @@ namespace MvcVisionSystem
         {
             if (selectedProfile == null)
             {
-                return "\uC0C1\uD0DC \uD655\uC778 \uD544\uC694";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Runtime.Unknown");
             }
 
-            if (selectedProfile.CanInspect && selectedProfile.CanTrain)
+            return BuildRuntimeReadinessText(selectedProfile.CanInspect, selectedProfile.CanTrain, selectedProfile.IsRuntimeConnected);
+        }
+
+        private static string BuildRuntimeReadinessText(bool canInspect, bool canTrain, bool isConnected)
+        {
+            if (canInspect && canTrain)
             {
-                return "\uAC80\uC0AC/\uD559\uC2B5 \uAC00\uB2A5";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Runtime.Ready");
             }
 
-            if (selectedProfile.CanInspect)
+            if (canInspect)
             {
-                return "\uD604\uC7AC \uAC80\uC0AC \uAC00\uB2A5 / \uD559\uC2B5 \uBBF8\uC9C0\uC6D0";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Runtime.InferenceOnly");
             }
 
-            if (selectedProfile.CanTrain)
+            if (canTrain)
             {
-                return "\uD559\uC2B5 \uAC00\uB2A5 / \uAC80\uC0AC \uBAA8\uB378 \uD544\uC694";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Runtime.TrainingOnly");
             }
 
-            return selectedProfile.IsRuntimeConnected
-                ? "\uC124\uC815 \uD655\uC778 \uD544\uC694"
-                : "\uC124\uCE58/\uC5F0\uACB0 \uD544\uC694";
+            return isConnected
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Runtime.Settings")
+                : OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Runtime.Install");
         }
 
         private static string ResolveCurrentInspectionWeightsPath(
@@ -226,12 +252,12 @@ namespace MvcVisionSystem
                     string metrics = string.IsNullOrWhiteSpace(latestRun.MetricsSummary)
                         ? string.Empty
                         : $" / {latestRun.MetricsSummary}";
-                    return $"\uCD5C\uADFC \uD559\uC2B5 \uC2E4\uD589: {ModelRegistryTextPresentationService.FormatTrainingState(latestRun.State)} / \uACB0\uACFC {runModel}{metrics}";
+                    return string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.TrainingRun.Value"), ModelRegistryTextPresentationService.FormatTrainingState(latestRun.State), runModel, metrics);
                 }
 
                 return string.IsNullOrWhiteSpace(latestModel)
-                    ? "\uCD5C\uADFC \uD559\uC2B5 \uC2E4\uD589: \uC5C6\uC74C"
-                    : $"\uCD5C\uADFC \uD559\uC2B5 \uC2E4\uD589: \uACB0\uACFC \uBAA8\uB378 {latestModel}";
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.TrainingRun.None")
+                    : string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.TrainingRun.Result"), latestModel);
             }
 
             string progress = history.LastTrainingProgressPercent >= 0
@@ -240,40 +266,33 @@ namespace MvcVisionSystem
             string time = ModelRegistryTextPresentationService.FormatLocalTime(history.LastTrainingUpdateUtc);
             string suffix = string.IsNullOrWhiteSpace(latestModel)
                 ? string.Empty
-                : $" / \uACB0\uACFC {latestModel}";
-            return $"\uCD5C\uADFC \uD559\uC2B5 \uC2E4\uD589: {ModelRegistryTextPresentationService.FormatTrainingState(history.LastTrainingState)}{progress} {time}{suffix}".TrimEnd();
+                : string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.TrainingRun.ResultSuffix"), latestModel);
+            return string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.TrainingRun.History"), ModelRegistryTextPresentationService.FormatTrainingState(history.LastTrainingState), progress, time, suffix).TrimEnd();
         }
 
-        private static string BuildCandidateModelText(
-            WpfTrainingWeightsComparison comparison,
-            string currentWeightsPath,
-            ModelRegistrySettings registry)
+        private static Func<string> BuildCandidateModelTextSource(WpfTrainingWeightsComparison comparison, string currentWeightsPath, ModelRegistrySettings registry)
         {
             ModelCandidate latestRecord = ModelRegistryService.FindLatestCandidate(registry);
-            if (comparison?.HasLatestWeights != true && latestRecord == null)
-            {
-                return "\uBAA8\uB378 \uD6C4\uBCF4: \uC5C6\uC74C";
-            }
-
+            bool hasLatestWeights = comparison?.HasLatestWeights == true;
+            bool hasRecord = latestRecord != null;
+            if (!hasLatestWeights && !hasRecord) return () => OpenVisionLab.OpenVisionLanguageService.T("WpfModelCenterDashboard.Candidate.None");
             string latest = comparison?.LatestWeightsPath?.Trim() ?? latestRecord?.WeightsPath?.Trim() ?? string.Empty;
             string current = currentWeightsPath?.Trim() ?? string.Empty;
             string display = ModelRegistryTextPresentationService.FormatModelPath(latest);
-            string sameText = !string.IsNullOrWhiteSpace(current)
-                && string.Equals(latest, current, StringComparison.OrdinalIgnoreCase)
-                    ? " / \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uACFC \uAC19\uC74C"
-                    : " / \uAC80\uC99D \uD6C4 \uC800\uC7A5 \uD310\uB2E8";
-            string metricsText = comparison?.MetricsStatusText ?? latestRecord?.MetricsSummary;
-            string compactMetricsText = BuildCompactMetricSummary(metricsText);
-            string metrics = string.IsNullOrWhiteSpace(compactMetricsText)
-                ? string.Empty
-                : $" / {compactMetricsText}";
-            string decisionText = FormatCandidateDecision(latestRecord);
-            string savedText = latestRecord?.SavedToRecipe == true
-                ? " / recipe \uC800\uC7A5\uB428"
-                : latestRecord != null
-                    ? " / recipe \uC800\uC7A5 \uB300\uAE30"
-                    : string.Empty;
-            return $"\uBAA8\uB378 \uD6C4\uBCF4: {display}{metrics}{sameText}{savedText}{decisionText}";
+            bool isSame = !string.IsNullOrWhiteSpace(current) && string.Equals(latest, current, StringComparison.OrdinalIgnoreCase);
+            string compactMetrics = BuildCompactMetricSummary(comparison?.MetricsStatusText ?? latestRecord?.MetricsSummary);
+            string decision = latestRecord?.Decision ?? string.Empty;
+            string reason = latestRecord?.DecisionSummary ?? string.Empty;
+            bool savedToRecipe = latestRecord?.SavedToRecipe == true;
+            return () =>
+            {
+                string sameText = OpenVisionLab.OpenVisionLanguageService.T(isSame ? "WpfModelRegistrySummary.Candidate.SameSelected" : "WpfModelRegistrySummary.Candidate.CompareBeforeSave");
+                string metrics = string.IsNullOrWhiteSpace(compactMetrics) ? string.Empty : $" / {compactMetrics}";
+                string decisionText = hasRecord ? FormatCandidateDecision(decision, reason, false) : string.Empty;
+                string savedText = savedToRecipe ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Candidate.Saved")
+                    : hasRecord ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Candidate.Pending") : string.Empty;
+                return string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Candidate.Value"), display, metrics, sameText, savedText, decisionText);
+            };
         }
 
         public static string BuildCompactMetricSummary(string metricsText)
@@ -361,10 +380,11 @@ namespace MvcVisionSystem
         private static string BuildInspectionModelText(
             PythonModelSettings settings,
             ModelRegistrySettings registry,
-            bool hasPendingSelection)
+            bool hasPendingSelection,
+            PythonModelRuntimeState runtimeState)
         {
             string weightsPath = settings?.WeightsPath ?? string.Empty;
-            string runtimeSummaryText = BuildSelectedRuntimeSummaryText(settings);
+            string runtimeSummaryText = BuildSelectedRuntimeSummaryText(settings, runtimeState);
             ModelCandidate currentRecord = ModelRegistryService.FindCurrentInspectionModel(registry);
             string sourcePath = !string.IsNullOrWhiteSpace(currentRecord?.WeightsPath)
                 ? currentRecord.WeightsPath
@@ -375,89 +395,60 @@ namespace MvcVisionSystem
             if (string.IsNullOrWhiteSpace(display))
             {
                 return hasPendingSelection
-                    ? $"\uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378: \uC5C6\uC74C / \uC2E4\uD589\uAE30 {runtimeSummaryText} / \uC120\uD0DD \uD6C4\uBCF4 recipe \uC800\uC7A5 \uC804"
-                    : $"\uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378: \uC5C6\uC74C / \uC2E4\uD589\uAE30 {runtimeSummaryText}";
+                    ? string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Inspection.NonePending"), runtimeSummaryText)
+                    : string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelCenterDashboard.Current.NoneRuntime"), runtimeSummaryText);
             }
 
             string state = currentRecord?.SavedToRecipe == true
-                    ? "recipe \uC800\uC7A5 \uC774\uB825"
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Inspection.Saved")
                     : File.Exists(sourcePath ?? string.Empty)
-                    ? "recipe \uC800\uC7A5\uB41C \uACBD\uB85C"
-                    : "\uD30C\uC77C \uD655\uC778 \uD544\uC694";
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Inspection.FileExists")
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Inspection.CheckFile");
             if (hasPendingSelection)
             {
-                state += " / \uC120\uD0DD \uD6C4\uBCF4\uB294 recipe \uC800\uC7A5 \uC804";
+                state += OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Inspection.SelectionPending");
             }
 
-            return $"\uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378: {display} / \uC2E4\uD589\uAE30 {runtimeSummaryText} / {state}";
+            return string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Inspection.Value"), display, runtimeSummaryText, state);
         }
 
-        private static string BuildActionText(
-            WpfTrainingWeightsComparison comparison,
-            string currentWeightsPath,
-            ModelRegistrySettings registry,
-            bool hasPendingSelection)
+        private static Func<string> BuildActionTextSource(WpfTrainingWeightsComparison comparison, string currentWeightsPath, ModelRegistrySettings registry, bool hasPendingSelection)
         {
-            if (hasPendingSelection)
-            {
-                return "\uB2E4\uC74C: \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD574 recipe\uC5D0 \uD604\uC7AC \uD6C4\uBCF4\uB97C \uB4F1\uB85D\uD558\uC138\uC694.";
-            }
-
+            if (hasPendingSelection) return () => OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Action.SavePending");
             if (comparison?.HasLatestWeights == true
                 && !string.Equals(comparison.LatestWeightsPath?.Trim() ?? string.Empty, currentWeightsPath?.Trim() ?? string.Empty, StringComparison.OrdinalIgnoreCase))
-            {
-                return "\uB2E4\uC74C: \uD6C4\uBCF4 \uAC80\uC99D\uC73C\uB85C \uD604\uC7AC \uBAA8\uB378\uACFC \uD559\uC2B5 \uACB0\uACFC\uB97C \uBE44\uAD50\uD55C \uB4A4 \uC800\uC7A5\uD558\uC138\uC694.";
-            }
-
+                return () => OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Action.Compare");
             int adoptionCount = registry?.AdoptionHistory?.Count ?? 0;
             int decisionCount = registry?.CandidateDecisions?.Count ?? 0;
             if (adoptionCount > 0 || decisionCount > 0)
             {
-                string latestDecision = FormatCandidateDecision(ModelRegistryService.FindLatestCandidateDecision(registry));
-                string decisionSuffix = decisionCount > 0
-                    ? $" / \uACB0\uC815 \uC774\uB825 {decisionCount}\uAC74{latestDecision}"
-                    : string.Empty;
-                string adoptionSuffix = adoptionCount > 0
-                    ? $" / \uCC44\uD0DD \uC774\uB825 {adoptionCount}\uAC74"
-                    : string.Empty;
-                return $"\uAD6C\uC870: \uBAA8\uB378 \uD504\uB85C\uD544 -> \uD559\uC2B5 \uC2E4\uD589 -> \uD6C4\uBCF4 \uBAA8\uB378 -> \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378{adoptionSuffix}{decisionSuffix}";
+                ModelCandidateDecision latest = ModelRegistryService.FindLatestCandidateDecision(registry);
+                string decision = latest?.Decision ?? string.Empty;
+                string reason = latest?.DecisionSummary ?? string.Empty;
+                return () =>
+                {
+                    string latestDecision = FormatCandidateDecision(decision, reason, true);
+                    string decisionSuffix = decisionCount > 0
+                        ? string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Action.DecisionCount"), decisionCount, latestDecision)
+                        : string.Empty;
+                    string adoptionSuffix = adoptionCount > 0
+                        ? string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Action.AssignmentCount"), adoptionCount)
+                        : string.Empty;
+                    return string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Action.StructureWithHistory"), adoptionSuffix, decisionSuffix);
+                };
             }
-
-            return "\uAD6C\uC870: \uBAA8\uB378 \uD504\uB85C\uD544 -> \uD559\uC2B5 \uC2E4\uD589 -> \uD6C4\uBCF4 \uBAA8\uB378 -> \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uB85C \uBD84\uB9AC\uD574 \uAD00\uB9AC\uD569\uB2C8\uB2E4.";
+            return () => OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Action.Structure");
         }
 
-        private static string FormatCandidateDecision(ModelCandidate candidate)
+        private static string FormatCandidateDecision(string decision, string rawSummary, bool isDecisionRecord)
         {
-            if (candidate == null)
-            {
-                return string.Empty;
-            }
-
-            string text = ModelRegistryTextPresentationService.FormatCandidateDecisionText(candidate.Decision);
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                return string.Empty;
-            }
-
-            string summary = string.IsNullOrWhiteSpace(candidate.DecisionSummary)
-                ? string.Empty
-                : $" ({candidate.DecisionSummary})";
-            return $" / \uACB0\uC815 {text}{summary}";
+            string text = ModelRegistryTextPresentationService.FormatCandidateDecisionText(decision);
+            if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+            string reason = ModelRegistryTextPresentationService.FormatPendingDecisionReason(decision, rawSummary);
+            string summary = string.IsNullOrWhiteSpace(rawSummary) ? string.Empty : isDecisionRecord ? $" {reason}" : $" ({reason})";
+            return string.Format(OpenVisionLab.OpenVisionLanguageService.T(isDecisionRecord ? "WpfModelRegistrySummary.Decision.Latest" : "WpfModelRegistrySummary.Decision.Value"), text, summary);
         }
 
-        private static string FormatCandidateDecision(ModelCandidateDecision decision)
-        {
-            string text = ModelRegistryTextPresentationService.FormatCandidateDecisionText(decision?.Decision);
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                return string.Empty;
-            }
-
-            string summary = string.IsNullOrWhiteSpace(decision?.DecisionSummary)
-                ? string.Empty
-                : $" {decision.DecisionSummary}";
-            return $" / \uCD5C\uADFC {text}{summary}";
-        }
     }
 
     [Obsolete("Use ModelRegistrySummaryPresentationService.", false)]

@@ -4,16 +4,19 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:local="clr-namespace:MvcVisionSystem"
                  Title="&#xBAA8;&#xB378; &#xC131;&#xB2A5; &#xBE44;&#xAD50;"
                  Width="1600"
                  Height="900"
                  MinWidth="1050"
                  MinHeight="650"
-                 Background="{DynamicResource AppBackgroundBrush}"
+                 Background="{DynamicResource RecipePageBrush}"
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="None"
                  WindowCornerPreference="Round"
-                 WindowStartupLocation="CenterOwner">
+                 WindowStartupLocation="CenterOwner"
+                 FontFamily="{DynamicResource UiFontFamily}"
+                 FontSize="13">
     <ui:FluentWindow.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -46,76 +49,91 @@
             <SolidColorBrush x:Key="CandidateBrush" Color="#4EA1FF" />
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
 
-            <Style x:Key="BenchmarkActionButtonStyle" TargetType="{x:Type ui:Button}">
-                <Setter Property="Template" Value="{StaticResource WpfUiDarkButtonTemplate}" />
-                <Setter Property="Height" Value="32" />
-                <Setter Property="MinWidth" Value="0" />
-                <Setter Property="Padding" Value="10,4" />
-                <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
-                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
-                <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="11" />
+            <Style x:Key="BenchmarkActionButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource RecipeSecondaryButtonStyle}">
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
                 <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="VerticalAlignment" Value="Center" />
             </Style>
-
-            <Style x:Key="BenchmarkIconButtonStyle"
-                   TargetType="{x:Type ui:Button}"
-                   BasedOn="{StaticResource BenchmarkActionButtonStyle}">
-                <Setter Property="Width" Value="30" />
-                <Setter Property="Height" Value="28" />
-                <Setter Property="Padding" Value="0" />
+            <Style x:Key="BenchmarkIconButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource BenchmarkActionButtonStyle}">
+                <Setter Property="MinWidth" Value="30" />
+                <Setter Property="MinHeight" Value="30" />
+                <Setter Property="Padding" Value="4" />
             </Style>
-
             <Style x:Key="BenchmarkListItemStyle" TargetType="{x:Type ListBoxItem}">
-                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-                <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+                <Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeBorderBrush}" />
                 <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="Padding" Value="0" />
-                <Setter Property="Margin" Value="0,0,0,7" />
+                <Setter Property="Margin" Value="0,0,0,8" />
                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                 <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value><ControlTemplate TargetType="{x:Type ListBoxItem}">
+                        <Grid>
+                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="7">
+                                <ContentPresenter HorizontalAlignment="Stretch" />
+                            </Border>
+                            <Border x:Name="CatalogFocusCue" BorderThickness="2" BorderBrush="Transparent" CornerRadius="7" IsHitTestVisible="False" />
+                        </Grid>
+                        <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="CatalogFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger></ControlTemplate.Triggers>
+                    </ControlTemplate></Setter.Value>
+                </Setter>
                 <Style.Triggers>
-                    <Trigger Property="IsMouseOver" Value="True">
-                        <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonHoverBrush}" />
-                    </Trigger>
-                    <Trigger Property="IsSelected" Value="True">
-                        <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
-                        <Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" />
-                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                    </Trigger>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeRowHoverBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                    <DataTrigger Binding="{Binding IsSelected}" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeSelectedBorderBrush}" /></DataTrigger>
                 </Style.Triggers>
             </Style>
-
+            <Style TargetType="{x:Type CheckBox}">
+                <Setter Property="MinWidth" Value="28" /><Setter Property="MinHeight" Value="28" />
+                <Setter Property="Cursor" Value="Hand" /><Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value><ControlTemplate TargetType="{x:Type CheckBox}">
+                        <Grid Width="28" Height="28">
+                            <Border x:Name="CheckChrome" Margin="4" CornerRadius="4" Background="{DynamicResource RecipePageBrush}" BorderBrush="{DynamicResource RecipeButtonBorderBrush}" BorderThickness="1" />
+                            <Path x:Name="CheckMark" Data="M 8,14 L 12,18 L 20,9" Stroke="{DynamicResource RecipeTextBrush}" StrokeThickness="2" Visibility="Collapsed" />
+                            <Border x:Name="CheckFocusCue" CornerRadius="5" BorderThickness="2" BorderBrush="Transparent" IsHitTestVisible="False" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}" /><Setter TargetName="CheckChrome" Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                            <Trigger Property="IsChecked" Value="True"><Setter TargetName="CheckMark" Property="Visibility" Value="Visible" /><Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource RecipePrimaryBrush}" /><Setter TargetName="CheckChrome" Property="BorderBrush" Value="{DynamicResource RecipeAccentBrush}" /></Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource RecipeButtonPressedBrush}" /></Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="CheckFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource RecipeDisabledBrush}" /><Setter TargetName="CheckChrome" Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" /><Setter TargetName="CheckMark" Property="Stroke" Value="{DynamicResource RecipeDisabledTextBrush}" /><Setter TargetName="CheckFocusCue" Property="BorderBrush" Value="Transparent" /><Setter Property="Cursor" Value="Arrow" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate></Setter.Value>
+                </Setter>
+            </Style>
             <Style x:Key="BenchmarkTabItemStyle" TargetType="{x:Type TabItem}">
-                <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
-                <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
-                <Setter Property="Padding" Value="16,7" />
-                <Setter Property="Margin" Value="0,0,3,0" />
-                <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="11" />
-                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" /><Setter Property="Background" Value="{DynamicResource RecipeButtonBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonBorderBrush}" /><Setter Property="Padding" Value="10,5" />
+                <Setter Property="Margin" Value="0,0,5,6" /><Setter Property="FontSize" Value="13" /><Setter Property="MinHeight" Value="30" />
+                <Setter Property="Cursor" Value="Hand" /><Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value><ControlTemplate TargetType="{x:Type TabItem}">
+                        <Grid>
+                            <Border x:Name="TabChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="7">
+                                <ContentPresenter ContentSource="Header" Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" />
+                            </Border>
+                            <Border x:Name="TabFocusCue" CornerRadius="7" BorderThickness="2" BorderBrush="Transparent" IsHitTestVisible="False" />
+                        </Grid>
+                        <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="TabFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger></ControlTemplate.Triggers>
+                    </ControlTemplate></Setter.Value>
+                </Setter>
                 <Style.Triggers>
-                    <Trigger Property="IsSelected" Value="True">
-                        <Setter Property="Foreground" Value="{DynamicResource AppBackgroundBrush}" />
-                        <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
-                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                        <Setter Property="FontWeight" Value="SemiBold" />
-                    </Trigger>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                    <Trigger Property="IsSelected" Value="True"><Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" /><Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeSelectedBorderBrush}" /><Setter Property="FontWeight" Value="SemiBold" /></Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /><Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" /><Setter Property="Cursor" Value="Arrow" /></Trigger>
                 </Style.Triggers>
             </Style>
 
             <Style TargetType="{x:Type DataGrid}">
-                <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
-                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
-                <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource GridLineBrush}" />
-                <Setter Property="VerticalGridLinesBrush" Value="{DynamicResource GridLineBrush}" />
-                <Setter Property="RowBackground" Value="{DynamicResource PanelBrush}" />
-                <Setter Property="AlternatingRowBackground" Value="{DynamicResource CanvasBrush}" />
+                <Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeBorderBrush}" />
+                <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource RecipeBorderBrush}" />
+                <Setter Property="VerticalGridLinesBrush" Value="{DynamicResource RecipeBorderBrush}" />
+                <Setter Property="RowBackground" Value="{DynamicResource RecipeSurfaceBrush}" />
+                <Setter Property="AlternatingRowBackground" Value="{DynamicResource RecipePageBrush}" />
                 <Setter Property="HeadersVisibility" Value="Column" />
                 <Setter Property="AutoGenerateColumns" Value="False" />
                 <Setter Property="CanUserAddRows" Value="False" />
@@ -127,53 +145,56 @@
                 <Setter Property="SelectionUnit" Value="FullRow" />
                 <Setter Property="RowHeaderWidth" Value="0" />
                 <Setter Property="GridLinesVisibility" Value="Horizontal" />
+                <Setter Property="MinColumnWidth" Value="80" />
             </Style>
 
             <Style TargetType="{x:Type DataGridColumnHeader}">
-                <Setter Property="Background" Value="{DynamicResource GridHeaderBrush}" />
-                <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource GridLineBrush}" />
+                <Setter Property="ContentTemplate"><Setter.Value><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" /></DataTemplate></Setter.Value></Setter>
+                <Setter Property="MinHeight" Value="40" />
+                <Setter Property="Background" Value="{DynamicResource RecipeButtonBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeBorderBrush}" />
                 <Setter Property="BorderThickness" Value="0,0,1,1" />
                 <Setter Property="Padding" Value="8,7" />
-                <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="10" />
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+                <Setter Property="FontSize" Value="13" />
                 <Setter Property="FontWeight" Value="SemiBold" />
             </Style>
 
             <Style TargetType="{x:Type DataGridCell}">
-                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
                 <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="Padding" Value="8,5" />
-                <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="10.5" />
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+                <Setter Property="FontSize" Value="13" />
                 <Setter Property="VerticalContentAlignment" Value="Center" />
                 <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                 <Style.Triggers>
                     <Trigger Property="IsSelected" Value="True">
-                        <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
-                        <Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" />
+                        <Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
                     </Trigger>
                 </Style.Triggers>
             </Style>
 
             <Style TargetType="{x:Type DataGridRow}">
                 <Setter Property="MinHeight" Value="44" />
-                <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
-                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                <Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
                 <Style.Triggers>
                     <Trigger Property="IsMouseOver" Value="True">
-                        <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
+                        <Setter Property="Background" Value="{DynamicResource RecipeRowHoverBrush}" />
                     </Trigger>
                     <Trigger Property="IsSelected" Value="True">
-                        <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
-                        <Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" />
+                        <Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
                     </Trigger>
                 </Style.Triggers>
             </Style>
 
             <Style x:Key="BenchmarkWrappedCellTextStyle" TargetType="{x:Type TextBlock}">
                 <Setter Property="TextWrapping" Value="Wrap" />
-                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Setter Property="TextTrimming" Value="None" />
                 <Setter Property="VerticalAlignment" Value="Center" />
             </Style>
         </ResourceDictionary>
@@ -184,15 +205,15 @@
                      DockPanel.Dock="Top"
                      Height="30"
                      Title="&#xBAA8;&#xB378; &#xC131;&#xB2A5; &#xBE44;&#xAD50;"
-                     Background="{DynamicResource FrameBrush}"
-                     Foreground="{DynamicResource PrimaryTextBrush}"
-                     ButtonsForeground="{DynamicResource PrimaryTextBrush}"
-                     ButtonsBackground="{DynamicResource ToolbarButtonHoverBrush}" />
+                     Background="{DynamicResource RecipePageBrush}"
+                     Foreground="{DynamicResource RecipeTextBrush}"
+                     ButtonsForeground="{DynamicResource RecipeTextBrush}"
+                     ButtonsBackground="{DynamicResource RecipeButtonHoverBrush}" />
 
         <Border DockPanel.Dock="Top"
-                Height="64"
-                Background="{DynamicResource FrameBrush}"
-                BorderBrush="{DynamicResource AccentBrush}"
+                MinHeight="76"
+                Background="{DynamicResource RecipePageBrush}"
+                BorderBrush="{DynamicResource RecipeAccentBrush}"
                 BorderThickness="0,0,0,1">
             <Grid Margin="18,0">
                 <Grid.ColumnDefinitions>
@@ -203,20 +224,20 @@
                     <iconPacks:PackIconMaterial Kind="ChartBoxOutline"
                                                 Width="22"
                                                 Height="22"
-                                                Foreground="{DynamicResource AccentBrush}"
+                                                Foreground="{DynamicResource RecipeAccentBrush}"
                                                 Margin="0,0,10,0" />
                     <StackPanel>
                         <TextBlock Text="&#xBAA8;&#xB378; &#xC131;&#xB2A5; &#xBE44;&#xAD50;"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="15"
+                                   Foreground="{DynamicResource RecipeTextBrush}"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="20"
                                    FontWeight="SemiBold" />
                         <TextBlock Text="{Binding StatusText}"
-                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="10.5"
+                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="13"
                                    Margin="0,3,0,0"
-                                   TextTrimming="CharacterEllipsis" />
+                                   TextWrapping="Wrap" />
                     </StackPanel>
                 </StackPanel>
                 <ui:Button x:Name="RefreshModelBenchmarkButton"
@@ -235,6 +256,33 @@
             </Grid>
         </Border>
 
+        <Expander x:Name="ModelBenchmarkLoadWarning"
+                  Style="{StaticResource DatasetExpanderStyle}"
+                  DockPanel.Dock="Top"
+                  Margin="14,8,14,0"
+                  Header="{Binding CatalogLoadFailureText}"
+                  Foreground="{DynamicResource RecipeTextBrush}"
+                  Background="{DynamicResource RecipeSurfaceBrush}"
+                  Visibility="{Binding HasCatalogLoadFailures, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel Margin="10,4,10,8">
+                <TextBlock Text="{Binding CatalogLoadFailureHelpText}"
+                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                           TextWrapping="Wrap" />
+                <TextBox x:Name="ModelBenchmarkUnreadablePaths"
+                         Style="{StaticResource RecipeInputStyle}"
+                         Text="{Binding CatalogLoadFailureDetailText, Mode=OneWay}"
+                         IsReadOnly="True"
+                         MaxHeight="100"
+                         Margin="0,6,0,0"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto"
+                         Background="{DynamicResource RecipePageBrush}"
+                         Foreground="{DynamicResource RecipeTextBrush}"
+                         BorderBrush="{DynamicResource RecipeButtonBorderBrush}"
+                         AutomationProperties.Name="{Binding CatalogLoadFailureText}" />
+            </StackPanel>
+        </Expander>
+
         <Grid Margin="14">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="330" MinWidth="280" MaxWidth="480" />
@@ -243,10 +291,10 @@
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0"
-                    Background="{DynamicResource PanelBrush}"
-                    BorderBrush="{DynamicResource BorderBrushDark}"
+                    Background="{DynamicResource RecipeSurfaceBrush}"
+                    BorderBrush="{DynamicResource RecipeBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="6">
+                    CornerRadius="7">
                 <Grid Margin="12">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -258,41 +306,53 @@
                     <Grid Grid.Row="0" Margin="0,0,0,9">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="116" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Grid Grid.Column="0">
                             <TextBox x:Name="ModelBenchmarkSearchBox"
-                                     Height="32"
+                                     Style="{StaticResource RecipeInputStyle}"
+                                     MinHeight="30"
                                      Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                     Background="{DynamicResource InputBrush}"
-                                     Foreground="{DynamicResource PrimaryTextBrush}"
-                                     BorderBrush="{DynamicResource InputBorderBrush}"
+                                     Background="{DynamicResource RecipePageBrush}"
+                                     Foreground="{DynamicResource RecipeTextBrush}"
+                                     BorderBrush="{DynamicResource RecipeButtonBorderBrush}"
                                      BorderThickness="1"
                                      Padding="28,5,9,5"
-                                     FontFamily="Segoe UI"
-                                     FontSize="11"
-                                     ToolTip="&#xBAA8;&#xB378;, &#xB7F0;&#xD0C0;&#xC784;, &#xBCF4;&#xACE0;&#xC11C; &#xAC80;&#xC0C9;" />
+                                     FontFamily="{DynamicResource UiFontFamily}"
+                                     FontSize="13"
+                                     ToolTip="모델, 실행 환경, 보고서 검색" />
                             <iconPacks:PackIconMaterial Kind="Magnify"
                                                         Width="14"
                                                         Height="14"
-                                                        Foreground="{DynamicResource SecondaryTextBrush}"
+                                                        Foreground="{DynamicResource RecipeMutedTextBrush}"
                                                         HorizontalAlignment="Left"
                                                         VerticalAlignment="Center"
                                                         Margin="9,0,0,0"
                                                         IsHitTestVisible="False" />
                         </Grid>
                         <ComboBox x:Name="ModelBenchmarkTaskFilterBox"
+                                  Style="{StaticResource RecipeComboBoxStyle}"
                                   Grid.Column="1"
-                                  Height="32"
+                                  Height="Auto"
+                                  MinHeight="30"
+                                  MinWidth="116"
+                                  MaxWidth="180"
                                   Margin="7,0,0,0"
-                                  ItemsSource="{Binding TaskFilters}"
-                                  SelectedItem="{Binding SelectedTaskFilter, Mode=TwoWay}"
-                                  Background="{DynamicResource InputBrush}"
-                                  Foreground="{DynamicResource PrimaryTextBrush}"
-                                  BorderBrush="{DynamicResource InputBorderBrush}"
-                                  FontFamily="Segoe UI"
-                                  FontSize="10.5"
-                                  ToolTip="&#xC791;&#xC5C5; &#xC885;&#xB958; &#xD544;&#xD130;" />
+                                  ItemsSource="{Binding TaskFilterOptions}"
+                                  SelectedValuePath="Key"
+                                  SelectedValue="{Binding SelectedTaskFilter, Mode=TwoWay}"
+                                  Background="{DynamicResource RecipePageBrush}"
+                                  Foreground="{DynamicResource RecipeTextBrush}"
+                                  BorderBrush="{DynamicResource RecipeButtonBorderBrush}"
+                                  FontFamily="{DynamicResource UiFontFamily}"
+                                  FontSize="13"
+                                  ToolTip="&#xC791;&#xC5C5; &#xC885;&#xB958; &#xD544;&#xD130;">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Value}" TextWrapping="Wrap" MaxWidth="140" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
                     </Grid>
 
                     <Grid Grid.Row="1" Margin="0,0,0,8">
@@ -305,24 +365,24 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="&#xC2E4;&#xD589; &#xCE74;&#xD0C8;&#xB85C;&#xADF8;"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="12"
+                                   Foreground="{DynamicResource RecipeTextBrush}"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="13"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
                         <TextBlock Grid.Column="1"
                                    Text="&#xC120;&#xD0DD; &#xCD5C;&#xB300; 6"
-                                   Foreground="{DynamicResource DisabledTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="9.5"
+                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="13"
                                    VerticalAlignment="Center" />
                         <TextBlock Grid.Row="1"
                                    Grid.ColumnSpan="2"
                                    Text="{Binding CatalogTaskSummaryText}"
-                                   Foreground="{DynamicResource DisabledTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="9"
-                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="13"
+                                   TextWrapping="Wrap"
                                    ToolTip="{Binding CatalogTaskSummaryText}"
                                    Margin="0,4,0,0" />
                     </Grid>
@@ -330,6 +390,7 @@
                     <Grid Grid.Row="2">
                         <ListBox x:Name="ModelBenchmarkCatalogList"
                                  ItemsSource="{Binding FilteredRuns}"
+                                 IsTabStop="{Binding HasItems, RelativeSource={RelativeSource Self}}"
                                  ItemContainerStyle="{StaticResource BenchmarkListItemStyle}"
                                  Background="Transparent"
                                  BorderThickness="0"
@@ -339,89 +400,113 @@
                                 <DataTemplate>
                                     <Grid Margin="9,8" ToolTip="{Binding Run.SourcePath}">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="24" />
+                                            <ColumnDefinition Width="34" />
                                             <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="32" />
+                                            <ColumnDefinition Width="42" />
                                         </Grid.ColumnDefinitions>
                                         <CheckBox Grid.Column="0"
                                                   IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  AutomationProperties.Name="{Binding DisplayName}"
                                                   VerticalAlignment="Top"
                                                   Margin="0,2,0,0"
-                                                  ToolTip="&#xBE44;&#xAD50; &#xC120;&#xD0DD;" />
+                                                  ToolTip="{Binding SelectionToolTipText}" />
                                         <StackPanel Grid.Column="1" Margin="2,0,7,0">
                                             <StackPanel Orientation="Horizontal">
-                                                <Border Background="{DynamicResource CanvasBrush}"
-                                                        BorderBrush="{DynamicResource BorderBrushDark}"
+                                                <Border Background="{DynamicResource RecipePageBrush}"
+                                                        BorderBrush="{DynamicResource RecipeBorderBrush}"
                                                         BorderThickness="1"
-                                                        CornerRadius="3"
+                                                        CornerRadius="7"
                                                         Padding="5,1"
                                                         Margin="0,0,6,0">
                                                     <TextBlock Text="{Binding TaskText}"
-                                                               Foreground="{DynamicResource SecondaryTextBrush}"
-                                                               FontFamily="Segoe UI"
-                                                               FontSize="8.5"
+                                                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                               FontFamily="{DynamicResource UiFontFamily}"
+                                                               FontSize="13"
                                                                FontWeight="SemiBold" />
                                                 </Border>
                                                 <Border Background="#172E20"
                                                         BorderBrush="{DynamicResource BaselineBrush}"
                                                         BorderThickness="1"
-                                                        CornerRadius="3"
+                                                        CornerRadius="7"
                                                         Padding="5,1"
                                                         Visibility="{Binding IsBaseline, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                    <TextBlock Text="&#xAE30;&#xC900;"
+                                                    <TextBlock Text="{Binding BaselineText}"
                                                                Foreground="{DynamicResource BaselineBrush}"
-                                                               FontFamily="Segoe UI"
-                                                               FontSize="8.5"
+                                                               FontFamily="{DynamicResource UiFontFamily}"
+                                                               FontSize="13"
                                                                FontWeight="SemiBold" />
                                                 </Border>
                                             </StackPanel>
                                             <TextBlock Text="{Binding DisplayName}"
-                                                       Foreground="{DynamicResource PrimaryTextBrush}"
-                                                       FontFamily="Segoe UI"
-                                                       FontSize="11"
+                                                       Foreground="{DynamicResource RecipeTextBrush}"
+                                                       FontFamily="{DynamicResource UiFontFamily}"
+                                                       FontSize="13"
                                                        FontWeight="SemiBold"
-                                                       TextTrimming="CharacterEllipsis"
+                                                       TextWrapping="Wrap"
                                                        Margin="0,5,0,0" />
                                             <TextBlock Text="{Binding RuntimeName}"
-                                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                                       FontFamily="Segoe UI"
-                                                       FontSize="9.5"
-                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                       FontFamily="{DynamicResource UiFontFamily}"
+                                                       FontSize="13"
+                                                       TextWrapping="Wrap"
                                                        Margin="0,3,0,0" />
-                                            <TextBlock Foreground="{DynamicResource DisabledTextBrush}"
-                                                       FontFamily="Segoe UI"
-                                                       FontSize="9"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       Margin="0,2,0,0">
-                                                <Run Text="{Binding DateText, Mode=OneWay}" />
-                                                <Run Text="  &#xB7;  " />
-                                                <Run Text="{Binding EvidenceText, Mode=OneWay}" />
-                                                <Run Text="  &#xB7;  " />
-                                                <Run Text="{Binding SourceTypeText, Mode=OneWay}" />
-                                            </TextBlock>
+                                            <WrapPanel Margin="0,2,0,0">
+                                                <TextBlock Text="{Binding DateText, Mode=OneWay}" Foreground="{DynamicResource RecipeMutedTextBrush}" />
+                                                <TextBlock Text="  &#xB7;  " Foreground="{DynamicResource RecipeMutedTextBrush}" />
+                                                <TextBlock Text="{Binding EvidenceText, Mode=OneWay}" Foreground="{DynamicResource RecipeMutedTextBrush}" />
+                                                <TextBlock Text="  &#xB7;  " Foreground="{DynamicResource RecipeMutedTextBrush}" />
+                                                <TextBlock Text="{Binding SourceTypeText, Mode=OneWay}" Foreground="{DynamicResource RecipeMutedTextBrush}" />
+                                            </WrapPanel>
                                         </StackPanel>
                                         <ui:Button Grid.Column="2"
                                                    Style="{StaticResource BenchmarkIconButtonStyle}"
                                                    Command="{Binding DataContext.SetBaselineCommand, RelativeSource={RelativeSource AncestorType={x:Type ListBox}}}"
                                                    CommandParameter="{Binding}"
-                                                   ToolTip="&#xAE30;&#xC900; &#xC2E4;&#xD589;&#xC73C;&#xB85C; &#xC124;&#xC815;">
-                                            <iconPacks:PackIconMaterial Kind="PinOutline" Width="14" Height="14" />
+                                                   ToolTip="{Binding BaselineToolTipText}"
+                                                   AutomationProperties.Name="{Binding DisplayName}">
+                                            <iconPacks:PackIconMaterial Kind="PinOutline" Width="18" Height="18" />
                                         </ui:Button>
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
 
-                        <TextBlock Text="&#xC800;&#xC7A5;&#xB41C; &#xC131;&#xB2A5; &#xBCF4;&#xACE0;&#xC11C;&#xAC00; &#xC5C6;&#xC2B5;&#xB2C8;&#xB2E4;."
-                                   Foreground="{DynamicResource DisabledTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="11"
-                                   TextAlignment="Center"
-                                   TextWrapping="Wrap"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   Margin="24"
-                                   Visibility="{Binding IsCatalogEmpty, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <ScrollViewer x:Name="ModelBenchmarkCatalogEmptyPanel"
+                                      Margin="16"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <ScrollViewer.Style>
+                                <Style TargetType="{x:Type ScrollViewer}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasItems, ElementName=ModelBenchmarkCatalogList}" Value="False">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ScrollViewer.Style>
+                            <StackPanel>
+                                <TextBlock x:Name="ModelBenchmarkCatalogEmptyTitle"
+                                           Text="{Binding CatalogEmptyTitleText}"
+                                           Foreground="{DynamicResource RecipeTextBrush}"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding CatalogEmptyDetailText}"
+                                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,8,0,0" />
+                                <ui:Button x:Name="ResetModelBenchmarkFiltersButton"
+                                           Style="{StaticResource BenchmarkActionButtonStyle}"
+                                           Height="Auto"
+                                           MinHeight="30"
+                                           Margin="0,12,0,0"
+                                           Command="{Binding ResetCatalogFiltersCommand}"
+                                           AutomationProperties.Name="{Binding ResetCatalogFiltersText}"
+                                           Visibility="{Binding HasCatalogFilter, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Text="{Binding ResetCatalogFiltersText}" TextWrapping="Wrap" />
+                                </ui:Button>
+                            </StackPanel>
+                        </ScrollViewer>
                     </Grid>
 
                     <ui:Button x:Name="ClearModelBenchmarkSelectionButton"
@@ -456,10 +541,10 @@
 
                 <Border x:Name="ModelBenchmarkComparisonNotice"
                         Grid.Row="0"
-                        Background="{DynamicResource CanvasBrush}"
-                        BorderBrush="{DynamicResource BorderBrushDark}"
+                        Background="{DynamicResource RecipePageBrush}"
+                        BorderBrush="{DynamicResource RecipeBorderBrush}"
                         BorderThickness="1"
-                        CornerRadius="5"
+                        CornerRadius="7"
                         Padding="11,8"
                         Margin="0,0,0,10">
                     <Grid>
@@ -470,14 +555,14 @@
                         <iconPacks:PackIconMaterial Kind="InformationOutline"
                                                     Width="17"
                                                     Height="17"
-                                                    Foreground="{DynamicResource AccentBrush}"
+                                                    Foreground="{DynamicResource RecipeAccentBrush}"
                                                     Margin="0,0,8,0"
                                                     VerticalAlignment="Center" />
                         <TextBlock Grid.Column="1"
                                    Text="{Binding ComparisonNoticeText}"
-                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="10.5"
+                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="13"
                                    TextWrapping="Wrap"
                                    VerticalAlignment="Center" />
                     </Grid>
@@ -485,15 +570,38 @@
 
                 <TabControl x:Name="ModelBenchmarkTabs"
                             Grid.Row="1"
-                            Background="Transparent"
-                            BorderBrush="{DynamicResource BorderBrushDark}">
+                            Background="{DynamicResource RecipePageBrush}"
+                            BorderBrush="{DynamicResource RecipeBorderBrush}">
+                    <TabControl.Style>
+                        <Style TargetType="{x:Type TabControl}" BasedOn="{StaticResource {x:Type TabControl}}">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="{x:Type TabControl}">
+                                        <Grid KeyboardNavigation.TabNavigation="Local">
+                                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                                            <TabPanel IsItemsHost="True" KeyboardNavigation.TabIndex="1" />
+                                            <Border Grid.Row="1" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="7">
+                                                <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent" KeyboardNavigation.TabIndex="2" />
+                                            </Border>
+                                        </Grid>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsSelectionEmpty}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TabControl.Style>
                     <TabItem Header="{Binding SummaryTabText}" Style="{StaticResource BenchmarkTabItemStyle}">
+                        <ScrollViewer x:Name="ModelBenchmarkSummarySurface" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <Grid Margin="10">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="250" MinHeight="220" />
+                                <RowDefinition Height="320" MinHeight="320" />
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" MinHeight="120" />
+                                <RowDefinition Height="Auto" MinHeight="160" />
                             </Grid.RowDefinitions>
 
                             <Grid Margin="0,0,0,10">
@@ -504,123 +612,123 @@
                                     <ColumnDefinition Width="1.3*" />
                                 </Grid.ColumnDefinitions>
 
-                                <Border Background="{DynamicResource PanelBrush}"
-                                        BorderBrush="{DynamicResource BorderBrushDark}"
+                                <Border Background="{DynamicResource RecipeSurfaceBrush}"
+                                        BorderBrush="{DynamicResource RecipeBorderBrush}"
                                         BorderThickness="1"
-                                        CornerRadius="5"
+                                        CornerRadius="7"
                                         Padding="10"
                                         Margin="0,0,7,0">
                                     <StackPanel>
                                         <TextBlock Text="&#xD3C9;&#xAC00; &#xADFC;&#xAC70;"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="9.5"
+                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
                                                    FontWeight="SemiBold" />
                                         <TextBlock Text="{Binding DashboardEvidenceText}"
-                                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                                   FontFamily="Segoe UI"
+                                                   Foreground="{DynamicResource RecipeTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
                                                    FontSize="13"
                                                    FontWeight="SemiBold"
-                                                   TextTrimming="CharacterEllipsis"
+                                                   TextWrapping="Wrap"
                                                    ToolTip="{Binding DashboardEvidenceText}"
                                                    Margin="0,5,0,0" />
                                         <TextBlock Text="{Binding DashboardEvidenceDetailText}"
-                                                   Foreground="{DynamicResource DisabledTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="8.8"
-                                                   TextTrimming="CharacterEllipsis"
+                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
+                                                   TextWrapping="Wrap"
                                                    ToolTip="{Binding DashboardEvidenceDetailText}"
                                                    Margin="0,4,0,0" />
                                     </StackPanel>
                                 </Border>
 
                                 <Border Grid.Column="1"
-                                        Background="{DynamicResource PanelBrush}"
-                                        BorderBrush="{DynamicResource BorderBrushDark}"
+                                        Background="{DynamicResource RecipeSurfaceBrush}"
+                                        BorderBrush="{DynamicResource RecipeBorderBrush}"
                                         BorderThickness="1"
-                                        CornerRadius="5"
+                                        CornerRadius="7"
                                         Padding="10"
                                         Margin="0,0,7,0">
                                     <StackPanel>
                                         <TextBlock Text="&#xB300;&#xD45C; &#xC9C0;&#xD45C;"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="9.5"
+                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
                                                    FontWeight="SemiBold" />
                                         <TextBlock Text="{Binding DashboardQualityText}"
-                                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                                   FontFamily="Segoe UI"
+                                                   Foreground="{DynamicResource RecipeTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
                                                    FontSize="13"
                                                    FontWeight="SemiBold"
-                                                   TextTrimming="CharacterEllipsis"
+                                                   TextWrapping="Wrap"
                                                    ToolTip="{Binding DashboardQualityText}"
                                                    Margin="0,5,0,0" />
                                         <TextBlock Text="{Binding DashboardQualityDetailText}"
-                                                   Foreground="{DynamicResource DisabledTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="8.8"
-                                                   TextTrimming="CharacterEllipsis"
+                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
+                                                   TextWrapping="Wrap"
                                                    ToolTip="{Binding DashboardQualityDetailText}"
                                                    Margin="0,4,0,0" />
                                     </StackPanel>
                                 </Border>
 
                                 <Border Grid.Column="2"
-                                        Background="{DynamicResource PanelBrush}"
-                                        BorderBrush="{DynamicResource BorderBrushDark}"
+                                        Background="{DynamicResource RecipeSurfaceBrush}"
+                                        BorderBrush="{DynamicResource RecipeBorderBrush}"
                                         BorderThickness="1"
-                                        CornerRadius="5"
+                                        CornerRadius="7"
                                         Padding="10"
                                         Margin="0,0,7,0">
                                     <StackPanel>
                                         <TextBlock Text="Takt"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="9.5"
+                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
                                                    FontWeight="SemiBold" />
                                         <TextBlock Text="{Binding DashboardTaktText}"
-                                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                                   FontFamily="Segoe UI"
+                                                   Foreground="{DynamicResource RecipeTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
                                                    FontSize="13"
                                                    FontWeight="SemiBold"
-                                                   TextTrimming="CharacterEllipsis"
+                                                   TextWrapping="Wrap"
                                                    ToolTip="{Binding DashboardTaktText}"
                                                    Margin="0,5,0,0" />
                                         <TextBlock Text="{Binding DashboardTaktDetailText}"
-                                                   Foreground="{DynamicResource DisabledTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="8.8"
-                                                   TextTrimming="CharacterEllipsis"
+                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
+                                                   TextWrapping="Wrap"
                                                    ToolTip="{Binding DashboardTaktDetailText}"
                                                    Margin="0,4,0,0" />
                                     </StackPanel>
                                 </Border>
 
                                 <Border Grid.Column="3"
-                                        Background="{DynamicResource PanelBrush}"
-                                        BorderBrush="{DynamicResource BorderBrushDark}"
+                                        Background="{DynamicResource RecipeSurfaceBrush}"
+                                        BorderBrush="{DynamicResource RecipeBorderBrush}"
                                         BorderThickness="1"
-                                        CornerRadius="5"
+                                        CornerRadius="7"
                                         Padding="10">
                                     <StackPanel>
                                         <TextBlock Text="&#xBCF4;&#xACE0;&#xC11C; &#xD310;&#xC815;"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="9.5"
+                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
                                                    FontWeight="SemiBold" />
                                         <TextBlock Text="{Binding DashboardDecisionText}"
-                                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                                   FontFamily="Segoe UI"
+                                                   Foreground="{DynamicResource RecipeTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
                                                    FontSize="13"
                                                    FontWeight="SemiBold"
-                                                   TextTrimming="CharacterEllipsis"
+                                                   TextWrapping="Wrap"
                                                    ToolTip="{Binding DashboardDecisionText}"
                                                    Margin="0,5,0,0" />
                                         <TextBlock Text="{Binding DashboardDecisionDetailText}"
-                                                   Foreground="{DynamicResource DisabledTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="8.8"
-                                                   TextTrimming="CharacterEllipsis"
+                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
+                                                   TextWrapping="Wrap"
                                                    ToolTip="{Binding DashboardDecisionDetailText}"
                                                    Margin="0,4,0,0" />
                                     </StackPanel>
@@ -633,10 +741,10 @@
                                     <ColumnDefinition Width="0.9*" />
                                 </Grid.ColumnDefinitions>
 
-                                <Border Background="{DynamicResource PanelBrush}"
-                                        BorderBrush="{DynamicResource BorderBrushDark}"
+                                <Border Background="{DynamicResource RecipeSurfaceBrush}"
+                                        BorderBrush="{DynamicResource RecipeBorderBrush}"
                                         BorderThickness="1"
-                                        CornerRadius="5"
+                                        CornerRadius="7"
                                         Padding="10"
                                         Margin="0,0,7,0">
                                     <Grid>
@@ -651,44 +759,56 @@
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Text="&#xC815;&#xD655;&#xB3C4; / Takt &#xD3EC;&#xC9C0;&#xC158;"
-                                                       Foreground="{DynamicResource PrimaryTextBrush}"
-                                                       FontFamily="Segoe UI"
-                                                       FontSize="11"
+                                            <TextBlock Text="&#xC815;&#xD655;&#xB3C4; / &#xBAA8;&#xB378; &#xCC98;&#xB9AC; &#xC2DC;&#xAC04;"
+                                                       Foreground="{DynamicResource RecipeTextBrush}"
+                                                       FontFamily="{DynamicResource UiFontFamily}"
+                                                       FontSize="13"
                                                        FontWeight="SemiBold" />
                                             <TextBlock Grid.Column="1"
                                                        Text="&#xB3D9;&#xC77C; &#xC870;&#xAC74;&#xB9CC; &#xD45C;&#xC2DC;"
-                                                       Foreground="{DynamicResource DisabledTextBrush}"
-                                                       FontFamily="Segoe UI"
-                                                       FontSize="8.5" />
+                                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                       FontFamily="{DynamicResource UiFontFamily}"
+                                                       FontSize="13" />
                                         </Grid>
                                         <Grid Grid.Row="1" Margin="0,7,0,3">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="*" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
                                             <TextBlock Text="&#xB354; &#xB192;&#xC74C;"
-                                                       Foreground="{DynamicResource DisabledTextBrush}"
-                                                       FontFamily="Segoe UI"
-                                                       FontSize="8"
+                                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                       FontFamily="{DynamicResource UiFontFamily}"
+                                                       FontSize="13"
                                                        VerticalAlignment="Top" />
                                             <TextBlock Text="&#xB354; &#xB0AE;&#xC74C;"
-                                                       Foreground="{DynamicResource DisabledTextBrush}"
-                                                       FontFamily="Segoe UI"
-                                                       FontSize="8"
+                                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                       FontFamily="{DynamicResource UiFontFamily}"
+                                                       FontSize="13"
                                                        VerticalAlignment="Bottom" />
                                             <TextBlock Text="&#xB290;&#xB9BC;"
-                                                       Foreground="{DynamicResource DisabledTextBrush}"
-                                                       FontFamily="Segoe UI"
-                                                       FontSize="8"
+                                                       Grid.Row="1"
+                                                       Grid.Column="1"
+                                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                       FontFamily="{DynamicResource UiFontFamily}"
+                                                       FontSize="13"
                                                        HorizontalAlignment="Left"
                                                        VerticalAlignment="Bottom"
-                                                       Margin="28,0,0,0" />
+                                                       Margin="4,0,0,0" />
                                             <TextBlock Text="&#xBE60;&#xB984;"
-                                                       Foreground="{DynamicResource DisabledTextBrush}"
-                                                       FontFamily="Segoe UI"
-                                                       FontSize="8"
+                                                       Grid.Row="1"
+                                                       Grid.Column="1"
+                                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                       FontFamily="{DynamicResource UiFontFamily}"
+                                                       FontSize="13"
                                                        HorizontalAlignment="Right"
                                                        VerticalAlignment="Bottom" />
-                                            <Border Margin="28,14,4,18"
-                                                    Background="{DynamicResource CanvasBrush}"
-                                                    BorderBrush="{DynamicResource GridLineBrush}"
+                                            <Border Grid.Column="1" Margin="8,14,4,5"
+                                                    Background="{DynamicResource RecipePageBrush}"
+                                                    BorderBrush="{DynamicResource RecipeBorderBrush}"
                                                     BorderThickness="1">
                                                 <Canvas x:Name="ModelBenchmarkQualityTaktCanvas"
                                                         SizeChanged="ModelBenchmarkQualityTaktCanvas_SizeChanged"
@@ -711,10 +831,10 @@
                                                 </ItemsControl.ItemsPanel>
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
-                                                        <Border Background="{DynamicResource CanvasBrush}"
-                                                                BorderBrush="{DynamicResource GridLineBrush}"
+                                                        <Border Background="{DynamicResource RecipePageBrush}"
+                                                                BorderBrush="{DynamicResource RecipeBorderBrush}"
                                                                 BorderThickness="1"
-                                                                CornerRadius="3"
+                                                                CornerRadius="7"
                                                                 Padding="5,2"
                                                                 Margin="0,0,5,3"
                                                                 ToolTip="{Binding ToolTipText}">
@@ -732,11 +852,11 @@
                                                                     </Ellipse.Style>
                                                                 </Ellipse>
                                                                 <TextBlock Text="{Binding LegendText}"
-                                                                           Foreground="{DynamicResource SecondaryTextBrush}"
-                                                                           FontFamily="Segoe UI"
-                                                                           FontSize="8.5"
+                                                                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                                           FontFamily="{DynamicResource UiFontFamily}"
+                                                                           FontSize="13"
                                                                            MaxWidth="220"
-                                                                           TextTrimming="CharacterEllipsis" />
+                                                                           TextWrapping="Wrap" />
                                                             </StackPanel>
                                                         </Border>
                                                     </DataTemplate>
@@ -744,9 +864,9 @@
                                             </ItemsControl>
                                             <TextBlock Grid.Row="1"
                                                        Text="{Binding DashboardQualityTaktStatusText}"
-                                                       Foreground="{DynamicResource DisabledTextBrush}"
-                                                       FontFamily="Segoe UI"
-                                                       FontSize="8.5"
+                                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                       FontFamily="{DynamicResource UiFontFamily}"
+                                                       FontSize="13"
                                                        TextWrapping="Wrap"
                                                        Margin="0,2,0,0" />
                                         </Grid>
@@ -754,10 +874,10 @@
                                 </Border>
 
                                 <Border Grid.Column="1"
-                                        Background="{DynamicResource PanelBrush}"
-                                        BorderBrush="{DynamicResource BorderBrushDark}"
+                                        Background="{DynamicResource RecipeSurfaceBrush}"
+                                        BorderBrush="{DynamicResource RecipeBorderBrush}"
                                         BorderThickness="1"
-                                        CornerRadius="5"
+                                        CornerRadius="7"
                                         Padding="10">
                                     <Grid>
                                         <Grid.RowDefinitions>
@@ -766,19 +886,19 @@
                                             <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
                                         <TextBlock Text="&#xC815;&#xB2F5; &#xB300;&#xC870; &#xACB0;&#xACFC;"
-                                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="11"
+                                                   Foreground="{DynamicResource RecipeTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
                                                    FontWeight="SemiBold" />
                                         <Grid Grid.Row="1" Margin="0,7,0,3">
                                             <ItemsControl x:Name="ModelBenchmarkOutcomeRows"
                                                           ItemsSource="{Binding DashboardOutcomeRows}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
-                                                        <Border Background="{DynamicResource CanvasBrush}"
-                                                                BorderBrush="{DynamicResource GridLineBrush}"
+                                                        <Border Background="{DynamicResource RecipePageBrush}"
+                                                                BorderBrush="{DynamicResource RecipeBorderBrush}"
                                                                 BorderThickness="1"
-                                                                CornerRadius="3"
+                                                                CornerRadius="7"
                                                                 Padding="7,5"
                                                                 Margin="0,0,0,5"
                                                                 ToolTip="{Binding DisplayName}">
@@ -789,20 +909,20 @@
                                                                 </Grid.RowDefinitions>
                                                                 <Grid.ColumnDefinitions>
                                                                     <ColumnDefinition Width="*" />
-                                                                    <ColumnDefinition Width="40" />
-                                                                    <ColumnDefinition Width="40" />
-                                                                    <ColumnDefinition Width="40" />
+                                                                    <ColumnDefinition Width="60" />
+                                                                    <ColumnDefinition Width="60" />
+                                                                    <ColumnDefinition Width="60" />
                                                                 </Grid.ColumnDefinitions>
                                                                 <TextBlock Text="{Binding DisplayName}"
-                                                                           Foreground="{DynamicResource PrimaryTextBrush}"
-                                                                           FontFamily="Segoe UI"
-                                                                           FontSize="9"
+                                                                           Foreground="{DynamicResource RecipeTextBrush}"
+                                                                           FontFamily="{DynamicResource UiFontFamily}"
+                                                                           FontSize="13"
                                                                            FontWeight="SemiBold"
-                                                                           TextTrimming="CharacterEllipsis"
+                                                                           TextWrapping="Wrap"
                                                                            Margin="0,0,5,0" />
-                                                                <TextBlock Grid.Column="1" Text="{Binding TruePositiveText}" Foreground="#22C55E" FontFamily="Segoe UI" FontSize="8.5" TextAlignment="Right" />
-                                                                <TextBlock Grid.Column="2" Text="{Binding FalsePositiveText}" Foreground="#F59E0B" FontFamily="Segoe UI" FontSize="8.5" TextAlignment="Right" />
-                                                                <TextBlock Grid.Column="3" Text="{Binding FalseNegativeText}" Foreground="#EF4444" FontFamily="Segoe UI" FontSize="8.5" TextAlignment="Right" />
+                                                                <TextBlock Grid.Column="1" Text="{Binding TruePositiveText}" Foreground="#22C55E" FontFamily="{DynamicResource UiFontFamily}" FontSize="13" TextAlignment="Right" TextWrapping="Wrap" />
+                                                                <TextBlock Grid.Column="2" Text="{Binding FalsePositiveText}" Foreground="#F59E0B" FontFamily="{DynamicResource UiFontFamily}" FontSize="13" TextAlignment="Right" TextWrapping="Wrap" />
+                                                                <TextBlock Grid.Column="3" Text="{Binding FalseNegativeText}" Foreground="#EF4444" FontFamily="{DynamicResource UiFontFamily}" FontSize="13" TextAlignment="Right" TextWrapping="Wrap" />
                                                                 <Grid Grid.Row="1" Grid.ColumnSpan="4" Margin="0,5,0,0">
                                                                     <Grid.ColumnDefinitions>
                                                                         <ColumnDefinition Width="*" />
@@ -819,9 +939,9 @@
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
                                             <TextBlock Text="&#xC815;&#xB2F5; &#xB300;&#xC870; &#xAE30;&#xB85D;&#xC774; &#xC5C6;&#xC2B5;&#xB2C8;&#xB2E4;."
-                                                       Foreground="{DynamicResource DisabledTextBrush}"
-                                                       FontFamily="Segoe UI"
-                                                       FontSize="9"
+                                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                       FontFamily="{DynamicResource UiFontFamily}"
+                                                       FontSize="13"
                                                        TextAlignment="Center"
                                                        TextWrapping="Wrap"
                                                        VerticalAlignment="Center"
@@ -839,9 +959,9 @@
                                         </Grid>
                                         <TextBlock Grid.Row="2"
                                                    Text="{Binding DashboardOutcomeStatusText}"
-                                                   Foreground="{DynamicResource DisabledTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="8.5"
+                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
                                                    TextWrapping="Wrap"
                                                    Margin="0,2,0,0" />
                                     </Grid>
@@ -850,68 +970,70 @@
 
                             <TextBlock Grid.Row="2"
                                        Text="&#xC120;&#xD0DD; &#xC2E4;&#xD589; &#xC0C1;&#xC138;"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10"
+                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
                                        FontWeight="SemiBold"
                                        Margin="0,10,0,5" />
 
                             <DataGrid x:Name="ModelBenchmarkSummaryGrid"
+                                      MinHeight="160" MaxHeight="420"
                                       Grid.Row="3"
                                       ItemsSource="{Binding SelectedRuns}"
                                       AlternationCount="2"
                                       HorizontalScrollBarVisibility="Auto"
                                       VerticalScrollBarVisibility="Auto">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="&#xAE30;&#xC900;" Binding="{Binding BaselineText}" Width="54" />
+                                    <DataGridTextColumn Header="&#xAE30;&#xC900;" Binding="{Binding BaselineText}" Width="54" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
                                     <DataGridTemplateColumn Header="&#xBAA8;&#xB378;" Width="1.4*" MinWidth="150">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <StackPanel ToolTip="{Binding Run.SourcePath}">
                                                     <TextBlock Text="{Binding DisplayName}"
                                                                FontWeight="SemiBold"
-                                                               TextTrimming="CharacterEllipsis" />
+                                                               TextWrapping="Wrap" />
                                                     <TextBlock Text="{Binding DateText}"
-                                                               Foreground="{DynamicResource DisabledTextBrush}"
-                                                               FontSize="9"
+                                                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                               FontSize="13"
                                                                Margin="0,2,0,0" />
                                                 </StackPanel>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="&#xC791;&#xC5C5;" Binding="{Binding TaskText}" Width="90" />
-                                    <DataGridTextColumn Header="&#xB7F0;&#xD0C0;&#xC784;" Binding="{Binding RuntimeName}" Width="1*" MinWidth="120" />
-                                    <DataGridTextColumn Header="&#xB300;&#xD45C; &#xC9C0;&#xD45C;" Binding="{Binding QualityText}" Width="125" />
+                                    <DataGridTextColumn Header="&#xC791;&#xC5C5;" Binding="{Binding TaskText}" Width="90" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                    <DataGridTextColumn Header="{Binding [WpfModelBenchmark.Header.Runtime], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Binding="{Binding RuntimeName}" Width="1*" MinWidth="120" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                    <DataGridTextColumn Header="&#xB300;&#xD45C; &#xC9C0;&#xD45C;" Binding="{Binding QualityText}" Width="125" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
                                     <DataGridTextColumn Header="Takt"
                                                         Binding="{Binding TaktText}"
                                                         Width="155"
                                                         ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
-                                    <DataGridTextColumn Header="&#xAE30;&#xC900; &#xB300;&#xBE43;"
+                                    <DataGridTextColumn Header="{Binding [WpfModelBenchmark.Header.BaselineDelta], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
                                                         Binding="{Binding DeltaText}"
                                                         Width="1.25*"
                                                         MinWidth="150"
                                                         ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
-                                    <DataGridTextColumn Header="&#xD3C9;&#xAC00; &#xADFC;&#xAC70;" Binding="{Binding EvidenceText}" Width="90" />
-                                    <DataGridTextColumn Header="&#xD310;&#xC815;" Binding="{Binding DecisionText}" Width="90" />
+                                    <DataGridTextColumn Header="&#xD3C9;&#xAC00; &#xADFC;&#xAC70;" Binding="{Binding EvidenceText}" Width="90" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                    <DataGridTextColumn Header="&#xD310;&#xC815;" Binding="{Binding DecisionText}" Width="90" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
                                 </DataGrid.Columns>
                             </DataGrid>
                         </Grid>
+                        </ScrollViewer>
                     </TabItem>
 
                     <TabItem Header="{Binding MetricsTabText}" Style="{StaticResource BenchmarkTabItemStyle}">
-                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                        <ScrollViewer x:Name="ModelBenchmarkMetricsSurface" HorizontalScrollBarVisibility="Auto"
                                       VerticalScrollBarVisibility="Auto"
-                                      Background="{DynamicResource PanelBrush}">
+                                      Background="{DynamicResource RecipeSurfaceBrush}">
                             <StackPanel MinWidth="850" Margin="10">
                                 <Grid Margin="0,0,0,5">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="170" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="&#xC9C0;&#xD45C;"
-                                               Foreground="{DynamicResource SecondaryTextBrush}"
-                                               FontFamily="Segoe UI"
-                                               FontSize="10"
+                                    <TextBlock Text="{Binding MetricsTabText}"
+                                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                               FontFamily="{DynamicResource UiFontFamily}"
+                                               FontSize="13"
                                                FontWeight="SemiBold"
                                                VerticalAlignment="Center"
                                                Margin="8" />
@@ -923,22 +1045,22 @@
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Border Background="{DynamicResource GridHeaderBrush}"
-                                                        BorderBrush="{DynamicResource GridLineBrush}"
+                                                <Border Background="{DynamicResource RecipeButtonBrush}"
+                                                        BorderBrush="{DynamicResource RecipeBorderBrush}"
                                                         BorderThickness="0,0,1,1"
                                                         Padding="9,7">
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding DisplayName}"
-                                                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                                                   FontFamily="Segoe UI"
-                                                                   FontSize="10"
+                                                                   Foreground="{DynamicResource RecipeTextBrush}"
+                                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                                   FontSize="13"
                                                                    FontWeight="SemiBold"
-                                                                   TextTrimming="CharacterEllipsis"
+                                                                   TextWrapping="Wrap"
                                                                    ToolTip="{Binding DisplayName}" />
                                                         <TextBlock Text="{Binding BaselineText}"
                                                                    Foreground="{DynamicResource BaselineBrush}"
-                                                                   FontFamily="Segoe UI"
-                                                                   FontSize="8.5"
+                                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                                   FontSize="13"
                                                                    Margin="0,2,0,0" />
                                                     </StackPanel>
                                                 </Border>
@@ -955,14 +1077,14 @@
                                                     <ColumnDefinition Width="170" />
                                                     <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
-                                                <Border Background="{DynamicResource GridHeaderBrush}"
-                                                        BorderBrush="{DynamicResource GridLineBrush}"
+                                                <Border Background="{DynamicResource RecipeButtonBrush}"
+                                                        BorderBrush="{DynamicResource RecipeBorderBrush}"
                                                         BorderThickness="0,0,1,1"
                                                         Padding="8,10">
                                                     <TextBlock Text="{Binding DisplayName}"
-                                                               Foreground="{DynamicResource SecondaryTextBrush}"
-                                                               FontFamily="Segoe UI"
-                                                               FontSize="10"
+                                                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                               FontFamily="{DynamicResource UiFontFamily}"
+                                                               FontSize="13"
                                                                FontWeight="SemiBold" />
                                                 </Border>
                                                 <ItemsControl Grid.Column="1" ItemsSource="{Binding Values}" MinWidth="680">
@@ -973,12 +1095,12 @@
                                                     </ItemsControl.ItemsPanel>
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
-                                                            <Border BorderBrush="{DynamicResource GridLineBrush}"
+                                                            <Border BorderBrush="{DynamicResource RecipeBorderBrush}"
                                                                     BorderThickness="0,0,1,1"
                                                                     Padding="9,7">
                                                                 <Border.Style>
                                                                     <Style TargetType="{x:Type Border}">
-                                                                        <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+                                                                        <Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}" />
                                                                         <Style.Triggers>
                                                                             <DataTrigger Binding="{Binding IsBaseline}" Value="True">
                                                                                 <Setter Property="Background" Value="#16251B" />
@@ -988,14 +1110,14 @@
                                                                 </Border.Style>
                                                                 <StackPanel>
                                                                     <TextBlock Text="{Binding ValueText}"
-                                                                               Foreground="{DynamicResource PrimaryTextBrush}"
-                                                                               FontFamily="Segoe UI"
-                                                                               FontSize="11"
+                                                                               Foreground="{DynamicResource RecipeTextBrush}"
+                                                                               FontFamily="{DynamicResource UiFontFamily}"
+                                                                               FontSize="13"
                                                                                FontWeight="SemiBold" />
                                                                     <TextBlock Text="{Binding DeltaText}"
-                                                                               Foreground="{DynamicResource SecondaryTextBrush}"
-                                                                               FontFamily="Segoe UI"
-                                                                               FontSize="8.5"
+                                                                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                                               FontFamily="{DynamicResource UiFontFamily}"
+                                                                               FontSize="13"
                                                                                Margin="0,2,0,0" />
                                                                 </StackPanel>
                                                             </Border>
@@ -1011,28 +1133,29 @@
                     </TabItem>
 
                     <TabItem Header="{Binding ClassErrorsTabText}" Style="{StaticResource BenchmarkTabItemStyle}">
-                        <Grid Margin="10" Background="{DynamicResource PanelBrush}">
+                        <ScrollViewer x:Name="ModelBenchmarkClassErrorsSurface" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <Grid Margin="10" Background="{DynamicResource RecipeSurfaceBrush}">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="1.15*" MinHeight="180" />
+                                <RowDefinition Height="230" MinHeight="230" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" MinHeight="150" />
+                                <RowDefinition Height="320" MinHeight="320" />
                             </Grid.RowDefinitions>
 
                             <TextBlock x:Name="ModelBenchmarkGroundTruthNoticeText"
                                        Text="{Binding GroundTruthReviewNoticeText}"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10.5"
+                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
                                        TextWrapping="Wrap"
                                        Margin="2,0,2,10" />
                             <TextBlock Grid.Row="1"
                                        Text="&#xD074;&#xB798;&#xC2A4;&#xBCC4; &#xAC80;&#xC99D; &#xC9C0;&#xD45C;"
-                                       Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="12"
+                                       Foreground="{DynamicResource RecipeTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
                                        FontWeight="SemiBold"
                                        Margin="2,0,0,7" />
                             <DataGrid x:Name="ModelBenchmarkClassMetricGrid"
@@ -1042,38 +1165,39 @@
                                       HorizontalScrollBarVisibility="Auto"
                                       VerticalScrollBarVisibility="Auto">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="&#xBAA8;&#xB378;" Binding="{Binding ModelName}" Width="1.5*" MinWidth="170" />
-                                    <DataGridTextColumn Header="&#xD074;&#xB798;&#xC2A4;" Binding="{Binding ClassName}" Width="100" />
-                                    <DataGridTextColumn Header="&#xC815;&#xB2F5; &#xC218;" Binding="{Binding InstanceCountText}" Width="70" />
-                                    <DataGridTextColumn Header="Precision" Binding="{Binding PrecisionText}" Width="85" />
-                                    <DataGridTextColumn Header="Recall" Binding="{Binding RecallText}" Width="85" />
-                                    <DataGridTextColumn Header="mAP50" Binding="{Binding Map50Text}" Width="85" />
-                                    <DataGridTextColumn Header="mAP50-95" Binding="{Binding Map5095Text}" Width="90" />
+                                    <DataGridTextColumn Header="&#xBAA8;&#xB378;" Binding="{Binding ModelName}" Width="1.5*" MinWidth="170" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                    <DataGridTextColumn Header="&#xD074;&#xB798;&#xC2A4;" Binding="{Binding ClassName}" Width="100" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                    <DataGridTextColumn Header="&#xC815;&#xB2F5; &#xC218;" Binding="{Binding InstanceCountText}" Width="70" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" MinWidth="100" />
+                                    <DataGridTextColumn Header="Precision" Binding="{Binding PrecisionText}" Width="85" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                    <DataGridTextColumn Header="Recall" Binding="{Binding RecallText}" Width="85" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                    <DataGridTextColumn Header="mAP50" Binding="{Binding Map50Text}" Width="85" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                    <DataGridTextColumn Header="mAP50-95" Binding="{Binding Map5095Text}" Width="90" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
                                     <DataGridTextColumn Header="UI &#xC784;&#xACC4;&#xAC12; &#xC815;&#xB2F5; &#xB300;&#xC870;"
                                                         Binding="{Binding GroundTruthReviewText}"
                                                         Width="1.2*"
-                                                        MinWidth="160" />
+                                                        MinWidth="160" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
                                 </DataGrid.Columns>
                             </DataGrid>
 
                             <TextBlock Grid.Row="3"
                                        Text="{Binding GroundTruthExamplesTitleText}"
-                                       Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="12"
+                                       Foreground="{DynamicResource RecipeTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
                                        FontWeight="SemiBold"
                                        Margin="2,12,0,3" />
                             <TextBlock Grid.Row="4"
                                        Text="{Binding GroundTruthErrorExampleStatusText}"
-                                       Foreground="{DynamicResource DisabledTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="9.5"
+                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
+                                       TextWrapping="Wrap"
                                        Margin="2,0,0,7" />
                             <Grid Grid.Row="5">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="1.45*" MinWidth="650" />
+                                    <ColumnDefinition Width="*" MinWidth="300" />
                                     <ColumnDefinition Width="10" />
-                                    <ColumnDefinition Width="300" MinWidth="250" />
+                                    <ColumnDefinition Width="260" MinWidth="250" />
                                 </Grid.ColumnDefinitions>
 
                                 <DataGrid x:Name="ModelBenchmarkGroundTruthExampleGrid"
@@ -1084,27 +1208,27 @@
                                           HorizontalScrollBarVisibility="Auto"
                                           VerticalScrollBarVisibility="Auto">
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="&#xBAA8;&#xB378;" Binding="{Binding ModelName}" Width="1.25*" MinWidth="160" />
-                                        <DataGridTextColumn Header="&#xC720;&#xD615;" Binding="{Binding ErrorTypeText}" Width="90" />
+                                        <DataGridTextColumn Header="&#xBAA8;&#xB378;" Binding="{Binding ModelName}" Width="1.25*" MinWidth="160" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                        <DataGridTextColumn Header="&#xC624;&#xB958; &#xC720;&#xD615;" Binding="{Binding ErrorTypeText}" Width="90" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
                                         <DataGridTemplateColumn Header="&#xC774;&#xBBF8;&#xC9C0;" Width="1.5*" MinWidth="180">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <TextBlock Text="{Binding ImageName}"
                                                                ToolTip="{Binding ImagePath}"
-                                                               TextTrimming="CharacterEllipsis" />
+                                                               TextWrapping="Wrap" />
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTextColumn Header="&#xD074;&#xB798;&#xC2A4;" Binding="{Binding ClassName}" Width="100" />
-                                        <DataGridTextColumn Header="&#xC2E0;&#xB8B0;&#xB3C4;" Binding="{Binding ConfidenceText}" Width="80" />
-                                        <DataGridTextColumn Header="&#xCD5C;&#xB300; IoU" Binding="{Binding BestIouText}" Width="80" />
+                                        <DataGridTextColumn Header="&#xD074;&#xB798;&#xC2A4;" Binding="{Binding ClassName}" Width="100" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                        <DataGridTextColumn Header="&#xC2E0;&#xB8B0;&#xB3C4;" Binding="{Binding ConfidenceText}" Width="80" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" MinWidth="100" />
+                                        <DataGridTextColumn Header="&#xCD5C;&#xB300; IoU" Binding="{Binding BestIouText}" Width="80" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
                                     </DataGrid.Columns>
                                 </DataGrid>
 
                                 <Border x:Name="ModelBenchmarkGroundTruthPreview"
                                         Grid.Column="2"
-                                        Background="{DynamicResource CanvasBrush}"
-                                        BorderBrush="{DynamicResource BorderBrushDark}"
+                                        Background="{DynamicResource RecipePageBrush}"
+                                        BorderBrush="{DynamicResource RecipeBorderBrush}"
                                         BorderThickness="1"
                                         Padding="8">
                                     <Grid>
@@ -1112,19 +1236,20 @@
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="*" />
                                             <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
 
                                         <TextBlock Text="{Binding GroundTruthPreviewTitleText}"
-                                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="10.5"
+                                                   Foreground="{DynamicResource RecipeTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
                                                    FontWeight="SemiBold"
-                                                   TextTrimming="CharacterEllipsis"
+                                                   TextWrapping="Wrap"
                                                    ToolTip="{Binding SelectedGroundTruthExample.ImagePath}" />
                                         <Border Grid.Row="1"
                                                 Margin="0,7,0,7"
                                                 Background="#08090B"
-                                                BorderBrush="{DynamicResource GridLineBrush}"
+                                                BorderBrush="{DynamicResource RecipeBorderBrush}"
                                                 BorderThickness="1">
                                             <Grid>
                                                 <Image x:Name="ModelBenchmarkGroundTruthPreviewImage"
@@ -1143,9 +1268,9 @@
                                                     </Image.Style>
                                                 </Image>
                                                 <TextBlock Text="{Binding GroundTruthPreviewStatusText}"
-                                                           Foreground="{DynamicResource DisabledTextBrush}"
-                                                           FontFamily="Segoe UI"
-                                                           FontSize="10"
+                                                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                           FontFamily="{DynamicResource UiFontFamily}"
+                                                           FontSize="13"
                                                            TextWrapping="Wrap"
                                                            TextAlignment="Center"
                                                            VerticalAlignment="Center"
@@ -1189,10 +1314,10 @@
                                                     </Style>
                                                 </StackPanel.Style>
                                                 <Border Width="12" Height="3" Background="#39D98A" CornerRadius="1" VerticalAlignment="Center" Margin="0,0,5,0" />
-                                                <TextBlock Text="&#xC815;&#xB2F5;"
-                                                           Foreground="{DynamicResource SecondaryTextBrush}"
-                                                           FontFamily="Segoe UI"
-                                                           FontSize="9.5" />
+                                                <TextBlock Text="&#xC815;&#xB2F5; &#xC601;&#xC5ED;"
+                                                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                           FontFamily="{DynamicResource UiFontFamily}"
+                                                           FontSize="13" />
                                             </StackPanel>
                                             <StackPanel Orientation="Horizontal">
                                                 <StackPanel.Style>
@@ -1206,23 +1331,24 @@
                                                     </Style>
                                                 </StackPanel.Style>
                                                 <Border Width="12" Height="3" Background="#32B8FF" CornerRadius="1" VerticalAlignment="Center" Margin="0,0,5,0" />
-                                                <TextBlock Text="&#xC608;&#xCE21;"
-                                                           Foreground="{DynamicResource SecondaryTextBrush}"
-                                                           FontFamily="Segoe UI"
-                                                           FontSize="9.5" />
+                                                <TextBlock Text="&#xCD94;&#xB860; &#xACB0;&#xACFC; &#xC601;&#xC5ED;"
+                                                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                           FontFamily="{DynamicResource UiFontFamily}"
+                                                           FontSize="13" />
                                             </StackPanel>
                                         </StackPanel>
                                         <TextBlock Grid.Row="3"
                                                    Text="{Binding GroundTruthPreviewDetailText}"
                                                    ToolTip="{Binding SelectedGroundTruthExample.EvidencePath}"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="9.5"
+                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
                                                    TextWrapping="Wrap" />
                                     </Grid>
                                 </Border>
                             </Grid>
                         </Grid>
+                        </ScrollViewer>
                     </TabItem>
 
                     <TabItem Header="{Binding RunConditionsTabText}" Style="{StaticResource BenchmarkTabItemStyle}">
@@ -1232,49 +1358,49 @@
                                   HorizontalScrollBarVisibility="Auto"
                                   VerticalScrollBarVisibility="Auto">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="&#xBAA8;&#xB378;" Binding="{Binding DisplayName}" Width="1.2*" MinWidth="160" />
-                                <DataGridTextColumn Header="&#xC791;&#xC5C5;" Binding="{Binding TaskText}" Width="90" />
+                                <DataGridTextColumn Header="&#xBAA8;&#xB378;" Binding="{Binding DisplayName}" Width="1.2*" MinWidth="160" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                <DataGridTextColumn Header="&#xC791;&#xC5C5;" Binding="{Binding TaskText}" Width="90" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
                                 <DataGridTemplateColumn Header="&#xD3C9;&#xAC00; &#xB370;&#xC774;&#xD130;" Width="2*" MinWidth="220">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <StackPanel ToolTip="{Binding EvidenceFingerprintSha256}">
                                                 <TextBlock Text="{Binding EvaluationDataPath}"
-                                                           TextTrimming="CharacterEllipsis" />
+                                                           TextWrapping="Wrap" />
                                                 <TextBlock Text="{Binding EvidenceFingerprintSummaryText}"
-                                                           Foreground="{DynamicResource DisabledTextBrush}"
-                                                           FontSize="9"
+                                                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                           FontSize="13"
                                                            Margin="0,2,0,0" />
                                             </StackPanel>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTextColumn Header="&#xBD84;&#xD560;" Binding="{Binding Run.Split}" Width="65" />
-                                <DataGridTextColumn Header="&#xC774;&#xBBF8;&#xC9C0;" Binding="{Binding Run.EvidenceCount}" Width="65" />
-                                <DataGridTextColumn Header="img" Binding="{Binding ImageSizeText}" Width="55" />
-                                <DataGridTextColumn Header="batch" Binding="{Binding BatchSizeText}" Width="55" />
-                                <DataGridTextColumn Header="&#xC2E0;&#xB8B0;&#xB3C4;" Binding="{Binding ConfidenceText}" Width="65" />
-                                <DataGridTextColumn Header="Takt &#xC870;&#xAC74;" Binding="{Binding TimingProtocolText}" Width="1.2*" MinWidth="160" />
+                                <DataGridTextColumn Header="&#xBD84;&#xD560;" Binding="{Binding Run.Split}" Width="65" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                <DataGridTextColumn Header="&#xC774;&#xBBF8;&#xC9C0;" Binding="{Binding Run.EvidenceCount}" Width="65" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                <DataGridTextColumn Header="img" Binding="{Binding ImageSizeText}" Width="55" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                <DataGridTextColumn Header="batch" Binding="{Binding BatchSizeText}" Width="55" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                <DataGridTextColumn Header="&#xC2E0;&#xB8B0;&#xB3C4;" Binding="{Binding ConfidenceText}" Width="65" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" MinWidth="100" />
+                                <DataGridTextColumn Header="&#xC2DC;&#xAC04; &#xCE21;&#xC815; &#xC870;&#xAC74;" Binding="{Binding TimingProtocolText}" Width="1.2*" MinWidth="160" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
                                 <DataGridTemplateColumn Header="&#xAC00;&#xC911;&#xCE58;" Width="2*" MinWidth="220">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <StackPanel ToolTip="{Binding WeightsSha256}">
                                                 <TextBlock Text="{Binding WeightsPath}"
-                                                           TextTrimming="CharacterEllipsis" />
+                                                           TextWrapping="Wrap" />
                                                 <TextBlock Text="{Binding WeightsSha256SummaryText}"
-                                                           Foreground="{DynamicResource DisabledTextBrush}"
-                                                           FontSize="9"
+                                                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                           FontSize="13"
                                                            Margin="0,2,0,0" />
                                             </StackPanel>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTextColumn Header="&#xBCF4;&#xACE0;&#xC11C;" Binding="{Binding SourcePath}" Width="2*" MinWidth="220" />
+                                <DataGridTextColumn Header="&#xBCF4;&#xACE0;&#xC11C;" Binding="{Binding SourcePath}" Width="2*" MinWidth="220" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
                             </DataGrid.Columns>
                         </DataGrid>
                     </TabItem>
 
                     <TabItem Header="{Binding ThresholdTabText}" Style="{StaticResource BenchmarkTabItemStyle}">
-                        <Grid Margin="10" Background="{DynamicResource PanelBrush}">
+                        <Grid x:Name="ModelBenchmarkThresholdSurface" Margin="10" Background="{DynamicResource RecipeSurfaceBrush}">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
@@ -1282,9 +1408,9 @@
 
                             <TextBlock x:Name="ModelBenchmarkThresholdReviewStatusText"
                                        Text="{Binding ThresholdReviewStatusText}"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10.5"
+                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
                                        TextWrapping="Wrap"
                                        Margin="2,0,2,10" />
                             <DataGrid x:Name="ModelBenchmarkThresholdReviewGrid"
@@ -1294,22 +1420,40 @@
                                       HorizontalScrollBarVisibility="Auto"
                                       VerticalScrollBarVisibility="Auto">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="&#xBAA8;&#xB378;" Binding="{Binding ModelName}" Width="1.5*" MinWidth="180" />
-                                    <DataGridTextColumn Header="&#xC784;&#xACC4;&#xAC12;" Binding="{Binding ConfidenceText}" Width="80" />
-                                    <DataGridTextColumn Header="&#xC815;&#xB2F5;" Binding="{Binding GroundTruthCountText}" Width="70" />
-                                    <DataGridTextColumn Header="&#xC608;&#xCE21;" Binding="{Binding PredictionCountText}" Width="70" />
-                                    <DataGridTextColumn Header="TP" Binding="{Binding TruePositiveCountText}" Width="60" />
-                                    <DataGridTextColumn Header="FP" Binding="{Binding FalsePositiveCountText}" Width="60" />
-                                    <DataGridTextColumn Header="FN" Binding="{Binding FalseNegativeCountText}" Width="60" />
-                                    <DataGridTextColumn Header="Precision" Binding="{Binding PrecisionText}" Width="85" />
-                                    <DataGridTextColumn Header="Recall" Binding="{Binding RecallText}" Width="85" />
-                                    <DataGridTextColumn Header="F1" Binding="{Binding F1Text}" Width="75" />
-                                    <DataGridTextColumn Header="&#xADFC;&#xAC70;" Binding="{Binding EvidenceText}" Width="1.2*" MinWidth="160" />
+                                    <DataGridTextColumn Header="&#xBAA8;&#xB378;" Binding="{Binding ModelName}" Width="1.5*" MinWidth="180" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                    <DataGridTextColumn Header="&#xC784;&#xACC4;&#xAC12;" Binding="{Binding ConfidenceText}" Width="80" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" MinWidth="100" />
+                                    <DataGridTextColumn Header="&#xC815;&#xB2F5; &#xC218;" Binding="{Binding GroundTruthCountText}" Width="70" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" MinWidth="100" />
+                                    <DataGridTextColumn Header="&#xCD94;&#xB860; &#xACB0;&#xACFC; &#xC218;" Binding="{Binding PredictionCountText}" Width="70" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" MinWidth="100" />
+                                    <DataGridTextColumn Header="TP" Binding="{Binding TruePositiveCountText}" Width="60" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                    <DataGridTextColumn Header="FP" Binding="{Binding FalsePositiveCountText}" Width="60" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                    <DataGridTextColumn Header="FN" Binding="{Binding FalseNegativeCountText}" Width="60" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                    <DataGridTextColumn Header="Precision" Binding="{Binding PrecisionText}" Width="85" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                    <DataGridTextColumn Header="Recall" Binding="{Binding RecallText}" Width="85" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                    <DataGridTextColumn Header="F1" Binding="{Binding F1Text}" Width="75" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                    <DataGridTextColumn Header="{Binding [WpfModelBenchmark.ThresholdReview.Header.FormatCoordinates], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Binding="{Binding EvidenceText}" Width="1.2*" MinWidth="160" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
                                 </DataGrid.Columns>
                             </DataGrid>
                         </Grid>
                     </TabItem>
                 </TabControl>
+                <ScrollViewer x:Name="ModelBenchmarkSelectionEmptyPanel"
+                              Grid.Row="1"
+                              Margin="24"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Visibility="{Binding IsSelectionEmpty, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel>
+                        <TextBlock Text="{Binding SelectionEmptyTitleText}"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource RecipeTextBrush}"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding SelectionEmptyDetailText}"
+                                   Margin="0,10,0,0"
+                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </ScrollViewer>
             </Grid>
         </Grid>
     </DockPanel>

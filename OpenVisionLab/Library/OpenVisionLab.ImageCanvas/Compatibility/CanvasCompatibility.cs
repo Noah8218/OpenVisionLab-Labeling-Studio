@@ -110,6 +110,12 @@ namespace OpenVisionLab.ImageCanvas.CanvasShapes
 		public bool IsEditing { get; set; }
 		public bool IsFill { get; set; }
 		public CanvasRoiShapeKind ShapeKind { get; set; } = CanvasRoiShapeKind.Rectangle;
+		// 표시 marker는 내부에 두어 기존 geometry 직렬화와 다른 viewer 소비자를 바꾸지 않는다.
+		internal bool IsLabelAnnotation { get; set; }
+		internal bool IsLabelDraft { get; set; }
+		internal bool IsLabelHovered { get; set; }
+		internal bool ShowLabelEditHandles { get; set; } = true;
+		internal Color LabelColor { get; set; } = Color.Empty;
 		public EditingType EditingType { get; private set; }
 		public CanvasRect<T> ExtendedRectangle { get; set; }
 
@@ -140,7 +146,12 @@ namespace OpenVisionLab.ImageCanvas.CanvasShapes
 		public bool Contain(float x, float y) => x >= Left && x <= Right && y >= Bottom && y <= Top;
 		public RectangleF ToRobotRectangle() => new RectangleF(Left, Bottom, Width, Height);
 		public Rectangle ToImageArea() => Rectangle.Round(new RectangleF(Left, Bottom, Width, Height));
-		public CanvasRect<T> ToCanvasRect() => new CanvasRect<T>(Left, Top, Right, Bottom) { UniqueId = UniqueId, GroupType = GroupType, UserTag = UserTag, LineWidth = LineWidth, IsFill = IsFill, ShapeKind = ShapeKind };
+		public CanvasRect<T> ToCanvasRect() => new CanvasRect<T>(Left, Top, Right, Bottom)
+		{
+			UniqueId = UniqueId, GroupType = GroupType, UserTag = UserTag, LineWidth = LineWidth,
+			IsFill = IsFill, ShapeKind = ShapeKind, IsLabelAnnotation = IsLabelAnnotation,
+			IsLabelDraft = IsLabelDraft, ShowLabelEditHandles = ShowLabelEditHandles, LabelColor = LabelColor
+		};
 		public object DeepClone() => ToCanvasRect();
 
 		public void OffsetMove(CanvasSize<float> size, bool notify = true)

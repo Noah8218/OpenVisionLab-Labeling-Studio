@@ -69,7 +69,7 @@ namespace MvcVisionSystem.Yolo
                     .Values
                     .Where(list => list != null)
                     .SelectMany(list => list)
-                    .Count(segment => segment != null && segment.Points != null && segment.Points.Count >= 3) ?? 0;
+                    .Count(segment => segment != null) ?? 0;
                 return new YoloImageLabelStatus(segmentPath, objectCount, 0);
             }
 

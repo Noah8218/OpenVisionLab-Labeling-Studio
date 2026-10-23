@@ -32,9 +32,12 @@ namespace MvcVisionSystem
             context.CancelPendingPolygonVertexEdit?.Invoke();
             context.CancelPendingIntelligentScissors?.Invoke();
             context.ResetMaskStrokeStateForImageChange?.Invoke();
+            context.ResetSmartMaskCandidateEditBuffer?.Invoke();
             context.PolygonAnnotationService.Reset();
             context.CandidateReviewState.ClearAll();
+            context.ClearAnomalyPrediction?.Invoke();
             context.SmartMaskPromptSession.Reset();
+            context.RefreshSmartMaskPresentation?.Invoke();
             context.ClearAnnotationHistory?.Invoke();
         }
 
@@ -53,6 +56,7 @@ namespace MvcVisionSystem
 
         private void ResetPreImageChangeState(bool cancelFourPointDraft)
         {
+            context.ClearReferenceImage?.Invoke();
             context.StopDisplayAdjustmentRefresh?.Invoke();
             if (cancelFourPointDraft)
             {
@@ -84,6 +88,7 @@ namespace MvcVisionSystem
         internal ObjectMetadataStateService ObjectMetadataStateService { get; init; }
         internal ImageLoadResourceService ImageLoadResourceService { get; init; }
         internal CandidateReviewStateService CandidateReviewState { get; init; }
+        internal Action ClearAnomalyPrediction { get; init; }
         internal SmartMaskPromptSessionService SmartMaskPromptSession { get; init; }
         internal PolygonAnnotationService PolygonAnnotationService { get; init; }
         internal IList<DrawingRectangle> ManualRois { get; init; }
@@ -91,6 +96,7 @@ namespace MvcVisionSystem
         internal IList<CanvasRoiShapeKind> ManualRoiShapeKinds { get; init; }
         internal IList<string> ManualRoiOverlayIds { get; init; }
         internal IList<LabelingSegmentationObject> ManualSegments { get; init; }
+        internal Action ClearReferenceImage { get; init; }
         internal Action StopDisplayAdjustmentRefresh { get; init; }
         internal Action CancelFourPointBoxDraft { get; init; }
         internal Action CancelPendingSegmentationRemoveUnderlying { get; init; }
@@ -100,6 +106,8 @@ namespace MvcVisionSystem
         internal Action CancelPendingIntelligentScissors { get; init; }
         internal Action CancelObjectGroupSelection { get; init; }
         internal Action ResetMaskStrokeStateForImageChange { get; init; }
+        internal Action ResetSmartMaskCandidateEditBuffer { get; init; }
+        internal Action RefreshSmartMaskPresentation { get; init; }
         internal Action ClearAnnotationHistory { get; init; }
         internal Action ClearCanvasImage { get; init; }
         internal Action RefreshCandidateList { get; init; }

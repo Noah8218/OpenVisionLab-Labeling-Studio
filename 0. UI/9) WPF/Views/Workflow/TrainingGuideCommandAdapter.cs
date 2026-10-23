@@ -48,7 +48,7 @@ namespace MvcVisionSystem
 
                 case WpfDatasetDashboardActionKind.OpenLabelingProgress:
                 case WpfDatasetDashboardActionKind.OpenLabelingTool:
-                    context.SetInferenceMode?.Invoke(false);
+                    if (!TrySetInferenceMode(isInferenceMode: false)) return;
                     WpfAnnotationTool primaryTool = ResolvePrimaryLabelingToolForCurrentPurpose();
                     context.SelectAnnotationTool?.Invoke(primaryTool, true);
                     context.FocusMainCanvas?.Invoke();
@@ -93,7 +93,7 @@ namespace MvcVisionSystem
                 data);
             if (string.IsNullOrWhiteSpace(outputPath))
             {
-                context.SetModelStatus?.Invoke("품질 보고서 저장 실패: 데이터셋 저장 폴더를 먼저 지정하세요.");
+                context.SetModelStatus?.Invoke(OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingGuideCommandAdapter.ReportFolder"));
                 return;
             }
 
@@ -179,13 +179,13 @@ namespace MvcVisionSystem
                     break;
 
                 case 2:
-                    context.SetInferenceMode?.Invoke(false);
-                    context.AppendLog?.Invoke("모델 학습 2단계: 학습 이미지 폴더를 선택합니다.");
+                    if (!TrySetInferenceMode(isInferenceMode: false)) return;
+                    context.AppendLog?.Invoke(OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingGuideCommandAdapter.SourceFolderStep"));
                     context.ExecuteBrowseImageFolderCommand?.Invoke();
                     break;
 
                 case 3:
-                    context.SetInferenceMode?.Invoke(false);
+                    if (!TrySetInferenceMode(isInferenceMode: false)) return;
                     context.FocusClassCatalogTab?.Invoke();
                     context.FocusClassNameBox?.Invoke();
                     context.SetModelStatus?.Invoke("학습 준비: 클래스를 등록하세요");
@@ -193,7 +193,7 @@ namespace MvcVisionSystem
                     break;
 
                 case 4:
-                    context.SetInferenceMode?.Invoke(false);
+                    if (!TrySetInferenceMode(isInferenceMode: false)) return;
                     WpfAnnotationTool primaryLabelingTool = ResolvePrimaryLabelingToolForCurrentPurpose();
                     context.SelectAnnotationTool?.Invoke(primaryLabelingTool, true);
                     context.SetCanvasTeachingMode?.Invoke(primaryLabelingTool == WpfAnnotationTool.Rectangle);
@@ -218,14 +218,14 @@ namespace MvcVisionSystem
                     break;
 
                 case 7:
-                    context.TryApplyLatestTrainingWeightsFromProject?.Invoke(true);
-                    context.SetInferenceMode?.Invoke(true);
+                    if (!TrySetInferenceMode(isInferenceMode: true)) return;
+                    context.TryApplyLatestTrainingWeightsFromProject?.Invoke(false);
                     context.ShowCandidateReviewWorkflowView?.Invoke();
                     context.FocusDetectButton?.Invoke();
                     context.SetYoloCommandStatus?.Invoke(
-                        "학습 결과 추론 준비: 현재 검사 버튼으로 모델 결과를 확인하세요.",
+                        OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingGuideCommandAdapter.InferenceReady"),
                         false);
-                    context.AppendLog?.Invoke("모델 학습 7단계: 학습 결과 모델로 현재 이미지를 검사하고 후보를 검토하세요.");
+                    context.AppendLog?.Invoke(OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingGuideCommandAdapter.InferenceStep"));
                     break;
 
                 default:
@@ -271,13 +271,13 @@ namespace MvcVisionSystem
                     break;
 
                 case WpfLearningStepWorkflowAction.StartBoxLabeling:
-                    context.SetInferenceMode?.Invoke(false);
+                    if (!TrySetInferenceMode(isInferenceMode: false)) return;
                     context.SelectAnnotationTool?.Invoke(WpfAnnotationTool.Rectangle, true);
                     context.ExecuteAddSampleRoiCommand?.Invoke();
                     break;
 
                 case WpfLearningStepWorkflowAction.Inference:
-                    context.SetInferenceMode?.Invoke(true);
+                    if (!TrySetInferenceMode(isInferenceMode: true)) return;
                     break;
 
                 case WpfLearningStepWorkflowAction.ShowCandidateReview:
@@ -291,6 +291,9 @@ namespace MvcVisionSystem
 
             context.RefreshCanvasWorkflowContext?.Invoke();
         }
+
+        private bool TrySetInferenceMode(bool isInferenceMode)
+            => context.SetInferenceMode?.Invoke(isInferenceMode) != false;
 
         private bool IsCloseApproved()
             => context.IsApplicationCloseApproved?.Invoke() == true;
@@ -310,7 +313,7 @@ namespace MvcVisionSystem
         internal Action ExecuteAddSampleRoiCommand { get; init; }
         internal Action ExecuteSaveAnnotationsCommand { get; init; }
         internal Action ExecuteHistoricalSegmentationRemediationAudit { get; init; }
-        internal Action<bool> SetInferenceMode { get; init; }
+        internal Func<bool, bool> SetInferenceMode { get; init; }
         internal Action<WpfAnnotationTool, bool> SelectAnnotationTool { get; init; }
         internal Action<bool> SetCanvasTeachingMode { get; init; }
         internal Action FocusMainCanvas { get; init; }

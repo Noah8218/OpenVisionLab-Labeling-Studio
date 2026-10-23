@@ -1,6 +1,8 @@
 using MvcVisionSystem._1._Core;
 using System;
 using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
 
 namespace MvcVisionSystem
 {
@@ -89,13 +91,89 @@ namespace MvcVisionSystem
                 return ModelCandidateLifecycleResult.InvalidAdoptionPlan();
             }
 
-            return ApplyDecision(
-                request,
-                ModelRegistryService.CandidateDecisionAdopted,
-                request.AdoptionPlan.DecisionSummary,
-                savedToRecipe: true,
-                restoreBaselineBeforeSave: false);
+            try
+            {
+                string target = string.IsNullOrWhiteSpace(request.AdoptionPlan.ArtifactPath) ? request.AdoptionPlan.CandidateWeightsPath : request.AdoptionPlan.ArtifactPath;
+                using FileStream modelStream = new(target, FileMode.Open, FileAccess.Read, FileShare.Read);
+                string expectedHash = request.AdoptionPlan.WeightsSha256;
+                string adoptedHash = Convert.ToHexString(SHA256.HashData(modelStream));
+                if (!string.IsNullOrWhiteSpace(expectedHash) && !string.Equals(adoptedHash, expectedHash, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("Model artifact changed after adoption was prepared.");
+                ModelCandidate current = ModelRegistryService.FindCurrentInspectionModel(request.Data?.ProjectSettings?.ModelRegistry);
+                if (SamePath(target, request.Data?.ProjectSettings?.PythonModel?.WeightsPath) && current != null
+                    && (SamePath(current.WeightsPath, target) || SamePath(current.ArtifactPath, target)))
+                    return ModelCandidateLifecycleResult.AlreadyCurrent(request.AdoptionPlan.CandidateWeightsPath);
+                string previousPath = Normalize(request.AdoptionPlan.BaselineWeightsPath);
+                if (previousPath.Length == 0) previousPath = Normalize(request.Data?.ProjectSettings?.PythonModel?.WeightsPath);
+                TryOpenBaselineForReject(previousPath, out FileStream previousStream, out _);
+                using (previousStream)
+                {
+                    string previousHash = previousStream == null ? string.Empty : Convert.ToHexString(SHA256.HashData(previousStream));
+                    return ApplyDecision(request, ModelRegistryService.CandidateDecisionAdopted,
+                        string.IsNullOrWhiteSpace(request.DecisionSummary) ? request.AdoptionPlan.DecisionSummary : request.DecisionSummary.Trim(),
+                        savedToRecipe: true, restoreBaselineBeforeSave: false, previousWeightsSha256: previousHash,
+                        adoptedWeightsSha256: adoptedHash, adoptionPreviousWeightsPath: previousPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                return ModelCandidateLifecycleResult.Failed(request.CandidateWeightsPath, request.BaselineWeightsPath, true, ex);
+            }
         }
+
+        public static InspectionModelAdoption FindUndoableAdoption(LabelingProjectData data)
+        {
+            ModelRegistrySettings registry = data?.ProjectSettings?.ModelRegistry;
+            InspectionModelAdoption adoption = ModelRegistryService.FindLatestInspectionModelAdoption(registry);
+            if (adoption == null || !string.IsNullOrEmpty(adoption.UndoneUtc) || registry.CurrentInspectionModelId != adoption.CandidateId
+                || !SamePath(data.ProjectSettings.PythonModel?.WeightsPath, adoption.AppliedWeightsPath)
+                || !IsSha256(adoption.WeightsSha256) || !IsSha256(adoption.PreviousWeightsSha256)
+                || adoption.PreviousCandidateId == adoption.CandidateId) return null;
+            ModelProfile profile = registry.Profiles?.FirstOrDefault(item => item.ProfileId == adoption.ProfileId);
+            PythonModelSettings settings = data.ProjectSettings.PythonModel;
+            if (profile == null || PythonModelSettings.NormalizeModelEngine(profile.ModelEngine) != PythonModelSettings.NormalizeModelEngine(settings.ModelEngine)
+                || profile.DatasetPurpose != data.ProjectSettings.DatasetPurpose.ToString()
+                || !string.Equals(Normalize(profile.ProjectRootPath).TrimEnd('\\', '/'), Normalize(settings.ProjectRootPath).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)) return null;
+            ModelCandidate previous = registry.Candidates.FirstOrDefault(item => item.CandidateId == adoption.PreviousCandidateId && item.ProfileId == adoption.ProfileId);
+            return previous != null && (string.IsNullOrWhiteSpace(previous.WeightsSha256) || string.Equals(previous.WeightsSha256, adoption.PreviousWeightsSha256, StringComparison.OrdinalIgnoreCase))
+                && (SamePath(previous.WeightsPath, adoption.PreviousWeightsPath) || SamePath(previous.ArtifactPath, adoption.PreviousWeightsPath))
+                ? adoption : null;
+        }
+
+        public ModelCandidateLifecycleResult UndoAdoption(ModelAdoptionUndoRequest request)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+            InspectionModelAdoption adoption = FindUndoableAdoption(request.Data);
+            if (adoption == null || adoption.AdoptionId != request.AdoptionId)
+                return ModelCandidateLifecycleResult.UndoUnavailable(new InvalidOperationException("현재 지정과 일치하는 되돌리기 기록이 없습니다."));
+            PythonModelSettings settings = request.Data.ProjectSettings.PythonModel;
+            try
+            {
+                using FileStream currentStream = new(adoption.AppliedWeightsPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                using FileStream previousStream = new(adoption.PreviousWeightsPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                if (!string.Equals(Convert.ToHexString(SHA256.HashData(currentStream)), adoption.WeightsSha256, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(Convert.ToHexString(SHA256.HashData(previousStream)), adoption.PreviousWeightsSha256, StringComparison.OrdinalIgnoreCase))
+                    return ModelCandidateLifecycleResult.UndoUnavailable(new InvalidDataException("검사 모델 파일이 바뀌어 되돌리지 않았습니다."));
+                using RecipeSettingsStateTransaction recipeTransaction = new(request.Data);
+                using ModelRegistryStateTransaction registryTransaction = new(request.Data.ProjectSettings.ModelRegistry);
+                if (!ModelRegistryService.RestoreInspectionModelAdoption(request.Data.ProjectSettings.ModelRegistry, adoption, request.Reason))
+                    return ModelCandidateLifecycleResult.UndoUnavailable(new InvalidOperationException("되돌리기 대상 모델 기록이 바뀌었습니다."));
+                settings.WeightsPath = adoption.PreviousWeightsPath;
+                if (request.SaveModelMetadata?.Invoke() != true)
+                    return ModelCandidateLifecycleResult.PersistenceFailed(adoption.PreviousWeightsPath, adoption.AppliedWeightsPath, true);
+                recipeTransaction.Commit();
+                registryTransaction.Commit();
+                return ModelCandidateLifecycleResult.Committed(adoption.PreviousWeightsPath, adoption.AppliedWeightsPath, true);
+            }
+            catch (Exception ex)
+            {
+                return ModelCandidateLifecycleResult.Failed(adoption.PreviousWeightsPath, adoption.AppliedWeightsPath, true, ex);
+            }
+        }
+
+        private static bool IsSha256(string value) => value?.Length == 64 && value.All(Uri.IsHexDigit);
+        private static bool SamePath(string left, string right)
+            => !string.IsNullOrWhiteSpace(left) && !string.IsNullOrWhiteSpace(right) && string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase);
 
         private static ModelCandidateLifecycleResult ApplyDecision(
             ModelCandidateLifecycleRequest request,
@@ -103,7 +181,10 @@ namespace MvcVisionSystem
             string decisionSummary,
             bool savedToRecipe,
             bool restoreBaselineBeforeSave,
-            FileStream baselineStream = null)
+            FileStream baselineStream = null,
+            string previousWeightsSha256 = "",
+            string adoptedWeightsSha256 = "",
+            string adoptionPreviousWeightsPath = "")
         {
             LabelingProjectData data = request.Data ?? throw new ArgumentNullException(nameof(request.Data));
             data.ProjectSettings ??= new LabelingProjectSettings();
@@ -111,13 +192,15 @@ namespace MvcVisionSystem
             PythonModelSettings settings = data.ProjectSettings.PythonModel;
             string candidateWeightsPath = Normalize(request.CandidateWeightsPath);
             string baselineWeightsPath = Normalize(request.BaselineWeightsPath);
+            if (savedToRecipe && !string.IsNullOrWhiteSpace(adoptionPreviousWeightsPath)) baselineWeightsPath = adoptionPreviousWeightsPath;
+            string previousSettingsWeightsPath = settings.WeightsPath;
 
             try
             {
                 using RecipeSettingsStateTransaction recipeSettingsTransaction = new RecipeSettingsStateTransaction(data);
                 using ModelRegistryStateTransaction registryTransaction = new ModelRegistryStateTransaction(data.ProjectSettings.ModelRegistry);
 
-                ModelRegistryService.RecordCandidateDecision(
+                ModelCandidate candidate = ModelRegistryService.RecordCandidateDecision(
                     data.ProjectSettings.ModelRegistry,
                     settings,
                     data.ProjectSettings.DatasetPurpose,
@@ -132,9 +215,9 @@ namespace MvcVisionSystem
                         ?? data.ProjectSettings.TrainingGuide.LastTrainingDatasetVersionId,
                     request.AdoptionPlan?.DatasetContentSha256
                         ?? data.ProjectSettings.TrainingGuide.LastTrainingDatasetContentSha256,
-                    trainingRunId: data.ProjectSettings.TrainingGuide.LastTrainingRunId,
-                    trainingRunName: data.ProjectSettings.TrainingGuide.LastTrainingRunName,
-                    candidateWeightsSha256: request.AdoptionPlan?.WeightsSha256,
+                    trainingRunId: request.TrainingRunId ?? data.ProjectSettings.TrainingGuide.LastTrainingRunId,
+                    trainingRunName: request.TrainingRunName ?? data.ProjectSettings.TrainingGuide.LastTrainingRunName,
+                    candidateWeightsSha256: string.IsNullOrWhiteSpace(adoptedWeightsSha256) ? request.AdoptionPlan?.WeightsSha256 : adoptedWeightsSha256,
                     candidateArtifactPath: request.AdoptionPlan?.ArtifactPath);
 
                 if (restoreBaselineBeforeSave)
@@ -146,12 +229,30 @@ namespace MvcVisionSystem
 
                     settings.WeightsPath = baselineWeightsPath;
                 }
+
                 else if (!restoreBaselineBeforeSave)
                 {
                     settings.WeightsPath = Normalize(request.AdoptionPlan?.ArtifactPath);
                     if (string.IsNullOrWhiteSpace(settings.WeightsPath))
                     {
                         settings.WeightsPath = candidateWeightsPath;
+                    }
+                }
+
+                if (savedToRecipe)
+                {
+                    InspectionModelAdoption adoption = ModelRegistryService.FindLatestInspectionModelAdoption(data.ProjectSettings.ModelRegistry);
+                    if (adoption?.CandidateId == candidate?.CandidateId)
+                    {
+                        adoption.AppliedWeightsPath = settings.WeightsPath;
+                        adoption.PreviousWeightsSha256 = previousWeightsSha256;
+                        adoption.PreviousCandidateId = ModelRegistryService.FindInspectionModelByPath(data.ProjectSettings.ModelRegistry, baselineWeightsPath, candidate.ProfileId)?.CandidateId ?? string.Empty;
+                        adoption.EvaluationDatasetVersionId = request.EvaluationDatasetVersionId ?? string.Empty;
+                        adoption.EvaluationDatasetContentSha256 = request.EvaluationDatasetContentSha256 ?? string.Empty;
+                        adoption.EvaluationReportPath = request.EvaluationReportPath ?? string.Empty;
+                        adoption.EvaluationReportSha256 = request.EvaluationReportSha256 ?? string.Empty;
+                        adoption.EvaluationConditions = request.EvaluationConditions ?? string.Empty;
+                        adoption.EvaluationMetricsSummary = request.EvaluationMetricsSummary ?? string.Empty;
                     }
                 }
 
@@ -168,7 +269,7 @@ namespace MvcVisionSystem
 
                 recipeSettingsTransaction.Rollback();
                 registryTransaction.Rollback();
-                settings.WeightsPath = candidateWeightsPath;
+                settings.WeightsPath = previousSettingsWeightsPath;
                 return ModelCandidateLifecycleResult.PersistenceFailed(
                     candidateWeightsPath,
                     baselineWeightsPath,
@@ -176,7 +277,7 @@ namespace MvcVisionSystem
             }
             catch (Exception ex)
             {
-                settings.WeightsPath = candidateWeightsPath;
+                settings.WeightsPath = previousSettingsWeightsPath;
                 return ModelCandidateLifecycleResult.Failed(
                     candidateWeightsPath,
                     baselineWeightsPath,
@@ -203,8 +304,27 @@ namespace MvcVisionSystem
 
         public string DecisionSummary { get; set; } = string.Empty;
 
+        public string TrainingRunId { get; set; }
+
+        public string TrainingRunName { get; set; }
+
+        public string EvaluationDatasetVersionId { get; set; } = string.Empty;
+        public string EvaluationDatasetContentSha256 { get; set; } = string.Empty;
+        public string EvaluationReportPath { get; set; } = string.Empty;
+        public string EvaluationReportSha256 { get; set; } = string.Empty;
+        public string EvaluationConditions { get; set; } = string.Empty;
+        public string EvaluationMetricsSummary { get; set; } = string.Empty;
+
         public ModelHistoryAdoptionPlan AdoptionPlan { get; set; }
 
+        public Func<bool> SaveModelMetadata { get; set; }
+    }
+
+    public sealed class ModelAdoptionUndoRequest
+    {
+        public LabelingProjectData Data { get; set; }
+        public string AdoptionId { get; set; } = string.Empty;
+        public string Reason { get; set; } = "검사 모델 지정을 되돌림";
         public Func<bool> SaveModelMetadata { get; set; }
     }
 
@@ -216,7 +336,8 @@ namespace MvcVisionSystem
         PersistenceFailed,
         Committed,
         Failed,
-        BaselineUnavailable
+        BaselineUnavailable,
+        UndoUnavailable
     }
 
     public sealed class ModelCandidateLifecycleResult
@@ -254,6 +375,9 @@ namespace MvcVisionSystem
 
         public static ModelCandidateLifecycleResult MissingCandidate()
             => new ModelCandidateLifecycleResult(ModelCandidateLifecycleStatus.MissingCandidate, string.Empty, string.Empty, false);
+
+        public static ModelCandidateLifecycleResult UndoUnavailable(Exception error)
+            => new ModelCandidateLifecycleResult(ModelCandidateLifecycleStatus.UndoUnavailable, string.Empty, string.Empty, false, error);
 
         public static ModelCandidateLifecycleResult InvalidAdoptionPlan()
             => new ModelCandidateLifecycleResult(ModelCandidateLifecycleStatus.InvalidAdoptionPlan, string.Empty, string.Empty, true);

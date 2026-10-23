@@ -1,0 +1,82 @@
+<Window x:Class="MvcVisionSystem.WpfImageReviewRejectionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+        Title="{Binding TitleText}" Width="520" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" WindowStyle="None" AllowsTransparency="True"
+        ShowInTaskbar="False" Background="Transparent" FontFamily="{DynamicResource UiFontFamily}" FontSize="13"
+        Foreground="{DynamicResource RecipeTextBrush}" AutomationProperties.AutomationId="ImageReviewRejectionWindow">
+    <Border Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeButtonBorderBrush}" BorderThickness="1" CornerRadius="12">
+        <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+            <Grid Margin="20,16,20,10"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding TitleText}" LineHeight="21.75" LineStackingStrategy="BlockLineHeight" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Style="{StaticResource RecipeQuietButtonStyle}" Command="{Binding CancelCommand}" Width="30" Height="30" MinHeight="30" Padding="4" AutomationProperties.Name="{Binding CancelText}" AutomationProperties.AutomationId="ReviewRejectCloseButton">
+                    <iconPacks:PackIconMaterial Kind="Close" Width="14" Height="14" />
+                </Button>
+            </Grid>
+            <StackPanel Grid.Row="1" Margin="20,6,20,16">
+                <TextBlock Text="{Binding FileDescriptionText}" Foreground="{DynamicResource RecipeMutedTextBrush}" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
+                <WrapPanel AutomationProperties.AutomationId="ImageReviewRejectionReasons" Margin="0,0,-8,-8">
+                        <WrapPanel.Resources>
+                            <SolidColorBrush x:Key="ReviewRejectSelectedBorderBrush" Color="#4C74B5" />
+                        </WrapPanel.Resources>
+                    <Button Content="{Binding MissingReasonText}" Command="{Binding SelectReasonCommand}" CommandParameter="{Binding MissingReasonKey}" Margin="0,0,8,8" AutomationProperties.AutomationId="ReviewRejectReasonMissing">
+                        <Button.Style><Style TargetType="Button" BasedOn="{StaticResource RecipeSecondaryButtonStyle}"><Setter Property="MinHeight" Value="30" /><Setter Property="Padding" Value="10,5" /><Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                            <DataTrigger Binding="{Binding SelectedReasonKey}" Value="Missing"><Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource ReviewRejectSelectedBorderBrush}" /><Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" /></DataTrigger><DataTrigger Binding="{Binding SelectedReasonKey}" Value="Verdict"><Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource ReviewRejectSelectedBorderBrush}" /><Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" /></DataTrigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeButtonPressedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeAccentBrush}" /></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" /><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /></Trigger>
+                        </Style.Triggers></Style></Button.Style>
+                    </Button>
+                    <Button Content="{Binding PositionReasonText}" Command="{Binding SelectReasonCommand}" CommandParameter="{Binding PositionReasonKey}" Margin="0,0,8,8" AutomationProperties.AutomationId="ReviewRejectReasonPosition">
+                        <Button.Style><Style TargetType="Button" BasedOn="{StaticResource RecipeSecondaryButtonStyle}"><Setter Property="MinHeight" Value="30" /><Setter Property="Padding" Value="10,5" /><Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                            <DataTrigger Binding="{Binding SelectedReasonKey}" Value="Position"><Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource ReviewRejectSelectedBorderBrush}" /><Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" /></DataTrigger><DataTrigger Binding="{Binding SelectedReasonKey}" Value="ImageQuality"><Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource ReviewRejectSelectedBorderBrush}" /><Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" /></DataTrigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeButtonPressedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeAccentBrush}" /></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" /><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /></Trigger>
+                        </Style.Triggers></Style></Button.Style>
+                    </Button>
+                    <Button Content="{Binding ClassReasonText}" Command="{Binding SelectReasonCommand}" CommandParameter="Class" Visibility="{Binding IsAnnotationPurpose, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,0,8,8" AutomationProperties.AutomationId="ReviewRejectReasonClass">
+                        <Button.Style><Style TargetType="Button" BasedOn="{StaticResource RecipeSecondaryButtonStyle}"><Setter Property="MinHeight" Value="30" /><Setter Property="Padding" Value="10,5" /><Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                            <DataTrigger Binding="{Binding SelectedReasonKey}" Value="Class"><Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource ReviewRejectSelectedBorderBrush}" /><Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" /></DataTrigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeButtonPressedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeAccentBrush}" /></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" /><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /></Trigger>
+                        </Style.Triggers></Style></Button.Style>
+                    </Button>
+                    <Button Content="{Binding ExtraReasonText}" Command="{Binding SelectReasonCommand}" CommandParameter="Extra" Visibility="{Binding IsAnnotationPurpose, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,0,8,8" AutomationProperties.AutomationId="ReviewRejectReasonExtra">
+                        <Button.Style><Style TargetType="Button" BasedOn="{StaticResource RecipeSecondaryButtonStyle}"><Setter Property="MinHeight" Value="30" /><Setter Property="Padding" Value="10,5" /><Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                            <DataTrigger Binding="{Binding SelectedReasonKey}" Value="Extra"><Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource ReviewRejectSelectedBorderBrush}" /><Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" /></DataTrigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeButtonPressedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeAccentBrush}" /></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" /><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /></Trigger>
+                        </Style.Triggers></Style></Button.Style>
+                    </Button>
+                    <Button Content="{Binding OtherReasonText}" Command="{Binding SelectReasonCommand}" CommandParameter="Other" Margin="0,0,8,8" AutomationProperties.AutomationId="ReviewRejectReasonOther">
+                        <Button.Style><Style TargetType="Button" BasedOn="{StaticResource RecipeSecondaryButtonStyle}"><Setter Property="MinHeight" Value="30" /><Setter Property="Padding" Value="10,5" /><Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                            <DataTrigger Binding="{Binding SelectedReasonKey}" Value="Other"><Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource ReviewRejectSelectedBorderBrush}" /><Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" /></DataTrigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeButtonPressedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeAccentBrush}" /></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" /><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /></Trigger>
+                        </Style.Triggers></Style></Button.Style>
+                    </Button>
+                </WrapPanel>
+                <Grid Margin="0,12,0,0">
+                    <TextBox x:Name="NoteTextBox" Style="{StaticResource RecipeInputStyle}" Text="{Binding NoteText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MaxLength="{Binding NoteMaxLength}"
+                             Height="30" FontSize="13" FontFamily="{DynamicResource UiFontFamily}" AutomationProperties.AutomationId="ReviewRejectNoteTextBox" AutomationProperties.Name="{Binding NotePromptText}" />
+                    <TextBlock Text="{Binding NotePromptText}" Foreground="{DynamicResource RecipeMutedTextBrush}" FontSize="13" Margin="8,0" VerticalAlignment="Center" IsHitTestVisible="False">
+                        <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=NoteTextBox}" Value=""><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+                <TextBlock Text="{Binding DiscardWarningText}" FontSize="12" TextWrapping="Wrap" Foreground="#F2B84B" Margin="0,12,0,0"
+                           Visibility="{Binding HasUnsavedChanges, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            </StackPanel>
+            <Border Grid.Row="2" Background="{DynamicResource RecipeDisabledBrush}" BorderBrush="{DynamicResource RecipeDisabledBorderBrush}" BorderThickness="0,1,0,0" CornerRadius="0,0,12,12" Padding="20,12">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Style="{StaticResource RecipeQuietButtonStyle}" Content="{Binding CancelText}" Command="{Binding CancelCommand}" IsCancel="True" MinHeight="30" Padding="10,5" Margin="0,0,8,0" AutomationProperties.AutomationId="ReviewRejectCancelButton" />
+                    <Button x:Name="RejectButton" Content="{Binding RejectText}" Command="{Binding RejectCommand}" IsDefault="True" MinHeight="30" Padding="10,5" AutomationProperties.AutomationId="ReviewRejectConfirmButton">
+                        <Button.Style><Style TargetType="Button" BasedOn="{StaticResource RecipeSecondaryButtonStyle}">
+                            <Setter Property="Background" Value="#2A1A1D" /><Setter Property="BorderBrush" Value="#6B3438" /><Setter Property="Foreground" Value="#FFB9B9" />
+                        </Style></Button.Style>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

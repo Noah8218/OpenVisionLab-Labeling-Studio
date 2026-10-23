@@ -17,12 +17,12 @@ namespace MvcVisionSystem
             return new[]
             {
                 new WpfLearningModeItem(WpfLearningMode.LabelingBasics, "\uB77C\uBCA8\uB9C1", PackIconMaterialKind.SchoolOutline, "\uC815\uB2F5 \uB77C\uBCA8\uC744 \uADF8\uB9AC\uB294 \uD750\uB984"),
-                new WpfLearningModeItem(WpfLearningMode.ObjectDetection, "\uAC1D\uCCB4 \uD0D0\uC9C0", PackIconMaterialKind.ShapeSquareRoundedPlus, "\uBC15\uC2A4 \uB77C\uBCA8\uACFC \uBAA8\uB378 \uD6C4\uBCF4 \uAC80\uD1A0"),
+                new WpfLearningModeItem(WpfLearningMode.ObjectDetection, "\uAC1D\uCCB4 \uD0D0\uC9C0", PackIconMaterialKind.ShapeSquareRoundedPlus, T("WpfLearningWorkflow.Catalog.Mode.ObjectDetection.ToolTip")),
                 new WpfLearningModeItem(WpfLearningMode.Segmentation, "\uC138\uADF8\uBA58\uD14C\uC774\uC158", PackIconMaterialKind.ViewListOutline, "\uD3F4\uB9AC\uACE4\uACFC \uB9C8\uC2A4\uD06C \uB77C\uBCA8"),
                 new WpfLearningModeItem(WpfLearningMode.AnomalyDetection, "\uC774\uC0C1 \uD0D0\uC9C0", PackIconMaterialKind.AlertCircleOutline, "\uC774\uBBF8\uC9C0 \uC804\uCCB4 \uC815\uC0C1/\uC774\uC0C1 \uD310\uC815"),
                 new WpfLearningModeItem(WpfLearningMode.Train, "\uD559\uC2B5", PackIconMaterialKind.PlayCircleOutline, "\uB370\uC774\uD130\uC14B \uC900\uBE44\uC640 \uD559\uC2B5"),
-                new WpfLearningModeItem(WpfLearningMode.Infer, "\uCD94\uB860", PackIconMaterialKind.RobotIndustrial, "\uBAA8\uB378 \uC2E4\uD589\uACFC \uC608\uCE21 \uD655\uC778"),
-                new WpfLearningModeItem(WpfLearningMode.Review, "\uAC80\uD1A0", PackIconMaterialKind.CheckAll, "\uC608\uCE21\uC744 \uD655\uC815 \uB77C\uBCA8\uB85C \uC804\uD658")
+                new WpfLearningModeItem(WpfLearningMode.Infer, "\uCD94\uB860", PackIconMaterialKind.RobotIndustrial, T("WpfLearningWorkflow.Catalog.Mode.Infer.ToolTip")),
+                new WpfLearningModeItem(WpfLearningMode.Review, T("WpfLearningWorkflow.Catalog.Mode.Review.Text"), PackIconMaterialKind.CheckAll, T("WpfLearningWorkflow.Catalog.Mode.Review.ToolTip"))
             };
         }
 
@@ -30,16 +30,17 @@ namespace MvcVisionSystem
         {
             return new[]
             {
-                new WpfAnnotationToolItem(WpfAnnotationTool.Select, "\uC120\uD0DD", PackIconMaterialKind.CursorDefaultOutline, "\uAC1D\uCCB4 \uC120\uD0DD\uACFC \uD3B8\uC9D1"),
-                new WpfAnnotationToolItem(WpfAnnotationTool.Rectangle, "\uBC15\uC2A4", PackIconMaterialKind.VectorRectangle, "\uAC1D\uCCB4 \uBC15\uC2A4 \uC601\uC5ED"),
-                new WpfAnnotationToolItem(WpfAnnotationTool.Ellipse, "\uC6D0/\uD0C0\uC6D0", PackIconMaterialKind.VectorEllipse, "\uC6D0\uD615 \uD639\uC740 \uD0C0\uC6D0 \uC601\uC5ED"),
-                new WpfAnnotationToolItem(WpfAnnotationTool.Polygon, "\uD3F4\uB9AC\uACE4", PackIconMaterialKind.VectorPolygon, "\uB2E4\uAC01\uD615 \uC138\uADF8\uBA58\uD14C\uC774\uC158"),
-                new WpfAnnotationToolItem(WpfAnnotationTool.Brush, "\uBE0C\uB7EC\uC2DC", PackIconMaterialKind.BrushVariant, "\uBE0C\uB7EC\uC2DC \uB9C8\uC2A4\uD06C \uD3B8\uC9D1"),
-                new WpfAnnotationToolItem(WpfAnnotationTool.Eraser, "\uC9C0\uC6B0\uAC1C", PackIconMaterialKind.EraserVariant, "\uB9C8\uC2A4\uD06C\uB098 \uC601\uC5ED \uC77C\uBD80\uB97C \uC81C\uAC70\uD558\uAE30"),
-                new WpfAnnotationToolItem(WpfAnnotationTool.PanZoom, "\uC774\uB3D9", PackIconMaterialKind.CursorMove, "\uD654\uBA74 \uC774\uB3D9\uACFC \uD655\uB300"),
-                new WpfAnnotationToolItem(WpfAnnotationTool.Undo, "\uB418\uB3CC\uB9AC\uAE30", PackIconMaterialKind.Refresh, "\uB9C8\uC9C0\uB9C9 \uD3B8\uC9D1 \uB418\uB3CC\uB9AC\uAE30"),
-                new WpfAnnotationToolItem(WpfAnnotationTool.Redo, "\uB2E4\uC2DC \uC801\uC6A9", PackIconMaterialKind.Reload, "\uB418\uB3CC\uB9B0 \uD3B8\uC9D1 \uB2E4\uC2DC \uC801\uC6A9"),
-                new WpfAnnotationToolItem(WpfAnnotationTool.Delete, "\uC0AD\uC81C", PackIconMaterialKind.TrashCanOutline, "\uC120\uD0DD \uB77C\uBCA8 \uC0AD\uC81C")
+                new WpfAnnotationToolItem(WpfAnnotationTool.Select, "\uC120\uD0DD", PackIconMaterialKind.CursorDefaultOutline, T("WpfLearningWorkflow.ToolTip.Select.Description")),
+                new WpfAnnotationToolItem(WpfAnnotationTool.Rectangle, "\uBC15\uC2A4", PackIconMaterialKind.VectorRectangle, T("WpfLearningWorkflow.ToolTip.Rectangle.Description")),
+                new WpfAnnotationToolItem(WpfAnnotationTool.Ellipse, "\uC6D0/\uD0C0\uC6D0", PackIconMaterialKind.VectorEllipse, T("WpfLearningWorkflow.ToolTip.Ellipse.Description")),
+                new WpfAnnotationToolItem(WpfAnnotationTool.Polygon, "\uD3F4\uB9AC\uACE4", PackIconMaterialKind.VectorPolygon, T("WpfLearningWorkflow.Catalog.Tool.Polygon.ToolTip")),
+                new WpfAnnotationToolItem(WpfAnnotationTool.SmartMask, "SmartMask", PackIconMaterialKind.AutoFix, T("WpfLearningWorkflow.Catalog.Tool.SmartMask.ToolTip")),
+                new WpfAnnotationToolItem(WpfAnnotationTool.Brush, "\uBE0C\uB7EC\uC2DC", PackIconMaterialKind.BrushVariant, T("WpfLearningWorkflow.ToolTip.Brush.Description")),
+                new WpfAnnotationToolItem(WpfAnnotationTool.Eraser, "\uC9C0\uC6B0\uAC1C", PackIconMaterialKind.EraserVariant, T("WpfLearningWorkflow.ToolTip.Eraser.Description")),
+                new WpfAnnotationToolItem(WpfAnnotationTool.PanZoom, "\uC774\uB3D9", PackIconMaterialKind.CursorMove, T("WpfLearningWorkflow.ToolTip.PanZoom.Description")),
+                new WpfAnnotationToolItem(WpfAnnotationTool.Undo, "\uB418\uB3CC\uB9AC\uAE30", PackIconMaterialKind.Refresh, T("WpfLearningWorkflow.ToolTip.Undo.Description")),
+                new WpfAnnotationToolItem(WpfAnnotationTool.Redo, T("WpfAnnotationTool.Redo"), PackIconMaterialKind.Reload, T("WpfLearningWorkflow.Catalog.Tool.Redo.ToolTip")),
+                new WpfAnnotationToolItem(WpfAnnotationTool.Delete, "\uC0AD\uC81C", PackIconMaterialKind.TrashCanOutline, T("WpfLearningWorkflow.ToolTip.Delete.Description"))
             };
         }
 
@@ -50,7 +51,7 @@ namespace MvcVisionSystem
                 new WpfLearningStepItem(WpfLearningStep.Sample, "\uC0D8\uD50C", PackIconMaterialKind.FolderImage),
                 new WpfLearningStepItem(WpfLearningStep.Label, "\uB77C\uBCA8", PackIconMaterialKind.ShapeSquareRoundedPlus),
                 new WpfLearningStepItem(WpfLearningStep.Infer, "\uCD94\uB860", PackIconMaterialKind.RobotIndustrial),
-                new WpfLearningStepItem(WpfLearningStep.Review, "\uB9AC\uBDF0", PackIconMaterialKind.CheckAll),
+                new WpfLearningStepItem(WpfLearningStep.Review, T("WpfCanvas.Workflow.Step.Review"), PackIconMaterialKind.CheckAll),
                 new WpfLearningStepItem(WpfLearningStep.Save, "\uC800\uC7A5", PackIconMaterialKind.ContentSaveOutline)
             };
         }
@@ -62,7 +63,7 @@ namespace MvcVisionSystem
                 new WpfTemplateWorkflowStepItem(
                     1,
                     "\uAE30\uC900 \uB77C\uBCA8 \uC120\uD0DD",
-                    "\uC798 \uADF8\uB824\uC9C4 \uBC15\uC2A4 1\uAC1C\uB97C \uC120\uD0DD\uD558\uBA74 \uADF8 \uC601\uC5ED\uC774 \uD15C\uD50C\uB9BF\uC774 \uB429\uB2C8\uB2E4.",
+                    T("WpfLearningWorkflow.Catalog.Template.Reference.Detail"),
                     "\uC800\uC7A5 \uB77C\uBCA8",
                     PackIconMaterialKind.CursorDefaultClickOutline),
                 new WpfTemplateWorkflowStepItem(
@@ -75,11 +76,11 @@ namespace MvcVisionSystem
                     3,
                     "\uC804\uCCB4 \uC774\uBBF8\uC9C0 \uC790\uB3D9 \uC800\uC7A5",
                     "\uC774\uBBF8\uC9C0 \uBAA9\uB85D\uC744 \uD55C \uBC88\uC529 \uB3CC\uBA70 \uB77C\uBCA8\uC774 \uC5C6\uB294 \uD56D\uBAA9\uC5D0\uB9CC \uC800\uC7A5\uD569\uB2C8\uB2E4.",
-                    "\uC774\uBBF8\uC9C0 \uD050",
+                    T("WpfLearningWorkflow.Catalog.Template.Batch.Location"),
                     PackIconMaterialKind.PlaylistCheck),
                 new WpfTemplateWorkflowStepItem(
                     4,
-                    "\uAC80\uD1A0\uC640 \uC800\uC7A5",
+                    T("WpfLearningWorkflow.Catalog.Template.Review.Title"),
                     "\uD604\uC7AC \uC774\uBBF8\uC9C0 \uCD08\uC548\uC740 \uC704\uCE58\uB97C \uD655\uC778\uD55C \uB4A4 \uB77C\uBCA8 \uC800\uC7A5\uC744 \uB20C\uB7EC\uC57C \uBC18\uC601\uB429\uB2C8\uB2E4.",
                     "\uC800\uC7A5 \uC804 \uCD08\uC548",
                     PackIconMaterialKind.ContentSaveCheckOutline)
@@ -94,7 +95,7 @@ namespace MvcVisionSystem
                     1,
                     "\uB370\uC774\uD130\uC14B",
                     "\uC0C8\uB85C \uB9CC\uB4E4\uAE30 \uB610\uB294 \uAE30\uC874 \uC5F4\uAE30",
-                    "\uC800\uC7A5 \uD3F4\uB354\uC640 \uC774\uBBF8\uC9C0 \uD3F4\uB354\uB97C \uBD84\uB9AC\uD574 \uC0C8 \uC2E4\uC2B5\uC744 \uC2DC\uC791\uD569\uB2C8\uB2E4.",
+                    T("WpfLearningWorkflow.Catalog.FirstRunSample.Dataset.ToolTip"),
                     PackIconMaterialKind.DatabasePlusOutline,
                     shortcutWorkflowStepOrder: 1,
                     shortcutActionText: "\uC2DC\uC791"),
@@ -117,16 +118,16 @@ namespace MvcVisionSystem
                 new WpfFirstRunChecklistItem(
                     4,
                     "\uD6C4\uBCF4 \uD655\uC778",
-                    "\uD6C4\uBCF4 \uC0DD\uC131 \uD6C4 \uC218\uB77D/\uC2A4\uD0B5",
-                    "\uD6C4\uBCF4\uB294 \uC815\uB2F5\uC774 \uC544\uB2C8\uBBC0\uB85C \uAC80\uD1A0 \uD6C4 \uC800\uC7A5\uD55C \uAC83\uB9CC \uD559\uC2B5\uC5D0 \uC0AC\uC6A9\uD569\uB2C8\uB2E4.",
+                    T("WpfLearningWorkflow.Catalog.FirstRunSample.Candidates.ActionText"),
+                    T("WpfLearningWorkflow.Catalog.FirstRunSample.Candidates.ToolTip"),
                     PackIconMaterialKind.RobotIndustrial,
                     shortcutWorkflowStepOrder: 7,
-                    shortcutActionText: "\uAC80\uD1A0"),
+                    shortcutActionText: T("WpfLearningWorkflow.Catalog.FirstRunSample.Candidates.Shortcut")),
                 new WpfFirstRunChecklistItem(
                     5,
                     "\uD559\uC2B5 \uC900\uBE44",
                     "\uC810\uAC80 \uD1B5\uACFC \uB4A4 \uD559\uC2B5 \uC2DC\uC791",
-                    "\uD559\uC2B5\uC774 \uB05D\uB098\uBA74 \uBAA8\uB378\uC13C\uD130\uC5D0\uC11C \uC0C8 \uD559\uC2B5 \uACB0\uACFC \uD6C4\uBCF4\uB97C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD569\uB2C8\uB2E4.",
+                    T("WpfLearningWorkflow.Catalog.FirstRunSample.Training.ToolTip"),
                     PackIconMaterialKind.CheckAll,
                     shortcutWorkflowStepOrder: 5,
                     shortcutActionText: "\uC810\uAC80")
@@ -141,13 +142,13 @@ namespace MvcVisionSystem
                     1,
                     "\uB370\uC774\uD130\uC14B",
                     "\uC0C8\uB85C \uB9CC\uB4E4\uAE30 \uB610\uB294 \uAE30\uC874 \uC5F4\uAE30",
-                    "\uC800\uC7A5 \uD3F4\uB354\uC640 \uC774\uBBF8\uC9C0 \uD3F4\uB354\uB97C \uBA3C\uC800 \uAD6C\uBD84\uD569\uB2C8\uB2E4.",
+                    T("WpfLearningWorkflow.Catalog.FirstRun.Dataset.ToolTip"),
                     PackIconMaterialKind.DatabasePlusOutline),
                 new WpfFirstRunChecklistItem(
                     2,
                     "\uC774\uBBF8\uC9C0",
                     "\uC6D0\uBCF8 \uC774\uBBF8\uC9C0 \uD3F4\uB354 \uD655\uC778",
-                    "\uC774\uBBF8\uC9C0 \uD050\uC5D0 \uD30C\uC77C\uC774 \uBCF4\uC774\uBA74 \uB2E4\uC74C \uB2E8\uACC4\uC785\uB2C8\uB2E4.",
+                    T("WpfLearningWorkflow.Catalog.FirstRun.Images.ToolTip"),
                     PackIconMaterialKind.FolderImage),
                 new WpfFirstRunChecklistItem(
                     3,
@@ -181,12 +182,12 @@ namespace MvcVisionSystem
             return new[]
             {
                 "\uB370\uC774\uD130\uC14B\uC744 \uBA3C\uC800 \uB9CC\uB4E4\uACE0 \uC800\uC7A5 \uC704\uCE58\uC640 \uD559\uC2B5 \uBAA9\uC801\uC744 \uC815\uD569\uB2C8\uB2E4.",
-                "\uC0D8\uD50C \uB610\uB294 \uC774\uBBF8\uC9C0 \uD3F4\uB354\uB97C \uC5F4\uACE0 \uC88C\uCE21 \uD050\uC5D0\uC11C \uC774\uBBF8\uC9C0\uB97C \uC120\uD0DD\uD569\uB2C8\uB2E4.",
+                T("WpfLearningWorkflow.Catalog.Tutorial.Images"),
                 "\uC624\uB978\uCABD \uD074\uB798\uC2A4 \uD0ED\uC5D0\uC11C OK, NG\uCC98\uB7FC \uBAA8\uB378\uC774 \uBC30\uC6B8 \uC774\uB984\uC744 \uB4F1\uB85D\uD569\uB2C8\uB2E4.",
                 "\uB77C\uBCA8\uB9C1 \uBAA8\uB4DC\uC5D0\uC11C \uBC15\uC2A4\uB97C \uADF8\uB9AC\uACE0 \uC800\uC7A5\uD558\uC5EC \uBC15\uC2A4 \uB77C\uBCA8 \uD30C\uC77C\uC744 \uB9CC\uB4ED\uB2C8\uB2E4.",
                 "\uB370\uC774\uD130\uC14B \uC810\uAC80\uC73C\uB85C \uB77C\uBCA8, \uD074\uB798\uC2A4, \uD559\uC2B5 \uC124\uC815\uC744 \uD655\uC778\uD569\uB2C8\uB2E4.",
                 "\uBAA8\uB378 \uD559\uC2B5\uC744 \uC2E4\uD589\uD558\uACE0 \uC644\uB8CC \uD6C4 \uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378\uC744 \uC801\uC6A9\uD569\uB2C8\uB2E4.",
-                "\uD604\uC7AC \uAC80\uC0AC\uB85C AI \uD6C4\uBCF4\uB97C \uD655\uC778\uD558\uACE0 \uD655\uC815 \uB610\uB294 \uC2A4\uD0B5\uD569\uB2C8\uB2E4."
+                T("WpfLearningWorkflow.Catalog.Tutorial.Inference")
             };
         }
 
@@ -203,8 +204,8 @@ namespace MvcVisionSystem
                 new WpfYoloTrainingWorkflowStepItem(
                     2,
                     "\uC774\uBBF8\uC9C0 \uBD88\uB7EC\uC624\uAE30",
-                    "\uD559\uC2B5\uD560 N\uAC1C \uC774\uBBF8\uC9C0\uB97C \uC774\uBBF8\uC9C0 \uD050\uC5D0 \uC62C\uB9BD\uB2C8\uB2E4.",
-                    "\uC774\uBBF8\uC9C0 \uD050\uC5D0 \uD3F4\uB354 \uACBD\uB85C\uC640 \uD30C\uC77C \uC218\uAC00 \uBCF4\uC774\uBA74 \uB2E4\uC74C \uB2E8\uACC4\uC785\uB2C8\uB2E4.",
+                    T("WpfLearningWorkflow.Catalog.YoloTraining.Images.Detail"),
+                    T("WpfLearningWorkflow.Catalog.YoloTraining.Images.Completion"),
                     PackIconMaterialKind.ImageMultipleOutline),
                 new WpfYoloTrainingWorkflowStepItem(
                     3,
@@ -222,18 +223,18 @@ namespace MvcVisionSystem
                     5,
                     "\uC800\uC7A5\uACFC \uB370\uC774\uD130\uC14B \uC810\uAC80",
                     "\uB77C\uBCA8\uC774 \uBE60\uC9C4 \uC774\uBBF8\uC9C0, \uD074\uB798\uC2A4, \uD559\uC2B5 \uC124\uC815\uC744 \uAC80\uC0AC\uD569\uB2C8\uB2E4.",
-                    "\uD559\uC2B5/\uBAA8\uB378 \uC13C\uD130\uC758 \uC0C8\uB85C\uACE0\uCE68\uC5D0\uC11C \uD559\uC2B5 \uAC00\uB2A5 \uC0C1\uD0DC\uAC00 \uB098\uC640\uC57C \uD569\uB2C8\uB2E4.",
+                    T("WpfLearningWorkflow.Catalog.YoloTraining.Check.Completion"),
                     PackIconMaterialKind.CheckAll),
                 new WpfYoloTrainingWorkflowStepItem(
                     6,
                     "YOLO \uBAA8\uB378 \uD559\uC2B5",
-                    "\uC774\uBBF8\uC9C0 \uD06C\uAE30, \uBC30\uCE58, \uC5D0\uD53D, \uAC00\uC911\uCE58\uB97C \uD655\uC778\uD558\uACE0 \uD559\uC2B5\uC744 \uC2DC\uC791\uD569\uB2C8\uB2E4.",
-                    "\uC9C4\uD589\uB960\uACFC \uC5D0\uD53D\uC744 \uBCF4\uACE0, \uC644\uB8CC \uD6C4 \uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378\uC744 \uD655\uC778\uD569\uB2C8\uB2E4.",
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.Catalog.YoloTraining.Settings.Action"),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.Catalog.YoloTraining.Train.Result"),
                     PackIconMaterialKind.PlayCircleOutline),
                 new WpfYoloTrainingWorkflowStepItem(
                     7,
-                    "\uD559\uC2B5 \uACB0\uACFC \uCD94\uB860 \uAC80\uD1A0",
-                    "\uC0C8\uB85C \uB9CC\uB4E0 \uBAA8\uB378\uB85C \uD604\uC7AC \uC774\uBBF8\uC9C0\uB97C \uAC80\uC0AC\uD558\uACE0 \uD6C4\uBCF4\uB97C \uC815\uD655\uD569\uB2C8\uB2E4.",
+                    T("WpfLearningWorkflow.Catalog.YoloTraining.Review.Title"),
+                    T("WpfLearningWorkflow.Catalog.YoloTraining.Review.Detail"),
                     "\uACB0\uACFC\uAC00 \uB9DE\uC73C\uBA74 \uB77C\uBCA8\uB85C \uD655\uC815\uD558\uACE0, \uD2C0\uB9AC\uBA74 \uB370\uC774\uD130\uB97C \uCD94\uAC00\uD569\uB2C8\uB2E4.",
                     PackIconMaterialKind.RobotIndustrial)
             };

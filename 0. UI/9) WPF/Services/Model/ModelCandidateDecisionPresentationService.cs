@@ -101,21 +101,21 @@ namespace MvcVisionSystem
             string baselineWeightsPath,
             bool canReject)
         {
-            string candidateName = FormatModelName(candidateWeightsPath, "\uD6C4\uBCF4 \uBAA8\uB378");
+            string candidateName = FormatModelName(candidateWeightsPath, OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.ModelFallback"));
             string baselineName = string.IsNullOrWhiteSpace(baselineWeightsPath)
-                ? "\uAE30\uC874 \uBAA8\uB378 \uD655\uC778 \uD544\uC694"
-                : FormatModelName(baselineWeightsPath, "\uAE30\uC874 \uBAA8\uB378");
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Baseline.Unknown")
+                : FormatModelName(baselineWeightsPath, OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Baseline.Label"));
 
             return new ModelCandidateDecisionPresentation
             {
                 CanSave = true,
                 CanReject = canReject,
-                StatusText = $"\uD6C4\uBCF4 \uACB0\uC815: \uC800\uC7A5 \uB610\uB294 \uAC70\uC808 \uD544\uC694 ({candidateName})",
-                DetailText = $"\uC800\uC7A5\uD558\uBA74 \uB2E4\uC74C \uCD94\uB860\uBD80\uD130 \uC774 \uD6C4\uBCF4\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4. \uAC70\uC808\uD558\uBA74 \uAE30\uC874 \uAC80\uC0AC \uBAA8\uB378 {baselineName}\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4.",
-                SaveToolTip = "\uD559\uC2B5 \uACB0\uACFC\uB97C recipe\uC758 \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD569\uB2C8\uB2E4.",
+                StatusText = string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Pending.Status"), candidateName),
+                DetailText = string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Pending.Detail"), baselineName),
+                SaveToolTip = OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Pending.SaveToolTip"),
                 RejectToolTip = canReject
-                    ? "\uD559\uC2B5 \uACB0\uACFC\uB97C \uC4F0\uC9C0 \uC54A\uACE0 \uAE30\uC874 \uAC80\uC0AC \uBAA8\uB378\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4."
-                    : "\uB418\uB3CC\uB9B4 \uAE30\uC874 \uAC80\uC0AC \uBAA8\uB378 \uACBD\uB85C\uAC00 \uC5C6\uC5B4 \uAC70\uC808\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4."
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Reject.KeepCurrentToolTip")
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Reject.NoBaselineToolTip")
             };
         }
 
@@ -123,17 +123,17 @@ namespace MvcVisionSystem
             string candidateWeightsPath,
             bool canReject)
         {
-            string candidateName = FormatModelName(candidateWeightsPath, "\uD6C4\uBCF4 \uBAA8\uB378");
+            string candidateName = FormatModelName(candidateWeightsPath, OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.ModelFallback"));
             return new ModelCandidateDecisionPresentation
             {
                 CanSave = false,
                 CanReject = canReject,
-                StatusText = $"\uD6C4\uBCF4 \uACB0\uC815: \uAC80\uC99D \uBCF4\uB958 ({candidateName})",
-                DetailText = "\uCD5C\uC885 \uAC80\uC99D \uACB0\uACFC\uAC00 \uAD50\uCCB4 \uBCF4\uB958\uC785\uB2C8\uB2E4. \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uBCF4\uAC15\uD558\uAC70\uB098 \uBAA8\uB378\uC744 \uC870\uC815\uD55C \uB4A4 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694. \uAC70\uC808\uD558\uBA74 \uAE30\uC874 \uAC80\uC0AC \uBAA8\uB378\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4.",
-                SaveToolTip = "\uAD50\uCCB4 \uBCF4\uB958 \uD6C4\uBCF4\uB294 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. \uB370\uC774\uD130\uB97C \uBCF4\uAC15\uD558\uAC70\uB098 \uBAA8\uB378\uC744 \uC870\uC815\uD55C \uB4A4 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694.",
+                StatusText = string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Held.Status"), candidateName),
+                DetailText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Held.Detail"),
+                SaveToolTip = OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Held.SaveToolTip"),
                 RejectToolTip = canReject
-                    ? "\uD559\uC2B5 \uACB0\uACFC\uB97C \uC4F0\uC9C0 \uC54A\uACE0 \uAE30\uC874 \uAC80\uC0AC \uBAA8\uB378\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4."
-                    : "\uB418\uB3CC\uB9B4 \uAE30\uC874 \uAC80\uC0AC \uBAA8\uB378 \uACBD\uB85C\uAC00 \uC5C6\uC5B4 \uAC70\uC808\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4."
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Reject.KeepCurrentToolTip")
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Reject.NoBaselineToolTip")
             };
         }
 
@@ -145,12 +145,12 @@ namespace MvcVisionSystem
             {
                 CanSave = false,
                 CanReject = false,
-                StatusText = $"\uD6C4\uBCF4 \uACB0\uC815: \uAC70\uC808\uB428 ({FormatModelName(candidateWeightsPath, "\uD6C4\uBCF4 \uBAA8\uB378")})",
+                StatusText = string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Rejected.Status"), FormatModelName(candidateWeightsPath, OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.ModelFallback"))),
                 DetailText = string.IsNullOrWhiteSpace(decisionSummary)
-                    ? "\uC774 \uD6C4\uBCF4\uB294 \uD604\uC7AC recipe\uC758 \uAC80\uC0AC \uBAA8\uB378\uB85C \uCC44\uD0DD\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4."
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Rejected.Detail")
                     : decisionSummary.Trim(),
-                SaveToolTip = "\uC774\uBBF8 \uAC70\uC808\uB41C \uD6C4\uBCF4\uC785\uB2C8\uB2E4. \uB2E4\uC2DC \uC4F0\uB824\uBA74 \uBAA8\uB378 \uC124\uC815\uC5D0\uC11C \uC9C1\uC811 \uC120\uD0DD\uD558\uC138\uC694.",
-                RejectToolTip = "\uC774\uBBF8 \uAC70\uC808\uB41C \uD6C4\uBCF4\uC785\uB2C8\uB2E4."
+                SaveToolTip = OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Rejected.SaveToolTip"),
+                RejectToolTip = OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Rejected.RejectToolTip")
             };
         }
 
@@ -160,10 +160,10 @@ namespace MvcVisionSystem
             {
                 CanSave = false,
                 CanReject = false,
-                StatusText = $"\uD6C4\uBCF4 \uACB0\uC815: \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uB428 ({FormatModelName(candidateWeightsPath, "\uD6C4\uBCF4 \uBAA8\uB378")})",
-                DetailText = "\uC774 \uD6C4\uBCF4\uB294 recipe\uC758 \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378 \uC774\uB825\uC5D0 \uAE30\uB85D\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4.",
-                SaveToolTip = "\uC774\uBBF8 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uB41C \uD6C4\uBCF4\uC785\uB2C8\uB2E4.",
-                RejectToolTip = "\uC774\uBBF8 \uC800\uC7A5\uB41C \uD6C4\uBCF4\uB294 \uC5EC\uAE30\uC11C \uAC70\uC808\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4."
+                StatusText = string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Saved.Status"), FormatModelName(candidateWeightsPath, OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.ModelFallback"))),
+                DetailText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Saved.Detail"),
+                SaveToolTip = OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Saved.SaveToolTip"),
+                RejectToolTip = OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Saved.RejectToolTip")
             };
         }
 
@@ -173,10 +173,10 @@ namespace MvcVisionSystem
             {
                 CanSave = false,
                 CanReject = false,
-                StatusText = "\uD6C4\uBCF4 \uACB0\uC815: \uAC80\uD1A0 \uAC00\uB2A5",
-                DetailText = "\uD6C4\uBCF4 \uAC80\uC99D\uC744 \uC2E4\uD589\uD574 \uAE30\uC874 \uAC80\uC0AC \uBAA8\uB378\uACFC \uBE44\uAD50\uD55C \uB4A4 \uC800\uC7A5 \uC5EC\uBD80\uB97C \uACB0\uC815\uD558\uC138\uC694.",
-                SaveToolTip = "\uBA3C\uC800 \uD6C4\uBCF4 \uAC80\uC99D\uC73C\uB85C \uD559\uC2B5 \uACB0\uACFC\uB97C \uD655\uC778\uD558\uC138\uC694.",
-                RejectToolTip = "\uBA3C\uC800 \uD6C4\uBCF4 \uAC80\uC99D\uC73C\uB85C \uD559\uC2B5 \uACB0\uACFC\uB97C \uD655\uC778\uD558\uC138\uC694."
+                StatusText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.ReviewAvailable.Status"),
+                DetailText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.ReviewAvailable.Detail"),
+                SaveToolTip = OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.ReviewAvailable.SaveToolTip"),
+                RejectToolTip = OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.ReviewAvailable.RejectToolTip")
             };
         }
 
@@ -186,56 +186,56 @@ namespace MvcVisionSystem
             {
                 CanSave = false,
                 CanReject = false,
-                StatusText = "\uD6C4\uBCF4 \uACB0\uC815: \uD6C4\uBCF4 \uC5C6\uC74C",
-                DetailText = "\uD559\uC2B5\uC774 \uC644\uB8CC\uB418\uC5B4 \uBAA8\uB378 \uD6C4\uBCF4\uAC00 \uC0DD\uAE30\uBA74 \uC5EC\uAE30\uC5D0\uC11C \uC800\uC7A5 \uB610\uB294 \uAC70\uC808 \uACB0\uC815\uC744 \uB0A8\uAE38 \uC218 \uC788\uC2B5\uB2C8\uB2E4.",
-                SaveToolTip = "\uC800\uC7A5\uD560 \uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
-                RejectToolTip = "\uAC70\uC808\uD560 \uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4."
+                StatusText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.None.Status"),
+                DetailText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.None.Detail"),
+                SaveToolTip = OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.WpfCandidateReviewPanelViewModel.TrainingSaveEmpty"),
+                RejectToolTip = OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.WpfCandidateReviewPanelViewModel.TrainingRejectEmpty")
             };
         }
 
         public static string BuildNoRejectCandidateStatus()
         {
-            return "\uAC70\uC808\uD560 \uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Reject.NoModelStatus");
         }
 
         public static string BuildHeldCandidateSaveBlockedStatus()
         {
-            return "\uD6C4\uBCF4 \uAC80\uC99D \uACB0\uACFC\uAC00 \uAD50\uCCB4 \uBCF4\uB958\uC5EC\uC11C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4. \uB370\uC774\uD130\uB97C \uBCF4\uAC15\uD558\uAC70\uB098 \uBAA8\uB378\uC744 \uC870\uC815\uD55C \uB4A4 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694.";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Held.SaveBlockedStatus");
         }
 
         public static string BuildRejectDecisionSummary()
         {
-            return "\uD6C4\uBCF4 \uAC70\uC808, \uAE30\uC874 \uAC80\uC0AC \uBAA8\uB378 \uC720\uC9C0";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Reject.PlainStatus");
         }
 
         public static string BuildRejectCommandStatus(string candidateWeightsPath, bool configSaved)
         {
-            string candidateName = FormatModelName(candidateWeightsPath, "\uD6C4\uBCF4 \uBAA8\uB378");
+            string candidateName = FormatModelName(candidateWeightsPath, OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.ModelFallback"));
             return configSaved
-                ? $"\uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4\uB97C \uAC70\uC808\uD588\uC2B5\uB2C8\uB2E4: {candidateName}. \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4."
-                : $"\uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4 \uAC70\uC808\uC744 \uC800\uC7A5\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4: {candidateName}. \uD6C4\uBCF4\uB97C \uBCF4\uB958 \uC0C1\uD0DC\uB85C \uC720\uC9C0\uD569\uB2C8\uB2E4.";
+                ? string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Reject.SavedStatus"), candidateName)
+                : string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Reject.UnsavedStatus"), candidateName);
         }
 
         public static string BuildRejectProjectConfigStatus(bool configSaved)
         {
             return configSaved
-                ? "\uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4 \uAC70\uC808 \uAE30\uB85D \uC800\uC7A5 \uC644\uB8CC."
-                : "\uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4 \uAC70\uC808\uC740 \uC800\uC7A5\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4. Recipe \uC800\uC7A5 \uD6C4 \uB2E4\uC2DC \uAC70\uC808\uD558\uC138\uC694.";
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Reject.ProjectSaved")
+                : OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Reject.ProjectUnsaved");
         }
 
         public static string BuildRejectLog(string candidateWeightsPath, string baselineWeightsPath)
         {
-            return $"\uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4 \uAC70\uC808: {candidateWeightsPath} / baseline={baselineWeightsPath}";
+            return string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Reject.Log"), candidateWeightsPath, baselineWeightsPath);
         }
 
         public static string BuildRejectFailureStatus(string message)
         {
-            return $"\uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4 \uAC70\uC808 \uC2E4\uD328. \uD6C4\uBCF4\uB294 \uBCF4\uB958 \uC0C1\uD0DC\uB85C \uC720\uC9C0\uB418\uBA70 \uC7AC\uC2DC\uB3C4\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4: {NormalizeMessage(message)}";
+            return string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Reject.Failure"), NormalizeMessage(message));
         }
 
         public static string BuildAdoptionRefreshFailureStatus(string message)
         {
-            return $"\uBAA8\uB378 \uC774\uB825 \uC801\uC6A9 \uC800\uC7A5\uC740 \uC644\uB8CC\uB418\uC5C8\uC9C0\uB9CC \uD654\uBA74 \uAC31\uC2E0\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4. \uC800\uC7A5\uB41C \uAC80\uC0AC \uBAA8\uB378\uC740 \uC720\uC9C0\uB429\uB2C8\uB2E4: {NormalizeMessage(message)}";
+            return string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Refresh.Failure"), NormalizeMessage(message));
         }
 
         private static string FormatModelName(string path, string fallback)
@@ -247,7 +247,7 @@ namespace MvcVisionSystem
         private static string NormalizeMessage(string message)
         {
             return string.IsNullOrWhiteSpace(message)
-                ? "\uC0C1\uC138 \uC6D0\uC778\uC744 \uD655\uC778\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4."
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelCandidateDecision.Failure.Unknown")
                 : message.Trim();
         }
     }

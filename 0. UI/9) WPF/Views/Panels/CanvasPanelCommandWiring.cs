@@ -44,26 +44,34 @@ namespace MvcVisionSystem
             context.CanvasPanelViewModel.ConfigureAnnotationCommands(
                 context.ExecuteUndoAnnotationCommand,
                 context.ExecuteRedoAnnotationCommand,
-                context.ExecuteDeleteObjectCommand);
+                context.ExecuteDeleteObjectCommand,
+                context.ExecuteImportPreviousLabelsCommand,
+                context.CanDeleteObject);
             context.CanvasPanelViewModel.ConfigureAnnotationSaveCommand(
-                context.ExecuteSaveAnnotationsCommand);
+                context.ExecuteSaveAnnotationsCommand, context.ExecuteSaveAndNextCommand);
             context.CanvasPanelViewModel.ConfigureNoObjectCompletionCommand(
-                context.ExecuteCompleteNoObjectAndNextCommand);
+                context.ExecuteCompleteNoObjectAndNextCommand, context.ExecuteNoObjectSelectionChanged);
             context.CanvasPanelViewModel.ConfigureLabelClassSelection(
                 null,
                 () => context.ShowClassCatalogWorkflowView(WpfShellWorkflowStage.Labeling));
             context.CanvasPanelViewModel.ConfigureLabelClassSelectionWorkflow(
                 () => context.CancelFourPointBoxDraft(false),
                 context.SelectClassCatalogClass,
-                context.RefreshObjectClassOptions);
+                className => { context.RefreshObjectClassOptions?.Invoke(className); context.RefreshCanvasWorkflowContext?.Invoke(); });
             context.CanvasPanelViewModel.ConfigureDisplayModeSelection(null);
             context.CanvasPanelViewModel.ConfigureDisplayModeSelectionWorkflow(
                 context.ApplyCanvasDisplayMode);
+            context.CanvasPanelViewModel.ConfigureTemporaryOriginalViewWorkflow(
+                context.ApplyTemporaryOriginalViewState);
             context.CanvasPanelViewModel.ConfigureBoxDrawingMethod(
                 context.ExecuteSetBoxDrawingMethod);
+            context.CanvasPanelViewModel.ConfigurePolygonProgressCommands(
+                context.ExecuteCompletePolygonDraft,
+                context.ExecuteCancelPolygonDraft);
             context.CanvasPanelViewModel.ConfigureBrushSizeCommands(
                 context.ExecuteDecreaseBrushSizeCommand,
                 context.ExecuteIncreaseBrushSizeCommand);
+            context.CanvasPanelViewModel.ConfigureBrushSizeValue(context.ExecuteSetBrushSizeCommand);
             context.CanvasPanelViewModel.ConfigureSmartMaskCommands(
                 context.ExecuteCreateSmartMaskCandidateCommand,
                 () => context.ExecuteSetSmartMaskPointModeCommand(WpfSmartMaskPointInputMode.Positive),
@@ -71,11 +79,19 @@ namespace MvcVisionSystem
                 context.ExecuteUndoSmartMaskPointCommand,
                 context.ExecuteClearSmartMaskPointsCommand,
                 context.ExecuteCancelSmartMaskGenerationCommand,
+                context.ExecuteApplySmartMaskCandidateCommand,
                 context.ExecuteNextSmartMaskInstanceCommand,
                 () => context.ExecuteSelectSmartMaskCandidateVersionCommand(WpfSmartMaskCandidateVersion.Initial),
                 () => context.ExecuteSelectSmartMaskCandidateVersionCommand(WpfSmartMaskCandidateVersion.Latest),
                 context.ExecuteSetSmartMaskAutoContourMode,
                 context.ExecuteSetSmartMaskPolygonDetailCommand);
+            context.CanvasPanelViewModel.ConfigureSmartMaskSetupCommand(
+                context.ExecuteOpenSmartMaskSetupCommand);
+            context.CanvasPanelViewModel.ConfigureSmartMaskEditCommands(
+                context.ExecuteUndoSmartMaskCandidateEdit,
+                context.ExecuteRedoSmartMaskCandidateEdit,
+                context.ExecuteAddSmartMaskCandidateRegion,
+                context.ExecuteSubtractSmartMaskCandidateRegion);
             context.SyncCanvasBrushSizeFromWorkflow();
             context.RefreshCanvasAnnotationToolScope();
             context.RefreshCanvasWorkflowContext();
@@ -119,25 +135,39 @@ namespace MvcVisionSystem
         internal Action ExecuteUndoAnnotationCommand { get; init; }
         internal Action ExecuteRedoAnnotationCommand { get; init; }
         internal Action ExecuteDeleteObjectCommand { get; init; }
+        internal Func<bool> CanDeleteObject { get; init; }
+        internal Action ExecuteImportPreviousLabelsCommand { get; init; }
         internal Action ExecuteSaveAnnotationsCommand { get; init; }
+        internal Action ExecuteSaveAndNextCommand { get; init; }
         internal Action ExecuteCompleteNoObjectAndNextCommand { get; init; }
+        internal Action<bool> ExecuteNoObjectSelectionChanged { get; init; }
         internal Action<WpfShellWorkflowStage> ShowClassCatalogWorkflowView { get; init; }
         internal Action<bool> CancelFourPointBoxDraft { get; init; }
         internal Action<string> SelectClassCatalogClass { get; init; }
         internal Action<string> RefreshObjectClassOptions { get; init; }
         internal Action<WpfCanvasDisplayMode> ApplyCanvasDisplayMode { get; init; }
+        internal Action<bool> ApplyTemporaryOriginalViewState { get; init; }
         internal Action<LabelingBoxDrawingMethod> ExecuteSetBoxDrawingMethod { get; init; }
+        internal Action ExecuteCompletePolygonDraft { get; init; }
+        internal Action ExecuteCancelPolygonDraft { get; init; }
         internal Action ExecuteDecreaseBrushSizeCommand { get; init; }
         internal Action ExecuteIncreaseBrushSizeCommand { get; init; }
+        internal Action<int> ExecuteSetBrushSizeCommand { get; init; }
         internal Action ExecuteCreateSmartMaskCandidateCommand { get; init; }
+        internal Action ExecuteOpenSmartMaskSetupCommand { get; init; }
         internal Action<WpfSmartMaskPointInputMode> ExecuteSetSmartMaskPointModeCommand { get; init; }
         internal Action ExecuteUndoSmartMaskPointCommand { get; init; }
         internal Action ExecuteClearSmartMaskPointsCommand { get; init; }
         internal Action ExecuteCancelSmartMaskGenerationCommand { get; init; }
+        internal Action ExecuteApplySmartMaskCandidateCommand { get; init; }
         internal Action ExecuteNextSmartMaskInstanceCommand { get; init; }
         internal Action<WpfSmartMaskCandidateVersion> ExecuteSelectSmartMaskCandidateVersionCommand { get; init; }
         internal Action<bool> ExecuteSetSmartMaskAutoContourMode { get; init; }
         internal Action<WpfSmartMaskPolygonDetail> ExecuteSetSmartMaskPolygonDetailCommand { get; init; }
+        internal Action ExecuteUndoSmartMaskCandidateEdit { get; init; }
+        internal Action ExecuteRedoSmartMaskCandidateEdit { get; init; }
+        internal Action ExecuteAddSmartMaskCandidateRegion { get; init; }
+        internal Action ExecuteSubtractSmartMaskCandidateRegion { get; init; }
         internal Action SyncCanvasBrushSizeFromWorkflow { get; init; }
         internal Action RefreshCanvasAnnotationToolScope { get; init; }
         internal Action RefreshCanvasWorkflowContext { get; init; }

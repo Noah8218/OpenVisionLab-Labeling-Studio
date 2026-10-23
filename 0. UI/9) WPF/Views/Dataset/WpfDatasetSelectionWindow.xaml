@@ -5,15 +5,18 @@
         xmlns:local="clr-namespace:MvcVisionSystem"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="{Binding WindowTitleText}"
-        Width="900"
-        Height="720"
-        MinWidth="820"
-        MinHeight="620"
+        Width="1360"
+        Height="780"
+        MinWidth="1040"
+        MinHeight="640"
         WindowStartupLocation="CenterOwner"
-        Background="#151515"
-        Foreground="#F3F4F6"
+        Background="{DynamicResource RecipePageBrush}"
+        Foreground="{DynamicResource RecipeTextBrush}"
         WindowStyle="None"
-        ResizeMode="CanResize">
+        ResizeMode="CanResize"
+        FontFamily="{DynamicResource UiFontFamily}"
+        FontSize="13"
+        UseLayoutRounding="True">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0"
                             ResizeBorderThickness="6"
@@ -25,118 +28,187 @@
         <ResourceDictionary.MergedDictionaries>
             <ResourceDictionary Source="../../Themes/WpfButtonStateTemplates.xaml" />
         </ResourceDictionary.MergedDictionaries>
-        <SolidColorBrush x:Key="PanelBrush" Color="#1F1F1F" />
-        <SolidColorBrush x:Key="PanelAltBrush" Color="#242424" />
-        <SolidColorBrush x:Key="BorderBrush" Color="#3A3A3A" />
-        <SolidColorBrush x:Key="AccentBrush" Color="#EF4444" />
-        <SolidColorBrush x:Key="PrimaryActionBrush" Color="#B91C1C" />
-        <SolidColorBrush x:Key="SecondaryTextBrush" Color="#B8BDC7" />
-        <Style x:Key="DatasetSelectButtonStyle" TargetType="Button">
-            <Setter Property="Template" Value="{StaticResource WpfDarkButtonTemplate}" />
-            <Setter Property="Background" Value="#2D2D2D" />
-            <Setter Property="Foreground" Value="#F3F4F6" />
-            <Setter Property="BorderBrush" Value="#454545" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="13,7" />
-            <Setter Property="MinWidth" Value="78" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+        <Style TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
         </Style>
-        <Style x:Key="DatasetSelectPrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource DatasetSelectButtonStyle}">
-            <Setter Property="Background" Value="{StaticResource PrimaryActionBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+        <Style x:Key="DatasetSelectionToolTipStyle" TargetType="ToolTip">
+            <Setter Property="DataContext" Value="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" />
+            <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" /><Setter Property="FontSize" Value="13" /><Setter Property="MaxWidth" Value="420" />
+            <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" /><Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonBorderBrush}" /><Setter Property="BorderThickness" Value="1" /><Setter Property="Padding" Value="10" />
+            <Setter Property="ContentTemplate"><Setter.Value><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" /></DataTemplate></Setter.Value></Setter>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToolTip"><Border x:Name="ToolTipChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}" CornerRadius="7"><ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}" /></Border></ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="DatasetSelectButtonStyle" TargetType="Button" BasedOn="{StaticResource RecipeSecondaryButtonStyle}">
+            <Setter Property="MinWidth" Value="90" />
+        </Style>
+        <Style x:Key="DatasetSelectPrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource RecipePrimaryButtonStyle}">
+            <Setter Property="MinWidth" Value="90" />
+        </Style>
+        <Style x:Key="DatasetSelectionComboBoxStyle" TargetType="ComboBox" BasedOn="{StaticResource RecipeComboBoxStyle}">
+            <Setter Property="Height" Value="Auto" />
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="Background" Value="{DynamicResource DatasetInputBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DatasetInputBorderBrush}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding SelectedItem.Value, RelativeSource={RelativeSource Self}}" />
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value><Style TargetType="ComboBoxItem" BasedOn="{StaticResource RecipeComboBoxItemStyle}"><Setter Property="HorizontalContentAlignment" Value="Left" /></Style></Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger>
+                <Trigger Property="IsEnabled" Value="False"><Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" /><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /></Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="DatasetSelectionSearchStyle" TargetType="TextBox" BasedOn="{StaticResource RecipeInputStyle}">
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Background" Value="{DynamicResource DatasetInputBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DatasetInputBorderBrush}" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">
+                <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="7">
+                    <Grid><ScrollViewer x:Name="PART_ContentHost" /><TextBlock x:Name="SearchHint" Text="{Binding SearchPlaceholderText}" Foreground="{DynamicResource RecipeMutedTextBrush}" Margin="10,7" VerticalAlignment="Center" TextWrapping="Wrap" IsHitTestVisible="False" Visibility="Collapsed" /></Grid>
+                </Border>
+                <ControlTemplate.Triggers><Trigger Property="Text" Value=""><Setter TargetName="SearchHint" Property="Visibility" Value="Visible" /></Trigger></ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+            <Style.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger></Style.Triggers>
+        </Style>
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+            <Setter Property="FontSize" Value="13" /><Setter Property="MinHeight" Value="38" />
+            <Setter Property="Cursor" Value="Hand" /><Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding Content, RelativeSource={RelativeSource Self}}" />
+            <Setter Property="Template">
+                <Setter.Value><ControlTemplate TargetType="CheckBox">
+                    <Grid Background="Transparent">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="28" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Grid Width="20" Height="20" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="4,0,4,0">
+                            <Border x:Name="CheckChrome" CornerRadius="4" Background="{DynamicResource RecipePageBrush}" BorderBrush="{DynamicResource RecipeButtonBorderBrush}" BorderThickness="1" />
+                            <Path x:Name="CheckMark" Data="M 4,10 L 8,14 L 16,5" Stroke="{DynamicResource RecipeTextBrush}" StrokeThickness="2" Visibility="Collapsed" />
+                        </Grid>
+                        <ContentPresenter Grid.Column="1" VerticalAlignment="Center" Margin="0,6,4,6" RecognizesAccessKey="True" TextElement.Foreground="{TemplateBinding Foreground}" />
+                        <Border x:Name="CheckFocusCue" Grid.ColumnSpan="2" CornerRadius="7" BorderBrush="Transparent" BorderThickness="2" IsHitTestVisible="False" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}" /><Setter TargetName="CheckChrome" Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                        <Trigger Property="IsChecked" Value="True"><Setter TargetName="CheckMark" Property="Visibility" Value="Visible" /><Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource RecipePrimaryBrush}" /><Setter TargetName="CheckChrome" Property="BorderBrush" Value="{DynamicResource RecipeAccentBrush}" /></Trigger>
+                        <Trigger Property="IsPressed" Value="True"><Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource RecipeButtonPressedBrush}" /></Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="CheckFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /><Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource RecipeDisabledBrush}" /><Setter TargetName="CheckMark" Property="Stroke" Value="{DynamicResource RecipeDisabledTextBrush}" /><Setter TargetName="CheckFocusCue" Property="BorderBrush" Value="Transparent" /><Setter Property="Cursor" Value="Arrow" /></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate></Setter.Value>
+            </Setter>
         </Style>
         <Style x:Key="DatasetListItemStyle" TargetType="ListBoxItem">
-            <Setter Property="Foreground" Value="#F3F4F6" />
-            <Setter Property="Background" Value="#202020" />
-            <Setter Property="BorderBrush" Value="#363636" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0,0,0,8" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" /><Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource RecipeBorderBrush}" /><Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="0" /><Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem">
+                <Grid><Border x:Name="RowChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="7"><ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" Margin="{TemplateBinding Padding}" /></Border><Border x:Name="RowFocusCue" BorderBrush="Transparent" BorderThickness="2" CornerRadius="7" IsHitTestVisible="False" /></Grid>
+                <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="RowFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger></ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
             <Style.Triggers>
-                <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#2D1B1B" />
-                    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
-                </Trigger>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="BorderBrush" Value="#8B5C5C" />
-                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeRowHoverBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeSelectedBorderBrush}" /></Trigger>
+                <MultiTrigger><MultiTrigger.Conditions><Condition Property="IsSelected" Value="True" /><Condition Property="IsMouseOver" Value="True" /></MultiTrigger.Conditions><Setter Property="Background" Value="{DynamicResource RecipeSelectedHoverBrush}" /></MultiTrigger>
             </Style.Triggers>
         </Style>
         <DataTemplate x:Key="DatasetSelectionItemTemplate">
-            <Grid Margin="12,10" ToolTip="{Binding ToolTipText}">
+            <Grid Margin="12,10">
+                <Grid.ToolTip><ToolTip Style="{StaticResource DatasetSelectionToolTipStyle}" Content="{Binding ToolTipText}" /></Grid.ToolTip>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="28" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <iconPacks:PackIconMaterial Kind="{Binding IconKind}"
                                             Width="18"
                                             Height="18"
-                                            Foreground="{StaticResource AccentBrush}"
+                                            Foreground="{DynamicResource RecipeAccentBrush}"
                                             VerticalAlignment="Top"
                                             Margin="0,2,0,0" />
                 <StackPanel Grid.Column="1">
                     <TextBlock Text="{Binding RecipeName}"
-                               FontFamily="Segoe UI"
+                               FontFamily="{DynamicResource UiFontFamily}"
                                FontSize="14"
                                FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis" />
+                               TextWrapping="Wrap" />
                     <TextBlock Text="{Binding StoragePathText}"
-                               Foreground="{StaticResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="11"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                TextTrimming="CharacterEllipsis"
                                Margin="0,5,0,0" />
                     <TextBlock Text="{Binding ImageRootPathText}"
-                               Foreground="{StaticResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="11"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                TextTrimming="CharacterEllipsis"
                                Margin="0,3,0,0" />
                     <TextBlock Text="{Binding ClassesLabelText}"
-                               Foreground="#E5E7EB"
-                               FontFamily="Segoe UI"
-                               FontSize="11"
+                               Foreground="{DynamicResource RecipeTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                TextTrimming="CharacterEllipsis"
                                Margin="0,3,0,0" />
                 </StackPanel>
-                <StackPanel Grid.Column="2"
+                <TextBlock Grid.Column="2"
+                           Text="{Binding FavoriteGlyph}"
+                           FontSize="16"
+                           VerticalAlignment="Top"
+                           Margin="8,0,0,0">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                    <Setter Property="Foreground" Value="{DynamicResource RecipeAccentBrush}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <StackPanel Grid.Column="3"
                              MinWidth="112"
                              Margin="12,0,0,0"
                              VerticalAlignment="Center">
                     <Border x:Name="DatasetPurposeBadge"
-                            Background="#303030"
-                            BorderBrush="#454545"
+                            Background="{DynamicResource RecipeButtonBrush}"
+                            BorderBrush="{DynamicResource RecipeButtonBorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="3"
+                            CornerRadius="7"
                             Padding="6,2"
                             HorizontalAlignment="Right"
                             Margin="0,0,0,5">
                         <TextBlock Text="{Binding PurposeText}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="10"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="13"
                                    FontWeight="SemiBold" />
                     </Border>
                     <TextBlock Text="{Binding StatusText}"
-                               Foreground="#F3F4F6"
-                               FontFamily="Segoe UI"
-                               FontSize="11"
+                               Foreground="{DynamicResource RecipeTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                FontWeight="SemiBold"
                                TextAlignment="Right" />
                     <TextBlock Text="{Binding CountText}"
-                               Foreground="{StaticResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="10"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                TextAlignment="Right"
                                Margin="0,4,0,0" />
+                    <TextBlock Text="{Binding SummaryUpdatedText}"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
+                               TextAlignment="Right"
+                               Margin="0,3,0,0" />
                     <TextBlock Text="{Binding OpenActionText}"
-                               Foreground="#FCA5A5"
-                               FontFamily="Segoe UI"
-                               FontSize="10"
+                               Foreground="{DynamicResource RecipeAccentBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                FontWeight="SemiBold"
                                TextAlignment="Right"
                                Margin="0,4,0,0" />
@@ -146,7 +218,11 @@
         </ResourceDictionary>
     </Window.Resources>
 
-    <Grid>
+    <Window.InputBindings>
+        <KeyBinding Key="Escape" Command="{Binding CancelCommand}" />
+    </Window.InputBindings>
+
+    <Grid FocusManager.FocusedElement="{Binding ElementName=DatasetSearchBox}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -167,10 +243,10 @@
             <StackPanel Grid.Row="0" Margin="0,0,0,12">
                 <Border x:Name="DatasetSourceRuleCard"
                         AutomationProperties.AutomationId="DatasetSourceRuleCard"
-                        Background="#211C1C"
-                        BorderBrush="{StaticResource AccentBrush}"
+                        Background="{DynamicResource RecipeSurfaceBrush}"
+                        BorderBrush="{DynamicResource RecipeButtonBorderBrush}"
                         BorderThickness="1"
-                        CornerRadius="6"
+                        CornerRadius="8"
                         Padding="12"
                         Margin="0,0,0,10">
                     <Grid>
@@ -181,23 +257,23 @@
                         <iconPacks:PackIconMaterial Kind="DatabaseCogOutline"
                                                     Width="20"
                                                     Height="20"
-                                                    Foreground="{StaticResource AccentBrush}"
+                                                    Foreground="{DynamicResource RecipeAccentBrush}"
                                                     VerticalAlignment="Top"
                                                     Margin="0,2,10,0" />
                         <StackPanel Grid.Column="1">
                             <TextBlock x:Name="DatasetSourceRuleTitleText"
                                        AutomationProperties.AutomationId="DatasetSourceRuleTitleText"
                                        Text="{Binding DatasetSourceRuleTitleText}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="13"
                                        FontWeight="SemiBold"
                                        TextWrapping="Wrap" />
                             <TextBlock x:Name="DatasetSourceRuleDetailText"
                                        AutomationProperties.AutomationId="DatasetSourceRuleDetailText"
                                        Text="{Binding DatasetSourceRuleDetailText}"
-                                       Foreground="{StaticResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="11"
+                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
                                        TextWrapping="Wrap"
                                        Margin="0,5,0,0" />
                         </StackPanel>
@@ -211,10 +287,10 @@
                     </Grid.ColumnDefinitions>
                     <Border x:Name="ExistingDatasetOpenGuideCard"
                             AutomationProperties.AutomationId="ExistingDatasetOpenGuideCard"
-                            Background="{StaticResource PanelBrush}"
-                            BorderBrush="{StaticResource BorderBrush}"
+                            Background="{DynamicResource RecipeSurfaceBrush}"
+                            BorderBrush="{DynamicResource RecipeBorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="6"
+                            CornerRadius="8"
                             Padding="12"
                             Margin="0,0,8,0">
                         <Grid>
@@ -225,21 +301,21 @@
                             <iconPacks:PackIconMaterial Kind="DatabaseSearchOutline"
                                                         Width="18"
                                                         Height="18"
-                                                        Foreground="{StaticResource AccentBrush}"
+                                                        Foreground="{DynamicResource RecipeAccentBrush}"
                                                         VerticalAlignment="Top"
                                                         Margin="0,2,9,0" />
                             <StackPanel Grid.Column="1">
                                 <TextBlock x:Name="ExistingDatasetGuideTitleText"
                                            Text="{Binding ExistingDatasetGuideTitleText}"
-                                           FontFamily="Segoe UI"
+                                           FontFamily="{DynamicResource UiFontFamily}"
                                            FontSize="13"
                                            FontWeight="SemiBold"
                                            TextWrapping="Wrap" />
                                 <TextBlock x:Name="ExistingDatasetGuideDetailText"
                                            Text="{Binding ExistingDatasetGuideDetailText}"
-                                           Foreground="{StaticResource SecondaryTextBrush}"
-                                           FontFamily="Segoe UI"
-                                           FontSize="11"
+                                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                           FontFamily="{DynamicResource UiFontFamily}"
+                                           FontSize="13"
                                            TextWrapping="Wrap"
                                            Margin="0,4,0,0" />
                             </StackPanel>
@@ -248,10 +324,10 @@
                     <Border x:Name="CreateDatasetGuideCard"
                             AutomationProperties.AutomationId="CreateDatasetGuideCard"
                             Grid.Column="1"
-                            Background="{StaticResource PanelBrush}"
-                            BorderBrush="{StaticResource BorderBrush}"
+                            Background="{DynamicResource RecipeSurfaceBrush}"
+                            BorderBrush="{DynamicResource RecipeBorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="6"
+                            CornerRadius="8"
                             Padding="12"
                             Margin="8,0,0,0">
                         <Grid>
@@ -263,21 +339,21 @@
                             <iconPacks:PackIconMaterial Kind="FolderPlusOutline"
                                                         Width="18"
                                                         Height="18"
-                                                        Foreground="{StaticResource AccentBrush}"
+                                                        Foreground="{DynamicResource RecipeAccentBrush}"
                                                         VerticalAlignment="Top"
                                                         Margin="0,2,9,0" />
                             <StackPanel Grid.Column="1">
                                 <TextBlock x:Name="CreateDatasetGuideTitleText"
                                            Text="{Binding CreateDatasetGuideTitleText}"
-                                           FontFamily="Segoe UI"
+                                           FontFamily="{DynamicResource UiFontFamily}"
                                            FontSize="13"
                                            FontWeight="SemiBold"
                                            TextWrapping="Wrap" />
                                 <TextBlock x:Name="CreateDatasetGuideDetailText"
                                            Text="{Binding CreateDatasetGuideDetailText}"
-                                           Foreground="{StaticResource SecondaryTextBrush}"
-                                           FontFamily="Segoe UI"
-                                           FontSize="11"
+                                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                           FontFamily="{DynamicResource UiFontFamily}"
+                                           FontSize="13"
                                            TextWrapping="Wrap"
                                            Margin="0,4,0,0" />
                             </StackPanel>
@@ -294,65 +370,301 @@
                 </Grid>
             </StackPanel>
 
-            <Border Grid.Row="1"
-                    Background="{StaticResource PanelBrush}"
-                    BorderBrush="{StaticResource BorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="6"
-                    Padding="10">
-                <Grid>
-                    <ListBox x:Name="DatasetSelectionListBox"
-                             AutomationProperties.AutomationId="DatasetSelectionListBox"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             ItemContainerStyle="{StaticResource DatasetListItemStyle}"
-                             ItemTemplate="{StaticResource DatasetSelectionItemTemplate}"
-                             ItemsSource="{Binding Datasets}"
-                             SelectedItem="{Binding SelectedDataset, Mode=TwoWay}"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
-                    <Border x:Name="DatasetSelectionEmptyStatePanel"
-                            AutomationProperties.AutomationId="DatasetSelectionEmptyStatePanel"
-                            Visibility="{Binding EmptyStateVisibility}"
-                            Background="{StaticResource PanelAltBrush}"
-                            BorderBrush="{StaticResource AccentBrush}"
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.8*" />
+                    <ColumnDefinition Width="1*" />
+                </Grid.ColumnDefinitions>
+                <Grid Grid.Column="0" Margin="0,0,8,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Margin="0,0,0,8">
+                        <DockPanel LastChildFill="True">
+                            <Button x:Name="ClearDatasetSearchButton"
+                                    DockPanel.Dock="Right"
+                                    Style="{StaticResource DatasetSelectButtonStyle}"
+                                    AutomationProperties.AutomationId="ClearDatasetSearchButton"
+                                    AutomationProperties.Name="{Binding ClearSearchButtonText}"
+                                    Command="{Binding ClearSearchCommand}"
+                                    Content="{Binding ClearSearchButtonText}"
+                                    Margin="8,0,0,0" />
+                            <TextBox x:Name="DatasetSearchBox"
+                                     Style="{StaticResource DatasetSelectionSearchStyle}"
+                                     AutomationProperties.AutomationId="DatasetSearchBox"
+                                     AutomationProperties.Name="{Binding SearchPlaceholderText}"
+                                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}">
+                                <TextBox.ToolTip><ToolTip Style="{StaticResource DatasetSelectionToolTipStyle}" Content="{Binding SearchPlaceholderText}" Placement="Top" /></TextBox.ToolTip>
+                                <TextBox.InputBindings>
+                                    <KeyBinding Key="Escape" Command="{Binding SearchEscapeCommand}" />
+                                </TextBox.InputBindings>
+                            </TextBox>
+                        </DockPanel>
+                        <WrapPanel Margin="0,8,0,0" VerticalAlignment="Center">
+                            <ComboBox x:Name="DatasetPurposeFilterBox"
+                                      Style="{StaticResource DatasetSelectionComboBoxStyle}"
+                                      AutomationProperties.AutomationId="DatasetPurposeFilterBox"
+                                      AutomationProperties.Name="{Binding PurposeFilterLabelText}"
+                                      ItemsSource="{Binding PurposeFilterOptions}"
+                                      DisplayMemberPath="Value"
+                                      SelectedValuePath="Key"
+                                      SelectedValue="{Binding PurposeFilterKey, Mode=TwoWay}"
+                                      MinWidth="180"
+                                      Margin="0,0,8,6" />
+                            <CheckBox x:Name="DatasetFavoritesOnlyCheckBox"
+                                      AutomationProperties.AutomationId="DatasetFavoritesOnlyCheckBox"
+                                      Content="{Binding FavoritesOnlyText}"
+                                      IsChecked="{Binding FavoritesOnly, Mode=TwoWay}"
+                                      VerticalAlignment="Center"
+                                      Margin="4,0,10,6" />
+                            <CheckBox x:Name="DatasetNeedsAttentionOnlyCheckBox"
+                                      AutomationProperties.AutomationId="DatasetNeedsAttentionOnlyCheckBox"
+                                      Content="{Binding NeedsAttentionOnlyText}"
+                                      IsChecked="{Binding NeedsAttentionOnly, Mode=TwoWay}"
+                                      VerticalAlignment="Center"
+                                      Margin="4,0,10,6">
+                                <CheckBox.ToolTip><ToolTip Style="{StaticResource DatasetSelectionToolTipStyle}" Content="{Binding NeedsAttentionToolTipText}" /></CheckBox.ToolTip>
+                            </CheckBox>
+                            <ComboBox x:Name="DatasetSortBox"
+                                      Style="{StaticResource DatasetSelectionComboBoxStyle}"
+                                      AutomationProperties.AutomationId="DatasetSortBox"
+                                      ItemsSource="{Binding SortOptions}"
+                                      DisplayMemberPath="Value"
+                                      SelectedValuePath="Key"
+                                      SelectedValue="{Binding SortModeKey, Mode=TwoWay}"
+                                      MinWidth="145"
+                                      Margin="0,0,8,6" />
+                            <TextBlock x:Name="DatasetSearchResultsText"
+                                       AutomationProperties.AutomationId="DatasetSearchResultsText"
+                                       Text="{Binding SearchResultsText}"
+                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                       VerticalAlignment="Center"
+                                       Margin="4,0,0,6" />
+                        </WrapPanel>
+                    </StackPanel>
+                    <Border Grid.Row="1"
+                            Background="{DynamicResource RecipeSurfaceBrush}"
+                            BorderBrush="{DynamicResource RecipeBorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="6"
-                            Padding="20"
-                            MaxWidth="420"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center">
-                        <StackPanel HorizontalAlignment="Center">
-                            <iconPacks:PackIconMaterial Kind="DatabasePlusOutline"
-                                                        Width="34"
-                                                        Height="34"
-                                                        Foreground="{StaticResource AccentBrush}"
-                                                        HorizontalAlignment="Center"
-                                                        Margin="0,0,0,10" />
-                            <TextBlock Text="{Binding EmptyStateTitleText}"
-                                       Foreground="#F3F4F6"
-                                       FontFamily="Segoe UI"
-                                       FontSize="16"
-                                       FontWeight="SemiBold"
-                                       TextAlignment="Center"
-                                       TextWrapping="Wrap" />
-                            <TextBlock Text="{Binding EmptyStateDetailText}"
-                                       Foreground="{StaticResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="12"
-                                       TextAlignment="Center"
-                                       TextWrapping="Wrap"
-                                       Margin="0,7,0,14" />
-                            <Button x:Name="CreateFirstDatasetButton"
-                                    Style="{StaticResource DatasetSelectPrimaryButtonStyle}"
-                                    AutomationProperties.AutomationId="CreateFirstDatasetButton"
-                                    AutomationProperties.Name="{Binding CreateFirstDatasetButtonText}"
-                                    Command="{Binding CreateNewCommand}"
+                            CornerRadius="8"
+                            Padding="10">
+                        <Grid>
+                            <ListBox x:Name="DatasetSelectionListBox"
+                                     AutomationProperties.AutomationId="DatasetSelectionListBox"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     ItemContainerStyle="{StaticResource DatasetListItemStyle}"
+                                     ItemTemplate="{StaticResource DatasetSelectionItemTemplate}"
+                                     ItemsSource="{Binding FilteredDatasets}"
+                                     SelectedItem="{Binding SelectedDataset, Mode=TwoWay}"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     ScrollViewer.CanContentScroll="True"
+                                     VirtualizingPanel.IsVirtualizing="True"
+                                     VirtualizingPanel.VirtualizationMode="Recycling" />
+                            <Border x:Name="DatasetSelectionEmptyStatePanel"
+                                    AutomationProperties.AutomationId="DatasetSelectionEmptyStatePanel"
+                                    Visibility="{Binding EmptyStateVisibility}"
+                                    Background="{DynamicResource RecipePageBrush}"
+                                    BorderBrush="{DynamicResource RecipeAccentBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="20"
+                                    MaxWidth="420"
                                     HorizontalAlignment="Center"
-                                    Content="{Binding CreateFirstDatasetButtonText}" />
-                        </StackPanel>
+                                    VerticalAlignment="Center">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <iconPacks:PackIconMaterial Kind="DatabasePlusOutline"
+                                                                Width="34"
+                                                                Height="34"
+                                                                Foreground="{DynamicResource RecipeAccentBrush}"
+                                                                HorizontalAlignment="Center"
+                                                                Margin="0,0,0,10" />
+                                    <TextBlock Text="{Binding EmptyStateTitleText}"
+                                               Foreground="{DynamicResource RecipeTextBrush}"
+                                               FontFamily="{DynamicResource UiFontFamily}"
+                                               FontSize="16"
+                                               FontWeight="SemiBold"
+                                               TextAlignment="Center"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding EmptyStateDetailText}"
+                                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                               FontFamily="{DynamicResource UiFontFamily}"
+                                               FontSize="13"
+                                               TextAlignment="Center"
+                                               TextWrapping="Wrap"
+                                               Margin="0,7,0,14" />
+                                    <Button x:Name="CreateFirstDatasetButton"
+                                            Style="{StaticResource DatasetSelectPrimaryButtonStyle}"
+                                            AutomationProperties.AutomationId="CreateFirstDatasetButton"
+                                            AutomationProperties.Name="{Binding CreateFirstDatasetButtonText}"
+                                            Command="{Binding CreateNewCommand}"
+                                            HorizontalAlignment="Center"
+                                            Content="{Binding CreateFirstDatasetButtonText}" />
+                                </StackPanel>
+                            </Border>
+                            <Border x:Name="DatasetSelectionNoResultsPanel"
+                                    AutomationProperties.AutomationId="DatasetSelectionNoResultsPanel"
+                                    Visibility="{Binding FilteredEmptyStateVisibility}"
+                                    Background="{DynamicResource RecipePageBrush}"
+                                    BorderBrush="{DynamicResource RecipeBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="20"
+                                    MaxWidth="420"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="{Binding SearchNoResultsText}"
+                                               Foreground="{DynamicResource RecipeTextBrush}"
+                                               FontFamily="{DynamicResource UiFontFamily}"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               TextAlignment="Center"
+                                               TextWrapping="Wrap" />
+                                    <Button Style="{StaticResource DatasetSelectButtonStyle}"
+                                            AutomationProperties.AutomationId="ClearDatasetSearchEmptyStateButton"
+                                            Command="{Binding ClearSearchCommand}"
+                                            Content="{Binding ClearSearchButtonText}"
+                                            HorizontalAlignment="Center"
+                                            Margin="0,12,0,0" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
                     </Border>
                 </Grid>
-            </Border>
+                <Border Grid.Column="1"
+                        Margin="8,0,0,0"
+                        Padding="18"
+                        Background="{DynamicResource RecipeSurfaceBrush}"
+                        BorderBrush="{DynamicResource RecipeBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="{Binding SelectedDatasetDetailsTitleText}"
+                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                       FontSize="13" />
+                            <TextBlock Text="{Binding SelectedDataset.RecipeName}"
+                                       AutomationProperties.AutomationId="SelectedDatasetRecipeName"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap"
+                                       TextTrimming="None"
+                                       Margin="0,6,0,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedDataset}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <Border Background="{DynamicResource RecipeButtonBrush}"
+                                    BorderBrush="{DynamicResource RecipeButtonBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="7"
+                                    Padding="7,3"
+                                    HorizontalAlignment="Left"
+                                    Margin="0,10,0,0">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedDataset}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding SelectedDataset.PurposeText}"
+                                           FontSize="13"
+                                           FontWeight="SemiBold" />
+                            </Border>
+                        </StackPanel>
+                        <ScrollViewer x:Name="DatasetDetailsScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" Focusable="True" IsTabStop="True" Margin="2,16,2,12">
+                            <ScrollViewer.Style>
+                                <Style TargetType="ScrollViewer">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedDataset}" Value="{x:Null}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ScrollViewer.Style>
+                            <StackPanel>
+                                <TextBlock Text="{Binding SelectedDataset.StatusText}"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,6" />
+                                <TextBlock Text="{Binding SelectedDataset.CountText}"
+                                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                           Margin="0,0,0,3" />
+                                <TextBlock Text="{Binding SelectedDataset.SummaryUpdatedText}"
+                                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                           FontSize="13"
+                                           Margin="0,0,0,16" />
+                                <TextBlock Text="{Binding SelectedDataset.ClassesLabelText}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,16" />
+                                <TextBlock Text="{Binding SelectedDataset.StoragePathText}"
+                                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,12" />
+                                <TextBlock Text="{Binding SelectedDataset.ImageRootPathText}"
+                                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </ScrollViewer>
+                        <TextBlock x:Name="NoDatasetSelectedText"
+                                   Grid.Row="1"
+                                   AutomationProperties.AutomationId="NoDatasetSelectedText"
+                                   AutomationProperties.Name="{Binding NoSelectedDatasetText}"
+                                   Text="{Binding NoSelectedDatasetText}"
+                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   MaxWidth="260"
+                                   Margin="12,16">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedDataset}" Value="{x:Null}">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <Button Grid.Row="2"
+                                x:Name="ToggleSelectedDatasetFavoriteButton"
+                                AutomationProperties.AutomationId="ToggleSelectedDatasetFavoriteButton"
+                                AutomationProperties.Name="{Binding SelectedDatasetFavoriteActionText}"
+                                Command="{Binding ToggleFavoriteCommand}"
+                                CommandParameter="{Binding SelectedDataset}"
+                                Content="{Binding SelectedDatasetFavoriteActionText}"
+                                HorizontalAlignment="Stretch">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource DatasetSelectButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedDataset}" Value="{x:Null}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </Grid>
+                </Border>
+            </Grid>
 
             <Grid Grid.Row="2" Margin="0,14,0,0">
                 <Grid.ColumnDefinitions>
@@ -361,9 +673,9 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock x:Name="DatasetSelectionStatusText"
                            Text="{Binding StatusText}"
-                           Foreground="{StaticResource SecondaryTextBrush}"
-                           FontFamily="Segoe UI"
-                           FontSize="12"
+                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                           FontFamily="{DynamicResource UiFontFamily}"
+                           FontSize="13"
                            TextWrapping="Wrap"
                            VerticalAlignment="Center"
                            Margin="0,0,12,0" />
@@ -393,6 +705,7 @@
                             Style="{StaticResource DatasetSelectPrimaryButtonStyle}"
                             AutomationProperties.AutomationId="OpenSelectedDatasetButton"
                             AutomationProperties.Name="{Binding OpenSelectedButtonText}"
+                            IsDefault="True"
                             Command="{Binding OpenCommand}"
                             Content="{Binding OpenSelectedButtonText}" />
                 </StackPanel>

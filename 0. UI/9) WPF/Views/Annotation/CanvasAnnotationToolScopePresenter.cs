@@ -42,11 +42,15 @@ namespace MvcVisionSystem
 
         internal void Refresh()
         {
+            var d1Total = System.Diagnostics.Stopwatch.StartNew();
             bool isAnomalyImageReview = isAnomalyDatasetPurpose();
+            System.Diagnostics.Trace.WriteLine(FormattableString.Invariant($"D1_SCOPE_BEGIN anomaly={isAnomalyImageReview}"));
             shellViewModel.SetAnomalyImageReviewMode(isAnomalyImageReview);
             canvasPanelViewModel.SetAnomalyImageReviewMode(isAnomalyImageReview);
             imageQueueViewModel.SetAnomalyImageReviewMode(isAnomalyImageReview);
+            double d1Modes = d1Total.Elapsed.TotalMilliseconds;
             refreshImageQueuePurposePresentation();
+            double d1Queue = d1Total.Elapsed.TotalMilliseconds;
             if (isAnomalyImageReview && isLabelingStageActive())
             {
                 selectLearningReviewTab();
@@ -56,6 +60,7 @@ namespace MvcVisionSystem
                 learningWorkflowViewModel.VisibleAnnotationTools,
                 learningWorkflowViewModel.SelectedTool,
                 annotationToolSelectionChanged);
+            System.Diagnostics.Trace.WriteLine(FormattableString.Invariant($"D1_SCOPE_END anomaly={isAnomalyImageReview} totalMs={d1Total.Elapsed.TotalMilliseconds:F3} modesMs={d1Modes:F3} queueMs={d1Queue - d1Modes:F3} toolsAndFocusMs={d1Total.Elapsed.TotalMilliseconds - d1Queue:F3}"));
         }
     }
 }

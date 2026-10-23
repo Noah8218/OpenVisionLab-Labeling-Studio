@@ -1,5 +1,7 @@
 using MvcVisionSystem.Yolo;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -75,7 +77,7 @@ namespace MvcVisionSystem
             }
 
             return catalogService.Build(
-                request.ImageRoot,
+                request.ImageRoots,
                 request.Data,
                 request.IsAnomalyPurpose,
                 request.CancellationToken);
@@ -234,6 +236,8 @@ namespace MvcVisionSystem
             CancellationTokenSource cancellation)
         {
             ImageRoot = imageRoot ?? string.Empty;
+            ImageRoots = data?.ProjectSettings?.AdditionalImageRootPaths?.Count > 0
+                ? data.ProjectSettings.ResolveImageRootPaths(imageRoot) : new[] { ImageRoot };
             SelectedImagePath = selectedImagePath ?? string.Empty;
             LoadFirstImage = loadFirstImage;
             RefreshDetails = refreshDetails;
@@ -246,6 +250,8 @@ namespace MvcVisionSystem
 
         public string ImageRoot { get; }
 
+        public IReadOnlyList<string> ImageRoots { get; }
+
         public string SelectedImagePath { get; }
 
         public bool LoadFirstImage { get; }
@@ -257,7 +263,9 @@ namespace MvcVisionSystem
         internal bool MatchesData(LabelingProjectData data)
         {
             return ReferenceEquals(Data, data)
-                && string.Equals(reviewStatusFilePath, YoloImageReviewStatusService.ResolveReviewStatusFilePath(data), StringComparison.OrdinalIgnoreCase);
+                && string.Equals(reviewStatusFilePath, YoloImageReviewStatusService.ResolveReviewStatusFilePath(data), StringComparison.OrdinalIgnoreCase)
+                && ImageRoots.SequenceEqual(data?.ProjectSettings?.AdditionalImageRootPaths?.Count > 0
+                    ? data.ProjectSettings.ResolveImageRootPaths(ImageRoot) : new[] { ImageRoot }, StringComparer.OrdinalIgnoreCase);
         }
 
         public bool IsAnomalyPurpose { get; }

@@ -11,19 +11,22 @@ namespace MvcVisionSystem
         public const int PreferredDuplicateOffset = 12;
 
         public const string ShortcutSummaryText =
-            "V 선택 · R 박스 · P 폴리곤 · B 브러시 · E 지우개 · H 이동 · 1~9 클래스 · 0 클래스 관리";
+            "V 선택 · R 박스 · P 폴리곤 · S 스마트 마스크 · B 브러시 · E 지우개 · H 이동 · O 원본 보기 · 1~9 클래스 · 0 클래스 관리";
 
         public const string ShortcutHelpText =
-            "도구  V 선택  R 박스  P 폴리곤  B 브러시  E 지우개  H 이동\n"
-            + "클래스  1~9 빠른 선택  0 클래스 관리\n"
+            "도구  V 선택  R 박스  P 폴리곤  B 브러시  E 지우개  H 이동  O 누르는 동안 원본 보기\n"
+            + "클래스  1~9 선택 객체 변경 / 선택 없으면 다음 그리기  0 클래스 관리\n"
             + "반복/편집  N 마지막 도구+클래스  Ctrl+D 선택 복제  Ctrl+Z/Y 실행 취소/다시 실행\n"
-            + "Smart Mask  세그멘테이션에서 자동 윤곽 켜기 → R 박스 → 후보 검토\n"
-            + "보정  포함/제외점 1개씩 → 후보 다시 생성 → 이전/현재 후보 비교 → 확정 또는 스킵\n"
-            + "저장  후보 생성·복원은 저장하지 않으며, 확정은 표시 중인 후보를 정답 파일에 저장합니다.\n"
-            + "F1 도움말 닫기 · 입력 상자 편집 중에는 라벨링 단축키가 실행되지 않습니다.";
+            + "스마트 마스크  S 도구 선택 · 자동 윤곽 켜기 → R 박스 → 스마트 마스크 후보 생성\n"
+            + "보정  포함/제외점 1개씩 → 후보 다시 생성 → 이전/현재 후보 비교 → 확정 또는 건너뛰기\n"
+            + "저장  후보 생성·복원은 파일에 저장하지 않습니다. 확정 후 라벨을 저장해야 파일에 남습니다.\n"
+            + "F1 사용 안내 · ? 단축키 도움말 · 입력 상자 편집 중에는 라벨링 단축키가 실행되지 않습니다.";
 
         public static AnnotationShortcut ResolveShortcut(Key key, ModifierKeys modifiers)
         {
+            if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && key == Key.V)
+                return new AnnotationShortcut(WpfAnnotationShortcutKind.ImportPreviousLabels);
+
             if (modifiers == ModifierKeys.Control && key == Key.D)
             {
                 return new AnnotationShortcut(WpfAnnotationShortcutKind.DuplicateSelected);
@@ -44,6 +47,7 @@ namespace MvcVisionSystem
                 Key.V => new AnnotationShortcut(WpfAnnotationShortcutKind.SelectTool, WpfAnnotationTool.Select),
                 Key.R => new AnnotationShortcut(WpfAnnotationShortcutKind.SelectTool, WpfAnnotationTool.Rectangle),
                 Key.P => new AnnotationShortcut(WpfAnnotationShortcutKind.SelectTool, WpfAnnotationTool.Polygon),
+                Key.S => new AnnotationShortcut(WpfAnnotationShortcutKind.SelectTool, WpfAnnotationTool.SmartMask),
                 Key.B => new AnnotationShortcut(WpfAnnotationShortcutKind.SelectTool, WpfAnnotationTool.Brush),
                 Key.E => new AnnotationShortcut(WpfAnnotationShortcutKind.SelectTool, WpfAnnotationTool.Eraser),
                 Key.H => new AnnotationShortcut(WpfAnnotationShortcutKind.SelectTool, WpfAnnotationTool.PanZoom),
@@ -61,6 +65,7 @@ namespace MvcVisionSystem
                 WpfAnnotationTool.Select => "V",
                 WpfAnnotationTool.Rectangle => "R",
                 WpfAnnotationTool.Polygon => "P",
+                WpfAnnotationTool.SmartMask => "S",
                 WpfAnnotationTool.Brush => "B",
                 WpfAnnotationTool.Eraser => "E",
                 WpfAnnotationTool.PanZoom => "H",

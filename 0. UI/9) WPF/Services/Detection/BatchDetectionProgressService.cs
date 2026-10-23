@@ -43,19 +43,13 @@ namespace MvcVisionSystem
         {
             int total = Math.Max(0, totalCount);
             int completed = Math.Max(0, completedCount);
-            int visibleProgress = isBusy && total > 0 && !string.IsNullOrWhiteSpace(currentFileName)
-                ? Math.Min(completed + 1, total)
-                : completed;
-            if (isBusy)
-            {
-                completed = visibleProgress;
-            }
+            int visibleProgress = Math.Min(completed, total);
 
             string statusText = isBusy
                 ? string.Format(CultureInfo.CurrentCulture, "{0}/{1}", visibleProgress, total)
                 : total > 0
                     ? string.Format(CultureInfo.CurrentCulture, "{0}/{1}", completed, total)
-                    : "\uBC30\uCE58 \uB300\uAE30";
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.Waiting");
             int progressMaximum = total <= 0 ? 1 : total;
             int progressValue = total <= 0 ? 0 : Math.Min(visibleProgress, total);
 
@@ -72,7 +66,7 @@ namespace MvcVisionSystem
             string fileText = string.IsNullOrWhiteSpace(currentFileName) ? string.Empty : " " + currentFileName;
             string datasetStatusText = string.Format(
                 CultureInfo.CurrentCulture,
-                "\uB370\uC774\uD130\uC14B: \uC77C\uAD04 {0}/{1} {2}{3}",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.DatasetProgress"),
                 completed,
                 total,
                 scopeText,
@@ -87,30 +81,30 @@ namespace MvcVisionSystem
 
         public string BuildStartCommandStatus(int totalCount)
         {
-            return string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uAC80\uC0AC \uC2DC\uC791: {0}\uAC1C", totalCount);
+            return string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.StartCommand"), totalCount);
         }
 
         public string BuildStartInferenceStatus(int totalCount)
         {
-            return string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uCD94\uB860 \uC2DC\uC791: {0}\uAC1C", totalCount);
+            return string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.StartStatus"), totalCount);
         }
 
         public string BuildStartLog(string scopeText, int totalCount, string modelSourceText = "")
         {
             string modelText = BuildModelSourceSuffix(modelSourceText);
-            return string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uAC80\uC0AC \uC2DC\uC791. \uBC94\uC704:{0}, \uAC1C\uC218:{1}{2}", scopeText, totalCount, modelText);
+            return string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.StartLog"), scopeText, totalCount, modelText);
         }
 
         public string BuildWorkerPreparingInferenceStatus(int totalCount)
         {
-            return string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uCD94\uB860 \uC900\uBE44 \uC911: {0}\uAC1C", totalCount);
+            return string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.Preparing"), totalCount);
         }
 
         public string BuildItemInferenceStatus(int completedCount, int totalCount, string imagePath)
         {
             return string.Format(
                 CultureInfo.CurrentCulture,
-                "\uC77C\uAD04 \uCD94\uB860 {0}/{1}: {2}",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.ItemProgress"),
                 completedCount + 1,
                 totalCount,
                 ResolveImageFileName(imagePath));
@@ -121,7 +115,7 @@ namespace MvcVisionSystem
             string modelText = BuildModelSourceSuffix(modelSourceText);
             return string.Format(
                 CultureInfo.CurrentCulture,
-                "\uC77C\uAD04 \uAC80\uC0AC \uD56D\uBAA9 \uC644\uB8CC: {0}/{1} {2} \uD6C4\uBCF4:{3} / {4}{5}",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.ItemCompleted"),
                 completedCount,
                 totalCount,
                 ResolveImageFileName(imagePath),
@@ -135,7 +129,7 @@ namespace MvcVisionSystem
             string modelText = BuildModelSourceSuffix(modelSourceText);
             return string.Format(
                 CultureInfo.CurrentCulture,
-                "\uC77C\uAD04 \uAC80\uC0AC \uD56D\uBAA9 \uC2E4\uD328: {0}/{1} {2} / {3}{4} / {5}",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.ItemFailed"),
                 completedCount,
                 totalCount,
                 ResolveImageFileName(imagePath),
@@ -146,37 +140,46 @@ namespace MvcVisionSystem
 
         public string BuildItemPythonStatus(int completedCount, int totalCount, string elapsedText)
         {
-            return string.Format(CultureInfo.CurrentCulture, "\uCD94\uB860: \uC77C\uAD04 {0}/{1} / \uCD5C\uADFC {2}", completedCount, totalCount, elapsedText);
+            return string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.PythonProgress"), completedCount, totalCount, elapsedText);
         }
 
         public string BuildLatestFileStatus(string imagePath, string elapsedText)
         {
-            return string.Format(CultureInfo.CurrentCulture, "{0} / \uCD5C\uADFC {1}", ResolveImageFileName(imagePath), elapsedText);
+            return string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.LatestFile"), ResolveImageFileName(imagePath), elapsedText);
+        }
+
+        public string BuildCandidateCompletionPythonStatus(bool canceled, int failedImages, string failureSummary)
+        {
+            string state = canceled ? OpenVisionLab.OpenVisionLanguageService.T("WpfCandidate.Batch.Canceled")
+                : !string.IsNullOrWhiteSpace(failureSummary) ? OpenVisionLab.OpenVisionLanguageService.T("WpfCandidate.Batch.Stopped")
+                : failedImages > 0 ? string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfCandidate.Batch.Failed"), failedImages)
+                : OpenVisionLab.OpenVisionLanguageService.T("WpfCandidate.Batch.Completed");
+            return string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfCandidate.Batch.Status"), state);
         }
 
         public string BuildCompletionCommandStatus(bool canceled, int completedCount, int totalCount, string totalElapsedText)
         {
-            string stateText = canceled ? "\uC911\uC9C0" : "\uC644\uB8CC";
-            return string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uAC80\uC0AC {0}: {1}/{2} / {3}", stateText, completedCount, totalCount, totalElapsedText);
+            string stateText = canceled ? OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.Stopped") : OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.Completed");
+            return string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.CompletionCommand"), stateText, completedCount, totalCount, totalElapsedText);
         }
 
         public string BuildCompletionInferenceStatus(bool canceled, int completedCount, int totalCount, string totalElapsedText)
         {
             if (canceled)
             {
-                return string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uC911\uC9C0: {0}/{1}", completedCount, totalCount);
+                return string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.StoppedStatus"), completedCount, totalCount);
             }
 
-            return string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uC644\uB8CC: {0}/{1} / {2}", completedCount, totalCount, totalElapsedText);
+            return string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.CompletedStatus"), completedCount, totalCount, totalElapsedText);
         }
 
         public string BuildCompletionLog(bool canceled, int completedCount, int totalCount, string totalElapsedText, string averageElapsedText, string modelSourceText = "")
         {
-            string stateText = canceled ? "\uC911\uC9C0" : "\uC644\uB8CC";
+            string stateText = canceled ? OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.Stopped") : OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.Completed");
             string modelText = BuildModelSourceSuffix(modelSourceText);
             return string.Format(
                 CultureInfo.CurrentCulture,
-                "\uC77C\uAD04 \uAC80\uC0AC {0}. \uC644\uB8CC:{1}/{2} / \uC804\uCCB4:{3} / {4}{5}",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.CompletedLog"),
                 stateText,
                 completedCount,
                 totalCount,
@@ -187,27 +190,27 @@ namespace MvcVisionSystem
 
         public string BuildFailureCommandStatus(int completedCount, int totalCount, string failureSummary)
         {
-            return string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uAC80\uC0AC \uC2E4\uD328: {0}/{1} / {2}", completedCount, totalCount, failureSummary);
+            return string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.FailedCommand"), completedCount, totalCount, failureSummary);
         }
 
         public string BuildFailureInferenceStatus(int completedCount, int totalCount, string failureSummary)
         {
             string summary = ShortenMessage(failureSummary, 80);
             return string.IsNullOrWhiteSpace(summary)
-                ? string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uC2E4\uD328: {0}/{1}", completedCount, totalCount)
-                : string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uC2E4\uD328: {0}/{1} / {2}", completedCount, totalCount, summary);
+                ? string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.FailedStatus"), completedCount, totalCount)
+                : string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.FailedStatusDetail"), completedCount, totalCount, summary);
         }
 
         public string BuildFailureLog(int completedCount, int totalCount, string failureSummary)
         {
-            return string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uAC80\uC0AC \uC2E4\uD328. \uC644\uB8CC:{0}/{1} / {2}", completedCount, totalCount, failureSummary);
+            return string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.FailedLog"), completedCount, totalCount, failureSummary);
         }
 
         private static string BuildModelSourceSuffix(string modelSourceText)
         {
             return string.IsNullOrWhiteSpace(modelSourceText)
                 ? string.Empty
-                : string.Format(CultureInfo.CurrentCulture, " / \uBAA8\uB378:{0}", modelSourceText.Trim());
+                : string.Format(CultureInfo.CurrentCulture, " " + OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.BatchDetectionProgressService.ModelSuffix"), modelSourceText.Trim());
         }
 
         private static string ShortenMessage(string message, int maxLength)

@@ -147,7 +147,7 @@ namespace MvcVisionSystem
                 ShowTemplateGuide(
                     currentHost,
                     "이미지가 필요합니다",
-                    "템플릿을 등록하거나 적용하려면 먼저 이미지 큐에서 이미지를 열어야 합니다.");
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfTemplateMatchingAutoLabelViewModel.OpenImage"));
                 return;
             }
 
@@ -407,7 +407,7 @@ namespace MvcVisionSystem
                 ShowTemplateGuide(
                     currentHost,
                     "처리할 이미지가 없습니다",
-                    "전체 이미지 자동 저장은 현재 기준 이미지를 제외한 라벨 없는 이미지에만 적용됩니다. 이미지 큐에 라벨 없는 이미지가 있는지 확인하세요.");
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfTemplateMatchingAutoLabelViewModel.BatchEligibility"));
                 return;
             }
 

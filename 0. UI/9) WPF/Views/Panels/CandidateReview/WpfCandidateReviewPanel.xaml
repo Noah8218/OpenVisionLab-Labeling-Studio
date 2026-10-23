@@ -5,11 +5,21 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:local="clr-namespace:MvcVisionSystem"
              xmlns:mvvm="clr-namespace:OpenVisionLab.Mvvm.Behaviors;assembly=OpenVisionLab.Mvvm">
     <UserControl.Resources>
+      <ResourceDictionary>
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="CandidateReviewResources.xaml" />
+        </ResourceDictionary.MergedDictionaries>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <SolidColorBrush x:Key="InferenceDecisionOkTextBrush" Color="#C7F5DF" />
+        <SolidColorBrush x:Key="InferenceDecisionNgTextBrush" Color="#FFD0D0" />
+        <SolidColorBrush x:Key="InferenceDecisionNgBorderBrush" Color="#73343A" />
+        <SolidColorBrush x:Key="InferenceDecisionEvidenceTextBrush" Color="#FFB3B3" />
         <Style x:Key="CandidateReviewLabelStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -22,34 +32,6 @@
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
-        <Style x:Key="CandidateReviewButtonStyle" TargetType="{x:Type ui:Button}">
-            <Setter Property="Template" Value="{DynamicResource WpfUiDarkButtonTemplate}" />
-            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="MinHeight" Value="30" />
-            <Setter Property="Margin" Value="0,0,4,0" />
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
-                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
-                    <Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" />
-                </Trigger>
-                <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
-                    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
-                    <Setter Property="Opacity" Value="0.45" />
-                </Trigger>
-            </Style.Triggers>
-        </Style>
 
         <Style x:Key="CandidateReviewListBoxItemStyle" TargetType="ListBoxItem">
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
@@ -94,7 +76,7 @@
 
         <Style x:Key="CandidateComparisonOverlapTextStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
             <Setter Property="FontSize" Value="10" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="HorizontalAlignment" Value="Center" />
@@ -110,7 +92,7 @@
 
         <Style x:Key="CandidateComparisonDecisionTextStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="TextWrapping" Value="Wrap" />
@@ -147,8 +129,41 @@
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
             <Setter Property="Margin" Value="0,4,0,0" />
+        </Style>
+
+        <Style x:Key="InferencePredictionItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid>
+                            <Border x:Name="PredictionChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
+                                <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+                            </Border>
+                            <Border x:Name="PredictionFocusCue" BorderBrush="Transparent" BorderThickness="2" CornerRadius="6" IsHitTestVisible="False" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="PredictionChrome" Property="Background" Value="{DynamicResource RecipeRowHoverBrush}" /></Trigger>
+                            <Trigger Property="IsSelected" Value="True"><Setter TargetName="PredictionChrome" Property="Background" Value="{DynamicResource SelectedRowBrush}" /><Setter TargetName="PredictionChrome" Property="BorderBrush" Value="{DynamicResource RecipeSelectedCardBorderBrush}" /></Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="PredictionFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /><Setter TargetName="PredictionFocusCue" Property="BorderBrush" Value="Transparent" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="InferenceOptionalTextStyle" TargetType="TextBlock">
+            <Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed" /></Trigger></Style.Triggers>
         </Style>
 
         <DataTemplate x:Key="ModelComparisonExampleTemplate">
@@ -171,23 +186,23 @@
                     <StackPanel Grid.Column="1">
                         <TextBlock Text="{Binding Title}"
                                    Foreground="{DynamicResource PrimaryTextBrush}"
-                                   FontFamily="Segoe UI"
+                                   FontFamily="{DynamicResource UiFontFamily}"
                                    FontSize="10"
                                    FontWeight="SemiBold"
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding Detail}"
                                    Foreground="{DynamicResource SecondaryTextBrush}"
-                                   FontFamily="Segoe UI"
+                                   FontFamily="{DynamicResource UiFontFamily}"
                                    FontSize="9"
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding LocationText}"
                                    Foreground="{DynamicResource SecondaryTextBrush}"
-                                   FontFamily="Segoe UI"
+                                   FontFamily="{DynamicResource UiFontFamily}"
                                    FontSize="9"
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding ActionText}"
                                    Foreground="{DynamicResource AccentBrush}"
-                                   FontFamily="Segoe UI"
+                                   FontFamily="{DynamicResource UiFontFamily}"
                                    FontSize="9"
                                    FontWeight="SemiBold"
                                    TextTrimming="CharacterEllipsis" />
@@ -195,10 +210,124 @@
                 </Grid>
             </Button>
         </DataTemplate>
+      </ResourceDictionary>
     </UserControl.Resources>
 
-    <Grid Margin="8">
+    <Grid>
+    <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+        <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+    <Border x:Name="InferenceResultsHeader" Grid.Row="0" Padding="12,10"
+            DataContext="{Binding DataContext.ShellViewModel, RelativeSource={RelativeSource AncestorType=Window}}"
+            Visibility="{Binding IsInferenceStageActive, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"
+            BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,0,0,1"
+            TextElement.FontFamily="{DynamicResource UiFontFamily}" TextElement.FontSize="13" TextElement.Foreground="{DynamicResource RecipeTextBrush}">
+        <TextBlock Text="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfInference.Workspace.Results]}" FontSize="15" FontWeight="SemiBold" LineHeight="21.75" LineStackingStrategy="BlockLineHeight" />
+    </Border>
+    <ScrollViewer x:Name="CandidateReviewScrollViewer"
+                  Grid.Row="1"
+                  AutomationProperties.AutomationId="CandidateReviewScrollViewer"
+                  Margin="0"
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  CanContentScroll="True"
+                  Focusable="False">
+    <Grid>
+    <StackPanel x:Name="InferenceResultsPanel" DataContext="{Binding DataContext.ShellViewModel, RelativeSource={RelativeSource AncestorType=Window}}"
+                TextElement.FontFamily="{DynamicResource UiFontFamily}" TextElement.FontSize="13" TextElement.Foreground="{DynamicResource RecipeTextBrush}">
+        <StackPanel.Style>
+            <Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding IsInferenceStageActive}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style>
+        </StackPanel.Style>
+        <Border Padding="14,12" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,0,0,1">
+            <StackPanel>
+                <StackPanel x:Name="InferenceCompletedDecision" Visibility="{Binding HasDisplayedInferenceResult, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Border x:Name="InferenceDecisionCard" Padding="14,10" BorderThickness="1" CornerRadius="7.5">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonBorderBrush}" />
+                            <Setter Property="TextElement.Foreground" Value="{DynamicResource RecipeTextBrush}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding InferenceDecisionIsNg}" Value="False">
+                                    <Setter Property="Background" Value="{DynamicResource DatasetReadyBrush}" />
+                                    <Setter Property="BorderBrush" Value="{DynamicResource DatasetReadyBorderBrush}" />
+                                    <Setter Property="TextElement.Foreground" Value="{DynamicResource InferenceDecisionOkTextBrush}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding InferenceDecisionIsNg}" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource BadBackgroundBrush}" />
+                                    <Setter Property="BorderBrush" Value="{DynamicResource InferenceDecisionNgBorderBrush}" />
+                                    <Setter Property="TextElement.Foreground" Value="{DynamicResource InferenceDecisionNgTextBrush}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <TextBlock x:Name="InferenceResultTitle" Text="{Binding InferenceDecisionTitleText, Mode=OneWay}" AutomationProperties.Name="{Binding InferenceDecisionTitleText, Mode=OneWay}"
+                                   Foreground="{Binding Path=(TextElement.Foreground), ElementName=InferenceDecisionCard}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock x:Name="InferencePartDecisionText" Grid.Column="1" Text="{Binding InferenceDecisionLabelText, Mode=OneWay, Converter={StaticResource CandidateReviewWordBoundaryConverter}}" AutomationProperties.Name="{Binding InferenceDecisionValueText, Mode=OneWay}"
+                                   Foreground="{Binding Path=(TextElement.Foreground), ElementName=InferenceDecisionCard}" FontSize="22" FontWeight="Bold" LineHeight="31.9" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" TextAlignment="Right" VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+                <Button Content="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfInference.Decision.Rule]}" Command="{Binding OpenInferenceDecisionRuleCommand}" Style="{DynamicResource RecipeQuietButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,0" />
+                <StackPanel x:Name="InferenceAnomalyEvidence" Margin="0,8,0,0" Visibility="{Binding IsAnomalyInference, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <TextBlock x:Name="InferenceAnomalyScoreText" Text="{Binding InferenceAnomalyScoreText}" FontSize="13" TextWrapping="Wrap" />
+                    <TextBlock x:Name="InferenceSavedVerdictText" Text="{Binding InferenceSavedVerdictText}" FontSize="12" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                </StackPanel>
+                </StackPanel>
+                <TextBlock x:Name="InferenceResultWarning" Text="{Binding InferenceResultWarningText}" Style="{StaticResource InferenceOptionalTextStyle}" Foreground="{DynamicResource WarningBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0" />
+                <TextBlock Text="{Binding InferenceResultSourceText}" Foreground="{DynamicResource RecipeMutedTextBrush}" FontSize="12" TextWrapping="Wrap" Visibility="Collapsed" Margin="0,8,0,0" />
+                <TextBlock x:Name="InferenceResultCounts" Text="{Binding InferenceVisiblePredictionCountText}" Foreground="{DynamicResource RecipeMutedTextBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,4" ><TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding IsAnomalyInference}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger><DataTrigger Binding="{Binding HasDisplayedInferenceResult}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                <TextBlock x:Name="InferenceResultEmpty" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap">
+                    <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Visible" /><Setter Property="Text" Value="{Binding InferenceResultEmptyText, Mode=OneWay, Converter={StaticResource CandidateReviewWordBoundaryConverter}}" /><Setter Property="AutomationProperties.Name" Value="{Binding InferenceResultEmptyText, Mode=OneWay}" /><Setter Property="FontSize" Value="12" /><Setter Property="Margin" Value="0,8,0,0" /><Setter Property="LineHeight" Value="17.4" /><Setter Property="LineStackingStrategy" Value="BlockLineHeight" /><Style.Triggers><DataTrigger Binding="{Binding HasVisibleInferencePredictions}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger><DataTrigger Binding="{Binding IsInferenceNotRunHintVisible}" Value="True"><Setter Property="Text" Value="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfInference.Workspace.NotRunHint], Mode=OneWay, Converter={StaticResource CandidateReviewWordBoundaryConverter}}" /><Setter Property="AutomationProperties.Name" Value="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfInference.Workspace.NotRunHint], Mode=OneWay}" /><Setter Property="FontSize" Value="13" /><Setter Property="LineHeight" Value="18.85" /><Setter Property="Margin" Value="0" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                </TextBlock>
+                <ListBox x:Name="InferencePredictionList" ItemsSource="{Binding InferencePredictionListItems}" SelectedValuePath="Payload" SelectedValue="{Binding SelectedInferencePrediction, Mode=TwoWay}"
+                         IsEnabled="{Binding CanSelectInferencePrediction}" Background="Transparent" Foreground="{DynamicResource RecipeTextBrush}" BorderThickness="0"
+                         FontFamily="{DynamicResource UiFontFamily}" FontSize="13" MaxHeight="220" HorizontalContentAlignment="Stretch"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto" ItemContainerStyle="{StaticResource InferencePredictionItemStyle}"><ListBox.Style><Style TargetType="ListBox"><Style.Triggers><DataTrigger Binding="{Binding IsAnomalyInference}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger><DataTrigger Binding="{Binding HasVisibleInferencePredictions}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></ListBox.Style>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="14" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <Border x:Name="InferenceClassSwatch" Width="12" Height="12" CornerRadius="3" Background="{Binding StateBrush}" VerticalAlignment="Center" HorizontalAlignment="Left" />
+                                <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="Normal" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" Margin="8,0,8,0" />
+                                <Border x:Name="InferenceDecisionEvidenceChip" Grid.Column="2" Padding="6,0" BorderThickness="1" CornerRadius="9.2" Background="{DynamicResource BadBackgroundBrush}" BorderBrush="{StaticResource InferenceDecisionNgBorderBrush}"
+                                        VerticalAlignment="Center" Visibility="{Binding IsInferenceDecisionEvidence, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                        ToolTip="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfInference.Decision.EvidenceHint]}">
+                                    <TextBlock x:Name="InferenceDecisionEvidenceText" Text="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfModelBenchmark.Header.Evidence], Mode=OneWay, StringFormat='NG {0}', NotifyOnTargetUpdated=True}" TargetUpdated="OnInferenceEvidenceTargetUpdated"
+                                               AutomationProperties.Name="{Binding Text, RelativeSource={RelativeSource Self}}" FontSize="12" FontWeight="Normal" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Foreground="{StaticResource InferenceDecisionEvidenceTextBrush}" />
+                                </Border>
+                                <TextBlock x:Name="InferenceCandidateValue" Grid.Column="3" Text="{Binding SecondaryText}" Margin="8,0,0,0" FontSize="13" FontWeight="Normal" Typography.NumeralAlignment="Tabular" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" VerticalAlignment="Center" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock x:Name="InferenceResultOutsideFilter" Visibility="Collapsed" Text="{Binding InferenceResultOutsideFilterText}" Style="{StaticResource InferenceOptionalTextStyle}" Foreground="{DynamicResource RecipeMutedTextBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0" />
+                <WrapPanel Margin="0,8,0,0" Visibility="Collapsed">
+                    <Button Content="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfInference.Seen.Mark]}" Command="{Binding MarkInferenceResultSeenCommand}" Style="{DynamicResource RecipeSecondaryButtonStyle}" Margin="0,0,8,8" />
+                    <Button Content="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfInference.Seen.Next]}" Command="{Binding MarkInferenceResultSeenAndNextCommand}" Style="{DynamicResource RecipeSecondaryButtonStyle}" Margin="0,0,0,8" />
+                    <Button Content="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfInference.Seen.Results]}" Command="{Binding ShowInferenceResultsCommand}" Style="{DynamicResource RecipeQuietButtonStyle}" Margin="0,0,0,8" />
+                </WrapPanel>
+                <TextBlock Text="{Binding InferenceResultReviewText}" Foreground="{DynamicResource RecipeMutedTextBrush}" Visibility="Collapsed" FontSize="12" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+        <Border x:Name="InferenceSummaryPanel" Padding="14,12" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,0,0,1"
+                Visibility="{Binding IsInferenceSummaryReady, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel>
+                <TextBlock Text="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfInference.Workspace.SummaryTitle]}" FontSize="12" FontWeight="SemiBold" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Foreground="{DynamicResource RecipeMutedTextBrush}" Margin="0,0,0,8" />
+                <TextBlock x:Name="InferenceSummaryText" Text="{Binding InferenceSummaryText}" TextWrapping="Wrap" FontSize="12" FontWeight="Normal" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Margin="0,0,0,6" />
+                <ItemsControl x:Name="InferenceClassSummaryList" ItemsSource="{Binding InferenceClassSummaryRows}"><ItemsControl.Style><Style TargetType="ItemsControl"><Style.Triggers><DataTrigger Binding="{Binding IsAnomalyInference}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></ItemsControl.Style>
+                    <ItemsControl.ItemTemplate><DataTemplate><Grid Margin="0"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><Border Width="12" Height="12" CornerRadius="3" Background="{Binding StateBrush}" VerticalAlignment="Center" Margin="0,0,8,0" /><TextBlock Grid.Column="1" Text="{Binding Title}" TextWrapping="Wrap" FontSize="12" FontWeight="Normal" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Margin="0,0,8,0" /><TextBlock Grid.Column="2" Text="{Binding SecondaryText}" FontSize="12" FontWeight="Normal" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Typography.NumeralAlignment="Tabular" VerticalAlignment="Center" /></Grid></DataTemplate></ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+    <Grid x:Name="LegacyCandidateReviewPanel" Margin="8">
+        <Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsInferenceStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Grid.Style>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -227,11 +356,11 @@
                                AutomationProperties.AutomationId="CandidateReviewModeTitleText"
                                Text="{Binding PanelModeTitleText}"
                                Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
+                               FontFamily="{DynamicResource UiFontFamily}"
                                FontSize="12"
                                FontWeight="SemiBold"
                                VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis" />
+                               TextWrapping="Wrap" />
                     <Border x:Name="CandidateReviewModeBadge"
                             Grid.Column="1"
                             AutomationProperties.AutomationId="CandidateReviewModeBadge"
@@ -246,7 +375,7 @@
                                    AutomationProperties.AutomationId="CandidateReviewModeBadgeText"
                                    Text="{Binding PanelModeBadgeText}"
                                    Foreground="{DynamicResource PrimaryTextBrush}"
-                                   FontFamily="Segoe UI"
+                                   FontFamily="{DynamicResource UiFontFamily}"
                                    FontSize="10"
                                    FontWeight="SemiBold"
                                    TextTrimming="CharacterEllipsis" />
@@ -256,15 +385,53 @@
                            AutomationProperties.AutomationId="CandidateReviewModeScopeText"
                            Text="{Binding PanelModeScopeText}"
                            Foreground="{StaticResource CandidateReviewAiTextBrush}"
-                           FontFamily="Segoe UI"
+                           FontFamily="{DynamicResource UiFontFamily}"
                            FontSize="10"
                            FontWeight="SemiBold"
                            TextWrapping="Wrap"
                            Margin="0,3,0,0" />
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource LabelSuspicionReviewTemplate}" />
+                <Border x:Name="InferenceResultSourcePanel" Padding="0,8,0,0"
+                        Visibility="{Binding DataContext.ShellViewModel.IsInferenceControlsVisible, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel>
+                        <TextBlock Text="{Binding DataContext.ShellViewModel.InferencePartDecisionText, RelativeSource={RelativeSource AncestorType=Window}}" Foreground="{DynamicResource PrimaryTextBrush}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <Button Content="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfInference.Decision.Rule]}" Command="{Binding DataContext.ShellViewModel.OpenInferenceDecisionRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}" Style="{DynamicResource RecipeQuietButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,0" />
+                        <TextBlock x:Name="InferenceResultSourceText" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}"
+                                   Text="{Binding DataContext.ShellViewModel.InferenceResultSourceText, RelativeSource={RelativeSource AncestorType=Window}}" />
+                        <TextBlock x:Name="InferenceResultCountsText" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0" Foreground="{DynamicResource PrimaryTextBrush}"
+                                   Text="{Binding DataContext.ShellViewModel.InferenceResultCountsText, RelativeSource={RelativeSource AncestorType=Window}}" />
+                        <TextBlock x:Name="InferenceResultWarningText" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0" Foreground="{DynamicResource WarningBrush}"
+                                   Text="{Binding DataContext.ShellViewModel.InferenceResultWarningText, RelativeSource={RelativeSource AncestorType=Window}}">
+                            <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.InferenceResultWarningText, RelativeSource={RelativeSource AncestorType=Window}}" Value=""><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock x:Name="InferenceResultOutsideFilterText" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0" Foreground="{DynamicResource SecondaryTextBrush}"
+                                   Text="{Binding DataContext.ShellViewModel.InferenceResultOutsideFilterText, RelativeSource={RelativeSource AncestorType=Window}}"
+                                   Visibility="{Binding DataContext.ShellViewModel.IsInferenceResultOutsideFilter, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <WrapPanel Margin="0,6,0,0">
+                            <ui:Button x:Name="MarkInferenceResultSeenButton" Style="{StaticResource CandidateReviewButtonStyle}" Padding="7,4" FontSize="11"
+                                       AutomationProperties.AutomationId="MarkInferenceResultSeenButton"
+                                       Content="{Binding DataContext.LanguageViewModel[WpfInference.Seen.Mark], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfInference.Seen.Mark], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       Command="{Binding DataContext.ShellViewModel.MarkInferenceResultSeenCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                            <ui:Button x:Name="MarkInferenceResultSeenAndNextButton" Style="{StaticResource CandidateReviewButtonStyle}" Padding="7,4" FontSize="11"
+                                       AutomationProperties.AutomationId="MarkInferenceResultSeenAndNextButton"
+                                       Content="{Binding DataContext.LanguageViewModel[WpfInference.Seen.Next], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfInference.Seen.Next], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       Command="{Binding DataContext.ShellViewModel.MarkInferenceResultSeenAndNextCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                            <ui:Button x:Name="ShowInferenceResultsButton" Style="{StaticResource CandidateReviewButtonStyle}" Padding="7,4" FontSize="11" Margin="0,4,0,0"
+                                       AutomationProperties.AutomationId="ShowInferenceResultsButton"
+                                       Content="{Binding DataContext.LanguageViewModel[WpfInference.Seen.Results], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfInference.Seen.Results], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       Command="{Binding DataContext.ShellViewModel.ShowInferenceResultsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                        </WrapPanel>
+                        <TextBlock x:Name="InferenceResultReviewText" TextWrapping="Wrap" FontSize="10" Margin="0,4,0,0" Foreground="{DynamicResource SecondaryTextBrush}"
+                                   Text="{Binding DataContext.ShellViewModel.InferenceResultReviewText, RelativeSource={RelativeSource AncestorType=Window}}" />
+                    </StackPanel>
+                </Border>
                 <Grid x:Name="CandidateReviewWorkbenchSummaryGrid"
                       AutomationProperties.AutomationId="CandidateReviewWorkbenchSummaryGrid"
-                      Visibility="{Binding CandidateInteractionVisibility}"
                       Margin="0,6,0,0">
+                    <Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="{Binding CandidateInteractionVisibility}" /><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsInferenceResultReadOnly, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Grid.Style>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
@@ -284,7 +451,7 @@
                         <StackPanel>
                             <TextBlock Text="&#xD6C4;&#xBCF4;"
                                        Foreground="{DynamicResource DisabledTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="9"
                                        FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis" />
@@ -292,7 +459,7 @@
                                        AutomationProperties.AutomationId="CandidateReviewCandidateCountText"
                                        Text="{Binding CandidateCountSummaryText}"
                                        Foreground="{StaticResource CandidateReviewAiTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="10"
                                        FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis" />
@@ -310,7 +477,7 @@
                         <StackPanel>
                             <TextBlock Text="&#xAE30;&#xC900;"
                                        Foreground="{DynamicResource DisabledTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="9"
                                        FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis" />
@@ -318,7 +485,7 @@
                                        AutomationProperties.AutomationId="CandidateReviewConfidenceSummaryText"
                                        Text="{Binding ConfidenceText}"
                                        Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="10"
                                        FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis" />
@@ -336,7 +503,7 @@
                         <StackPanel>
                             <TextBlock Text="&#xC120;&#xD0DD;"
                                        Foreground="{DynamicResource DisabledTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="9"
                                        FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis" />
@@ -345,10 +512,10 @@
                                        Text="{Binding SelectedCandidateSummaryText}"
                                        ToolTip="{Binding SelectedCandidateSummaryText}"
                                        Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="10"
                                        FontWeight="SemiBold"
-                                       TextTrimming="CharacterEllipsis" />
+                                       TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
                     <Border x:Name="CandidateReviewNextStateCard"
@@ -364,7 +531,7 @@
                         <StackPanel>
                             <TextBlock Text="&#xB2E4;&#xC74C;"
                                        Foreground="{DynamicResource DisabledTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="9"
                                        FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis" />
@@ -373,10 +540,10 @@
                                        Text="{Binding CompletionNextActionText}"
                                        ToolTip="{Binding CompletionNextActionText}"
                                        Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="10"
                                        FontWeight="SemiBold"
-                                       TextTrimming="CharacterEllipsis" />
+                                       TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -384,7 +551,7 @@
                            AutomationProperties.AutomationId="CandidateReviewModeDetailText"
                            Text="{Binding PanelModeDetailText}"
                            Foreground="{DynamicResource SecondaryTextBrush}"
-                           FontFamily="Segoe UI"
+                           FontFamily="{DynamicResource UiFontFamily}"
                            FontSize="9"
                            TextWrapping="Wrap"
                            Visibility="Collapsed"
@@ -410,7 +577,7 @@
                                        AutomationProperties.AutomationId="CurrentImageReviewRoleTitleText"
                                        Text="{Binding CurrentImageReviewRoleTitleText}"
                                        Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="10"
                                        FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis" />
@@ -418,7 +585,7 @@
                                        AutomationProperties.AutomationId="CurrentImageReviewRoleDetailText"
                                        Text="{Binding CurrentImageReviewRoleDetailText}"
                                        Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="8.5"
                                        LineHeight="10"
                                        MaxHeight="22"
@@ -430,7 +597,7 @@
                                        AutomationProperties.AutomationId="CurrentImageReviewRoleResultText"
                                        Text="{Binding CurrentImageReviewRoleResultText}"
                                        Foreground="{StaticResource CandidateReviewAiTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="8.5"
                                        FontWeight="SemiBold"
                                        LineHeight="10"
@@ -455,7 +622,7 @@
                                        AutomationProperties.AutomationId="ModelValidationRoleTitleText"
                                        Text="{Binding ModelValidationRoleTitleText}"
                                        Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="10"
                                        FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis" />
@@ -463,7 +630,7 @@
                                        AutomationProperties.AutomationId="ModelValidationRoleDetailText"
                                        Text="{Binding ModelValidationRoleDetailText}"
                                        Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="8.5"
                                        LineHeight="10"
                                        MaxHeight="22"
@@ -475,7 +642,7 @@
                                        AutomationProperties.AutomationId="ModelValidationRoleResultText"
                                        Text="{Binding ModelValidationRoleResultText}"
                                        Foreground="{StaticResource CandidateReviewModelTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="8.5"
                                        FontWeight="SemiBold"
                                        LineHeight="10"
@@ -486,20 +653,11 @@
                         </StackPanel>
                     </Border>
                 </Grid>
-                <TextBlock x:Name="CandidateReviewActionGuideText"
-                           AutomationProperties.AutomationId="CandidateReviewActionGuideText"
-                           Text="{Binding ReviewActionGuideText}"
-                           Foreground="{StaticResource CandidateReviewAiTextBrush}"
-                           FontFamily="Segoe UI"
-                           FontSize="9"
-                           FontWeight="SemiBold"
-                           TextWrapping="Wrap"
-                           Visibility="Collapsed"
-                           Margin="0,5,0,0" />
+
             </StackPanel>
         </Border>
         <Grid x:Name="CandidateConfidenceFilterPanel"
-              Grid.Row="5"
+              Grid.Row="6"
               AutomationProperties.AutomationId="CandidateConfidenceFilterPanel"
               Visibility="{Binding CandidateInteractionVisibility}"
               Margin="0,0,0,8">
@@ -511,10 +669,11 @@
             <TextBlock Text="&#xC2E0;&#xB8B0;&#xB3C4;"
                        Style="{StaticResource CandidateReviewLabelStyle}" />
             <Slider x:Name="CandidateConfidenceSlider"
+                    Style="{DynamicResource RecipeSliderStyle}"
                     Grid.Column="1"
                     Minimum="0"
                     Maximum="1"
-                    Value="0"
+                    Value="{Binding DisplayConfidence, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                     TickFrequency="0.05"
                     IsSnapToTickEnabled="True"
                     VerticalAlignment="Center"
@@ -523,26 +682,70 @@
                        Grid.Column="2"
                        Text="{Binding ConfidenceText}"
                        Foreground="{DynamicResource SecondaryTextBrush}"
-                       FontFamily="Segoe UI"
+                       FontFamily="{DynamicResource UiFontFamily}"
                        FontSize="11"
                        HorizontalAlignment="Right"
                        VerticalAlignment="Center" />
         </Grid>
+        <Grid x:Name="CandidateClassFilterPanel"
+              Grid.Row="7"
+              Visibility="{Binding CandidateInteractionVisibility}"
+              Margin="0,0,0,8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="클래스"
+                       Style="{StaticResource CandidateReviewLabelStyle}"
+                       VerticalAlignment="Center"
+                       Margin="0,0,8,0" />
+            <ComboBox x:Name="CandidateClassFilterComboBox"
+                      Grid.Column="1"
+                      Height="Auto" MinHeight="26" Padding="6,2"
+                      ItemsSource="{Binding CandidateClassFilters}"
+                      SelectedItem="{Binding SelectedCandidateClassFilter, Mode=TwoWay}"
+                      ToolTip="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfCandidate.ClassFilter.ToolTip]}"
+                      AutomationProperties.AutomationId="CandidateClassFilterComboBox">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Grid.Row="1" Grid.ColumnSpan="2"
+                       Text="{Binding CandidateClassFilterSummaryText}"
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       FontFamily="{DynamicResource UiFontFamily}"
+                       FontSize="10"
+                       TextWrapping="Wrap"
+                       Margin="0,3,0,0" />
+        </Grid>
         <TextBlock x:Name="CandidateDetailText"
-                   Grid.Row="6"
+                   Grid.Row="1"
                    Text="{Binding DetailText}"
                    ToolTip="{Binding DetailText}"
-                   Visibility="{Binding CandidateInteractionVisibility}"
                    Foreground="{DynamicResource SecondaryTextBrush}"
-                   FontFamily="Segoe UI"
+                   FontFamily="{DynamicResource UiFontFamily}"
                    FontSize="12"
                    TextWrapping="Wrap"
-                   TextTrimming="CharacterEllipsis"
                    LineHeight="14"
-                   MaxHeight="32"
-                   Margin="0,0,0,8" />
+                   Margin="0,0,0,8">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding DetailText}" Value="">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
         <Border x:Name="ModelComparisonReviewPanel"
-                Grid.Row="4"
+                Grid.Row="5"
                 AutomationProperties.AutomationId="ModelComparisonReviewPanel"
                 Background="{DynamicResource CanvasBrush}"
                 BorderBrush="{DynamicResource BorderBrushDark}"
@@ -556,7 +759,7 @@
                            AutomationProperties.AutomationId="ModelComparisonSectionTitleText"
                            Text="{Binding ModelComparisonSectionTitleText}"
                            Foreground="{DynamicResource PrimaryTextBrush}"
-                           FontFamily="Segoe UI"
+                           FontFamily="{DynamicResource UiFontFamily}"
                            FontSize="12"
                            FontWeight="SemiBold"
                            TextWrapping="Wrap"
@@ -583,7 +786,7 @@
                         <StackPanel>
                             <TextBlock Text="&#xC0C1;&#xD0DC;"
                                        Foreground="{DynamicResource DisabledTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="9"
                                        FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis" />
@@ -592,13 +795,12 @@
                                        Text="{Binding ModelComparisonStatusText}"
                                        ToolTip="{Binding ModelComparisonStatusText}"
                                        Foreground="{StaticResource CandidateReviewModelTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="11"
                                        FontWeight="SemiBold"
                                        TextWrapping="Wrap"
-                                       TextTrimming="CharacterEllipsis"
-                                       LineHeight="12"
-                                       MaxHeight="26" />
+                                       TextTrimming="None"
+                                       LineHeight="14" />
                         </StackPanel>
                     </Border>
                     <Border x:Name="ModelQualitySourceCard"
@@ -613,7 +815,7 @@
                         <StackPanel>
                             <TextBlock Text="&#xADFC;&#xAC70;"
                                        Foreground="{DynamicResource DisabledTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="9"
                                        FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis" />
@@ -622,13 +824,12 @@
                                        Text="{Binding ModelComparisonSourceText}"
                                        ToolTip="{Binding ModelComparisonSourceText}"
                                        Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="11"
                                        FontWeight="SemiBold"
                                        TextWrapping="Wrap"
-                                       TextTrimming="CharacterEllipsis"
-                                       LineHeight="12"
-                                       MaxHeight="26" />
+                                       TextTrimming="None"
+                                       LineHeight="14" />
                         </StackPanel>
                     </Border>
                     <Border x:Name="ModelQualityDecisionCard"
@@ -643,7 +844,7 @@
                         <StackPanel>
                             <TextBlock Text="&#xD310;&#xC815;"
                                        Foreground="{DynamicResource DisabledTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="9"
                                        FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis" />
@@ -652,13 +853,12 @@
                                        Text="{Binding ModelComparisonDecisionText}"
                                        ToolTip="{Binding ModelComparisonDecisionText}"
                                        Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="11"
                                        FontWeight="SemiBold"
                                        TextWrapping="Wrap"
-                                       TextTrimming="CharacterEllipsis"
-                                       LineHeight="12"
-                                       MaxHeight="26" />
+                                       TextTrimming="None"
+                                       LineHeight="14" />
                         </StackPanel>
                     </Border>
                     <Border x:Name="ModelQualityNextActionCard"
@@ -674,7 +874,7 @@
                         <StackPanel>
                             <TextBlock Text="&#xB2E4;&#xC74C;"
                                        Foreground="{DynamicResource DisabledTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="9"
                                        FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis" />
@@ -683,13 +883,12 @@
                                        Text="{Binding ModelComparisonActionText}"
                                        ToolTip="{Binding ModelComparisonActionText}"
                                        Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="11"
                                        FontWeight="SemiBold"
                                        TextWrapping="Wrap"
-                                       TextTrimming="CharacterEllipsis"
-                                       LineHeight="12"
-                                       MaxHeight="26" />
+                                       TextTrimming="None"
+                                       LineHeight="14" />
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -700,9 +899,9 @@
                     <Border Height="1"
                             Background="{DynamicResource BorderBrushDark}"
                             Margin="0,0,0,5" />
-                    <TextBlock Text="&#xC815;&#xD655;&#xB3C4; / &#xBAA8;&#xB378; Takt"
+                    <TextBlock Text="&#xC815;&#xD655;&#xB3C4; / &#xBAA8;&#xB378; &#xCC98;&#xB9AC; &#xC2DC;&#xAC04;"
                                Foreground="{DynamicResource DisabledTextBrush}"
-                               FontFamily="Segoe UI"
+                               FontFamily="{DynamicResource UiFontFamily}"
                                FontSize="9"
                                FontWeight="SemiBold"
                                Margin="0,0,0,2" />
@@ -711,7 +910,7 @@
                                Text="{Binding ModelComparisonBenchmarkText}"
                                ToolTip="{Binding ModelComparisonBenchmarkText}"
                                Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
+                               FontFamily="{DynamicResource UiFontFamily}"
                                FontSize="9"
                                FontWeight="SemiBold"
                                LineHeight="12"
@@ -722,7 +921,7 @@
                            Text="{Binding ModelComparisonSourceText}"
                            ToolTip="{Binding ModelComparisonSourceText}"
                            Foreground="{StaticResource CandidateReviewModelTextBrush}"
-                           FontFamily="Segoe UI"
+                           FontFamily="{DynamicResource UiFontFamily}"
                            FontSize="9.5"
                            FontWeight="SemiBold"
                            TextWrapping="Wrap"
@@ -735,7 +934,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="&#xBAA8;&#xB378; &#xBE44;&#xAD50; &#xC0C1;&#xD0DC;"
                                Foreground="{DynamicResource DisabledTextBrush}"
-                               FontFamily="Segoe UI"
+                               FontFamily="{DynamicResource UiFontFamily}"
                                FontSize="10"
                                FontWeight="SemiBold"
                                Margin="0,0,8,0"
@@ -745,16 +944,17 @@
                                AutomationProperties.AutomationId="ModelComparisonStatusText"
                                Text="{Binding ModelComparisonStatusText}"
                                Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
+                               FontFamily="{DynamicResource UiFontFamily}"
                                FontSize="11"
                                FontWeight="SemiBold"
                                TextWrapping="Wrap" />
                 </Grid>
+                <local:WpfModelComparisonPreviewPanel Margin="0,8,0,8" />
                 <TextBlock x:Name="ModelComparisonDetailText"
                            AutomationProperties.AutomationId="ModelComparisonDetailText"
                            Text="{Binding ModelComparisonDetailText}"
                            Foreground="{DynamicResource SecondaryTextBrush}"
-                           FontFamily="Segoe UI"
+                           FontFamily="{DynamicResource UiFontFamily}"
                            FontSize="9"
                            TextWrapping="Wrap"
                            Visibility="Collapsed"
@@ -763,7 +963,7 @@
                            AutomationProperties.AutomationId="ModelComparisonActionText"
                            Text="{Binding ModelComparisonActionText}"
                            Foreground="{StaticResource CandidateReviewModelTextBrush}"
-                           FontFamily="Segoe UI"
+                           FontFamily="{DynamicResource UiFontFamily}"
                            FontSize="9"
                            FontWeight="SemiBold"
                            TextWrapping="Wrap"
@@ -786,7 +986,7 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="&#xD6C4;&#xBCF4; &#xACB0;&#xC815;"
                                        Foreground="{DynamicResource DisabledTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="10"
                                        FontWeight="SemiBold"
                                        Margin="0,0,8,0"
@@ -796,7 +996,7 @@
                                        AutomationProperties.AutomationId="ModelCandidateDecisionStatusText"
                                        Text="{Binding ModelCandidateDecisionStatusText}"
                                        Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="10.5"
                                        FontWeight="SemiBold"
                                        TextWrapping="Wrap" />
@@ -805,7 +1005,7 @@
                                    AutomationProperties.AutomationId="ModelCandidateDecisionDetailText"
                                    Text="{Binding ModelCandidateDecisionDetailText}"
                                    Foreground="{DynamicResource SecondaryTextBrush}"
-                                   FontFamily="Segoe UI"
+                                   FontFamily="{DynamicResource UiFontFamily}"
                                    FontSize="9"
                                    TextWrapping="Wrap"
                                    Margin="0,3,0,6" />
@@ -850,7 +1050,7 @@
                                    AutomationProperties.AutomationId="ModelComparisonExampleSummaryText"
                                    Text="{Binding ModelComparisonExampleSummaryText}"
                                    Foreground="{DynamicResource SecondaryTextBrush}"
-                                   FontFamily="Segoe UI"
+                                   FontFamily="{DynamicResource UiFontFamily}"
                                    FontSize="9"
                                    TextWrapping="Wrap"
                                    Margin="0,0,0,2" />
@@ -873,7 +1073,7 @@
             </StackPanel>
         </Border>
         <Border x:Name="SelectedCandidateSummaryPanel"
-                Grid.Row="2"
+                Grid.Row="3"
                 Visibility="{Binding CandidateInteractionVisibility}"
                 Background="{DynamicResource ToolbarButtonBrush}"
                 BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
@@ -893,7 +1093,7 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="&#xC120;&#xD0DD; &#xD6C4;&#xBCF4;"
                            Foreground="{DynamicResource DisabledTextBrush}"
-                           FontFamily="Segoe UI"
+                           FontFamily="{DynamicResource UiFontFamily}"
                            FontSize="10"
                            FontWeight="SemiBold"
                            Margin="0,0,8,0"
@@ -903,7 +1103,7 @@
                            Text="{Binding SelectedCandidateSummaryText}"
                            ToolTip="{Binding SelectedCandidateSummaryText}"
                            Foreground="{DynamicResource PrimaryTextBrush}"
-                           FontFamily="Segoe UI"
+                           FontFamily="{DynamicResource UiFontFamily}"
                            FontSize="11"
                            FontWeight="SemiBold"
                            TextWrapping="Wrap"
@@ -934,7 +1134,7 @@
                            ToolTip="{Binding PatchCoreHeatmapToolTip}"
                            Visibility="{Binding PatchCoreHeatmapVisibility}"
                            Foreground="{DynamicResource SecondaryTextBrush}"
-                           FontFamily="Segoe UI"
+                           FontFamily="{DynamicResource UiFontFamily}"
                            FontSize="8.5"
                            TextTrimming="CharacterEllipsis"
                            Margin="0,3,0,0">
@@ -945,7 +1145,7 @@
             </Grid>
         </Border>
         <Border x:Name="CandidateComparisonPanel"
-                Grid.Row="3"
+                Grid.Row="4"
                 Style="{StaticResource CandidateComparisonPanelStyle}"
                 Visibility="{Binding ComparisonVisibility}">
             <Grid>
@@ -963,14 +1163,14 @@
                 <TextBlock Text="AI &#xD6C4;&#xBCF4;"
                            Grid.Row="1"
                            Foreground="{DynamicResource DisabledTextBrush}"
-                           FontFamily="Segoe UI"
+                           FontFamily="{DynamicResource UiFontFamily}"
                            FontSize="10"
                            FontWeight="SemiBold" />
                 <TextBlock Grid.Row="1"
                            Grid.Column="2"
                            Text="&#xD604;&#xC7AC; &#xB77C;&#xBCA8;"
                            Foreground="{DynamicResource DisabledTextBrush}"
-                           FontFamily="Segoe UI"
+                           FontFamily="{DynamicResource UiFontFamily}"
                            FontSize="10"
                            FontWeight="SemiBold" />
                 <TextBlock x:Name="CandidateCompareCandidateText"
@@ -978,7 +1178,7 @@
                            Text="{Binding ComparisonCandidateText}"
                            ToolTip="{Binding ComparisonCandidateText}"
                            Foreground="{DynamicResource PrimaryTextBrush}"
-                           FontFamily="Segoe UI"
+                           FontFamily="{DynamicResource UiFontFamily}"
                            FontSize="11"
                            TextWrapping="Wrap"
                            TextTrimming="CharacterEllipsis"
@@ -991,7 +1191,7 @@
                            Text="{Binding ComparisonCurrentText}"
                            ToolTip="{Binding ComparisonCurrentText}"
                            Foreground="{DynamicResource PrimaryTextBrush}"
-                           FontFamily="Segoe UI"
+                           FontFamily="{DynamicResource UiFontFamily}"
                            FontSize="11"
                            TextWrapping="Wrap"
                            TextTrimming="CharacterEllipsis"
@@ -1019,102 +1219,151 @@
                                AutomationProperties.AutomationId="CandidateReviewDecisionTitleText"
                                Text="&#xD6C4;&#xBCF4; &#xC774;&#xB3D9; / &#xACB0;&#xC815;"
                                Foreground="{StaticResource CandidateReviewAiTextBrush}"
-                               FontFamily="Segoe UI"
+                               FontFamily="{DynamicResource UiFontFamily}"
                                FontSize="10"
                                FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis"
                                Margin="0,0,0,5" />
-                    <UniformGrid Columns="4">
+                    <UniformGrid Columns="2">
                         <ui:Button x:Name="PreviousCandidateButton"
+                                   HorizontalContentAlignment="Stretch"
                                    Style="{StaticResource CandidateReviewButtonStyle}"
                                    AutomationProperties.AutomationId="PreviousCandidateButton"
                                    AutomationProperties.Name="&#xC774;&#xC804; &#xD6C4;&#xBCF4;"
                                    ToolTip="&#xC774;&#xC804; AI &#xD6C4;&#xBCF4;&#xB97C; &#xC120;&#xD0DD;&#xD569;&#xB2C8;&#xB2E4;."
                                    IsEnabled="{Binding IsPreviousCandidateEnabled}"
                                    Command="{Binding PreviousCandidateCommand}">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Grid VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
                                 <iconPacks:PackIconMaterial Style="{StaticResource CandidateReviewIconStyle}" Kind="ChevronUp" />
-                                <TextBlock Text="&#xC774;&#xC804; &#xD6C4;&#xBCF4;" VerticalAlignment="Center" />
-                            </StackPanel>
+                                <TextBlock Grid.Column="1" TextWrapping="Wrap" Text="&#xC774;&#xC804; &#xD6C4;&#xBCF4;" VerticalAlignment="Center" />
+                            </Grid>
                         </ui:Button>
                         <ui:Button x:Name="FocusCandidateButton"
+                                   HorizontalContentAlignment="Stretch"
                                    Style="{StaticResource CandidateReviewButtonStyle}"
                                    AutomationProperties.AutomationId="FocusCandidateButton"
                                    AutomationProperties.Name="&#xD6C4;&#xBCF4; &#xCD08;&#xC810;"
                                    ToolTip="&#xC120;&#xD0DD;&#xD55C; AI &#xD6C4;&#xBCF4;&#xB97C; &#xCE94;&#xBC84;&#xC2A4; &#xAC00;&#xC6B4;&#xB370;&#xB85C; &#xAC00;&#xC838;&#xC635;&#xB2C8;&#xB2E4;."
                                    IsEnabled="{Binding IsFocusCandidateEnabled}"
                                    Command="{Binding FocusCandidateCommand}">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Grid VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
                                 <iconPacks:PackIconMaterial Style="{StaticResource CandidateReviewIconStyle}" Kind="CrosshairsGps" />
-                                <TextBlock Text="&#xD6C4;&#xBCF4; &#xC704;&#xCE58;" VerticalAlignment="Center" />
-                            </StackPanel>
+                                <TextBlock Grid.Column="1" TextWrapping="Wrap" Text="&#xD6C4;&#xBCF4; &#xC704;&#xCE58;" VerticalAlignment="Center" />
+                            </Grid>
                         </ui:Button>
                         <ui:Button x:Name="FocusCurrentLabelButton"
+                                   HorizontalContentAlignment="Stretch"
                                    Style="{StaticResource CandidateReviewButtonStyle}"
                                    AutomationProperties.AutomationId="FocusCurrentLabelButton"
                                    AutomationProperties.Name="&#xAE30;&#xC874; &#xB77C;&#xBCA8; &#xC120;&#xD0DD;"
                                    ToolTip="{Binding FocusCurrentLabelToolTip}"
                                    IsEnabled="{Binding IsFocusCurrentLabelEnabled}"
                                    Command="{Binding FocusCurrentLabelCommand}">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Grid VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
                                 <iconPacks:PackIconMaterial Style="{StaticResource CandidateReviewIconStyle}" Kind="CrosshairsGps" />
-                                <TextBlock Text="&#xAE30;&#xC874; &#xB77C;&#xBCA8;" VerticalAlignment="Center" />
-                            </StackPanel>
+                                <TextBlock Grid.Column="1" TextWrapping="Wrap" Text="&#xAE30;&#xC874; &#xB77C;&#xBCA8;" VerticalAlignment="Center" />
+                            </Grid>
                         </ui:Button>
                         <ui:Button x:Name="NextCandidateButton"
+                                   HorizontalContentAlignment="Stretch"
                                    Style="{StaticResource CandidateReviewButtonStyle}"
                                    AutomationProperties.AutomationId="NextCandidateButton"
                                    AutomationProperties.Name="&#xB2E4;&#xC74C; &#xD6C4;&#xBCF4;"
                                    ToolTip="&#xB2E4;&#xC74C; AI &#xD6C4;&#xBCF4;&#xB97C; &#xC120;&#xD0DD;&#xD569;&#xB2C8;&#xB2E4;."
                                    IsEnabled="{Binding IsNextCandidateEnabled}"
                                    Command="{Binding NextCandidateCommand}">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Grid VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
                                 <iconPacks:PackIconMaterial Style="{StaticResource CandidateReviewIconStyle}" Kind="ChevronDown" />
-                                <TextBlock Text="&#xB2E4;&#xC74C; &#xD6C4;&#xBCF4;" VerticalAlignment="Center" />
-                            </StackPanel>
+                                <TextBlock Grid.Column="1" TextWrapping="Wrap" Text="&#xB2E4;&#xC74C; &#xD6C4;&#xBCF4;" VerticalAlignment="Center" />
+                            </Grid>
                         </ui:Button>
                     </UniformGrid>
-                    <UniformGrid Columns="3" Margin="0,5,0,0">
+                    <UniformGrid Columns="2" Margin="0,5,0,0">
                         <ui:Button x:Name="ConfirmSelectedCandidateButton"
+                                   HorizontalContentAlignment="Stretch"
                                    Style="{StaticResource CandidateReviewButtonStyle}"
                                    AutomationProperties.AutomationId="ConfirmSelectedCandidateButton"
-                                   AutomationProperties.Name="&#xC120;&#xD0DD; &#xD655;&#xC815;"
+                                   AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfCandidate.ConfirmSelected.Save], RelativeSource={RelativeSource AncestorType=Window}}"
+                                   AutomationProperties.HelpText="{Binding DataContext.LanguageViewModel[WpfCandidate.Draft.ConfirmSelectedHint], RelativeSource={RelativeSource AncestorType=Window}}"
                                    ToolTip="{Binding ConfirmSelectedToolTip}"
                                    IsEnabled="{Binding IsConfirmSelectedEnabled}"
                                    Command="{Binding ConfirmSelectedCommand}">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Grid VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
                                 <iconPacks:PackIconMaterial Style="{StaticResource CandidateReviewIconStyle}" Kind="CheckboxMarkedCircleOutline" />
-                                <TextBlock Text="&#xB77C;&#xBCA8; &#xD655;&#xC815;" VerticalAlignment="Center" />
-                            </StackPanel>
+                                <TextBlock Grid.Column="1" Text="{Binding DataContext.LanguageViewModel[WpfCandidate.ConfirmSelected.Save], RelativeSource={RelativeSource AncestorType=Window}}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                            </Grid>
                         </ui:Button>
                         <ui:Button x:Name="ConfirmAllCandidatesButton"
+                                   HorizontalContentAlignment="Stretch"
                                    Style="{StaticResource CandidateReviewButtonStyle}"
-                                   AutomationProperties.Name="&#xC804;&#xCCB4; &#xD655;&#xC815;"
+                                   AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfCandidate.ConfirmVisible.Save], RelativeSource={RelativeSource AncestorType=Window}}"
                                    ToolTip="{Binding ConfirmAllToolTip}"
                                    IsEnabled="{Binding IsConfirmAllEnabled}"
                                    Command="{Binding ConfirmAllCommand}">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Grid VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
                                 <iconPacks:PackIconMaterial Style="{StaticResource CandidateReviewIconStyle}" Kind="CheckAll" />
-                                <TextBlock Text="&#xC804;&#xCCB4; &#xB77C;&#xBCA8;&#xD654;" VerticalAlignment="Center" />
-                            </StackPanel>
+                                <TextBlock Grid.Column="1" Text="{Binding DataContext.LanguageViewModel[WpfCandidate.ConfirmVisible.Save], RelativeSource={RelativeSource AncestorType=Window}}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                            </Grid>
                         </ui:Button>
                         <ui:Button x:Name="SkipSelectedCandidateButton"
+                                   HorizontalContentAlignment="Stretch"
                                    Style="{StaticResource CandidateReviewButtonStyle}"
-                                   AutomationProperties.Name="&#xC2A4;&#xD0B5;"
+                                   AutomationProperties.AutomationId="SkipSelectedCandidateButton"
+                                   AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfCandidate.Skip.Hide], RelativeSource={RelativeSource AncestorType=Window}}"
                                    ToolTip="{Binding SkipSelectedToolTip}"
                                    IsEnabled="{Binding IsSkipSelectedEnabled}"
                                    Command="{Binding SkipSelectedCommand}">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Grid VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
                                 <iconPacks:PackIconMaterial Style="{StaticResource CandidateReviewIconStyle}" Kind="SkipNext" />
-                                <TextBlock Text="&#xD6C4;&#xBCF4; &#xC228;&#xAE40;" VerticalAlignment="Center" />
-                            </StackPanel>
+                                <TextBlock Grid.Column="1" TextWrapping="Wrap" Text="{Binding DataContext.LanguageViewModel[WpfCandidate.Skip.Hide], RelativeSource={RelativeSource AncestorType=Window}}" VerticalAlignment="Center" />
+                            </Grid>
                         </ui:Button>
                     </UniformGrid>
+                <TextBlock x:Name="CandidateReviewActionGuideText"
+                           AutomationProperties.AutomationId="CandidateReviewActionGuideText"
+
+                           Foreground="{StaticResource CandidateReviewAiTextBrush}"
+                           FontFamily="{DynamicResource UiFontFamily}"
+                           FontSize="10"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap"
+                           Visibility="{Binding CandidateInteractionVisibility}"
+                           Margin="0,5,0,0">
+                    <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="{Binding DataContext.LanguageViewModel[WpfInference.ResultOnly.Panel.Detail], RelativeSource={RelativeSource AncestorType=Window}}" /><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsInferenceResultReadOnly, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"><Setter Property="Text" Value="{Binding DataContext.LanguageViewModel[WpfCandidate.Action.Guide], RelativeSource={RelativeSource AncestorType=Window}}" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                </TextBlock>
                 </StackPanel>
             </Grid>
         </Border>
         <Border x:Name="CandidateCompletionStatePanel"
-                Grid.Row="1"
+                Grid.Row="2"
                 AutomationProperties.AutomationId="CandidateCompletionStatePanel"
                 Background="{DynamicResource CanvasBrush}"
                 BorderBrush="{DynamicResource BorderBrushDark}"
@@ -1122,6 +1371,15 @@
                 CornerRadius="5"
                 Padding="8,6"
                 Margin="0,0,0,8">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsInferenceResultReadOnly, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -1133,15 +1391,15 @@
                                AutomationProperties.AutomationId="CandidateCompletionTitleText"
                                Text="{Binding CompletionTitleText}"
                                Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
+                               FontFamily="{DynamicResource UiFontFamily}"
                                FontSize="11"
                                FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis" />
+                               TextWrapping="Wrap" />
                     <TextBlock x:Name="CandidateCompletionDetailText"
                                AutomationProperties.AutomationId="CandidateCompletionDetailText"
                                Text="{Binding CompletionDetailText}"
                                Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
+                               FontFamily="{DynamicResource UiFontFamily}"
                                FontSize="10"
                                TextWrapping="Wrap"
                                Margin="0,2,0,0" />
@@ -1149,7 +1407,7 @@
                                AutomationProperties.AutomationId="CandidateCompletionNextActionText"
                                Text="{Binding CompletionNextActionText}"
                                Foreground="{DynamicResource AccentBrush}"
-                               FontFamily="Segoe UI"
+                               FontFamily="{DynamicResource UiFontFamily}"
                                FontSize="10"
                                FontWeight="SemiBold"
                                TextWrapping="Wrap"
@@ -1159,6 +1417,7 @@
                             Width="104"
                             VerticalAlignment="Center">
                     <ui:Button x:Name="CompleteImageAndNextButton"
+                                   HorizontalContentAlignment="Stretch"
                                Style="{StaticResource CandidateReviewButtonStyle}"
                                AutomationProperties.AutomationId="CompleteImageAndNextButton"
                                AutomationProperties.Name="{Binding CompleteImageAndNextActionText}"
@@ -1167,26 +1426,30 @@
                                Command="{Binding CompleteImageAndNextCommand}"
                                HorizontalAlignment="Stretch"
                                Margin="0">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Grid VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
                             <iconPacks:PackIconMaterial Style="{StaticResource CandidateReviewIconStyle}" Kind="ArrowRightBoldCircleOutline" />
-                            <TextBlock x:Name="CompleteImageAndNextActionText"
+                            <TextBlock Grid.Column="1" TextWrapping="Wrap" x:Name="CompleteImageAndNextActionText"
                                        Text="{Binding CompleteImageAndNextActionText}"
                                        VerticalAlignment="Center" />
-                        </StackPanel>
+                            </Grid>
                     </ui:Button>
                     <TextBlock x:Name="CandidatePostActionPolicyText"
                                Text="{Binding PostActionPolicyText}"
                                Foreground="{DynamicResource DisabledTextBrush}"
-                               FontFamily="Segoe UI"
+                               FontFamily="{DynamicResource UiFontFamily}"
                                FontSize="9"
                                Margin="0,4,0,0"
                                TextAlignment="Center"
-                               TextTrimming="CharacterEllipsis" />
+                               TextWrapping="Wrap" />
                 </StackPanel>
             </Grid>
         </Border>
         <Border x:Name="CandidateReviewHistoryPanel"
-                 Grid.Row="7"
+                 Grid.Row="8"
                 Background="{DynamicResource CanvasBrush}"
                 BorderBrush="{DynamicResource BorderBrushDark}"
                 BorderThickness="1"
@@ -1205,7 +1468,7 @@
                                AutomationProperties.AutomationId="CandidateReviewHistorySummaryText"
                                Text="{Binding ReviewHistorySummaryText}"
                                Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
+                               FontFamily="{DynamicResource UiFontFamily}"
                                FontSize="9"
                                TextWrapping="Wrap"
                                Margin="0,0,0,3" />
@@ -1215,7 +1478,7 @@
                             <DataTemplate>
                                 <TextBlock Text="{Binding}"
                                            Foreground="{DynamicResource SecondaryTextBrush}"
-                                           FontFamily="Segoe UI"
+                                           FontFamily="{DynamicResource UiFontFamily}"
                                            FontSize="10"
                                            TextTrimming="CharacterEllipsis"
                                            Margin="0,1,0,0" />
@@ -1226,7 +1489,7 @@
             </Expander>
         </Border>
         <ListBox x:Name="CandidateListBox"
-                 Grid.Row="8"
+                 Grid.Row="9"
                  Visibility="{Binding CandidateInteractionVisibility}"
                  Background="Transparent"
                  BorderThickness="0"
@@ -1234,6 +1497,8 @@
                  ItemsSource="{Binding Candidates}"
                  SelectedItem="{Binding SelectedCandidate, Mode=TwoWay}"
                  ItemContainerStyle="{StaticResource CandidateReviewListBoxItemStyle}"
+                 MinHeight="80"
+                 MaxHeight="220"
                  ScrollViewer.CanContentScroll="True"
                  VirtualizingPanel.IsVirtualizing="True"
                  VirtualizingPanel.VirtualizationMode="Recycling"
@@ -1254,11 +1519,11 @@
                                                     VerticalAlignment="Top" />
                         <StackPanel Grid.Column="1">
                             <TextBlock Text="{Binding Title}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="12"
                                        TextTrimming="CharacterEllipsis" />
                             <TextBlock Text="{Binding SecondaryText}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="11"
                                        TextTrimming="CharacterEllipsis" />
                         </StackPanel>
@@ -1266,5 +1531,21 @@
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
+    </Grid>
+    </Grid>
+    </ScrollViewer>
+    <Border x:Name="InferenceActionsFooter" Grid.Row="2" Padding="14,12"
+            DataContext="{Binding DataContext.ShellViewModel, RelativeSource={RelativeSource AncestorType=Window}}"
+            Background="{DynamicResource PanelHeaderBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,1,0,0"
+            TextElement.FontFamily="{DynamicResource UiFontFamily}" TextElement.FontSize="13" TextElement.Foreground="{DynamicResource RecipeTextBrush}">
+        <Border.Style>
+            <Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding IsInferenceStageActive}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style>
+        </Border.Style>
+        <StackPanel>
+            <Button x:Name="InferenceSendToLabelingButton" MinHeight="31" FontSize="13" FontWeight="Normal" Padding="10,5" Content="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfInference.Transfer.Action]}" Command="{Binding SendInferenceResultsToLabelingCommand}" Style="{DynamicResource RecipeSecondaryButtonStyle}" />
+            <Button x:Name="InferenceExportResultsButton" MinHeight="31" FontSize="13" FontWeight="Normal" Padding="10,5" Content="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfInference.Export.Action]}" Command="{Binding ExportInferenceResultsCommand}" Style="{DynamicResource RecipeSecondaryButtonStyle}" Margin="0,8,0,0" ToolTip="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfInference.Export.Scope]}" AutomationProperties.HelpText="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfInference.Export.Scope]}" />
+            <TextBlock Text="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfInference.Workspace.ResultBoundary]}" Foreground="{DynamicResource RecipeDisabledTextBrush}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" Margin="0,8,0,0" />
+        </StackPanel>
+    </Border>
     </Grid>
 </UserControl>

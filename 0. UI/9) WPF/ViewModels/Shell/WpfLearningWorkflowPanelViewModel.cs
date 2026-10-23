@@ -2,6 +2,7 @@ using MahApps.Metro.IconPacks;
 using OpenVisionLab;
 using OpenVisionLab.Mvvm;
 using MvcVisionSystem.Yolo;
+using MvcVisionSystem._1._Core;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -34,6 +35,7 @@ namespace MvcVisionSystem
         private WpfLearningModeItem selectedMode;
         private WpfLearningModeItem selectedDatasetPurposeMode;
         private WpfAnnotationToolItem selectedTool;
+        private bool isRefreshingAnnotationToolScope;
         private WpfLearningStepItem selectedStep;
         private string datasetPurposeSummaryText = string.Empty;
         private string datasetPurposeToolSummaryText = string.Empty;
@@ -43,7 +45,7 @@ namespace MvcVisionSystem
         private string datasetSetupStatusText = "\uB370\uC774\uD130\uC14B \uC2DC\uC791 \uC804";
         private string currentLabelingTaskStepText = "\uC0D8\uD50C";
         private string currentLabelingTaskToolText = "\uB3C4\uAD6C: \uC120\uD0DD";
-        private string currentLabelingTaskActionText = "\uC774\uBBF8\uC9C0 \uD050\uC5D0\uC11C \uC791\uC5C5\uD560 \uC774\uBBF8\uC9C0\uB97C \uC5F4\uACE0 \uCCAB \uB77C\uBCA8\uC744 \uC2DC\uC791\uD558\uC138\uC694.";
+        private string currentLabelingTaskActionText = "\uC774\uBBF8\uC9C0 \uBAA9\uB85D\uC5D0\uC11C \uC791\uC5C5\uD560 \uC774\uBBF8\uC9C0\uB97C \uC5F4\uACE0 \uB77C\uBCA8\uB9C1\uC744 \uC2DC\uC791\uD558\uC138\uC694.";
         private string currentLabelingTaskChecklistFirstText = "1  \uC774\uBBF8\uC9C0";
         private string currentLabelingTaskChecklistSecondText = "2  \uC5F4\uAE30";
         private string currentLabelingTaskChecklistThirdText = "3  \uB77C\uBCA8";
@@ -71,6 +73,7 @@ namespace MvcVisionSystem
         private string modelReplacementDetailText = ModelReplacementLocalizationService.CreateInitial().DetailText;
         private string trainingHistoryText = string.Empty;
         private string trainingResultComparisonSummaryText = string.Empty;
+        private PythonModelRuntimeState trainingRuntimeEvidence;
         private string trainingResultComparisonText = string.Empty;
         private string trainingModelAdoptionDecisionText = string.Empty;
         private string trainingModelLifecycleCurrentText = T("WpfLearningWorkflow.TrainingModelLifecycle.Current.Initial");
@@ -97,7 +100,7 @@ namespace MvcVisionSystem
         private bool isYoloFixLabelsEnabled;
         private bool isYoloFixDatasetEnabled = true;
         private int brushSize = CanvasBrushSizePresentationService.DefaultSize;
-        private double maskOpacity = 0.66;
+        private double maskOpacity = CanvasLayerPresentationWorkflowService.DefaultLabelOverlayOpacity;
         private ICommand datasetPurposeSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private ICommand datasetSetupStartCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private ICommand datasetOpenExistingCommand = new RelayCommand(NoOpCommand);
@@ -121,6 +124,7 @@ namespace MvcVisionSystem
         private ICommand templateBatchCommand = new RelayCommand(NoOpCommand);
         private Action<WpfLearningModeWorkflowAction> learningModeWorkflowAction = _ => { };
         private Action<WpfLearningStepWorkflowAction> learningStepWorkflowAction = _ => { };
+        private WpfLearningStepItem suppressedProgrammaticStepSelection;
         private Action<WpfAnnotationToolItem> annotationToolSelectionAction = _ => { };
         private Func<WpfLearningModeItem, bool> datasetPurposeSelectionGuard = _ => true;
         private Action<LabelingDatasetPurpose> datasetPurposeSelectionAction = _ => { };
@@ -394,11 +398,16 @@ namespace MvcVisionSystem
 
         public string TutorialTitleText => "\uCC98\uC74C 10\uBD84 \uD29C\uD1A0\uB9AC\uC5BC";
 
-        public string TutorialSummaryText => "\uAE43\uD5C8\uBE0C\uC5D0\uC11C \uBC1B\uC740 \uD6C4 \uC0D8\uD50C \uC774\uBBF8\uC9C0, \uB77C\uBCA8, \uD559\uC2B5, \uCD94\uB860 \uAC80\uD1A0\uAE4C\uC9C0 \uC544\uB798 \uC21C\uC11C\uB300\uB85C \uB530\uB77C\uD569\uB2C8\uB2E4.";
+        public string TutorialSummaryText => T("WpfLearningWorkflow.TutorialSummary");
+
+        public string TrainingRuntimeEvidenceText => trainingRuntimeEvidence == null ? T("WpfTraining.Readiness.RuntimeUnknown") : trainingRuntimeEvidence.SummaryText + Environment.NewLine + trainingRuntimeEvidence.DetailText + Environment.NewLine + trainingRuntimeEvidence.NextActionText;
+        public void SetTrainingRuntimeEvidence(PythonModelRuntimeState state) { trainingRuntimeEvidence = state; OnPropertyChanged(nameof(TrainingRuntimeEvidenceText)); }
+
+        public IEnumerable<WpfDatasetDashboardMetricItem> TrainingPreparationMetrics => DatasetDashboardMetrics.Where(item => item.ActionKind == WpfDatasetDashboardActionKind.OpenLabelingProgress || item.ActionKind == WpfDatasetDashboardActionKind.OpenDatasetSettings || item.ActionKind == WpfDatasetDashboardActionKind.OpenClassCatalog || item.ActionKind == WpfDatasetDashboardActionKind.ExportQualityAudit);
 
         public string TutorialHtmlPathText => "HTML: docs/tutorial/labeling-workbench-tutorial.html";
 
-        public string TrainingWorkflowSummaryText => "\uB370\uC774\uD130\uC14B \u2192 \uC774\uBBF8\uC9C0 \u2192 \uD074\uB798\uC2A4 \u2192 \uB77C\uBCA8 \u2192 \uC810\uAC80 \u2192 \uD559\uC2B5 \u2192 \uCD94\uB860/\uAC80\uD1A0";
+        public string TrainingWorkflowSummaryText => T("WpfLearningWorkflow.TrainingWorkflowSummary");
 
         public string GuideToolsRoleTitleText => T("WpfLearningWorkflow.GuideToolsRoleTitle");
 
@@ -406,19 +415,19 @@ namespace MvcVisionSystem
 
         public string GuideToolsHelperTaskText => T("WpfLearningWorkflow.GuideToolsHelperTask");
 
-        public string TemplateWorkflowTitleText => "\uD15C\uD50C\uB9BF \uBC18\uBCF5 \uB77C\uBCA8\uB9C1";
+        public string TemplateWorkflowTitleText => T("WpfLearningWorkflow.Template.Title");
 
-        public string TemplateWorkflowRoleText => "\uBCF4\uC870 \uB3C4\uAD6C: \uD604\uC7AC \uC774\uBBF8\uC9C0\uB294 \uB77C\uBCA8 \uCD08\uC548\uC744 \uB9CC\uB4E4\uACE0, \uC704\uCE58 \uD655\uC778 \uD6C4 \uB77C\uBCA8 \uC800\uC7A5\uC744 \uB20C\uB7EC\uC57C \uD559\uC2B5\uC5D0 \uBC18\uC601\uB429\uB2C8\uB2E4. \uC804\uCCB4 \uC774\uBBF8\uC9C0\uB294 \uB77C\uBCA8 \uC5C6\uB294 \uD56D\uBAA9\uC5D0 \uBC14\uB85C \uC800\uC7A5\uD569\uB2C8\uB2E4.";
+        public string TemplateWorkflowRoleText => T("WpfLearningWorkflow.Template.Role");
 
-        public string TemplateWorkflowSummaryText => "\uAE30\uC900 \uB77C\uBCA8 1\uAC1C\uB97C \uB4F1\uB85D\uD55C \uB4A4 \uD604\uC7AC \uC774\uBBF8\uC9C0\uC5D0\uB294 \uB77C\uBCA8 \uCD08\uC548\uC744, \uC804\uCCB4 \uC774\uBBF8\uC9C0\uC5D0\uB294 \uC800\uC7A5 \uB77C\uBCA8\uC744 \uCD94\uAC00\uD569\uB2C8\uB2E4.";
+        public string TemplateWorkflowSummaryText => T("WpfLearningWorkflow.Template.Summary");
 
-        public string TemplateCurrentActionText => "\uD604\uC7AC \uC774\uBBF8\uC9C0 \uCD08\uC548";
+        public string TemplateCurrentActionText => T("WpfLearningWorkflow.Template.CurrentAction");
 
-        public string TemplateBatchActionText => "\uC804\uCCB4 \uC790\uB3D9 \uC800\uC7A5";
+        public string TemplateBatchActionText => T("WpfImageQueue.Action.Template.Text");
 
-        public string TemplateCurrentActionToolTipText => "\uC120\uD0DD\uD55C \uAE30\uC900 \uB77C\uBCA8\uC744 \uB4F1\uB85D\uD558\uAC70\uB098, \uB4F1\uB85D\uB41C \uD15C\uD50C\uB9BF\uC73C\uB85C \uD604\uC7AC \uC774\uBBF8\uC9C0\uC5D0 \uB77C\uBCA8 \uD6C4\uBCF4\uB97C \uB9CC\uB4ED\uB2C8\uB2E4.";
+        public string TemplateCurrentActionToolTipText => T("WpfLearningWorkflow.Template.CurrentToolTip");
 
-        public string TemplateBatchActionToolTipText => "\uB4F1\uB85D\uB41C \uD15C\uD50C\uB9BF\uC73C\uB85C \uC774\uBBF8\uC9C0 \uBAA9\uB85D\uC744 \uD55C \uBC88\uC529 \uB3CC\uBA70 \uB77C\uBCA8 \uC5C6\uB294 \uD56D\uBAA9\uC5D0\uB9CC \uC800\uC7A5\uD569\uB2C8\uB2E4.";
+        public string TemplateBatchActionToolTipText => T("WpfLearningWorkflow.Template.BatchToolTip");
 
         public string FirstRunSamplePathTitleText => T("WpfLearningWorkflow.FirstRunSamplePathTitle");
 
@@ -561,7 +570,7 @@ namespace MvcVisionSystem
 
         public string ExternalEvaluationDataAuditDetailText
         {
-            get => externalEvaluationDataAuditDetailText;
+            get => LocalizationTextRuntimeService.Translate(externalEvaluationDataAuditDetailText);
             private set => SetProperty(ref externalEvaluationDataAuditDetailText, value ?? string.Empty);
         }
 
@@ -827,7 +836,14 @@ namespace MvcVisionSystem
         public bool IsRunModelComparisonEnabled
         {
             get => isRunModelComparisonEnabled;
-            private set => SetProperty(ref isRunModelComparisonEnabled, value);
+            private set
+            {
+                if (SetProperty(ref isRunModelComparisonEnabled, value)
+                    && RunModelComparisonCommand is RelayCommand command)
+                {
+                    command.RaiseCanExecuteChanged();
+                }
+            }
         }
 
         public WpfYoloTrainingWorkflowStepItem CurrentYoloTrainingStep
@@ -912,35 +928,45 @@ namespace MvcVisionSystem
 
         private void RefreshAnnotationToolScopeForMode(WpfLearningMode mode)
         {
-            // Dataset purpose owns which drawing tools are visible. Keep the full
-            // AnnotationTools catalog for commands/tests, but only expose tools that
-            // match the labeling task so operators do not see irrelevant controls.
-            List<WpfAnnotationTool> visibleSelectableTools = ResolveSelectableToolsForMode(mode).ToList();
-            SelectableAnnotationTools.Clear();
-            AnnotationCommandTools.Clear();
-            VisibleAnnotationTools.Clear();
-
-            foreach (WpfAnnotationTool toolKind in visibleSelectableTools)
+            // Collection and selection restoration can raise WPF SelectionChanged.
+            // Only explicit input may apply a tool or navigate to labeling.
+            isRefreshingAnnotationToolScope = true;
+            try
             {
-                WpfAnnotationToolItem tool = AnnotationTools.FirstOrDefault(candidate => candidate.Tool == toolKind);
-                if (tool != null)
+                // Dataset purpose owns which drawing tools are visible. Keep the full
+                // AnnotationTools catalog for commands/tests, but only expose tools that
+                // match the labeling task so operators do not see irrelevant controls.
+                List<WpfAnnotationTool> visibleSelectableTools = ResolveSelectableToolsForMode(mode).ToList();
+                SelectableAnnotationTools.Clear();
+                AnnotationCommandTools.Clear();
+                VisibleAnnotationTools.Clear();
+
+                foreach (WpfAnnotationTool toolKind in visibleSelectableTools)
                 {
-                    SelectableAnnotationTools.Add(tool);
+                    WpfAnnotationToolItem tool = AnnotationTools.FirstOrDefault(candidate => candidate.Tool == toolKind);
+                    if (tool != null)
+                    {
+                        SelectableAnnotationTools.Add(tool);
+                        VisibleAnnotationTools.Add(tool);
+                    }
+                }
+
+                foreach (WpfAnnotationToolItem tool in AnnotationTools.Where(tool => AnnotationWorkflowService.IsOneShotCommandTool(tool.Tool)))
+                {
+                    AnnotationCommandTools.Add(tool);
                     VisibleAnnotationTools.Add(tool);
                 }
-            }
 
-            foreach (WpfAnnotationToolItem tool in AnnotationTools.Where(tool => mode != WpfLearningMode.AnomalyDetection && AnnotationWorkflowService.IsOneShotCommandTool(tool.Tool)))
-            {
-                AnnotationCommandTools.Add(tool);
-                VisibleAnnotationTools.Add(tool);
+                if (SelectedTool == null
+                    || !SelectableAnnotationTools.Contains(SelectedTool)
+                    || ShouldPreferModeDefaultTool(mode, SelectedTool.Tool))
+                {
+                    SelectedTool = ResolvePreferredSelectableToolForMode(mode) ?? SelectableAnnotationTools.FirstOrDefault();
+                }
             }
-
-            if (SelectedTool == null
-                || !SelectableAnnotationTools.Contains(SelectedTool)
-                || ShouldPreferModeDefaultTool(mode, SelectedTool.Tool))
+            finally
             {
-                SelectedTool = ResolvePreferredSelectableToolForMode(mode) ?? SelectableAnnotationTools.FirstOrDefault();
+                isRefreshingAnnotationToolScope = false;
             }
         }
 
@@ -951,17 +977,21 @@ namespace MvcVisionSystem
                 case WpfLearningMode.Segmentation:
                     return new[]
                     {
+                        WpfAnnotationTool.Select,
                         WpfAnnotationTool.Rectangle,
+                        WpfAnnotationTool.Ellipse,
+                        WpfAnnotationTool.Polygon,
+                        WpfAnnotationTool.SmartMask,
                         WpfAnnotationTool.Brush,
                         WpfAnnotationTool.Eraser,
-                        WpfAnnotationTool.Polygon,
-                        WpfAnnotationTool.Select,
                         WpfAnnotationTool.PanZoom
                     };
 
                 case WpfLearningMode.AnomalyDetection:
                     return new[]
                     {
+                        WpfAnnotationTool.Select,
+                        WpfAnnotationTool.Rectangle,
                         WpfAnnotationTool.PanZoom
                     };
 
@@ -1000,7 +1030,7 @@ namespace MvcVisionSystem
         private static bool ShouldPreferModeDefaultTool(WpfLearningMode mode, WpfAnnotationTool currentTool)
             => (mode == WpfLearningMode.Segmentation && currentTool == WpfAnnotationTool.Select)
                 || (mode == WpfLearningMode.AnomalyDetection
-                    && (currentTool == WpfAnnotationTool.Brush || currentTool == WpfAnnotationTool.Eraser))
+                    && (currentTool == WpfAnnotationTool.Brush || currentTool == WpfAnnotationTool.Eraser || currentTool == WpfAnnotationTool.PanZoom))
                 || (mode == WpfLearningMode.ObjectDetection && currentTool == WpfAnnotationTool.PanZoom);
 
         public void ApplyDatasetPurpose(LabelingDatasetPurpose purpose)
@@ -1103,6 +1133,19 @@ namespace MvcVisionSystem
             LearningStepSelectionChangedCommand = new RelayCommand<object>(ExecuteLearningStepSelectionChanged);
         }
 
+        public void SelectLearningStepForDisplay(WpfLearningStepItem step)
+        {
+            if (step == null)
+            {
+                return;
+            }
+
+            // Programmatic guide progress should update the highlighted lesson without
+            // replaying the command attached to the ListBox selection change.
+            suppressedProgrammaticStepSelection = step;
+            SelectedStep = step;
+        }
+
         private void ExecuteLearningStepSelectionChanged(object selectedItem)
         {
             WpfLearningStepItem selectedStepItem = selectedItem as WpfLearningStepItem ?? SelectedStep;
@@ -1110,6 +1153,14 @@ namespace MvcVisionSystem
             {
                 return;
             }
+
+            if (ReferenceEquals(suppressedProgrammaticStepSelection, selectedStepItem))
+            {
+                suppressedProgrammaticStepSelection = null;
+                return;
+            }
+
+            suppressedProgrammaticStepSelection = null;
 
             SelectedStep = selectedStepItem;
             learningStepWorkflowAction?.Invoke(AnnotationWorkflowService.ResolveStepAction(selectedStepItem.Step));
@@ -1123,6 +1174,7 @@ namespace MvcVisionSystem
 
         private void ExecuteAnnotationToolSelectionChanged(object selectedItem)
         {
+            if (isRefreshingAnnotationToolScope) return;
             WpfAnnotationToolItem selectedToolItem = selectedItem as WpfAnnotationToolItem ?? SelectedTool;
             if (selectedToolItem == null)
             {
@@ -1167,7 +1219,9 @@ namespace MvcVisionSystem
                 ?? throw new ArgumentNullException(nameof(workflowService));
             modelComparisonCallbacksProvider = callbacksProvider
                 ?? throw new ArgumentNullException(nameof(callbacksProvider));
-            RunModelComparisonCommand = new RelayCommand(() => _ = ExecuteRunModelComparisonCommandAsync());
+            RunModelComparisonCommand = new RelayCommand(
+                () => _ = ExecuteRunModelComparisonCommandAsync(),
+                () => IsRunModelComparisonEnabled);
         }
 
         public void ConfigureExternalEvaluationDataAuditWorkflow(
@@ -1221,9 +1275,10 @@ namespace MvcVisionSystem
                 ?? throw new ArgumentNullException(nameof(workflowService));
             externalYoloDatasetIntakeCallbacksProvider = callbacksProvider
                 ?? throw new ArgumentNullException(nameof(callbacksProvider));
-            SelectExternalYoloDatasetCommand = new RelayCommand(() => _ = ExecuteSelectExternalYoloDatasetCommandAsync());
-            ActivateExternalYoloDatasetCommand = new RelayCommand(() => _ = ExecuteActivateExternalYoloDatasetCommandAsync());
-            ClearExternalYoloDatasetCommand = new RelayCommand(ExecuteClearExternalYoloDatasetCommand);
+            SelectExternalYoloDatasetCommand = new RelayCommand(() => _ = ExecuteSelectExternalYoloDatasetCommandAsync(), CanChangeExternalYoloDatasetSelection);
+            ActivateExternalYoloDatasetCommand = new RelayCommand(() => _ = ExecuteActivateExternalYoloDatasetCommandAsync(), CanActivateExternalYoloDataset);
+            ClearExternalYoloDatasetCommand = new RelayCommand(ExecuteClearExternalYoloDatasetCommand, () => CanChangeExternalYoloDatasetSelection() && externalYoloDatasetIntakeCallbacksProvider().SettingsProvider()?.HasSelection == true);
+            CommandManager.InvalidateRequerySuggested();
         }
 
         public void SetYoloFixActionAvailability(bool canFixClasses, bool canFixLabels, bool canFixDataset)
@@ -1442,6 +1497,7 @@ namespace MvcVisionSystem
                 }
             }
 
+            OnPropertyChanged(nameof(TrainingPreparationMetrics));
             if (DatasetDashboardIssueItems.Count == 0)
             {
                 DatasetDashboardIssueItems.Add(T("WpfLearningWorkflow.DatasetDashboard.Issue.NoIssues"));
@@ -1472,7 +1528,7 @@ namespace MvcVisionSystem
             {
                 SetExternalEvaluationDataAuditResult(
                     "\uC678\uBD80 \uD3C9\uAC00 \uB300\uC870: \uCDE8\uC18C",
-                    "\uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uBA74 \uD604\uC7AC \uD559\uC2B5/\uAC80\uC99D/\uCD5C\uC885 \uAC80\uC99D \uC774\uBBF8\uC9C0\uC640 \uB3D9\uC77C \uCF58\uD150\uCE20\uC778\uC9C0 \uD655\uC778\uD569\uB2C8\uB2E4.",
+                    T("WpfLearningWorkflow.ExternalEvaluation.SelectFolder"),
                     string.Empty);
                 return;
             }
@@ -1481,7 +1537,7 @@ namespace MvcVisionSystem
                 ?? Array.Empty<string>();
             SetExternalEvaluationDataAuditResult(
                 "\uC678\uBD80 \uD3C9\uAC00 \uB300\uC870: \uD655\uC778 \uC911",
-                "SHA-256\uB85C \uD604\uC7AC \uD559\uC2B5/\uAC80\uC99D/\uCD5C\uC885 \uAC80\uC99D \uC774\uBBF8\uC9C0\uC640 \uBE44\uAD50\uD569\uB2C8\uB2E4.",
+                T("WpfLearningWorkflow.ExternalEvaluation.Comparing"),
                 selectedDirectory);
 
             ExternalEvaluationDataAuditWorkflowResult result = await externalAuditWorkflowService.RunExternalEvaluationAsync(
@@ -1539,14 +1595,14 @@ namespace MvcVisionSystem
             if (string.IsNullOrWhiteSpace(outputPath))
             {
                 historicalSegmentationRemediationStatusSink?.Invoke(
-                    "SEG \uBCF4\uC815 \uAC80\uD1A0 \uC2E4\uD328: \uB370\uC774\uD130\uC14B \uC800\uC7A5 \uD3F4\uB354\uB97C \uBA3C\uC800 \uC9C0\uC815\uD558\uC138\uC694.",
+                    T("WpfLearningWorkflow.Remediation.MissingRecipeFolder"),
                     string.Empty);
                 return;
             }
 
             string sourceImagePath = historicalSegmentationRemediationSourceImagePathProvider?.Invoke() ?? string.Empty;
             historicalSegmentationRemediationStatusSink?.Invoke(
-                "SEG \uBCF4\uC815 \uAC80\uD1A0: \uAE30\uC874 \uB9C8\uC2A4\uD06C\uC640 YOLO \uB77C\uBCA8\uC744 \uC77D\uAE30 \uC804\uC6A9\uC73C\uB85C \uBE44\uAD50 \uC911",
+                T("WpfLearningWorkflow.Remediation.Comparing"),
                 string.Empty);
 
             HistoricalSegmentationRemediationAuditWorkflowResult result;
@@ -1563,7 +1619,7 @@ namespace MvcVisionSystem
             catch (Exception ex)
             {
                 historicalSegmentationRemediationStatusSink?.Invoke(
-                    $"SEG \uBCF4\uC815 \uAC80\uD1A0 \uC2E4\uD328: {ex.Message}",
+                    Format("WpfLearningWorkflow.Remediation.Failed", ex.Message),
                     $"SEG remediation dry run failed: {ex.Message}");
                 return;
             }
@@ -1579,7 +1635,7 @@ namespace MvcVisionSystem
             if (result.Error != null)
             {
                 historicalSegmentationRemediationStatusSink?.Invoke(
-                    $"SEG \uBCF4\uC815 \uAC80\uD1A0 \uC2E4\uD328: {result.Error.Message}",
+                    Format("WpfLearningWorkflow.Remediation.Failed", result.Error.Message),
                     $"SEG remediation dry run failed: {result.Error.Message}");
                 return;
             }
@@ -1590,19 +1646,26 @@ namespace MvcVisionSystem
             }
 
             string sourceSummary = result.Report.ExcludedSourceImageCount > 0
-                ? $"\uAE30\uC900 \uC774\uBBF8\uC9C0 \uC81C\uC678 {result.Report.ExcludedSourceImageCount}\uC7A5"
-                : "\uAE30\uC900 \uC774\uBBF8\uC9C0 \uC81C\uC678 \uC5C6\uC74C";
+                ? string.Format(CultureInfo.CurrentCulture, T("WpfLearningWorkflow.Remediation.ExcludedReference"), result.Report.ExcludedSourceImageCount)
+                : T("WpfLearningWorkflow.Remediation.NoExcludedReference");
             string errorSummary = result.Report.HasErrors
-                ? $" / \uD655\uC778 \uD544\uC694 {result.Report.UnresolvedRecordCount}\uAC74"
+                ? string.Format(CultureInfo.CurrentCulture, T("WpfLearningWorkflow.Remediation.Unresolved"), result.Report.UnresolvedRecordCount)
                 : string.Empty;
             historicalSegmentationRemediationStatusSink?.Invoke(
-                $"SEG \uBCF4\uC815 \uAC80\uD1A0 \uBCF4\uACE0\uC11C \uC800\uC7A5: {Path.GetFileName(result.Export.OutputPath)} / \uB300\uC0C1 {result.Report.CandidateImageCount}\uC7A5 / \uB77C\uBCA8 \uCC28\uC774 {result.Report.ChangedYoloLabelImageCount}\uC7A5 / {sourceSummary}{errorSummary}",
+                string.Format(
+                    CultureInfo.CurrentCulture,
+                    T("WpfLearningWorkflow.Remediation.ReportSaved"),
+                    Path.GetFileName(result.Export.OutputPath),
+                    result.Report.CandidateImageCount,
+                    result.Report.ChangedYoloLabelImageCount,
+                    sourceSummary,
+                    errorSummary),
                 $"SEG remediation dry run saved: {result.Export.OutputPath} / images {result.Report.CandidateImageCount} / records {result.Report.CandidateRecordCount} / changed labels {result.Report.ChangedYoloLabelImageCount} / excluded sources {result.Report.ExcludedSourceImageCount}");
         }
 
         private async Task ExecuteRunModelComparisonCommandAsync()
         {
-            if (modelComparisonWorkflowService == null)
+            if (!IsRunModelComparisonEnabled || modelComparisonWorkflowService == null)
             {
                 return;
             }
@@ -1635,6 +1698,23 @@ namespace MvcVisionSystem
                 : statusText;
             ExternalYoloDatasetIntakeDetailText = detailText ?? string.Empty;
             ExternalYoloDatasetIntakePathText = pathText ?? string.Empty;
+            CommandManager.InvalidateRequerySuggested();
+        }
+
+        private bool CanChangeExternalYoloDatasetSelection()
+        {
+            ExternalYoloDatasetIntakeCallbacks callbacks = externalYoloDatasetIntakeCallbacksProvider?.Invoke();
+            return externalYoloDatasetIntakeWorkflowService != null && !externalYoloDatasetIntakeWorkflowService.IsRunning && !externalYoloDatasetIntakeWorkflowService.IsClosed
+                && callbacks != null && callbacks.IsApplicationCloseApproved?.Invoke() != true && callbacks.SettingsProvider?.Invoke() != null;
+        }
+
+        private bool CanActivateExternalYoloDataset()
+        {
+            if (!CanChangeExternalYoloDatasetSelection()) return false;
+            ExternalYoloDatasetIntakeCallbacks callbacks = externalYoloDatasetIntakeCallbacksProvider();
+            ExternalYoloDatasetSettings settings = callbacks.SettingsProvider();
+            return settings.HasSelection && settings.LastValidationSucceeded
+                && (callbacks.SelectedPurposeProvider?.Invoke() ?? settings.DatasetPurpose) == settings.DatasetPurpose;
         }
 
         private async Task ExecuteSelectExternalYoloDatasetCommandAsync()
@@ -1757,6 +1837,7 @@ namespace MvcVisionSystem
                     DataYamlFilePath = dataYamlFilePath,
                     Purpose = purpose
                 });
+            CommandManager.InvalidateRequerySuggested();
             if (!workflowResult.Started || workflowResult.IsCanceled)
             {
                 return;
@@ -1827,15 +1908,15 @@ namespace MvcVisionSystem
                 canUndo,
                 canUndo ? "\uAC00\uB2A5" : "\uC5C6\uC74C",
                 canUndo
-                    ? "\uB418\uB3CC\uB9AC\uAE30 \uAC00\uB2A5" + LearningWorkflowGuidanceService.FormatHistoryActionSuffix(undoActionName)
-                    : "\uB418\uB3CC\uB9B4 \uD3B8\uC9D1 \uC774\uB825\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
+                    ? T("WpfLearningWorkflow.AnnotationHistory.UndoAvailable") + LearningWorkflowGuidanceService.FormatHistoryActionSuffix(undoActionName)
+                    : T("ShellMenu.Reason.NoUndo"));
             SetAnnotationToolRuntimeState(
                 WpfAnnotationTool.Redo,
                 canRedo,
                 canRedo ? "\uAC00\uB2A5" : "\uC5C6\uC74C",
                 canRedo
-                    ? "\uB2E4\uC2DC \uC801\uC6A9 \uAC00\uB2A5" + LearningWorkflowGuidanceService.FormatHistoryActionSuffix(redoActionName)
-                    : "\uB2E4\uC2DC \uC801\uC6A9\uD560 \uD3B8\uC9D1 \uC774\uB825\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
+                    ? T("WpfLearningWorkflow.AnnotationHistory.RedoAvailable") + LearningWorkflowGuidanceService.FormatHistoryActionSuffix(redoActionName)
+                    : T("ShellMenu.Reason.NoRedo"));
         }
 
         private void SetAnnotationToolRuntimeState(WpfAnnotationTool tool, bool isEnabled, string stateText, string statusText)
@@ -1904,7 +1985,7 @@ namespace MvcVisionSystem
 
         public string CurrentLabelingTaskActionText
         {
-            get => currentLabelingTaskActionText;
+            get => LocalizationTextRuntimeService.Translate(currentLabelingTaskActionText);
             private set => SetProperty(ref currentLabelingTaskActionText, value ?? string.Empty);
         }
 
@@ -1978,21 +2059,21 @@ namespace MvcVisionSystem
             UpdateLiveLabelingTaskChecklist(
                 CurrentLabelingTaskStepText,
                 CurrentLabelingTaskToolText,
-                CurrentLabelingTaskActionText);
+                currentLabelingTaskActionText);
         }
 
         private void UpdateLiveLabelingTaskChecklist(string stepText, string toolText, string actionText)
         {
             string normalizedStep = stepText?.Trim() ?? string.Empty;
-            if (normalizedStep.IndexOf("\uAC80\uD1A0", StringComparison.Ordinal) >= 0)
+            if (normalizedStep.IndexOf(OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfCanvas.Workflow.Step.Review")[0], StringComparison.Ordinal) >= 0)
             {
-                SetCurrentLabelingTaskChecklist("\uD655\uC778", "\uD655\uC815", "\uC2A4\uD0B5");
+                SetCurrentLabelingTaskChecklist("\uD655\uC778", "\uD655\uC815", "\uAC74\uB108\uB6F0\uAE30");
                 return;
             }
 
             if (normalizedStep.IndexOf("\uCD94\uB860", StringComparison.Ordinal) >= 0)
             {
-                SetCurrentLabelingTaskChecklist("\uAC80\uC0AC", "\uD655\uC778", "\uAC80\uD1A0");
+                SetCurrentLabelingTaskChecklist(T("WpfLearningWorkflow.LabelingChecklist.Inference"), T("WpfLearningWorkflow.LabelingChecklist.CheckResults"), T("WpfLearningWorkflow.LabelingChecklist.CheckAiSuggestions"));
                 return;
             }
 
@@ -2019,16 +2100,16 @@ namespace MvcVisionSystem
                 new[] { stepText, toolText, actionText }.Where(value => !string.IsNullOrWhiteSpace(value)));
             if (combined.IndexOf("AI", StringComparison.OrdinalIgnoreCase) >= 0
                 || combined.IndexOf("\uD6C4\uBCF4", StringComparison.Ordinal) >= 0
-                || combined.IndexOf("\uAC80\uD1A0", StringComparison.Ordinal) >= 0)
+                || combined.IndexOf(OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfCanvas.Workflow.Step.Review")[0], StringComparison.Ordinal) >= 0)
             {
-                SetCurrentLabelingTaskChecklist("\uD655\uC778", "\uD655\uC815", "\uC2A4\uD0B5");
+                SetCurrentLabelingTaskChecklist("\uD655\uC778", "\uD655\uC815", "\uAC74\uB108\uB6F0\uAE30");
                 return;
             }
 
             if (combined.IndexOf("\uCD94\uB860", StringComparison.Ordinal) >= 0
                 || combined.IndexOf("\uAC80\uC0AC", StringComparison.Ordinal) >= 0)
             {
-                SetCurrentLabelingTaskChecklist("\uAC80\uC0AC", "\uD655\uC778", "\uAC80\uD1A0");
+                SetCurrentLabelingTaskChecklist(T("WpfLearningWorkflow.LabelingChecklist.Inference"), T("WpfLearningWorkflow.LabelingChecklist.CheckResults"), T("WpfLearningWorkflow.LabelingChecklist.CheckAiSuggestions"));
                 return;
             }
 
@@ -2038,7 +2119,7 @@ namespace MvcVisionSystem
                 return;
             }
 
-            if (combined.IndexOf("\uC774\uBBF8\uC9C0 \uD050", StringComparison.Ordinal) >= 0
+            if (combined.IndexOf(OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfCanvas.Workflow.ImageQueue")[0], StringComparison.Ordinal) >= 0
                 || combined.IndexOf("\uC0D8\uD50C", StringComparison.Ordinal) >= 0)
             {
                 SetCurrentLabelingTaskChecklist("\uC774\uBBF8\uC9C0", "\uC5F4\uAE30", "\uB77C\uBCA8");
@@ -2085,7 +2166,7 @@ namespace MvcVisionSystem
             get => maskOpacity;
             set
             {
-                double normalized = Math.Clamp(value, 0.1, 1.0);
+                double normalized = Math.Clamp(value, 0.0, 1.0);
                 if (SetProperty(ref maskOpacity, normalized))
                 {
                     SetProperty(ref maskOpacityPercentText, $"{normalized:P0}", nameof(MaskOpacityPercentText));
@@ -2093,7 +2174,7 @@ namespace MvcVisionSystem
             }
         }
 
-        private string maskOpacityPercentText = "66%";
+        private string maskOpacityPercentText = "30%";
 
         public string MaskOpacityPercentText
         {
@@ -2106,18 +2187,22 @@ namespace MvcVisionSystem
             get => selectedDatasetPurposeMode;
             set
             {
-                if (SetProperty(ref selectedDatasetPurposeMode, value))
-                {
-                    RefreshAnnotationToolScopeForMode(value?.Mode ?? WpfLearningMode.ObjectDetection);
-                    RefreshLessonText();
-                }
+                if (EqualityComparer<WpfLearningModeItem>.Default.Equals(selectedDatasetPurposeMode, value)) return;
+                OnPropertyChanging();
+                selectedDatasetPurposeMode = value;
+                RefreshAnnotationToolScopeForMode(value?.Mode ?? WpfLearningMode.ObjectDetection);
+                RefreshLessonText();
+                OnPropertyChanged();
             }
         }
 
         public WpfLearningModeItem SelectedExternalYoloDatasetPurposeMode
         {
             get => selectedExternalYoloDatasetPurposeMode;
-            set => SetProperty(ref selectedExternalYoloDatasetPurposeMode, value);
+            set
+            {
+                if (SetProperty(ref selectedExternalYoloDatasetPurposeMode, value)) CommandManager.InvalidateRequerySuggested();
+            }
         }
 
         public WpfLearningModeItem SelectedMode
@@ -2222,6 +2307,18 @@ namespace MvcVisionSystem
                     "Before dataset start",
                     StringComparison.Ordinal);
 
+            foreach (WpfAnnotationToolItem item in AnnotationTools) item.RefreshLocalizedPresentation();
+            WpfYoloTrainingWorkflowStepItem reviewStep = YoloTrainingWorkflowSteps.FirstOrDefault(item => item.Order == 7);
+            if (reviewStep != null)
+            {
+                reviewStep.RefreshLocalizedPresentation(T("WpfLearningWorkflow.Catalog.YoloTraining.Review.Title"), T("WpfLearningWorkflow.Catalog.YoloTraining.Review.Detail"));
+                if (ReferenceEquals(CurrentYoloTrainingStep, reviewStep))
+                {
+                    CurrentYoloTrainingStepTitleText = $"{reviewStep.Order}. {reviewStep.Title}";
+                    CurrentYoloTrainingStepDetailText = reviewStep.ActionText;
+                    CurrentYoloTrainingActionText = LearningWorkflowGuidanceService.BuildCurrentYoloTrainingActionText(reviewStep);
+                }
+            }
             RefreshLessonText();
             RefreshYoloDatasetStructureItems();
             if (isDefaultDatasetSetupStatus)
@@ -2229,6 +2326,7 @@ namespace MvcVisionSystem
                 DatasetSetupStatusText = T("WpfLearningWorkflow.DatasetSetupStatus.Before");
             }
 
+            OnPropertyChanged(nameof(TrainingRuntimeEvidenceText));
             if (trainingChecklistLocalizationSnapshot != null)
             {
                 SetTrainingChecklistLocalization(trainingChecklistLocalizationSnapshot);
@@ -2268,6 +2366,7 @@ namespace MvcVisionSystem
                 {
                     DatasetDashboardMetrics.Add(metric);
                 }
+                OnPropertyChanged(nameof(TrainingPreparationMetrics));
                 DatasetDashboardIssueItems.Clear();
                 foreach (string issue in datasetDashboardLocalizationSnapshot.IssueItems)
                 {

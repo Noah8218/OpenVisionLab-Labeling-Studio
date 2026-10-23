@@ -10,7 +10,8 @@ namespace MvcVisionSystem
     {
         public static string BuildStatusText(LabelingProjectData data, YoloDatasetReadinessReport report)
         {
-            if (data?.ProjectSettings?.DatasetPurpose == LabelingDatasetPurpose.AnomalyDetection)
+            if (data?.ProjectSettings?.DatasetPurpose == LabelingDatasetPurpose.AnomalyDetection
+                && PythonModelSettings.NormalizeModelEngine(data.ProjectSettings.PythonModel.ModelEngine) != PythonModelSettings.EnginePatchCore)
             {
                 return BuildAnomalyClassificationStatusText(
                     AnomalyClassificationTrainingReadinessService.Build(data));
@@ -119,13 +120,13 @@ namespace MvcVisionSystem
             {
                 statusText = "외부 YOLO data.yaml: 재활성화 필요";
                 detailText = string.IsNullOrWhiteSpace(settings.LastValidationSummary)
-                    ? "원본이 변경되었을 수 있습니다. data.yaml을 다시 검증한 뒤 '다음 학습 사용'으로 명시적으로 활성화하세요."
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingReadinessPresentationService.ExternalChanged")
                     : settings.LastValidationSummary;
             }
             else if (settings.UseForTraining && settings.LastValidationSucceeded)
             {
                 statusText = "외부 YOLO data.yaml: 다음 학습에 사용";
-                detailText = settings.LastValidationSummary + " 내부 레시피 데이터는 바꾸지 않으며 자동 학습이나 모델 채택은 하지 않습니다.";
+                detailText = settings.LastValidationSummary + " " + OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingReadinessPresentationService.ExternalBoundary");
             }
             else if (settings.LastValidationSucceeded)
             {
@@ -305,24 +306,30 @@ namespace MvcVisionSystem
                 return "\uC138\uADF8\uBA58\uD14C\uC774\uC158 \uD559\uC2B5\uC740 polygon segment JSON\uC774 \uD544\uC694\uD569\uB2C8\uB2E4. \uBE0C\uB7EC\uC2DC/\uD3F4\uB9AC\uACE4 \uB77C\uBCA8\uC744 \uC800\uC7A5\uD55C \uB4A4 \uB2E4\uC2DC \uC2DC\uC791\uD558\uC138\uC694.";
             }
 
-            if (Contains(normalized, AnomalyClassificationTrainingReadinessService.NoSourceImagesError))
+            if (Contains(normalized, AnomalyClassificationTrainingReadinessService.NoSourceImagesError)
+                || Contains(normalized, PatchCoreAnomalyTrainingReadinessService.NoSourceImagesError))
             {
-                return "\uC774\uC0C1 \uD0D0\uC9C0 \uD559\uC2B5\uC5D0 \uC0AC\uC6A9\uD560 \uC774\uBBF8\uC9C0\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uC774\uBBF8\uC9C0 \uD3F4\uB354\uB098 \uD559\uC2B5/\uAC80\uC99D \uD3F4\uB354\uB97C \uBA3C\uC800 \uC5F0\uACB0\uD558\uC138\uC694.";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingReadinessPresentationService.AnomalyImagesMissing");
+            }
+
+            if (Contains(normalized, PatchCoreAnomalyTrainingReadinessService.NeedsReviewedNormalError))
+            {
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfTrainingWorkspace.NeedsNormalTrain");
             }
 
             if (Contains(normalized, AnomalyClassificationTrainingReadinessService.NeedsReviewedNormalAndAbnormalError))
             {
-                return "\uC774\uC0C1 \uD0D0\uC9C0 \uD559\uC2B5\uC740 \uAC80\uD1A0\uB41C \uC815\uC0C1 \uC774\uBBF8\uC9C0\uC640 \uAC80\uD1A0\uB41C \uC774\uC0C1 \uC774\uBBF8\uC9C0\uAC00 \uAC01\uAC01 1\uAC1C \uC774\uC0C1 \uD544\uC694\uD569\uB2C8\uB2E4. \uC774\uBBF8\uC9C0 \uD050\uC5D0\uC11C \uC815\uC0C1/\uC774\uC0C1 \uAC80\uD1A0 \uC0C1\uD0DC\uB97C \uBA3C\uC800 \uC800\uC7A5\uD558\uC138\uC694.";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingReadinessPresentationService.AnomalyLabelsMissing");
             }
 
             if (Contains(normalized, AnomalyClassificationTrainingReadinessService.NeedsTrainNormalAndAbnormalError))
             {
-                return "\uC774\uC0C1 \uD0D0\uC9C0 \uD559\uC2B5\uC740 train \uBD84\uD560\uC5D0 \uC815\uC0C1/\uC774\uC0C1 \uC774\uBBF8\uC9C0\uAC00 \uAC01\uAC01 1\uAC1C \uC774\uC0C1 \uD544\uC694\uD569\uB2C8\uB2E4. \uAC80\uC99D/테스트 \uBE44\uC728\uC744 \uC904\uC774\uAC70\uB098 \uB354 \uB9CE\uC740 \uAC80\uD1A0 \uC774\uBBF8\uC9C0\uB97C \uCD94\uAC00\uD558\uC138\uC694.";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingReadinessPresentationService.AnomalyTrainMissing");
             }
 
             if (Contains(normalized, YoloTrainingWorkflowService.AnomalyClassificationRuntimeError))
             {
-                return "이상탐지 분류 학습은 YOLOv8 또는 YOLO11 실행기가 필요합니다. 모델 실행기에서 지원 실행기를 연결한 뒤 다시 시작하세요.";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingReadinessPresentationService.AnomalyRuntime");
             }
 
             if (Contains(normalized, "data.yaml")
@@ -335,7 +342,7 @@ namespace MvcVisionSystem
 
             if (Contains(normalized, "data.yaml"))
             {
-                return "data.yaml이 현재 데이터셋 경로와 맞지 않습니다. 저장 폴더와 이미지 폴더를 확인한 뒤 데이터셋 점검을 다시 실행하세요.";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingReadinessPresentationService.DatasetPathMismatch");
             }
 
             if (Contains(normalized, "no yolo box labels")
@@ -348,7 +355,7 @@ namespace MvcVisionSystem
             if (Contains(normalized, "label file is missing")
                 || Contains(normalized, "label directory"))
             {
-                return "이미지는 있지만 저장된 라벨 파일이 부족합니다. 라벨 저장 상태와 저장 폴더를 확인하세요.";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingReadinessPresentationService.SavedLabelsMissing");
             }
 
             if (Contains(normalized, "valid image directory")
@@ -357,10 +364,22 @@ namespace MvcVisionSystem
                 return "검증 이미지가 부족합니다. 학습/검증 분할 설정을 확인하고 다시 점검하세요.";
             }
 
+            if (Contains(normalized, "YOLO dataset split directory must be flat; nested or linked path is unsupported before training:"))
+            {
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingReadinessPresentationService.SplitStructure");
+            }
+
+            if (Contains(normalized, "Validation split percent must be between 0 and 100.")
+                || Contains(normalized, "Test split percent must be between 0 and 100.")
+                || Contains(normalized, "Validation split percent and test split percent must not exceed 100 combined."))
+            {
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingReadinessPresentationService.SplitPercent");
+            }
+
             if (Contains(normalized, "split")
                 || Contains(normalized, "duplicate image content"))
             {
-                return "학습/검증/최종 검증에 같은 이미지가 섞여 있습니다. 분할 설정이나 이미지 폴더 구성을 다시 확인하세요.";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingReadinessPresentationService.SplitOverlap");
             }
 
             if (Contains(normalized, "at least one class")
@@ -372,12 +391,12 @@ namespace MvcVisionSystem
             if (Contains(normalized, "image directory")
                 || Contains(normalized, "supported images"))
             {
-                return "학습 이미지 폴더를 확인하세요. 지원되는 이미지가 있는 폴더를 다시 선택해야 합니다.";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingReadinessPresentationService.SourceFolder");
             }
 
             if (Contains(normalized, "output root"))
             {
-                return "데이터셋 저장 폴더를 확인하세요. 라벨과 학습 파일을 쓸 수 있어야 합니다.";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingReadinessPresentationService.RecipeFolder");
             }
 
             return "데이터셋 점검 결과를 확인하고 필요한 항목을 수정하세요. 자세한 원문은 하단 로그 상세에서 볼 수 있습니다.";

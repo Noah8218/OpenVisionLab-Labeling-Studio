@@ -151,7 +151,9 @@ namespace MvcVisionSystem
                 () => new ModelRuntimeComposition(
                     () => Data,
                     value => Data = value,
-                    (defects, requestId, imageId) => DetectionResults.ApplyToDetectLayer(defects, requestId, imageId)));
+                    (defects, requestId, imageId) => DetectionResults.ApplyToDetectLayer(defects, requestId, imageId),
+                    DetectionResults.ApplyFailure,
+                    rawDetectionResultSink: parsed => DetectionResults.ApplyRawToDetectLayer(parsed)));
         }
 
         public bool Close()

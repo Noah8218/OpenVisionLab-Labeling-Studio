@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 
 namespace MvcVisionSystem
 {
@@ -12,20 +13,25 @@ namespace MvcVisionSystem
         private const int MaximumAnomalyReviewSampleCount = 500;
 
         public IReadOnlyList<WpfModelBenchmarkRun> Load(string repositoryRoot = "", string preferredSourcePath = "")
+            => Load(repositoryRoot, preferredSourcePath, out _);
+
+        public IReadOnlyList<WpfModelBenchmarkRun> Load(string repositoryRoot, string preferredSourcePath, out IReadOnlyList<string> unreadablePaths)
         {
             string root = string.IsNullOrWhiteSpace(repositoryRoot)
                 ? FindRepositoryRoot()
                 : Path.GetFullPath(repositoryRoot);
             var runs = new List<WpfModelBenchmarkRun>();
+            var failures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            LoadPairwiseComparisons(Path.Combine(root, "artifacts", "yolo-model-comparison"), runs);
-            LoadAnomalyClassifications(Path.Combine(root, "artifacts", "yolo-classification-evaluation"), runs);
+            LoadPairwiseComparisons(Path.Combine(root, "artifacts", "yolo-model-comparison"), runs, failures);
+            LoadAnomalyClassifications(Path.Combine(root, "artifacts", "yolo-classification-evaluation"), runs, failures);
             string projectEvaluationRoot = ResolveProjectEvaluationRoot(preferredSourcePath);
             if (!string.IsNullOrWhiteSpace(projectEvaluationRoot))
             {
-                LoadAnomalyClassifications(projectEvaluationRoot, runs);
+                LoadAnomalyClassifications(projectEvaluationRoot, runs, failures);
             }
 
+            unreadablePaths = failures.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToArray();
             return runs
                 .GroupBy(run => run.Id, StringComparer.OrdinalIgnoreCase)
                 .Select(group => group.First())
@@ -37,19 +43,24 @@ namespace MvcVisionSystem
         public static string FindRepositoryRoot(string startPath = "")
             => RepositoryRootResolver.FindRepositoryRoot(startPath);
 
-        private static void LoadPairwiseComparisons(string artifactsRoot, ICollection<WpfModelBenchmarkRun> runs)
+        private static void LoadPairwiseComparisons(string artifactsRoot, ICollection<WpfModelBenchmarkRun> runs, ISet<string> unreadablePaths)
         {
-            foreach (string summaryPath in EnumerateSummaryFiles(artifactsRoot, "comparison-summary.json"))
+            foreach (string summaryPath in EnumerateSummaryFiles(artifactsRoot, "comparison-summary.json", unreadablePaths))
             {
                 try
                 {
-                    JObject summary = JObject.Parse(File.ReadAllText(summaryPath));
-                    AddPairwiseRun(summary, summaryPath, "baseline", runs);
-                    AddPairwiseRun(summary, summaryPath, "candidate", runs);
+                    using FileStream stream = new(summaryPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    using StreamReader reader = new(stream);
+                    JObject summary = JObject.Parse(reader.ReadToEnd());
+                    stream.Position = 0;
+                    string reportSha256 = Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
+                    AddPairwiseRun(summary, summaryPath, "baseline", runs, reportSha256);
+                    AddPairwiseRun(summary, summaryPath, "candidate", runs, reportSha256);
                 }
                 catch
                 {
                     // A broken historical report must not hide the remaining catalog.
+                    unreadablePaths.Add(summaryPath);
                 }
             }
         }
@@ -58,7 +69,8 @@ namespace MvcVisionSystem
             JObject summary,
             string summaryPath,
             string role,
-            ICollection<WpfModelBenchmarkRun> runs)
+            ICollection<WpfModelBenchmarkRun> runs,
+            string reportSha256)
         {
             JToken model = summary.SelectToken(role);
             if (model == null)
@@ -87,7 +99,10 @@ namespace MvcVisionSystem
                 ReadMetric(model, "metrics.precision", "precision", "Precision", 10, isPercent: true, supportsDelta: true),
                 ReadMetric(model, "metrics.recall", "recall", "Recall", 20, isPercent: true, supportsDelta: true),
                 ReadMetric(model, "metrics.map50", "map50", "mAP50", 30, isPercent: true, supportsDelta: true),
-                ReadMetric(model, "metrics.map5095", "map5095", "mAP50-95", 40, isPercent: true, supportsDelta: true)
+                ReadMetric(model, "metrics.map5095", "map5095", "mAP50-95", 40, isPercent: true, supportsDelta: true),
+                ReadMetric(model, "metrics.miou", "miou", "mIoU", 50, isPercent: true, supportsDelta: true),
+                ReadMetric(model, "metrics.dice", "dice", "Dice", 60, isPercent: true, supportsDelta: true),
+                ReadMetric(model, "metrics.trainingMinutes", "trainingMinutes", "Training minutes", 70, isPercent: false, supportsDelta: false)
             };
 
             int? uiCandidateCount = model.SelectToken("confidence.uiCandidateCount")?.Value<int?>();
@@ -137,16 +152,23 @@ namespace MvcVisionSystem
                 decisionText: FormatDecisionText(summary.SelectToken("promotion.recommendation")?.Value<string>()),
                 metrics: metrics.Where(metric => metric != null).ToArray(),
                 classMetrics: ReadClassMetrics(model.SelectToken("classMetrics")),
-                groundTruthReview: ReadGroundTruthReview(model.SelectToken("groundTruthReview"))));
+                groundTruthReview: ReadGroundTruthReview(model.SelectToken("groundTruthReview")),
+                datasetVersionId: summary.SelectToken("datasetVersionId")?.Value<string>(),
+                datasetContentSha256: summary.SelectToken("datasetContentSha256")?.Value<string>(),
+                sourceSha256: reportSha256));
         }
 
-        private static void LoadAnomalyClassifications(string artifactsRoot, ICollection<WpfModelBenchmarkRun> runs)
+        private static void LoadAnomalyClassifications(string artifactsRoot, ICollection<WpfModelBenchmarkRun> runs, ISet<string> unreadablePaths)
         {
-            foreach (string summaryPath in EnumerateSummaryFiles(artifactsRoot, "classification-evaluation-summary.json"))
+            foreach (string summaryPath in EnumerateSummaryFiles(artifactsRoot, "classification-evaluation-summary.json", unreadablePaths))
             {
                 try
                 {
-                    JObject summary = JObject.Parse(File.ReadAllText(summaryPath));
+                    using FileStream reportStream = new(summaryPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    using var reader = new StreamReader(reportStream);
+                    JObject summary = JObject.Parse(reader.ReadToEnd());
+                    reportStream.Position = 0;
+                    string reportSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(reportStream)).ToLowerInvariant();
                     string weightsPath = summary.SelectToken("weightsPath")?.Value<string>() ?? string.Empty;
                     string modelName = BuildModelName(weightsPath, "Classification model");
                     string runtimeName = InferClassificationRuntime(
@@ -155,6 +177,8 @@ namespace MvcVisionSystem
                         modelName);
                     var metrics = new List<WpfModelBenchmarkMetric>
                     {
+                        ReadMetric(summary, "metrics.auroc", "auroc", "AUROC", 5, isPercent: true, supportsDelta: true),
+                        ReadMetric(summary, "thresholds.minimumConfidence", "threshold", "Threshold", 6, isPercent: false, supportsDelta: false),
                         ReadMetric(summary, "metrics.accuracy", "accuracy", "Accuracy", 10, isPercent: true, supportsDelta: true),
                         ReadMetric(summary, "metrics.balancedAccuracy", "balancedAccuracy", "Balanced accuracy", 15, isPercent: true, supportsDelta: true),
                         ReadMetric(summary, "metrics.normalAccuracy", "normalAccuracy", "Normal accuracy", 20, isPercent: true, supportsDelta: true),
@@ -166,6 +190,15 @@ namespace MvcVisionSystem
                         ReadMetric(summary, "metrics.totalImageCount", "totalImageCount", "Images", 70, isPercent: false, supportsDelta: false),
                         ReadMetric(summary, "metrics.correctImageCount", "correctImageCount", "Correct", 80, isPercent: false, supportsDelta: false)
                     };
+                    foreach ((string key, string errorPath, string countPath) in new[]
+                    {
+                        ("fnr", "metrics.falseNegativeCount", "metrics.abnormalImageCount"),
+                        ("fpr", "metrics.falsePositiveCount", "metrics.normalImageCount")
+                    })
+                    {
+                        int? errors = ReadNonNegativeInt(summary.SelectToken(errorPath)), count = ReadNonNegativeInt(summary.SelectToken(countPath));
+                        if (count > 0 && errors.HasValue && errors <= count) metrics.Add(new WpfModelBenchmarkMetric(key, key == "fnr" ? "False negative rate" : "False positive rate", errors.Value / (double)count.Value, 7, true, true));
+                    }
                     double? total = summary.SelectToken("metrics.totalImageCount")?.Value<double?>();
                     double? correct = summary.SelectToken("metrics.correctImageCount")?.Value<double?>();
                     if (total.HasValue && correct.HasValue)
@@ -212,16 +245,20 @@ namespace MvcVisionSystem
                         decisionText: FormatDecisionText(summary.SelectToken("promotion.recommendation")?.Value<string>()),
                         metrics: metrics.Where(metric => metric != null).ToArray(),
                         classMetrics: Array.Empty<WpfModelBenchmarkClassMetric>(),
-                        groundTruthReview: ReadAnomalyGroundTruthReview(summary)));
+                        groundTruthReview: ReadAnomalyGroundTruthReview(summary),
+                        datasetVersionId: summary.SelectToken("datasetVersionId")?.Value<string>(),
+                        datasetContentSha256: summary.SelectToken("datasetContentSha256")?.Value<string>(),
+                        sourceSha256: reportSha256));
                 }
                 catch
                 {
                     // A broken historical report must not hide the remaining catalog.
+                    unreadablePaths.Add(summaryPath);
                 }
             }
         }
 
-        private static IEnumerable<string> EnumerateSummaryFiles(string artifactsRoot, string fileName)
+        private static IEnumerable<string> EnumerateSummaryFiles(string artifactsRoot, string fileName, ISet<string> unreadablePaths)
         {
             if (!Directory.Exists(artifactsRoot))
             {
@@ -234,6 +271,7 @@ namespace MvcVisionSystem
             }
             catch
             {
+                unreadablePaths.Add(artifactsRoot);
                 return Array.Empty<string>();
             }
         }
@@ -264,7 +302,8 @@ namespace MvcVisionSystem
                     item.SelectToken("precision")?.Value<double?>(),
                     item.SelectToken("recall")?.Value<double?>(),
                     item.SelectToken("map50")?.Value<double?>(),
-                    item.SelectToken("map5095")?.Value<double?>()))
+                    item.SelectToken("map5095")?.Value<double?>(),
+                    ReadFiniteDouble(item.SelectToken("iou"))))
                 .Where(item => item.ClassId >= 0)
                 .OrderBy(item => item.ClassId)
                 .ToArray()
@@ -335,8 +374,27 @@ namespace MvcVisionSystem
                 schemaVersion,
                 schema,
                 geometryCoordinateSystem,
-                thresholdSweep);
+                thresholdSweep,
+                ReadImageReviews(token.SelectToken("imageReviews")));
         }
+
+        private static IReadOnlyList<ModelComparisonImageReview> ReadImageReviews(JToken token)
+        {
+            if (token is not JArray items) return Array.Empty<ModelComparisonImageReview>();
+            string[] boxKeys = { "groundTruth", "truePositives", "falsePositives", "falseNegatives" };
+            if (items.Any(item => item is not JObject || string.IsNullOrWhiteSpace(item.Value<string>("imagePath"))
+                || item.Value<string>("imageSha256") is not string hash || hash.Length != 64 || !hash.All(Uri.IsHexDigit)
+                || boxKeys.Any(key => item[key] is not JArray boxes || boxes.Any(box => ReadNormalizedBox(box) == null))))
+                return Array.Empty<ModelComparisonImageReview>();
+            return items.OfType<JObject>().Select(item => new ModelComparisonImageReview(
+                item.Value<string>("imagePath"), item.Value<string>("imageName"),
+                ReadReviewBoxes(item["groundTruth"]), ReadReviewBoxes(item["truePositives"]),
+                ReadReviewBoxes(item["falsePositives"]), ReadReviewBoxes(item["falseNegatives"]), item.Value<string>("imageSha256")))
+                .Where(item => !string.IsNullOrWhiteSpace(item.ImagePath)).ToArray();
+        }
+
+        private static IReadOnlyList<WpfModelBenchmarkNormalizedBox> ReadReviewBoxes(JToken token)
+            => token is JArray items ? items.Select(ReadNormalizedBox).Where(box => box != null).ToArray() : Array.Empty<WpfModelBenchmarkNormalizedBox>();
 
         private static WpfModelBenchmarkGroundTruthReview ReadAnomalyGroundTruthReview(JObject summary)
         {
@@ -657,10 +715,10 @@ namespace MvcVisionSystem
         {
             return (decision ?? string.Empty).Trim().ToLowerInvariant() switch
             {
-                "adopt" => "\uCC44\uD0DD \uADFC\uAC70",
+                "adopt" => OpenVisionLab.OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfModelBenchmark.Decision.Adopt")[0],
                 "promote" => "\uAD50\uCCB4 \uCD94\uCC9C",
                 "hold" => "\uBCF4\uB958",
-                "review" => "\uAC80\uD1A0 \uD544\uC694",
+                "review" => OpenVisionLab.OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfModelBenchmark.Decision.Review")[0],
                 "benchmark" => "\uC131\uB2A5 \uBD84\uC11D",
                 _ => "\uD310\uC815 \uC5C6\uC74C"
             };
@@ -714,10 +772,14 @@ namespace MvcVisionSystem
             string decisionText,
             IReadOnlyList<WpfModelBenchmarkMetric> metrics,
             IReadOnlyList<WpfModelBenchmarkClassMetric> classMetrics,
-            WpfModelBenchmarkGroundTruthReview groundTruthReview)
+            WpfModelBenchmarkGroundTruthReview groundTruthReview,
+            string datasetVersionId = "",
+            string datasetContentSha256 = "",
+            string sourceSha256 = "")
         {
             Id = id ?? string.Empty;
             SourcePath = sourcePath ?? string.Empty;
+            SourceSha256 = NormalizeSha256(sourceSha256);
             SourceRole = sourceRole ?? string.Empty;
             SourceTypeText = sourceTypeText ?? string.Empty;
             CreatedAt = createdAt;
@@ -745,10 +807,13 @@ namespace MvcVisionSystem
             Metrics = metrics ?? Array.Empty<WpfModelBenchmarkMetric>();
             ClassMetrics = classMetrics ?? Array.Empty<WpfModelBenchmarkClassMetric>();
             GroundTruthReview = groundTruthReview;
+            DatasetVersionId = datasetVersionId?.Trim() ?? string.Empty;
+            DatasetContentSha256 = NormalizeSha256(datasetContentSha256);
         }
 
         public string Id { get; }
         public string SourcePath { get; }
+        public string SourceSha256 { get; }
         public string SourceRole { get; }
         public string SourceTypeText { get; }
         public DateTimeOffset CreatedAt { get; }
@@ -776,6 +841,8 @@ namespace MvcVisionSystem
         public IReadOnlyList<WpfModelBenchmarkMetric> Metrics { get; }
         public IReadOnlyList<WpfModelBenchmarkClassMetric> ClassMetrics { get; }
         public WpfModelBenchmarkGroundTruthReview GroundTruthReview { get; }
+        public string DatasetVersionId { get; }
+        public string DatasetContentSha256 { get; }
 
         public string QualityComparisonKey => string.Join(
             "|",
@@ -785,6 +852,19 @@ namespace MvcVisionSystem
                 : "sha256:" + EvidenceFingerprintSha256.Trim().ToLowerInvariant(),
             Split.Trim().ToLowerInvariant(),
             EvidenceCount.ToString(CultureInfo.InvariantCulture));
+
+        public bool HasEvaluationConditions => ImageSize > 0 && BatchSize > 0 && IsThreshold(Confidence) && GroundTruthReview != null
+            && (TaskKey == "anomaly-classification" ? GroundTruthReview.Schema == "image-classification-review-v1"
+                : IsThreshold(GroundTruthReview.PredictionNmsIouThreshold) && IsThreshold(GroundTruthReview.IouThreshold));
+
+        public string EvaluationConditionKey => TaskKey == "anomaly-classification"
+            ? string.Join("|", QualityComparisonKey, ImageSize, BatchSize, GroundTruthReview?.Schema, "model-specific-threshold")
+            : string.Join("|", QualityComparisonKey, ImageSize, BatchSize,
+            Confidence?.ToString("R", CultureInfo.InvariantCulture),
+            GroundTruthReview?.PredictionNmsIouThreshold?.ToString("R", CultureInfo.InvariantCulture),
+            GroundTruthReview?.IouThreshold?.ToString("R", CultureInfo.InvariantCulture));
+
+        private static bool IsThreshold(double? value) => value is double threshold && double.IsFinite(threshold) && threshold >= 0 && threshold <= 1;
 
         public string TimingComparisonKey => string.Join(
             "|",
@@ -864,7 +944,8 @@ namespace MvcVisionSystem
             double? precision,
             double? recall,
             double? map50,
-            double? map5095)
+            double? map5095,
+            double? iou = null)
         {
             ClassId = classId;
             ClassName = className ?? string.Empty;
@@ -874,6 +955,7 @@ namespace MvcVisionSystem
             Recall = recall;
             Map50 = map50;
             Map5095 = map5095;
+            IoU = iou;
         }
 
         public int ClassId { get; }
@@ -884,6 +966,7 @@ namespace MvcVisionSystem
         public double? Recall { get; }
         public double? Map50 { get; }
         public double? Map5095 { get; }
+        public double? IoU { get; }
     }
 
     public sealed class WpfModelBenchmarkGroundTruthReview
@@ -901,7 +984,8 @@ namespace MvcVisionSystem
             int schemaVersion = 1,
             string schema = "",
             string geometryCoordinateSystem = "",
-            IReadOnlyList<WpfModelBenchmarkThresholdReview> thresholdSweep = null)
+            IReadOnlyList<WpfModelBenchmarkThresholdReview> thresholdSweep = null,
+            IReadOnlyList<ModelComparisonImageReview> imageReviews = null)
         {
             Confidence = confidence;
             PredictionNmsIouThreshold = predictionNmsIouThreshold;
@@ -916,6 +1000,7 @@ namespace MvcVisionSystem
             Schema = schema ?? string.Empty;
             GeometryCoordinateSystem = geometryCoordinateSystem ?? string.Empty;
             ThresholdSweep = thresholdSweep ?? Array.Empty<WpfModelBenchmarkThresholdReview>();
+            ImageReviews = imageReviews ?? Array.Empty<ModelComparisonImageReview>();
         }
 
         public double? Confidence { get; }
@@ -931,6 +1016,30 @@ namespace MvcVisionSystem
         public string Schema { get; }
         public string GeometryCoordinateSystem { get; }
         public IReadOnlyList<WpfModelBenchmarkThresholdReview> ThresholdSweep { get; }
+        public IReadOnlyList<ModelComparisonImageReview> ImageReviews { get; }
+    }
+
+    public sealed class ModelComparisonImageReview
+    {
+        public ModelComparisonImageReview(string imagePath, string imageName, IReadOnlyList<WpfModelBenchmarkNormalizedBox> groundTruth, IReadOnlyList<WpfModelBenchmarkNormalizedBox> truePositives, IReadOnlyList<WpfModelBenchmarkNormalizedBox> falsePositives, IReadOnlyList<WpfModelBenchmarkNormalizedBox> falseNegatives, string imageSha256 = "")
+        {
+            ImagePath = imagePath ?? string.Empty;
+            ImageName = imageName ?? string.Empty;
+            ImageSha256 = imageSha256?.Trim().ToLowerInvariant() ?? string.Empty;
+            GroundTruth = groundTruth ?? Array.Empty<WpfModelBenchmarkNormalizedBox>();
+            TruePositives = truePositives ?? Array.Empty<WpfModelBenchmarkNormalizedBox>();
+            FalsePositives = falsePositives ?? Array.Empty<WpfModelBenchmarkNormalizedBox>();
+            FalseNegatives = falseNegatives ?? Array.Empty<WpfModelBenchmarkNormalizedBox>();
+        }
+
+        public string ImagePath { get; }
+        public string ImageName { get; }
+        public string ImageSha256 { get; }
+        public IReadOnlyList<WpfModelBenchmarkNormalizedBox> GroundTruth { get; }
+        public IReadOnlyList<WpfModelBenchmarkNormalizedBox> TruePositives { get; }
+        public IReadOnlyList<WpfModelBenchmarkNormalizedBox> FalsePositives { get; }
+        public IReadOnlyList<WpfModelBenchmarkNormalizedBox> FalseNegatives { get; }
+        public int ErrorCount => FalsePositives.Count + FalseNegatives.Count;
     }
 
     public sealed class WpfModelBenchmarkGroundTruthClassReview

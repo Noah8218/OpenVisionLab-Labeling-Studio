@@ -19,5 +19,13 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
         public Color Color { get; set; } = Color.DeepSkyBlue;
 
         public bool IsSelected { get; set; }
+
+        public bool IsLabelingSuggestion { get; set; }
+        public bool IsInferencePrediction { get; set; }
+
+        public string DisplayLabel { get; set; } = string.Empty;
+
+        // Read-only review decoration; never an AI candidate hit target.
+        public bool IsLabelSuspicion { get; set; }
     }
 }

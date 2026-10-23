@@ -32,9 +32,19 @@ namespace MvcVisionSystem
     public static class WorkflowStagePresentationService
     {
         public static WorkflowStagePresentation Build(WpfShellWorkflowStage stage)
+            => Build(stage, isAnomalyImageReviewMode: false);
+
+        public static WorkflowStagePresentation Build(WpfShellWorkflowStage stage, bool isAnomalyImageReviewMode)
         {
             return stage switch
             {
+                WpfShellWorkflowStage.Labeling when isAnomalyImageReviewMode => new WorkflowStagePresentation(
+                    stage,
+                    T("WpfShell.Workflow.AnomalyReview.Progress"),
+                    T("WpfImageQueue.Anomaly.Card.Title"),
+                    T("WpfShell.Workflow.AnomalyReview.Detail"),
+                    T("WpfImageQueue.Next.Anomaly.ToolTip")),
+
                 WpfShellWorkflowStage.Labeling => new WorkflowStagePresentation(
                     stage,
                     T("WpfShell.Workflow.Labeling.Progress"),
@@ -55,6 +65,13 @@ namespace MvcVisionSystem
                     T("WpfShell.Workflow.Training.Title"),
                     T("WpfShell.Workflow.Training.Detail"),
                     T("WpfShell.Workflow.Training.Next")),
+
+                WpfShellWorkflowStage.ModelComparison => new WorkflowStagePresentation(
+                    stage,
+                    T("WpfComparisonWorkspace.StageProgress"),
+                    T("WpfComparisonWorkspace.Title"),
+                    T("WpfComparisonWorkspace.StageDetail"),
+                    T("WpfComparisonWorkspace.StageNext")),
 
                 _ => new WorkflowStagePresentation(
                     WpfShellWorkflowStage.Dataset,

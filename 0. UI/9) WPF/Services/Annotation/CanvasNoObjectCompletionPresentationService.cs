@@ -1,3 +1,5 @@
+using OpenVisionLab;
+
 namespace MvcVisionSystem
 {
     /// <summary>
@@ -9,15 +11,33 @@ namespace MvcVisionSystem
         private bool hasImage;
         private bool hasLabelObjects;
         private bool hasPendingCandidates;
+        private bool isSelected;
+        private string activeImageKey = string.Empty;
 
         public CanvasNoObjectCompletionPresentationSnapshot SetState(
             bool hasImage,
             bool hasLabelObjects,
-            bool hasPendingCandidates)
+            bool hasPendingCandidates,
+            string imageKey = null,
+            string saveStatusKey = null)
         {
+            if (imageKey != null && !string.Equals(activeImageKey, imageKey, System.StringComparison.OrdinalIgnoreCase))
+            {
+                activeImageKey = imageKey;
+                isSelected = false;
+            }
+            if (saveStatusKey is "Waiting" or "Unlabeled" or "Saved" or "LoadError") isSelected = false;
+            if (saveStatusKey == "NoObjectSaved") isSelected = true;
             this.hasImage = hasImage;
             this.hasLabelObjects = hasLabelObjects;
             this.hasPendingCandidates = hasPendingCandidates;
+            if (!hasImage || hasLabelObjects || hasPendingCandidates) isSelected = false;
+            return BuildSnapshot();
+        }
+
+        public CanvasNoObjectCompletionPresentationSnapshot SetSelected(bool selected)
+        {
+            isSelected = selected && hasImage && !hasLabelObjects && !hasPendingCandidates;
             return BuildSnapshot();
         }
 
@@ -26,47 +46,52 @@ namespace MvcVisionSystem
 
         private CanvasNoObjectCompletionPresentationSnapshot BuildSnapshot()
         {
+            string actionText = OpenVisionLanguageService.T("WpfCanvas.NoObject.Action");
             if (!hasImage)
             {
                 return new CanvasNoObjectCompletionPresentationSnapshot(
                     isEnabled: false,
-                    actionText: "객체 없음",
-                    toolTip: "이미지를 먼저 열면 객체 없음으로 완료할 수 있습니다.");
+                    actionText: actionText,
+                    toolTip: OpenVisionLanguageService.T("WpfCanvas.NoObject.NoImage.ToolTip"));
             }
 
             if (hasLabelObjects)
             {
                 return new CanvasNoObjectCompletionPresentationSnapshot(
                     isEnabled: false,
-                    actionText: "객체 없음",
-                    toolTip: "이미 라벨된 객체가 있습니다. 객체 없음으로 완료하려면 기존 라벨을 먼저 삭제하세요.");
+                    actionText: actionText,
+                    toolTip: OpenVisionLanguageService.T("WpfCanvas.NoObject.HasLabels.ToolTip"));
             }
 
             if (hasPendingCandidates)
             {
                 return new CanvasNoObjectCompletionPresentationSnapshot(
                     isEnabled: false,
-                    actionText: "객체 없음",
-                    toolTip: "남은 AI 후보가 있습니다. 후보를 확정하거나 숨긴 뒤 객체 없음으로 완료하세요.");
+                    actionText: actionText,
+                    toolTip: OpenVisionLanguageService.T("WpfCanvas.NoObject.HasCandidates.ToolTip"));
             }
 
             return new CanvasNoObjectCompletionPresentationSnapshot(
                 isEnabled: true,
-                actionText: "객체 없음",
-                toolTip: "라벨을 만들지 않고 빈 YOLO 라벨 파일을 저장한 뒤 다음 미완료 이미지로 이동합니다.");
+                actionText: actionText,
+                toolTip: OpenVisionLanguageService.T("WpfCanvas.NoObject.Ready.ToolTip"),
+                isSelected: isSelected);
         }
     }
 
     public sealed class CanvasNoObjectCompletionPresentationSnapshot
     {
-        public CanvasNoObjectCompletionPresentationSnapshot(bool isEnabled, string actionText, string toolTip)
+        public CanvasNoObjectCompletionPresentationSnapshot(bool isEnabled, string actionText, string toolTip, bool isSelected = false)
         {
             IsEnabled = isEnabled;
+            IsSelected = isSelected;
             ActionText = actionText ?? string.Empty;
             ToolTip = toolTip ?? string.Empty;
         }
 
         public bool IsEnabled { get; }
+
+        public bool IsSelected { get; }
 
         public string ActionText { get; }
 

@@ -69,7 +69,7 @@ namespace MvcVisionSystem
             var errors = new List<string>();
             if (request == null)
             {
-                errors.Add("\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 \uC694\uCCAD \uC815\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.");
+                errors.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Error.RequestMissing"));
                 return errors;
             }
 
@@ -84,16 +84,16 @@ namespace MvcVisionSystem
                 string.Equals(request.ModelName, "patchcore", StringComparison.OrdinalIgnoreCase);
             if (!isSupportedModel)
             {
-                errors.Add("\uC774\uC0C1\uD0D0\uC9C0 \uD3C9\uAC00\uB294 YOLOv8, YOLO11 \uB610\uB294 PatchCore \uB7F0\uD0C0\uC784\uC5D0\uC11C\uB9CC \uC2E4\uD589\uD569\uB2C8\uB2E4.");
+                errors.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Error.Unsupported"));
             }
 
-            ValidateFile(request.ScriptPath, "\uC774\uC0C1\uD0D0\uC9C0 \uD3C9\uAC00 \uC2A4\uD06C\uB9BD\uD2B8", errors);
-            ValidateFile(request.PythonExecutablePath, "Python \uC2E4\uD589 \uD30C\uC77C", errors);
-            ValidateFile(request.WorkerScriptPath, "\uC774\uC0C1\uD0D0\uC9C0 worker", errors);
-            ValidateDirectory(request.ModelRootPath, "\uBAA8\uB378 \uB7F0\uD0C0\uC784 \uD3F4\uB354", errors);
-            ValidateFile(request.WeightsPath, "\uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378 \uD30C\uC77C", errors);
-            ValidateDirectory(request.DatasetRootPath, "anomaly classification \uD3C9\uAC00 \uB370\uC774\uD130\uC14B", errors);
-            ValidateDirectory(request.OutputDirectory, "\uD3C9\uAC00 \uACB0\uACFC \uC800\uC7A5 \uD3F4\uB354", errors);
+            ValidateFile(request.ScriptPath, OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Input.Script"), errors);
+            ValidateFile(request.PythonExecutablePath, OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Input.Python"), errors);
+            ValidateFile(request.WorkerScriptPath, OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Input.Worker"), errors);
+            ValidateDirectory(request.ModelRootPath, OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Input.RuntimeFolder"), errors);
+            ValidateFile(request.WeightsPath, OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Input.InspectionModel"), errors);
+            ValidateDirectory(request.DatasetRootPath, OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Input.Dataset"), errors);
+            ValidateDirectory(request.OutputDirectory, OpenVisionLab.OpenVisionLanguageService.T("WpfAnomaly.Evaluation.Input.OutputFolder"), errors);
             ValidateSplitImages(request, errors);
             ValidateDatasetContentLeakage(request, errors);
 

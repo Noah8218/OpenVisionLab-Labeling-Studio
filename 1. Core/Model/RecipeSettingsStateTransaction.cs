@@ -99,14 +99,7 @@ namespace MvcVisionSystem
 
         private static YoloDatasetSettings Clone(YoloDatasetSettings source)
         {
-            return new YoloDatasetSettings
-            {
-                OutputRootPath = source?.OutputRootPath ?? string.Empty,
-                DataYamlFilePath = source?.DataYamlFilePath ?? string.Empty,
-                ValidationPercent = source?.ValidationPercent ?? 20,
-                TestPercent = source?.TestPercent ?? 0,
-                SplitSeed = source?.SplitSeed ?? 17
-            };
+            return source?.Copy() ?? new YoloDatasetSettings();
         }
 
         private static YoloV5TrainingParameters Clone(YoloV5TrainingParameters source)
@@ -211,11 +204,7 @@ namespace MvcVisionSystem
         private static void Restore(YoloDatasetSettings target, YoloDatasetSettings source)
         {
             target ??= new YoloDatasetSettings();
-            target.OutputRootPath = source.OutputRootPath;
-            target.DataYamlFilePath = source.DataYamlFilePath;
-            target.ValidationPercent = source.ValidationPercent;
-            target.TestPercent = source.TestPercent;
-            target.SplitSeed = source.SplitSeed;
+            target.CopyFrom(source);
         }
 
         private static void Restore(YoloV5TrainingParameters target, YoloV5TrainingParameters source)

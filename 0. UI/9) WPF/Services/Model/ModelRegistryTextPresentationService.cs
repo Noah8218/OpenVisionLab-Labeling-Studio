@@ -1,6 +1,7 @@
 using MvcVisionSystem._1._Core;
 using System;
 using System.Globalization;
+using System.Linq;
 
 namespace MvcVisionSystem
 {
@@ -13,11 +14,11 @@ namespace MvcVisionSystem
         {
             return (state ?? string.Empty).Trim().ToLowerInvariant() switch
             {
-                "completed" or "complete" or "done" => "\uC644\uB8CC",
-                "failed" or "error" => "\uC2E4\uD328",
-                "running" or "training" => "\uC9C4\uD589 \uC911",
-                "started" => "\uC2DC\uC791\uB428",
-                "" => "\uBBF8\uD655\uC778",
+                "completed" or "complete" or "done" => OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.TrainingState.Completed"),
+                "failed" or "error" => OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.TrainingState.Failed"),
+                "running" or "training" => OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.TrainingState.Running"),
+                "started" => OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.TrainingState.Started"),
+                "" => OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.TrainingState.Unknown"),
                 _ => state.Trim()
             };
         }
@@ -50,13 +51,25 @@ namespace MvcVisionSystem
             return DateTime.MinValue;
         }
 
+        public static string FormatPendingDecisionReason(string decision, string summary)
+        {
+            string raw = summary ?? string.Empty;
+            const string key = "WpfModelRegistry.Reason.Pending";
+            if (!string.Equals(decision, ModelRegistryService.CandidateDecisionPending, StringComparison.Ordinal)) return raw;
+            if (!OpenVisionLab.OpenVisionLanguageService.GetEntries().Any(item => string.Equals(item.Key, key, StringComparison.Ordinal))) return raw;
+            string currentKorean = OpenVisionLab.OpenVisionLanguageService.GetDefaultEntries().FirstOrDefault(item => string.Equals(item.Key, key, StringComparison.Ordinal))?.Korean;
+            if (!string.Equals(raw, currentKorean, StringComparison.Ordinal)
+                && !OpenVisionLab.OpenVisionLanguageService.GetPreviousKoreanDefaults(key).Contains(raw, StringComparer.Ordinal)) return raw;
+            return OpenVisionLab.OpenVisionLanguageService.T(key);
+        }
+
         public static string FormatCandidateDecisionText(string decision)
         {
             return (decision ?? string.Empty).Trim() switch
             {
-                ModelRegistryService.CandidateDecisionAdopted => "\uCC44\uD0DD",
-                ModelRegistryService.CandidateDecisionRejected => "\uAC70\uC808",
-                ModelRegistryService.CandidateDecisionPending => "\uB300\uAE30",
+                ModelRegistryService.CandidateDecisionAdopted => OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.Decision.Assigned"),
+                ModelRegistryService.CandidateDecisionRejected => OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.Decision.Rejected"),
+                ModelRegistryService.CandidateDecisionPending => OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.Decision.Pending"),
                 _ => string.Empty
             };
         }

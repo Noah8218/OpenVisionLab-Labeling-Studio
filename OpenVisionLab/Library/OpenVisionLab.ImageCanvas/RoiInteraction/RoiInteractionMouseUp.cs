@@ -6,6 +6,7 @@ using OpenVisionLab.ImageCanvas.Overlays;
 using OpenVisionLab.ImageCanvas.OpenGLRendering;
 using System;
 using System.Drawing;
+using System.Linq;
 using System.Windows;
 
 namespace OpenVisionLab.ImageCanvas
@@ -38,11 +39,15 @@ namespace OpenVisionLab.ImageCanvas
 			if (!RoiInteractionMouseMove.TryCreateClippedCanvasRect(preMousePos, postMousePos, imageSize, out float left, out float top, out float right, out float bottom)) return false;
 
 			// _activeRoiRect??吏곸젒 珥덇린?뷀븯怨? UniqueId ?ㅼ젙
+			CanvasRect<float> display = activeRoiRect;
 			activeRoiRect = new CanvasRect<float>(left, top, right, bottom)
 			{
 				UniqueId = Guid.NewGuid().ToString(),
 				ShapeKind = shapeKind,
-				IsFill = shapeKind == CanvasRoiShapeKind.Ellipse
+				IsFill = shapeKind == CanvasRoiShapeKind.Ellipse,
+				IsLabelAnnotation = display?.IsLabelAnnotation == true,
+				LabelColor = display?.LabelColor ?? Color.Empty,
+				ShowLabelEditHandles = display?.ShowLabelEditHandles != false
 			};
 
 			// 留덉?留?洹몃９??媛?몄샂
@@ -50,7 +55,7 @@ namespace OpenVisionLab.ImageCanvas
 			if (parentOverlay == null) return false;
 
 			// _activeRoiRect???ъ슜?섏뿬 ?ㅼ씠?닿렇??異붽?
-			imageViewer.AddOverlay(parentOverlay.GroupType, parentOverlay.GroupType, activeRoiRect, activeRoiRect.UniqueId, parentOverlay.InspWindowType, EnumItemType.Window);
+			imageViewer.AddOverlay(parentOverlay.GroupType, parentOverlay.GroupType, activeRoiRect, activeRoiRect.UniqueId, parentOverlay.InspWindowType, EnumItemType.Window, drawColorOverride: activeRoiRect.IsLabelAnnotation ? activeRoiRect.LabelColor : null);
 
 			// MouseUp ?대깽??泥섎━瑜??꾪븳 異붽? 濡쒖쭅
 			callbackRoiAdded?.Invoke(activeRoiRect, parentOverlay);
@@ -63,8 +68,16 @@ namespace OpenVisionLab.ImageCanvas
 			AddRoiArrayView addRoiArrayView = new AddRoiArrayView();
 			addRoiArrayView.Title = "Roi Add";
 			addRoiArrayView.DataContext = addRoiArrayVm;
-			addRoiArrayView.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+			Window owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(window => window.IsActive && window != addRoiArrayView);
+			if (owner != null)
+			{
+				addRoiArrayView.Owner = owner;
+				addRoiArrayView.Resources.MergedDictionaries.Add(owner.Resources);
+				addRoiArrayView.FontFamily = owner.FontFamily;
+			}
+			addRoiArrayView.WindowStartupLocation = owner == null ? WindowStartupLocation.CenterScreen : WindowStartupLocation.CenterOwner;
 			bool? dialogResult = addRoiArrayView.ShowDialog();
+			if (dialogResult != true) return;
 
 			try
 			{

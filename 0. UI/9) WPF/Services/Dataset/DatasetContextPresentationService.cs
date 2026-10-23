@@ -43,6 +43,14 @@ namespace MvcVisionSystem
 
     public static class DatasetContextPresentationService
     {
+        public static string BuildLabelingStartUnavailableHint(int imageCount, bool isImageFolderUnavailable, bool hasSelectedImage, int classCount)
+        {
+            if (isImageFolderUnavailable) return T("WpfDatasetHome.ReconnectImagesHint");
+            if (imageCount <= 0) return T("WpfDatasetHome.ConnectImagesHint");
+            if (classCount <= 0) return T("WpfDatasetHome.ClassesNeeded");
+            return hasSelectedImage ? string.Empty : T("WpfDatasetHome.SelectImageHint");
+        }
+
         public static string BuildDatasetName(string recipeName, string outputRootPath)
         {
             if (!string.IsNullOrWhiteSpace(recipeName))

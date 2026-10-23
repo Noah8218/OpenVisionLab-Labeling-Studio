@@ -58,7 +58,7 @@ namespace MvcVisionSystem
             {
                 return Unavailable(
                     string.Empty,
-                    "히트맵 파일 경로가 없습니다. 검사를 다시 실행해 결과 파일을 생성하세요.");
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfPatchCoreHeatmap.Status.NoPath"));
             }
 
             string fullPath;
@@ -70,7 +70,7 @@ namespace MvcVisionSystem
             {
                 return Unavailable(
                     configuredPath,
-                    "히트맵 파일 경로가 올바르지 않습니다. PatchCore 검사 결과를 다시 확인하세요.");
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfPatchCoreHeatmap.Status.InvalidPath"));
             }
 
             string extension = Path.GetExtension(fullPath);
@@ -78,14 +78,14 @@ namespace MvcVisionSystem
             {
                 return Unavailable(
                     fullPath,
-                    "지원하지 않는 히트맵 이미지 형식입니다. PNG, JPEG, BMP 또는 TIFF 결과를 사용하세요.");
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfPatchCoreHeatmap.Status.UnsupportedFormat"));
             }
 
             if (!File.Exists(fullPath))
             {
                 return Unavailable(
                     fullPath,
-                    "히트맵 파일을 찾을 수 없습니다. 결과가 이동·삭제되었는지 확인한 뒤 검사를 다시 실행하세요.");
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfPatchCoreHeatmap.Status.Missing"));
             }
 
             return new PatchCoreHeatmapAvailability
@@ -94,7 +94,7 @@ namespace MvcVisionSystem
                 CanOpen = true,
                 FullPath = fullPath,
                 FileName = Path.GetFileName(fullPath),
-                StatusText = "검토용 위치 근거입니다. 열어도 라벨이나 후보 상태는 바뀌지 않습니다.",
+                StatusText = OpenVisionLab.OpenVisionLanguageService.T("WpfPatchCoreHeatmap.Status.Available"),
                 ToolTip = fullPath
             };
         }
@@ -134,7 +134,7 @@ namespace MvcVisionSystem
                     Succeeded = true,
                     ImageSource = bitmap,
                     Availability = availability,
-                    StatusText = "히트맵을 열었습니다. 위치 근거를 확인한 뒤 별도로 확정하거나 숨기세요."
+                    StatusText = OpenVisionLab.OpenVisionLanguageService.T("WpfPatchCoreHeatmap.Status.Opened")
                 };
             }
             catch (Exception ex) when (
@@ -147,7 +147,7 @@ namespace MvcVisionSystem
                 return new PatchCoreHeatmapLoadResult
                 {
                     Availability = availability,
-                    StatusText = "히트맵 이미지를 읽을 수 없습니다. 파일이 손상되었거나 다른 형식인지 확인하세요."
+                    StatusText = OpenVisionLab.OpenVisionLanguageService.T("WpfPatchCoreHeatmap.Status.ReadFailed")
                 };
             }
         }
@@ -159,7 +159,7 @@ namespace MvcVisionSystem
                 IsPatchCoreCandidate = true,
                 CanOpen = false,
                 FullPath = path,
-                FileName = string.IsNullOrWhiteSpace(path) ? "결과 파일 없음" : Path.GetFileName(path),
+                FileName = string.IsNullOrWhiteSpace(path) ? OpenVisionLab.OpenVisionLanguageService.T("WpfPatchCoreHeatmap.File.None") : Path.GetFileName(path),
                 StatusText = statusText,
                 ToolTip = string.IsNullOrWhiteSpace(path) ? statusText : path
             };

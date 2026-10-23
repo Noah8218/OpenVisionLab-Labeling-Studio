@@ -2,6 +2,8 @@ using OpenVisionLab.Mvvm;
 using OpenVisionLab;
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -21,27 +23,83 @@ namespace MvcVisionSystem
         private static readonly GridLength WorkspaceSplitterPaneGridLengthValue = new GridLength(10D);
         private static readonly GridLength WorkspaceHiddenPaneGridLengthValue = new GridLength(0D);
         private WpfShellWorkflowStage currentWorkflowStage = WpfShellWorkflowStage.Dataset;
+        private Action<WpfShellWorkflowStage> workflowStageChanged;
         private bool isAnomalyImageReviewMode;
+        private bool isInferenceInspectionOnly;
+        private bool isLabelingAssistPanelExpanded;
+        private int inferenceTargetIndex;
+        private WpfModelRegistryHistoryItem selectedInferenceModelHistoryItem;
+        private string selectedInferenceModelCandidateId = string.Empty;
+        private string selectedInferenceModelWeightsPath = string.Empty;
+        private bool hasExplicitInferenceModelSelection;
+        private bool isRefreshingModelRegistryHistory;
+        private Func<bool> inferenceRunStateProvider;
+        private Action inferencePurposeChanged;
+        private Action inferenceModelSelectionChanged;
+        private Action runCurrentInferenceTarget;
+        private Action runVisibleInferenceTarget;
+        private Action runUnexecutedInferenceTarget;
+        private Func<bool> canRunCurrentInferenceTarget;
+        private Func<bool> canRunVisibleInferenceTarget;
+        private Func<bool> canRunUnexecutedInferenceTarget;
+        private string inferenceRunTargetUnavailableHint = string.Empty;
+        private readonly InferenceResultReviewService inferenceResultReview = new();
+        private Func<InferenceResultReviewEntry, (double? Threshold, bool? SavedVerdict)> inferenceAnomalyEvidenceProvider;
+        private (double? Threshold, bool? SavedVerdict) inferenceAnomalyEvidence;
+        private Action<InferenceResultReviewEntry> openInferenceDecisionRule;
+        private ICommand openInferenceDecisionRuleCommand = new RelayCommand(NoOpCommand, () => false);
+        private InferenceResultReviewContext inferenceReviewContext = InferenceResultReviewContext.Empty;
+        private Func<InferenceResultReviewContext> inferenceReviewContextProvider;
+        private Func<string, bool> openInferenceResultImage;
+        private Action<YoloWorkerSmokeTestResult> restoreInferenceResult;
+        private Action inferenceResultRoleChanged;
+        private Action resetInferenceResultFilters;
+        private Action<YoloWorkerSmokeCandidate> selectInferencePrediction;
+        private Func<YoloWorkerSmokeCandidate> selectedInferencePredictionProvider;
+        private InferenceResultSummary inferenceSummary = InferenceResultSummary.Empty;
+        private IReadOnlyList<WpfCandidateReviewListItem> inferencePredictionListItems = Array.Empty<WpfCandidateReviewListItem>();
+        private Func<IReadOnlyList<WpfClassCatalogListItem>> inferenceClassCatalogProvider;
+        private Func<InferenceResultReviewEntry, double, bool> sendInferenceResultToLabeling;
+        private bool sendingInferenceResultToLabeling;
+        private ICommand sendInferenceResultsToLabelingCommand = new RelayCommand(NoOpCommand, () => false);
+        private Func<string, string> exportInferenceResults;
+        private Func<Func<string>, string> exportDeferredInferenceResults;
+        private bool inferenceDecisionRefreshPending;
+        private bool exportingInferenceResults;
+        private ICommand exportInferenceResultsCommand = new RelayCommand(NoOpCommand, () => false);
+        private bool? lastInferenceResultReadOnly;
+        private bool refreshingInferenceResultPresentation;
+        private bool inferenceResultsWereVisible;
+        private bool inferenceWorkspaceWasActive;
+        private bool inferenceResultRestorePending;
+        private string inferenceNavigationMessage = string.Empty;
 
         private bool isCurrentImageDetectionEnabled;
+        private bool canRunInferenceTarget;
         private bool isLabelingModeActive = true;
         private bool isInferenceModeActive;
         private bool isDatasetStageActive = true;
+        private bool isRecipeLibraryVisible = true;
         private bool isLabelingStageActive;
         private bool isInferenceStageActive;
         private bool isTrainingModelStageActive;
-        private bool isWorkflowStageModelActionPanelVisible;
+        private bool isModelComparisonStageActive;
         private bool isSavedLabelsViewVisible;
         private bool isCandidateReviewViewVisible;
         private bool isGuideToolsViewVisible = true;
         private bool isClassCatalogViewVisible = true;
+        private bool isClassCatalogDialogOpen;
+        private bool isClassAddDialogOpen;
+        private int operationsTabIndex = 3;
         private bool isYoloModelCenterViewVisible;
         private bool isRightWorkflowSubNavigationVisible;
-        private bool isRightWorkflowShortcutBarVisible = true;
+        private bool isRightWorkflowShortcutBarVisible;
         private bool isRightWorkflowDockExpanded = true;
         private bool isRightWorkflowDockRailVisible;
         private double rightWorkflowExpandedPaneWidth = RightWorkflowExpandedPaneGridLengthValue.Value;
         private GridLength rightWorkflowPaneGridLength = RightWorkflowExpandedPaneGridLengthValue;
+        private double workspaceViewportWidth;
+        private bool workspaceLayoutSettingsRestored;
         private double rightWorkflowPaneMinWidth = 72D;
         private double rightWorkflowPaneMaxWidth = 640D;
         private bool isModelWorkspaceActive;
@@ -49,18 +107,23 @@ namespace MvcVisionSystem
         private bool isImageQueueWorkspaceVisible = true;
         private bool isWorkspaceSplitterVisible = true;
         private bool isAnnotationWorkflowVisible = true;
+        private FlowDirection labelingWorkspaceFlowDirection = FlowDirection.RightToLeft;
         private bool isRightWorkflowDockToggleVisible = true;
         private GridLength canvasWorkspacePaneGridLength = WorkspaceCanvasPaneGridLengthValue;
         private GridLength imageQueuePaneGridLength = new GridLength(WpfWorkspaceLayoutSettings.DefaultImageQueuePaneWidth);
         private GridLength workspaceSplitterPaneGridLength = WorkspaceSplitterPaneGridLengthValue;
-        private double canvasWorkspacePaneMinWidth = 420D;
-        private double imageQueuePaneMinWidth = 260D;
+        private int rightWorkflowDockColumn;
+        private int imageQueueColumn = 4;
+        private double workflowContextHeaderHeight = 48D;
+        private double workflowStageRailHeight = 48D;
+        private double canvasWorkspacePaneMinWidth = 440D;
+        private double imageQueuePaneMinWidth = WpfWorkspaceLayoutSettings.MinimumImageQueuePaneWidth;
         private double imageQueueExpandedPaneWidth = WpfWorkspaceLayoutSettings.DefaultImageQueuePaneWidth;
-        private string rightWorkflowDockToggleText = "\uC811\uAE30";
-        private string rightWorkflowDockToggleToolTip = "\uC624\uB978\uCABD \uC791\uC5C5 \uD328\uB110\uC744 \uC811\uC2B5\uB2C8\uB2E4.";
-        private string rightWorkflowViewTitleText = "\uB370\uC774\uD130\uC14B \uD648";
-        private string rightWorkflowViewDetailText = "\uB370\uC774\uD130\uC14B \uC900\uBE44\uC640 \uC774\uBBF8\uC9C0/\uD074\uB798\uC2A4 \uC0C1\uD0DC\uB97C \uD655\uC778\uD569\uB2C8\uB2E4.";
-        private string rightWorkflowRailCurrentViewText = "\uD648";
+        private string rightWorkflowDockToggleText;
+        private string rightWorkflowDockToggleToolTip;
+        private string rightWorkflowViewTitleText = OpenVisionLanguageService.T("WpfShell.Right.Title.Dataset");
+        private string rightWorkflowViewDetailText;
+        private string rightWorkflowRailCurrentViewText;
         private bool isSavedLabelsShortcutActive;
         private bool isLabelingGuideShortcutActive = true;
         private bool isClassCatalogShortcutActive;
@@ -71,26 +134,26 @@ namespace MvcVisionSystem
         private bool isLabelingModeButtonEnabled = true;
         private bool isInferenceModeButtonEnabled = true;
         private bool isOpenDatasetFolderEnabled;
-        private string currentDatasetName = "\uB370\uC774\uD130\uC14B \uBBF8\uC120\uD0DD";
-        private string currentDatasetPurposeText = "\uBAA9\uC801 \uBBF8\uC120\uD0DD";
-        private string currentDatasetPathText = "\uB370\uC774\uD130\uC14B\uC744 \uB9CC\uB4E4\uAC70\uB098 \uC5F4\uC5B4\uC8FC\uC138\uC694.";
-        private string currentDatasetStoragePathText = "\uB77C\uBCA8/\uB808\uC2DC\uD53C \uC800\uC7A5: \uB370\uC774\uD130\uC14B\uC744 \uC5F4\uAC70\uB098 \uC0C8\uB85C \uB9CC\uB4DC\uC138\uC694";
-        private string currentDatasetImageRootText = "\uC6D0\uBCF8 \uC774\uBBF8\uC9C0 \uD3F4\uB354: \uC774\uBBF8\uC9C0 \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694";
-        private string currentDatasetSourceText = "\uD074\uB798\uC2A4/\uB77C\uBCA8 \uAE30\uC900 \uD655\uC778 \uD544\uC694";
-        private string currentDatasetToolTip = "\uD604\uC7AC \uC791\uC5C5 \uB370\uC774\uD130\uC14B\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4.";
-        private string modelCenterTrainingStatusText = "\uD559\uC2B5 \uC0C1\uD0DC \uBBF8\uD655\uC778";
-        private string modelCenterTrainingDetailText = "\uB370\uC774\uD130\uC14B \uC810\uAC80 \uD6C4 \uD559\uC2B5\uC744 \uC2DC\uC791\uD558\uC138\uC694.";
-        private string modelCenterCurrentModelText = "\uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378: \uC5C6\uC74C";
-        private string modelCenterCandidateModelText = "\uC0C8 \uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4: \uC5C6\uC74C";
-        private string modelCenterAdoptionText = "\uBAA8\uB378 \uC801\uC6A9: \uB300\uAE30";
-        private string modelCenterNextActionText = "\uB2E4\uC74C: \uB370\uC774\uD130\uC14B \uC810\uAC80 \uD6C4 \uD559\uC2B5\uC744 \uC2DC\uC791\uD558\uC138\uC694.";
-        private string modelCenterCurrentModelDetailText = "\uC5C6\uC74C";
-        private string modelCenterCandidateModelDetailText = "\uC5C6\uC74C";
-        private string modelCenterAdoptionDetailText = "\uB300\uAE30";
-        private string modelCenterNextActionDetailText = "\uB370\uC774\uD130\uC14B \uC810\uAC80 \uD6C4 \uD559\uC2B5\uC744 \uC2DC\uC791\uD558\uC138\uC694.";
-        private string modelCenterDecisionSummaryText = "\uD310\uB2E8: \uD559\uC2B5 \uACB0\uACFC \uBE44\uAD50 \uC804";
-        private string modelCenterDecisionEvidenceText = "\uADFC\uAC70: \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uACFC \uD559\uC2B5 \uACB0\uACFC\uB97C \uD655\uC778\uD558\uC138\uC694.";
-        private string modelCenterDecisionActionText = "\uC800\uC7A5: \uD6C4\uBCF4 \uAC80\uD1A0 \uD6C4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5";
+        private string currentDatasetName;
+        private string currentDatasetPurposeText;
+        private string currentDatasetPathText;
+        private string currentDatasetStoragePathText;
+        private string currentDatasetImageRootText;
+        private string currentDatasetSourceText;
+        private string currentDatasetToolTip;
+        private string modelCenterTrainingStatusText;
+        private string modelCenterTrainingDetailText;
+        private string modelCenterCurrentModelText;
+        private string modelCenterCandidateModelText;
+        private string modelCenterAdoptionText;
+        private string modelCenterNextActionText;
+        private string modelCenterCurrentModelDetailText;
+        private string modelCenterCandidateModelDetailText;
+        private string modelCenterAdoptionDetailText;
+        private string modelCenterNextActionDetailText;
+        private string modelCenterDecisionSummaryText;
+        private string modelCenterDecisionEvidenceText;
+        private string modelCenterDecisionActionText;
         private bool isModelCenterAnomalyEvaluationVisible;
         private string modelCenterAnomalyEvaluationRecommendationText = string.Empty;
         private string modelCenterAnomalyEvaluationMetricsText = string.Empty;
@@ -98,26 +161,27 @@ namespace MvcVisionSystem
         private string modelCenterAnomalyEvaluationActionText = string.Empty;
         private bool isModelCenterAnomalyEvaluationPickerVisible;
         private bool isModelCenterAnomalyEvaluationPickerEnabled;
-        private string modelRegistrySummaryPrimaryText = "\uD604\uC7AC \uAC80\uC0AC: \uC5C6\uC74C / \uD559\uC2B5 \uD6C4\uBCF4: \uC5C6\uC74C";
-        private string modelRegistrySummarySecondaryText = "YOLOv5 / \uCD5C\uADFC \uD559\uC2B5 \uC5C6\uC74C / \uC774\uB825 0\uAC74 / \uD6C4\uBCF4 \uC5C6\uC74C";
-        private string modelRegistryProfileText = "\uBAA8\uB378 \uD504\uB85C\uD544: \uBBF8\uC124\uC815";
-        private string modelRegistryTrainingRunText = "\uCD5C\uADFC \uD559\uC2B5 \uC2E4\uD589: \uC5C6\uC74C";
-        private string modelRegistryCandidateModelText = "\uBAA8\uB378 \uD6C4\uBCF4: \uC5C6\uC74C";
-        private string modelRegistryInspectionModelText = "\uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378: \uC5C6\uC74C";
-        private string modelRegistryActionText = "\uAD6C\uC870: \uBAA8\uB378 \uD504\uB85C\uD544 -> \uD559\uC2B5 \uC2E4\uD589 -> \uD6C4\uBCF4 \uBAA8\uB378 -> \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378";
-        private string modelRegistryHistoryHeaderText = "\uCD5C\uADFC \uBAA8\uB378 \uC774\uB825 0\uAC74";
-        private string modelRegistryHistorySummaryText = "\uD559\uC2B5 \uD6C4\uBCF4\uB97C \uC800\uC7A5\uD558\uAC70\uB098 \uAC70\uC808\uD558\uBA74 \uC5EC\uAE30\uC5D0 \uCD5C\uADFC \uC774\uB825\uC774 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
+        private string modelRegistrySummaryPrimaryText;
+        private string modelRegistrySummarySecondaryText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.State.EmptySecondary");
+        private string modelRegistryProfileText;
+        private string modelRegistryTrainingRunText;
+        private string modelRegistryCandidateModelText;
+        private string modelRegistryInspectionModelText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.State.InspectionNone");
+        private string modelRegistryActionText;
+        private string modelRegistryHistoryHeaderText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.State.HistoryHeaderEmpty");
+        private WpfModelRegistryPresentation modelRegistryLocalizationSource = new WpfModelRegistryPresentation();
+        private string modelRegistryHistorySummaryText;
         private WpfModelRegistryHistoryItem selectedModelRegistryHistoryItem;
-        private string selectedModelHistoryTitleText = "\uBAA8\uB378 \uC774\uB825 \uC120\uD0DD \uC5C6\uC74C";
-        private string selectedModelHistoryDetailText = "\uC774\uB825\uC744 \uC120\uD0DD\uD558\uBA74 \uAC00\uC911\uCE58, \uC9C0\uD45C, \uC801\uC6A9 \uAC00\uB2A5 \uC5EC\uBD80\uB97C \uD655\uC778\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
+        private string selectedModelHistoryTitleText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Selection.NoneTitle");
+        private string selectedModelHistoryDetailText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Selection.NoneDetail");
         private string selectedModelHistoryMetricText = string.Empty;
         private string selectedModelHistoryDecisionText = string.Empty;
-        private string selectedModelHistoryComparisonTitleText = "\uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uACFC \uC120\uD0DD \uC774\uB825 \uBAA8\uB378";
+        private string selectedModelHistoryComparisonTitleText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Selection.ComparisonTitle");
         private string selectedModelHistoryCurrentModelText = string.Empty;
         private string selectedModelHistorySelectedModelText = string.Empty;
         private string selectedModelHistoryComparisonMetricText = string.Empty;
-        private string selectedModelHistoryActionText = "\uC801\uC6A9 \uBD88\uAC00";
-        private string selectedModelHistoryActionToolTip = "\uC801\uC6A9\uD560 \uBAA8\uB378 \uC774\uB825\uC744 \uBA3C\uC800 \uC120\uD0DD\uD558\uC138\uC694.";
+        private string selectedModelHistoryActionText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Selection.CannotAssign");
+        private string selectedModelHistoryActionToolTip = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Selection.SelectFirst");
         private bool isModelRegistryHistoryVisible;
         private bool isSelectedModelHistoryVisible;
         private bool isSelectedModelHistoryActionAvailable;
@@ -126,26 +190,28 @@ namespace MvcVisionSystem
         private string modelCenterRecoveryTitleText = string.Empty;
         private string modelCenterRecoveryDetailText = string.Empty;
         private string modelCenterRecoveryActionText = string.Empty;
-        private string modelCenterConfirmModelButtonText = "\uD6C4\uBCF4 \uC5C6\uC74C";
-        private string modelCenterConfirmModelButtonToolTip = "\uD655\uC815\uD560 \uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.";
-        private string modelCenterConfirmModelBaseToolTip = "\uD655\uC815\uD560 \uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.";
+        private string modelCenterConfirmModelButtonText;
+        private string modelCenterConfirmModelButtonToolTip;
+        private string modelCenterConfirmModelBaseToolTip;
         private string modelCenterConfirmModelUnavailableToolTip = string.Empty;
         private bool isModelCenterConfirmModelEnabled;
         private bool isModelCenterConfirmModelAvailable;
-        private string modelCenterInspectCurrentImageButtonText = "\uD604\uC7AC \uAC80\uC0AC";
-        private string modelCenterInspectCurrentImageButtonToolTip = "\uD604\uC7AC \uC774\uBBF8\uC9C0\uC5D0 \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uB85C \uCD94\uB860\uC744 \uC2E4\uD589\uD569\uB2C8\uB2E4.";
+        private string modelCenterInspectCurrentImageButtonText;
+        private string modelCenterInspectCurrentImageButtonToolTip;
         private bool isModelCenterInspectCurrentImageEnabled;
-        private string modelCenterReviewCandidateButtonText = "\uD6C4\uBCF4 \uC5C6\uC74C";
-        private string modelCenterReviewCandidateButtonToolTip = "\uAC80\uD1A0\uD560 \uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.";
+        private string modelCenterReviewCandidateButtonText;
+        private string modelCenterReviewCandidateButtonToolTip;
         private bool isModelCenterReviewCandidateEnabled;
         private bool isModelCenterReviewCandidateAvailable;
         private string modelCenterRuntimeActionText = string.Empty;
-        private string modelCenterActionStateText = "\uBC84\uD2BC \uC0C1\uD0DC: \uD6C4\uBCF4 \uAC80\uC99D \uB300\uAE30 / \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5 \uB300\uAE30 / \uD604\uC7AC \uAC80\uC0AC \uB300\uAE30";
+        private string modelCenterActionStateText;
         private bool canRunModelCenterCommands = true;
         private bool canRunModelCenterReviewCommands = true;
         private ICommand loadedCommand = new RelayCommand(NoOpCommand);
         private ICommand closedCommand = new RelayCommand(NoOpCommand);
+        private ICommand deactivatedCommand = new RelayCommand(NoOpCommand);
         private ICommand previewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(NoOpKeyCommand);
+        private ICommand previewKeyUpCommand = new RelayCommand<KeyInputCommandArgs>(NoOpKeyCommand);
         private ICommand toggleThemeCommand = new RelayCommand(NoOpCommand);
         private ICommand loadSampleCommand = new RelayCommand(NoOpCommand);
         private ICommand addSampleRoiCommand = new RelayCommand(NoOpCommand);
@@ -156,6 +222,7 @@ namespace MvcVisionSystem
         private ICommand labelingWorkbenchCommand = new RelayCommand(NoOpCommand);
         private ICommand inferenceReviewCommand = new RelayCommand(NoOpCommand);
         private ICommand trainingModelCenterCommand = new RelayCommand(NoOpCommand);
+        private ICommand modelComparisonCommand = new RelayCommand(NoOpCommand);
         private ICommand reviewCandidateModelCommand = new RelayCommand(NoOpCommand);
         private ICommand promoteSelectedModelHistoryCommand = new RelayCommand(NoOpCommand);
         private ICommand runAnomalyEvaluationCommand = new RelayCommand(NoOpCommand);
@@ -168,16 +235,27 @@ namespace MvcVisionSystem
         private ICommand showSavedLabelsViewCommand = new RelayCommand(NoOpCommand);
         private ICommand showLabelingGuideViewCommand = new RelayCommand(NoOpCommand);
         private ICommand showClassCatalogViewCommand = new RelayCommand(NoOpCommand);
+        private ICommand closeClassCatalogDialogCommand;
         private ICommand toggleRightWorkflowDockCommand;
         private ICommand resetWorkspaceLayoutCommand = new RelayCommand(NoOpCommand);
         private ICommand workflowPaneResizeCommand = new RelayCommand<double>(_ => { });
         private ICommand imageQueuePaneResizeCommand = new RelayCommand<double>(_ => { });
+        private ICommand workspaceViewportSizeChangedCommand = new RelayCommand<double>(_ => { });
         private ICommand checkYoloCommand = new RelayCommand(NoOpCommand);
         private ICommand detectCurrentImageCommand = new RelayCommand(NoOpCommand);
+        private ICommand runInferenceTargetCommand = new RelayCommand(NoOpCommand);
+        private ICommand toggleLabelingAssistPanelCommand = new RelayCommand(NoOpCommand);
+        private ICommand applySelectedInferenceModelCommand = new RelayCommand(NoOpCommand);
+        private ICommand markInferenceResultSeenCommand = new RelayCommand(NoOpCommand);
+        private ICommand markInferenceResultSeenAndNextCommand = new RelayCommand(NoOpCommand);
+        private ICommand showInferenceResultsCommand = new RelayCommand(NoOpCommand);
         private ICommand runTemplateMatchingCommand = new RelayCommand(NoOpCommand);
         private ICommand changeDatasetCommand = new RelayCommand(NoOpCommand);
+        private ICommand closeRecipeCommand = new RelayCommand(NoOpCommand);
         private ICommand openDatasetFolderCommand = new RelayCommand(NoOpCommand);
         private ICommand changeImageFolderCommand = new RelayCommand(NoOpCommand);
+        private ICommand completeLabelingCommand = new RelayCommand(NoOpCommand);
+        private ICommand cancelLabelingCommand = new RelayCommand(NoOpCommand);
         private readonly WorkspaceLayoutSettingsService workspaceLayoutSettingsService = new WorkspaceLayoutSettingsService();
         private string workspaceLayoutLastSaveError = string.Empty;
 
@@ -191,8 +269,333 @@ namespace MvcVisionSystem
         public bool IsCurrentImageDetectionEnabled
         {
             get => isCurrentImageDetectionEnabled;
-            private set => SetProperty(ref isCurrentImageDetectionEnabled, value);
+            private set
+            {
+                if (SetProperty(ref isCurrentImageDetectionEnabled, value))
+                {
+                    RefreshInferenceTargetCommandState();
+                }
+            }
         }
+
+        public bool IsInferenceTargetEnabled => canRunInferenceTarget && IsInferenceModelSelectionReady;
+        public bool CanRunInferenceTarget => CanRunInferenceTargetCommand();
+        public bool HasCompletedInferenceResult(string imagePath) => inferenceResultReview.Find(imagePath)?.Result != null;
+        internal InferenceResultReviewService InferenceResultReview => inferenceResultReview;
+
+        public InferenceResultReviewEntry DisplayedInferenceResult => inferenceReviewContext.IsComparisonEvidence ? null
+            : IsLabelingStageActive && inferenceReviewContext.LabelingTransferEntry != null ? inferenceReviewContext.LabelingTransferEntry : inferenceResultReview.Find(inferenceReviewContext.ImagePath);
+        public bool HasDisplayedInferenceResult => DisplayedInferenceResult?.Result != null;
+        public bool IsInferenceNotRunHintVisible => !inferenceReviewContext.IsBusy && !inferenceReviewContext.IsComparisonEvidence
+            && !string.IsNullOrWhiteSpace(inferenceReviewContext.ImagePath) && !HasDisplayedInferenceResult && DisplayedInferenceResult?.Failure == null;
+        public string InferencePartDecisionText
+        {
+            get
+            {
+                if (!HasDisplayedInferenceResult) return string.Empty;
+                ModelDecisionResult result = inferenceResultReview.GetDecisionProjection(DisplayedInferenceResult);
+                string verdict = result.IsNg.HasValue ? OpenVisionLanguageService.T(result.IsNg.Value ? "WpfInference.Decision.Ng" : "WpfInference.Decision.Ok")
+                    : FormatInferenceDecisionStatusLabel(result);
+                return string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfInference.Decision.Format"), verdict);
+            }
+        }
+        public bool IsAnomalyInference => IsInferenceStageActive && IsAnomalyImageReviewMode;
+        public string InferenceDecisionTitleText => T(IsAnomalyImageReviewMode ? "WpfInference.ImageDecision" : "WpfInference.PartDecision");
+        public bool? InferenceDecisionIsNg => HasDisplayedInferenceResult ? inferenceResultReview.GetDecisionProjection(DisplayedInferenceResult).IsNg : null;
+        public string InferenceDecisionLabelText
+        {
+            get
+            {
+                if (!HasDisplayedInferenceResult) return string.Empty;
+                ModelDecisionResult decision = inferenceResultReview.GetDecisionProjection(DisplayedInferenceResult);
+                return decision.IsNg.HasValue ? InferenceDecisionValueText : FormatInferenceDecisionStatusLabel(decision);
+            }
+        }
+        public string InferenceDecisionValueText
+        {
+            get
+            {
+                if (!HasDisplayedInferenceResult) return string.Empty;
+                ModelDecisionResult decision = inferenceResultReview.GetDecisionProjection(DisplayedInferenceResult);
+                return !decision.IsNg.HasValue ? InferencePartDecisionText
+                    : IsAnomalyImageReviewMode ? T(decision.IsNg.Value ? "WpfInference.Decision.Ng" : "WpfInference.Decision.Ok") : decision.IsNg.Value ? "NG" : "OK";
+            }
+        }
+        public string InferenceAnomalyThresholdText
+        {
+            get
+            {
+                double? threshold = inferenceAnomalyEvidence.Threshold ?? CapturedInferenceAnomalyThreshold;
+                if (!threshold.HasValue) return T("WpfInference.Anomaly.ThresholdUnavailable");
+                string text = string.Format(CultureInfo.CurrentCulture, T(inferenceAnomalyEvidence.Threshold.HasValue ? "WpfInference.Anomaly.DecisionThreshold" : "WpfInference.Anomaly.CapturedThreshold"), threshold.Value.ToString("0.####", CultureInfo.CurrentCulture));
+                return inferenceAnomalyEvidence.Threshold.HasValue ? text : text + " · " + T("WpfComparisonWorkspace.RuleUnconfigured");
+            }
+        }
+        private double? CapturedInferenceAnomalyThreshold
+        {
+            get
+            {
+                double[] thresholds = DisplayedInferenceResult?.Result?.Candidates?.Where(candidate => candidate?.AnomalyThreshold != null && double.IsFinite(candidate.AnomalyThreshold.Value))
+                    .Select(candidate => candidate.AnomalyThreshold.Value).Distinct().Take(2).ToArray() ?? Array.Empty<double>();
+                return thresholds.Length == 1 ? thresholds[0] : null;
+            }
+        }
+        public string InferenceAnomalyScoreText
+        {
+            get
+            {
+                double? score = DisplayedInferenceResult?.Result?.CaptureAnomalyScore;
+                score ??= DisplayedInferenceResult?.Result?.Candidates?.FirstOrDefault(candidate => candidate?.ImageLevel == true && candidate.AnomalyScore.HasValue)?.AnomalyScore;
+                double? threshold = inferenceAnomalyEvidence.Threshold ?? CapturedInferenceAnomalyThreshold;
+                return string.Format(CultureInfo.CurrentCulture, T(inferenceAnomalyEvidence.Threshold.HasValue ? "WpfInference.Anomaly.ScoreThreshold" : "WpfInference.Anomaly.ScoreCapturedThreshold"),
+                    score.HasValue && double.IsFinite(score.Value) ? score.Value.ToString("0.####", CultureInfo.CurrentCulture) : "—",
+                    threshold.HasValue ? threshold.Value.ToString("0.####", CultureInfo.CurrentCulture) : "—");
+            }
+        }
+        public string InferenceSavedVerdictText
+        {
+            get
+            {
+                if (!inferenceAnomalyEvidence.SavedVerdict.HasValue) return T("WpfInference.Anomaly.SavedNone");
+                bool? decision = inferenceResultReview.GetDecisionProjection(DisplayedInferenceResult).IsNg;
+                string agreement = !decision.HasValue ? T("WpfInference.Queue.DecisionUnknown") : T(decision == inferenceAnomalyEvidence.SavedVerdict ? "WpfInference.Anomaly.Agrees" : "WpfInference.Anomaly.Disagrees");
+                return string.Format(CultureInfo.CurrentCulture, T("WpfInference.Anomaly.SavedVerdict"), T(inferenceAnomalyEvidence.SavedVerdict.Value ? "WpfAnomalyGrid.AbnormalState" : "WpfAnomalyGrid.NormalState"), agreement);
+            }
+        }
+        public string InferenceVisiblePredictionCountText => string.Format(CultureInfo.CurrentCulture, T("WpfInference.VisibleResults"), InferencePredictions.Count, inferenceReviewContext.DisplayConfidence.ToString("0.00", CultureInfo.CurrentCulture));
+        public string InferencePanelTitleText => T("WpfInference.Workspace.Results");
+        public bool IsInferenceResultReadOnly => IsInferenceInspectionOnly || DisplayedInferenceResult?.Result?.Source?.ResultOnly == true && !(IsLabelingStageActive && inferenceReviewContext.LabelingTransferEntry != null);
+        public bool CanReviewInferenceResult => IsInferenceControlsVisible && !inferenceReviewContext.IsBusy && !inferenceReviewContext.IsClosing && !inferenceReviewContext.HasUnsavedLabels && !inferenceReviewContext.HasPendingCandidates && !inferenceReviewContext.IsComparisonEvidence && !(IsLabelingStageActive && inferenceReviewContext.LabelingTransferEntry != null);
+        public bool CanMarkInferenceResultSeen => CanReviewInferenceResult && HasDisplayedInferenceResult && DisplayedInferenceResult?.Seen != true;
+        public bool CanMoveToNextInferenceResult => CanReviewInferenceResult && HasDisplayedInferenceResult;
+        public bool CanShowInferenceResults => CanReviewInferenceResult && inferenceResultReview.ResultPaths.Count > 0;
+        public bool CanSelectInferencePrediction => CanReviewInferenceResult && HasDisplayedInferenceResult;
+        public bool CanSendInferenceResultsToLabeling => sendInferenceResultToLabeling != null && !sendingInferenceResultToLabeling && IsInferenceStageActive && CanReviewInferenceResult && HasDisplayedInferenceResult && !IsAnomalyImageReviewMode
+            && DisplayedInferenceResult.Result.Candidates?.Any(candidate => candidate?.ImageLevel == true) != true;
+        public bool IsInferenceSummaryReady => !inferenceReviewContext.IsBusy;
+        public bool CanExportInferenceResults => (exportInferenceResults != null || exportDeferredInferenceResults != null) && !exportingInferenceResults && IsInferenceStageActive && !inferenceReviewContext.IsBusy && !inferenceReviewContext.IsClosing
+            && !inferenceReviewContext.IsComparisonEvidence && inferenceReviewContext.NextSettings != null
+            && (inferenceReviewContext.AllImages ?? inferenceReviewContext.VisibleImages)?.Any(path => !string.IsNullOrWhiteSpace(path)) == true;
+        public IReadOnlyList<InferenceClassSummary> InferenceClassSummaryItems => inferenceSummary.Classes;
+        public IReadOnlyList<WpfCandidateReviewListItem> InferenceClassSummaryRows => inferenceSummary.Classes.Select(item => BuildInferenceReviewItem(item.ClassName, item.ClassId, item.Count.ToString(CultureInfo.CurrentCulture), item)).ToArray();
+        public string InferenceSummaryText => string.Format(CultureInfo.CurrentCulture, T(IsAnomalyImageReviewMode ? "WpfInference.Anomaly.Summary" : "WpfInference.Decision.Summary"),
+            inferenceSummary.CompletedImages, inferenceSummary.TotalImages, inferenceSummary.NgImages, inferenceSummary.OkImages, inferenceSummary.UnknownImages);
+        public string InferenceResultTitleText => HasDisplayedInferenceResult
+            ? string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfInference.Workspace.ResultCount"), DisplayedInferenceResult.Result.CandidateCount)
+            : OpenVisionLanguageService.T(DisplayedInferenceResult?.Failure != null ? "WpfInference.Workspace.Failed" : "WpfInference.Workspace.NotRun");
+        public IReadOnlyList<YoloWorkerSmokeCandidate> InferencePredictions => DisplayedInferenceResult?.Result?.Candidates?.Where(candidate => candidate != null && (IsAnomalyImageReviewMode || candidate.ImageLevel || candidate.Confidence >= inferenceReviewContext.DisplayConfidence)).ToArray() ?? Array.Empty<YoloWorkerSmokeCandidate>();
+        public IReadOnlyList<WpfCandidateReviewListItem> InferencePredictionListItems => inferencePredictionListItems;
+        public bool HasVisibleInferencePredictions => InferencePredictions.Count > 0;
+        public string InferenceResultEmptyText => !HasDisplayedInferenceResult
+            ? OpenVisionLanguageService.T("WpfInference.ResultOnly.Panel.Empty")
+            : OpenVisionLanguageService.T(DisplayedInferenceResult.Result.CandidateCount == 0 ? "WpfInference.ResultOnly.Panel.CompletedEmpty" : "WpfInference.Workspace.FilteredEmpty");
+        public YoloWorkerSmokeCandidate SelectedInferencePrediction
+        {
+            get
+            {
+                YoloWorkerSmokeCandidate selected = selectedInferencePredictionProvider?.Invoke();
+                return selected != null && InferencePredictions.Contains(selected) ? selected : null;
+            }
+            set
+            {
+                if (!CanSelectInferencePrediction || ReferenceEquals(SelectedInferencePrediction, value)
+                    || value != null && !InferencePredictions.Contains(value)) return;
+                selectInferencePrediction?.Invoke(value);
+                OnPropertyChanged();
+            }
+        }
+        public bool IsInferenceResultOutsideFilter => !string.IsNullOrWhiteSpace(inferenceReviewContext.ImagePath) && !inferenceReviewContext.VisibleImages.Contains(inferenceReviewContext.ImagePath, StringComparer.OrdinalIgnoreCase);
+        public bool IsInferenceResultSettingsChanged => DisplayedInferenceResult?.Result?.Source is { } source && !source.Matches(inferenceReviewContext.NextSettings,
+            IsLabelingStageActive && inferenceReviewContext.LabelingTransferEntry != null ? source.ResultOnly : IsInferenceInspectionOnly);
+        public string InferenceResultSourceText
+        {
+            get
+            {
+                InferenceResultSource source = DisplayedInferenceResult?.Result?.Source;
+                if (source == null) return OpenVisionLanguageService.T(inferenceReviewContext.IsComparisonEvidence ? "WpfInference.Source.Comparison" : "WpfInference.Source.Empty");
+                return string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfInference.Source.Format"), Path.GetFileName(source.ImagePath), source.ModelEngine, Path.GetFileName(source.WeightsPath), source.ImageSize, source.Confidence, source.CompletedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.CurrentCulture), OpenVisionLanguageService.T(source.ResultOnly ? "WpfInference.Purpose.ResultOnly" : "WpfInference.Purpose.Labeling"));
+            }
+        }
+        public string InferenceResultCountsText
+        {
+            get
+            {
+                if (!HasDisplayedInferenceResult) return string.Empty;
+                int total = DisplayedInferenceResult.Result.CandidateCount;
+                int visible = Math.Clamp(IsInferenceStageActive ? InferencePredictions.Count : inferenceReviewContext.VisiblePredictions, 0, Math.Max(0, total));
+                return string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfInference.Source.Counts"), total, visible, Math.Max(0, total - visible));
+            }
+        }
+        public string InferenceResultWarningText
+        {
+            get
+            {
+                string failure = DisplayedInferenceResult?.Failure?.Summary;
+                if (!string.IsNullOrWhiteSpace(failure)) return string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T(HasDisplayedInferenceResult ? "WpfInference.Source.FailedPrevious" : "WpfInference.Source.Failed"), failure);
+                return IsInferenceResultSettingsChanged ? OpenVisionLanguageService.T("WpfInference.Source.Changed") : string.Empty;
+            }
+        }
+        public string InferenceResultReviewText => !string.IsNullOrEmpty(inferenceNavigationMessage) ? inferenceNavigationMessage : OpenVisionLanguageService.T(DisplayedInferenceResult?.Seen == true ? "WpfInference.Seen.Done" : "WpfInference.Seen.Detail");
+        public string InferenceResultOutsideFilterText => IsInferenceResultOutsideFilter ? OpenVisionLanguageService.T("WpfInference.Source.OutsideFilter") : string.Empty;
+
+        public bool IsInferenceInspectionOnly
+        {
+            get => isInferenceInspectionOnly;
+            set
+            {
+                if (!CanChangeInferencePurpose || !SetProperty(ref isInferenceInspectionOnly, value))
+                {
+                    return;
+                }
+
+                OnPropertyChanged(nameof(IsInferenceLabelingPurposeSelected));
+                inferencePurposeChanged?.Invoke();
+            }
+        }
+
+        public bool IsLabelingAssistPanelExpanded
+        {
+            get => isLabelingAssistPanelExpanded;
+            private set
+            {
+                if (!CanToggleLabelingAssistPanel || !SetProperty(ref isLabelingAssistPanelExpanded, value))
+                {
+                    return;
+                }
+
+                if (value && isInferenceInspectionOnly)
+                {
+                    IsInferenceInspectionOnly = false;
+                }
+                else
+                {
+                    inferencePurposeChanged?.Invoke();
+                }
+
+                OnPropertyChanged(nameof(IsInferenceControlsVisible));
+                RefreshInferenceTargetCommandState();
+                RefreshLabelingAssistPanelCommandState();
+            }
+        }
+
+        public bool IsInferenceControlsVisible
+            => IsInferenceStageActive || (IsLabelingStageActive && IsLabelingAssistPanelExpanded);
+
+        public bool CanToggleLabelingAssistPanel => IsLabelingStageActive && CanChangeInferencePurpose;
+
+        public bool IsInferenceLabelingPurposeSelected
+        {
+            get => !isInferenceInspectionOnly;
+            set
+            {
+                if (value)
+                {
+                    IsInferenceInspectionOnly = false;
+                }
+            }
+        }
+
+        public bool CanChangeInferencePurpose => inferenceRunStateProvider?.Invoke() != true;
+
+        public string InferenceRunTargetToolTipText => !IsInferenceModelSelectionReady
+            ? OpenVisionLanguageService.T("WpfInference.Model.TrialUnavailable")
+            : !canRunInferenceTarget
+                ? inferenceRunTargetUnavailableHint
+                : OpenVisionLanguageService.T(inferenceTargetIndex switch
+                {
+                    1 => canRunUnexecutedInferenceTarget?.Invoke() == true ? "WpfInference.Run.Unexecuted.ToolTip" : "WpfInference.Run.Unexecuted.Empty",
+                    2 => "WpfInference.Run.All.ToolTip",
+                    _ => "WpfInference.Run.Current.ToolTip"
+                });
+
+        public bool IsInferenceVisibleListTarget
+        {
+            get => inferenceTargetIndex == 2;
+            set { if (value) InferenceTargetIndex = 2; else if (inferenceTargetIndex == 2) InferenceTargetIndex = 0; }
+        }
+
+        public string[] InferenceTargetOptions => new[]
+        {
+            OpenVisionLanguageService.T("WpfInference.Target.Current"),
+            OpenVisionLanguageService.T("WpfInference.Target.Unexecuted"),
+            OpenVisionLanguageService.T("WpfInference.Target.All")
+        };
+
+        public int InferenceTargetIndex
+        {
+            get => inferenceTargetIndex;
+            set
+            {
+                if (!CanChangeInferencePurpose || value < 0 || value > 2 || !SetProperty(ref inferenceTargetIndex, value)) return;
+                OnPropertyChanged(nameof(IsInferenceCurrentImageTarget));
+                OnPropertyChanged(nameof(IsInferenceVisibleListTarget));
+                RefreshInferenceTargetCommandState();
+            }
+        }
+
+        public bool IsInferenceCurrentImageTarget
+        {
+            get => inferenceTargetIndex == 0;
+            set
+            {
+                if (value)
+                {
+                    InferenceTargetIndex = 0;
+                }
+            }
+        }
+
+        public bool IsInferenceModelSelectionReady
+            => SelectedInferenceModelHistoryItem == null
+                || SelectedInferenceModelHistoryItem.IsCurrentInspectionModel
+                || SelectedInferenceModelHistoryItem.CanRunInferenceTrial;
+
+        public WpfModelRegistryHistoryItem SelectedInferenceModelHistoryItem
+        {
+            get => selectedInferenceModelHistoryItem;
+            set
+            {
+                if (!CanChangeInferencePurpose
+                    || (isRefreshingModelRegistryHistory && value == null))
+                {
+                    return;
+                }
+
+                if (value != null)
+                {
+                    IReadOnlyList<WpfModelRegistryHistoryItem> history = ModelRegistryHistoryPresentationService.IncludeInferenceSelection(ModelRegistryHistoryItems, value);
+                    if (!ReferenceEquals(history, ModelRegistryHistoryItems))
+                    {
+                        isRefreshingModelRegistryHistory = true;
+                        try
+                        {
+                            ModelRegistryHistoryItems.Clear();
+                            foreach (WpfModelRegistryHistoryItem item in history) ModelRegistryHistoryItems.Add(item);
+                        }
+                        finally { isRefreshingModelRegistryHistory = false; }
+                    }
+
+                    value = ModelRegistryHistoryItems.First(item => string.Equals(item.CandidateId, value.CandidateId, StringComparison.Ordinal)
+                        && string.Equals(item.WeightsPath, value.WeightsPath, StringComparison.OrdinalIgnoreCase));
+                }
+
+                if (!SetProperty(ref selectedInferenceModelHistoryItem, value)) return;
+                hasExplicitInferenceModelSelection = value != null;
+                selectedInferenceModelCandidateId = value?.CandidateId ?? string.Empty;
+                selectedInferenceModelWeightsPath = value?.WeightsPath ?? string.Empty;
+                OnPropertyChanged(nameof(IsInferenceModelSelectionReady));
+                OnPropertyChanged(nameof(IsInferenceTargetEnabled));
+                OnPropertyChanged(nameof(CanApplySelectedInferenceModel));
+                RefreshInferenceTargetCommandState();
+                RefreshInferenceModelCommandState();
+                inferenceModelSelectionChanged?.Invoke();
+                OnPropertyChanged(nameof(InferenceRunTargetToolTipText));
+            }
+        }
+
+        public bool CanApplySelectedInferenceModel
+            => CanChangeInferencePurpose
+                && SelectedInferenceModelHistoryItem?.CanPromoteToInspectionModel == true;
 
         public bool IsLabelingModeActive
         {
@@ -212,6 +615,30 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isDatasetStageActive, value);
         }
 
+        public bool IsRecipeLibraryVisible
+        {
+            get => isRecipeLibraryVisible;
+            private set
+            {
+                if (SetProperty(ref isRecipeLibraryVisible, value))
+                {
+                    OnPropertyChanged(nameof(MainWorkspaceVisibility));
+                    OnPropertyChanged(nameof(RecipeLibraryVisibility));
+                    OnPropertyChanged(nameof(IsStackedWorkflowHeader));
+                }
+            }
+        }
+
+        public Visibility MainWorkspaceVisibility => IsRecipeLibraryVisible ? Visibility.Collapsed : Visibility.Visible;
+
+        public Visibility RecipeLibraryVisibility => IsRecipeLibraryVisible ? Visibility.Visible : Visibility.Collapsed;
+
+        internal void SetRecipeLibraryVisible(bool visible)
+        {
+            if (visible) IsClassCatalogDialogOpen = false;
+            IsRecipeLibraryVisible = visible;
+        }
+
         public bool IsLabelingStageActive
         {
             get => isLabelingStageActive;
@@ -221,7 +648,14 @@ namespace MvcVisionSystem
         public bool IsInferenceStageActive
         {
             get => isInferenceStageActive;
-            private set => SetProperty(ref isInferenceStageActive, value);
+            private set
+            {
+                if (SetProperty(ref isInferenceStageActive, value))
+                {
+                    RefreshInferenceTargetCommandState();
+                    inferencePurposeChanged?.Invoke();
+                }
+            }
         }
 
         public bool IsTrainingModelStageActive
@@ -230,10 +664,10 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isTrainingModelStageActive, value);
         }
 
-        public bool IsWorkflowStageModelActionPanelVisible
+        public bool IsModelComparisonStageActive
         {
-            get => isWorkflowStageModelActionPanelVisible;
-            private set => SetProperty(ref isWorkflowStageModelActionPanelVisible, value);
+            get => isModelComparisonStageActive;
+            private set => SetProperty(ref isModelComparisonStageActive, value);
         }
 
         public bool IsSavedLabelsViewVisible
@@ -272,6 +706,28 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isClassCatalogViewVisible, value);
         }
 
+        public bool IsClassCatalogDialogOpen
+        {
+            get => isClassCatalogDialogOpen;
+            private set
+            {
+                SetProperty(ref isClassCatalogDialogOpen, value);
+                if (!value) IsClassAddDialogOpen = false;
+            }
+        }
+
+        public bool IsClassAddDialogOpen
+        {
+            get => isClassAddDialogOpen;
+            private set => SetProperty(ref isClassAddDialogOpen, value);
+        }
+
+        public int OperationsTabIndex
+        {
+            get => operationsTabIndex;
+            set => SetProperty(ref operationsTabIndex, Math.Clamp(value, 0, 3));
+        }
+
         public bool IsYoloModelCenterViewVisible
         {
             get => isYoloModelCenterViewVisible;
@@ -301,6 +757,10 @@ namespace MvcVisionSystem
             get => isRightWorkflowDockRailVisible;
             private set => SetProperty(ref isRightWorkflowDockRailVisible, value);
         }
+
+        public bool IsStackedWorkflowHeader => !IsRecipeLibraryVisible && workspaceViewportWidth <= 1600D;
+        public bool IsCompactDatasetLayout => workspaceViewportWidth < 1400D;
+        public bool IsCompactInferenceLayout => workspaceViewportWidth <= 1500D;
 
         public GridLength RightWorkflowPaneGridLength
         {
@@ -386,13 +846,13 @@ namespace MvcVisionSystem
 
         public string RightWorkflowDockToggleText
         {
-            get => rightWorkflowDockToggleText;
+            get => rightWorkflowDockToggleText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Right.Dock.Collapse"));
             private set => SetProperty(ref rightWorkflowDockToggleText, value ?? string.Empty);
         }
 
         public string RightWorkflowDockToggleToolTip
         {
-            get => rightWorkflowDockToggleToolTip;
+            get => rightWorkflowDockToggleToolTip ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Right.Dock.Collapse.ToolTip"));
             private set => SetProperty(ref rightWorkflowDockToggleToolTip, value ?? string.Empty);
         }
 
@@ -434,13 +894,13 @@ namespace MvcVisionSystem
 
         public string RightWorkflowViewDetailText
         {
-            get => rightWorkflowViewDetailText;
+            get => rightWorkflowViewDetailText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Right.Detail.Dataset"));
             private set => SetProperty(ref rightWorkflowViewDetailText, value ?? string.Empty);
         }
 
         public string RightWorkflowRailCurrentViewText
         {
-            get => rightWorkflowRailCurrentViewText;
+            get => rightWorkflowRailCurrentViewText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Right.Rail.Home"));
             private set => SetProperty(ref rightWorkflowRailCurrentViewText, value ?? string.Empty);
         }
 
@@ -476,61 +936,61 @@ namespace MvcVisionSystem
 
         public string CurrentDatasetName
         {
-            get => currentDatasetName;
+            get => currentDatasetName ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Dataset.Unselected"));
             private set => SetProperty(ref currentDatasetName, value ?? string.Empty);
         }
 
         public string CurrentDatasetPurposeText
         {
-            get => currentDatasetPurposeText;
+            get => currentDatasetPurposeText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Dataset.Purpose.Unselected"));
             private set => SetProperty(ref currentDatasetPurposeText, value ?? string.Empty);
         }
 
         public string CurrentDatasetPathText
         {
-            get => currentDatasetPathText;
+            get => currentDatasetPathText ?? (CurrentDatasetStoragePathText + "  /  " + CurrentDatasetImageRootText + "  /  " + CurrentDatasetSourceText);
             private set => SetProperty(ref currentDatasetPathText, value ?? string.Empty);
         }
 
         public string CurrentDatasetStoragePathText
         {
-            get => currentDatasetStoragePathText;
+            get => currentDatasetStoragePathText ?? (string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Dataset.Storage.Summary"), OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Dataset.Storage.Empty")));
             private set => SetProperty(ref currentDatasetStoragePathText, value ?? string.Empty);
         }
 
         public string CurrentDatasetImageRootText
         {
-            get => currentDatasetImageRootText;
+            get => currentDatasetImageRootText ?? (string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Dataset.Images.Summary"), OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Dataset.Images.Empty")));
             private set => SetProperty(ref currentDatasetImageRootText, value ?? string.Empty);
         }
 
         public string CurrentDatasetSourceText
         {
-            get => currentDatasetSourceText;
+            get => currentDatasetSourceText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Dataset.Source.ClassesMissing") + " / " + OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Dataset.Source.LabelsMissing"));
             private set => SetProperty(ref currentDatasetSourceText, value ?? string.Empty);
         }
 
         public string CurrentDatasetToolTip
         {
-            get => currentDatasetToolTip;
+            get => currentDatasetToolTip ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Dataset.Initial.ToolTip"));
             private set => SetProperty(ref currentDatasetToolTip, value ?? string.Empty);
         }
 
         public string ModelCenterTrainingStatusText
         {
-            get => modelCenterTrainingStatusText;
+            get => modelCenterTrainingStatusText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.ModelCenter.Training.InitialStatus"));
             private set => SetProperty(ref modelCenterTrainingStatusText, value ?? string.Empty);
         }
 
         public string ModelCenterTrainingDetailText
         {
-            get => modelCenterTrainingDetailText;
+            get => modelCenterTrainingDetailText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.ModelCenter.Training.InitialDetail"));
             private set => SetProperty(ref modelCenterTrainingDetailText, value ?? string.Empty);
         }
 
         public string ModelCenterCurrentModelText
         {
-            get => modelCenterCurrentModelText;
+            get => modelCenterCurrentModelText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfModelCenterDashboard.Current.None"));
             private set => SetProperty(ref modelCenterCurrentModelText, value ?? string.Empty);
         }
 
@@ -538,13 +998,13 @@ namespace MvcVisionSystem
 
         public string ModelCenterCurrentModelDetailText
         {
-            get => modelCenterCurrentModelDetailText;
+            get => modelCenterCurrentModelDetailText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.ModelCenter.Current.InitialDetail"));
             private set => SetProperty(ref modelCenterCurrentModelDetailText, value ?? string.Empty);
         }
 
         public string ModelCenterCandidateModelText
         {
-            get => modelCenterCandidateModelText;
+            get => modelCenterCandidateModelText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfModelCenterDashboard.Candidate.None"));
             private set => SetProperty(ref modelCenterCandidateModelText, value ?? string.Empty);
         }
 
@@ -552,13 +1012,13 @@ namespace MvcVisionSystem
 
         public string ModelCenterCandidateModelDetailText
         {
-            get => modelCenterCandidateModelDetailText;
+            get => modelCenterCandidateModelDetailText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.ModelCenter.Trained.InitialDetail"));
             private set => SetProperty(ref modelCenterCandidateModelDetailText, value ?? string.Empty);
         }
 
         public string ModelCenterAdoptionText
         {
-            get => modelCenterAdoptionText;
+            get => modelCenterAdoptionText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfModelCenterDashboard.Adoption.Wait"));
             private set => SetProperty(ref modelCenterAdoptionText, value ?? string.Empty);
         }
 
@@ -566,13 +1026,13 @@ namespace MvcVisionSystem
 
         public string ModelCenterAdoptionDetailText
         {
-            get => modelCenterAdoptionDetailText;
+            get => modelCenterAdoptionDetailText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.ModelCenter.Assignment.InitialDetail"));
             private set => SetProperty(ref modelCenterAdoptionDetailText, value ?? string.Empty);
         }
 
         public string ModelCenterNextActionText
         {
-            get => modelCenterNextActionText;
+            get => modelCenterNextActionText ?? (string.Format("{0}: {1}", OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.TrainingModelLifecycle.Label.NextAction"), OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.TrainingModelLifecycle.Next.Initial")));
             private set => SetProperty(ref modelCenterNextActionText, value ?? string.Empty);
         }
 
@@ -580,7 +1040,7 @@ namespace MvcVisionSystem
 
         public string ModelCenterNextActionDetailText
         {
-            get => modelCenterNextActionDetailText;
+            get => modelCenterNextActionDetailText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.TrainingModelLifecycle.Next.Initial"));
             private set => SetProperty(ref modelCenterNextActionDetailText, value ?? string.Empty);
         }
 
@@ -588,19 +1048,19 @@ namespace MvcVisionSystem
 
         public string ModelCenterDecisionSummaryText
         {
-            get => modelCenterDecisionSummaryText;
+            get => modelCenterDecisionSummaryText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.ModelCenter.Decision.InitialSummary"));
             private set => SetProperty(ref modelCenterDecisionSummaryText, value ?? string.Empty);
         }
 
         public string ModelCenterDecisionEvidenceText
         {
-            get => modelCenterDecisionEvidenceText;
+            get => modelCenterDecisionEvidenceText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.ModelCenter.Decision.InitialEvidence"));
             private set => SetProperty(ref modelCenterDecisionEvidenceText, value ?? string.Empty);
         }
 
         public string ModelCenterDecisionActionText
         {
-            get => modelCenterDecisionActionText;
+            get => modelCenterDecisionActionText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.ModelCenter.Decision.InitialAction"));
             private set => SetProperty(ref modelCenterDecisionActionText, value ?? string.Empty);
         }
 
@@ -652,7 +1112,7 @@ namespace MvcVisionSystem
 
         public string ModelRegistrySummaryPrimaryText
         {
-            get => modelRegistrySummaryPrimaryText;
+            get => modelRegistrySummaryPrimaryText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Summary.Empty"));
             private set => SetProperty(ref modelRegistrySummaryPrimaryText, value ?? string.Empty);
         }
 
@@ -664,19 +1124,19 @@ namespace MvcVisionSystem
 
         public string ModelRegistryProfileText
         {
-            get => modelRegistryProfileText;
+            get => modelRegistryProfileText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Profile.Unset"));
             private set => SetProperty(ref modelRegistryProfileText, value ?? string.Empty);
         }
 
         public string ModelRegistryTrainingRunText
         {
-            get => modelRegistryTrainingRunText;
+            get => modelRegistryTrainingRunText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.TrainingRun.None"));
             private set => SetProperty(ref modelRegistryTrainingRunText, value ?? string.Empty);
         }
 
         public string ModelRegistryCandidateModelText
         {
-            get => modelRegistryCandidateModelText;
+            get => modelRegistryCandidateModelText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfModelCenterDashboard.Candidate.None"));
             private set => SetProperty(ref modelRegistryCandidateModelText, value ?? string.Empty);
         }
 
@@ -688,7 +1148,7 @@ namespace MvcVisionSystem
 
         public string ModelRegistryActionText
         {
-            get => modelRegistryActionText;
+            get => modelRegistryActionText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Action.Structure"));
             private set => SetProperty(ref modelRegistryActionText, value ?? string.Empty);
         }
 
@@ -700,7 +1160,7 @@ namespace MvcVisionSystem
 
         public string ModelRegistryHistorySummaryText
         {
-            get => modelRegistryHistorySummaryText;
+            get => modelRegistryHistorySummaryText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.EmptySummary"));
             private set => SetProperty(ref modelRegistryHistorySummaryText, value ?? string.Empty);
         }
 
@@ -820,13 +1280,13 @@ namespace MvcVisionSystem
 
         public string ModelCenterConfirmModelButtonText
         {
-            get => modelCenterConfirmModelButtonText;
+            get => modelCenterConfirmModelButtonText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfModelCenterDashboard.Confirm.NoModel"));
             private set => SetProperty(ref modelCenterConfirmModelButtonText, value ?? string.Empty);
         }
 
         public string ModelCenterConfirmModelButtonToolTip
         {
-            get => modelCenterConfirmModelButtonToolTip;
+            get => modelCenterConfirmModelButtonToolTip ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfModelCenterDashboard.Confirm.NoResultTooltip"));
             private set => SetProperty(ref modelCenterConfirmModelButtonToolTip, value ?? string.Empty);
         }
 
@@ -838,13 +1298,13 @@ namespace MvcVisionSystem
 
         public string ModelCenterInspectCurrentImageButtonText
         {
-            get => modelCenterInspectCurrentImageButtonText;
+            get => modelCenterInspectCurrentImageButtonText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.ModelCenter.InferCurrentImage.Text"));
             private set => SetProperty(ref modelCenterInspectCurrentImageButtonText, value ?? string.Empty);
         }
 
         public string ModelCenterInspectCurrentImageButtonToolTip
         {
-            get => modelCenterInspectCurrentImageButtonToolTip;
+            get => modelCenterInspectCurrentImageButtonToolTip ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.ModelCenter.InferCurrentImage.ToolTip"));
             private set => SetProperty(ref modelCenterInspectCurrentImageButtonToolTip, value ?? string.Empty);
         }
 
@@ -856,13 +1316,13 @@ namespace MvcVisionSystem
 
         public string ModelCenterReviewCandidateButtonText
         {
-            get => modelCenterReviewCandidateButtonText;
+            get => modelCenterReviewCandidateButtonText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.ModelCenter.CheckTrainedModel.Text"));
             private set => SetProperty(ref modelCenterReviewCandidateButtonText, value ?? string.Empty);
         }
 
         public string ModelCenterReviewCandidateButtonToolTip
         {
-            get => modelCenterReviewCandidateButtonToolTip;
+            get => modelCenterReviewCandidateButtonToolTip ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfModelCenterDashboard.Review.NoResultTooltip"));
             private set => SetProperty(ref modelCenterReviewCandidateButtonToolTip, value ?? string.Empty);
         }
 
@@ -880,7 +1340,7 @@ namespace MvcVisionSystem
 
         public string ModelCenterActionStateText
         {
-            get => modelCenterActionStateText;
+            get => modelCenterActionStateText ?? (OpenVisionLab.OpenVisionLanguageService.T("WpfShell.ModelCenter.InitialActionState"));
             private set => SetProperty(ref modelCenterActionStateText, value ?? string.Empty);
         }
 
@@ -896,10 +1356,56 @@ namespace MvcVisionSystem
             private set => SetProperty(ref closedCommand, value);
         }
 
+        public int RightWorkflowDockColumn
+        {
+            get => rightWorkflowDockColumn;
+            private set => SetProperty(ref rightWorkflowDockColumn, value);
+        }
+
+        public int ImageQueueColumn
+        {
+            get => imageQueueColumn;
+            private set => SetProperty(ref imageQueueColumn, value);
+        }
+
+        public double WorkflowContextHeaderHeight
+        {
+            get => workflowContextHeaderHeight;
+            private set => SetProperty(ref workflowContextHeaderHeight, value);
+        }
+
+        public double WorkflowStageRailHeight
+        {
+            get => workflowStageRailHeight;
+            private set => SetProperty(ref workflowStageRailHeight, value);
+        }
+
+        /// <summary>
+        /// Mirrors the workspace columns so the image queue stays left of the canvas
+        /// and the workflow dock stays right, while panel content remains left-to-right.
+        /// </summary>
+        public FlowDirection LabelingWorkspaceFlowDirection
+        {
+            get => labelingWorkspaceFlowDirection;
+            private set => SetProperty(ref labelingWorkspaceFlowDirection, value);
+        }
+
+        public ICommand DeactivatedCommand
+        {
+            get => deactivatedCommand;
+            private set => SetProperty(ref deactivatedCommand, value);
+        }
+
         public ICommand PreviewKeyDownCommand
         {
             get => previewKeyDownCommand;
             private set => SetProperty(ref previewKeyDownCommand, value);
+        }
+
+        public ICommand PreviewKeyUpCommand
+        {
+            get => previewKeyUpCommand;
+            private set => SetProperty(ref previewKeyUpCommand, value);
         }
 
         public ICommand ToggleThemeCommand
@@ -962,6 +1468,12 @@ namespace MvcVisionSystem
             private set => SetProperty(ref trainingModelCenterCommand, value);
         }
 
+        public ICommand ModelComparisonCommand
+        {
+            get => modelComparisonCommand;
+            private set => SetProperty(ref modelComparisonCommand, value);
+        }
+
         public ICommand ReviewCandidateModelCommand
         {
             get => reviewCandidateModelCommand;
@@ -1022,6 +1534,8 @@ namespace MvcVisionSystem
             private set => SetProperty(ref showClassCatalogViewCommand, value);
         }
 
+        public ICommand CloseClassCatalogDialogCommand => closeClassCatalogDialogCommand ??= new RelayCommand(() => IsClassCatalogDialogOpen = false);
+
         public ICommand ToggleRightWorkflowDockCommand
         {
             get
@@ -1053,6 +1567,12 @@ namespace MvcVisionSystem
             private set => SetProperty(ref imageQueuePaneResizeCommand, value);
         }
 
+        public ICommand WorkspaceViewportSizeChangedCommand
+        {
+            get => workspaceViewportSizeChangedCommand;
+            private set => SetProperty(ref workspaceViewportSizeChangedCommand, value);
+        }
+
         public string WorkspaceLayoutLastSaveError
         {
             get => workspaceLayoutLastSaveError;
@@ -1071,6 +1591,31 @@ namespace MvcVisionSystem
             private set => SetProperty(ref detectCurrentImageCommand, value);
         }
 
+        public ICommand RunInferenceTargetCommand
+        {
+            get => runInferenceTargetCommand;
+            private set => SetProperty(ref runInferenceTargetCommand, value);
+        }
+
+        public ICommand MarkInferenceResultSeenCommand { get => markInferenceResultSeenCommand; private set => SetProperty(ref markInferenceResultSeenCommand, value); }
+        public ICommand SendInferenceResultsToLabelingCommand { get => sendInferenceResultsToLabelingCommand; private set => SetProperty(ref sendInferenceResultsToLabelingCommand, value); }
+        public ICommand ExportInferenceResultsCommand { get => exportInferenceResultsCommand; private set => SetProperty(ref exportInferenceResultsCommand, value); }
+        public ICommand OpenInferenceDecisionRuleCommand { get => openInferenceDecisionRuleCommand; private set => SetProperty(ref openInferenceDecisionRuleCommand, value); }
+        public ICommand MarkInferenceResultSeenAndNextCommand { get => markInferenceResultSeenAndNextCommand; private set => SetProperty(ref markInferenceResultSeenAndNextCommand, value); }
+        public ICommand ShowInferenceResultsCommand { get => showInferenceResultsCommand; private set => SetProperty(ref showInferenceResultsCommand, value); }
+
+        public ICommand ToggleLabelingAssistPanelCommand
+        {
+            get => toggleLabelingAssistPanelCommand;
+            private set => SetProperty(ref toggleLabelingAssistPanelCommand, value);
+        }
+
+        public ICommand ApplySelectedInferenceModelCommand
+        {
+            get => applySelectedInferenceModelCommand;
+            private set => SetProperty(ref applySelectedInferenceModelCommand, value);
+        }
+
         public ICommand RunTemplateMatchingCommand
         {
             get => runTemplateMatchingCommand;
@@ -1083,6 +1628,12 @@ namespace MvcVisionSystem
             private set => SetProperty(ref changeDatasetCommand, value);
         }
 
+        public ICommand CloseRecipeCommand
+        {
+            get => closeRecipeCommand;
+            private set => SetProperty(ref closeRecipeCommand, value);
+        }
+
         public ICommand OpenDatasetFolderCommand
         {
             get => openDatasetFolderCommand;
@@ -1093,6 +1644,18 @@ namespace MvcVisionSystem
         {
             get => changeImageFolderCommand;
             private set => SetProperty(ref changeImageFolderCommand, value);
+        }
+
+        public ICommand CompleteLabelingCommand
+        {
+            get => completeLabelingCommand;
+            private set => SetProperty(ref completeLabelingCommand, value);
+        }
+
+        public ICommand CancelLabelingCommand
+        {
+            get => cancelLabelingCommand;
+            private set => SetProperty(ref cancelLabelingCommand, value);
         }
 
         public void ConfigureCommands(
@@ -1125,7 +1688,13 @@ namespace MvcVisionSystem
             Action resetWorkspaceLayout = null,
             Action openModelBenchmark = null,
             Action openDatasetHealth = null,
-            Action openDatasetInterchange = null)
+            Action openDatasetInterchange = null,
+            Action completeLabeling = null,
+            Action cancelLabeling = null,
+            Action closeRecipe = null,
+            Func<bool> canStartLabeling = null,
+            Action modelComparison = null,
+            Action<string> openDatasetInterchangeDirection = null)
         {
             // Shell lifecycle and toolbar commands are injected; key commands use a DTO so this ViewModel avoids WPF EventArgs.
             ToggleThemeCommand = new RelayCommand(toggleTheme ?? NoOpCommand);
@@ -1135,36 +1704,384 @@ namespace MvcVisionSystem
             LabelingModeCommand = new RelayCommand(labelingMode ?? NoOpCommand);
             InferenceModeCommand = new RelayCommand(inferenceMode ?? NoOpCommand);
             DatasetHomeCommand = new RelayCommand(datasetHome ?? NoOpCommand);
-            LabelingWorkbenchCommand = new RelayCommand(labelingWorkbench ?? labelingMode ?? NoOpCommand);
+            LabelingWorkbenchCommand = new RelayCommand(labelingWorkbench ?? labelingMode ?? NoOpCommand, canStartLabeling);
             InferenceReviewCommand = new RelayCommand(inferenceReview ?? inferenceMode ?? NoOpCommand);
             TrainingModelCenterCommand = new RelayCommand(trainingModelCenter ?? NoOpCommand);
+            ModelComparisonCommand = new RelayCommand(modelComparison ?? NoOpCommand);
             ReviewCandidateModelCommand = new RelayCommand(reviewCandidateModel ?? inferenceReview ?? inferenceMode ?? NoOpCommand);
             PromoteSelectedModelHistoryCommand = new RelayCommand(promoteSelectedModelHistory ?? NoOpCommand);
             RunAnomalyEvaluationCommand = new RelayCommand(runAnomalyEvaluation ?? NoOpCommand);
             LoadAnomalyEvaluationSummaryCommand = new RelayCommand(loadAnomalyEvaluationSummary ?? NoOpCommand);
             OpenModelBenchmarkCommand = new RelayCommand(openModelBenchmark ?? NoOpCommand);
             OpenDatasetHealthCommand = new RelayCommand(openDatasetHealth ?? NoOpCommand);
-            OpenDatasetInterchangeCommand = new RelayCommand(openDatasetInterchange ?? NoOpCommand);
+            OpenDatasetInterchangeCommand = openDatasetInterchangeDirection == null
+                ? new RelayCommand(openDatasetInterchange ?? NoOpCommand)
+                : new RelayCommand<string>(openDatasetInterchangeDirection);
             ShowSavedLabelsViewCommand = new RelayCommand(showSavedLabelsView ?? labelingMode ?? NoOpCommand);
             ShowLabelingGuideViewCommand = new RelayCommand(showLabelingGuideView ?? labelingMode ?? NoOpCommand);
-            ShowClassCatalogViewCommand = new RelayCommand(showClassCatalogView ?? labelingMode ?? NoOpCommand);
+            ShowClassCatalogViewCommand = new RelayCommand<object>(presentation =>
+            {
+                bool quickAdd = string.Equals(presentation as string, "Add", StringComparison.Ordinal);
+                if (quickAdd && (IsRecipeLibraryVisible || IsClassCatalogDialogOpen && IsClassAddDialogOpen)) return;
+                IsClassAddDialogOpen = quickAdd;
+                (showClassCatalogView ?? labelingMode ?? NoOpCommand)();
+                if (!IsClassCatalogDialogOpen) IsClassAddDialogOpen = false;
+            });
             CheckYoloCommand = new RelayCommand(checkYolo ?? NoOpCommand);
             DetectCurrentImageCommand = new RelayCommand(detectCurrentImage ?? NoOpCommand);
             RunTemplateMatchingCommand = new RelayCommand(runTemplateMatching ?? NoOpCommand);
             ChangeDatasetCommand = new RelayCommand(changeDataset ?? NoOpCommand);
+            CloseRecipeCommand = new RelayCommand(closeRecipe ?? NoOpCommand);
             OpenDatasetFolderCommand = new RelayCommand(openDatasetFolder ?? NoOpCommand);
             ChangeImageFolderCommand = new RelayCommand(changeImageFolder ?? NoOpCommand);
+            CompleteLabelingCommand = new RelayCommand(completeLabeling ?? NoOpCommand);
+            CancelLabelingCommand = new RelayCommand(cancelLabeling ?? NoOpCommand);
             ResetWorkspaceLayoutCommand = new RelayCommand(resetWorkspaceLayout ?? ExecuteResetWorkspaceLayoutCommand);
             WorkflowPaneResizeCommand = new RelayCommand<double>(ExecuteWorkflowPaneResizeCommand);
             ImageQueuePaneResizeCommand = new RelayCommand<double>(ExecuteImageQueuePaneResizeCommand);
+            WorkspaceViewportSizeChangedCommand = new RelayCommand<double>(ExecuteWorkspaceViewportSizeChangedCommand);
             LoadedCommand = new RelayCommand(loaded ?? NoOpCommand);
             ClosedCommand = new RelayCommand(closed ?? NoOpCommand);
             PreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(previewKeyDown ?? NoOpKeyCommand);
         }
 
+        internal void ConfigureInferenceReviewActions(
+            Action runCurrentTarget,
+            Action runVisibleTarget,
+            Func<bool> canRunCurrentTarget,
+            Func<bool> canRunVisibleTarget,
+            Func<bool> isInferenceRunning,
+            Action onPurposeChanged,
+            Action onModelSelectionChanged = null,
+            Action runUnexecutedTarget = null,
+            Func<bool> canRunUnexecutedTarget = null)
+        {
+            runCurrentInferenceTarget = runCurrentTarget;
+            runVisibleInferenceTarget = runVisibleTarget;
+            canRunCurrentInferenceTarget = canRunCurrentTarget;
+            canRunVisibleInferenceTarget = canRunVisibleTarget;
+            runUnexecutedInferenceTarget = runUnexecutedTarget;
+            canRunUnexecutedInferenceTarget = canRunUnexecutedTarget;
+            inferenceRunStateProvider = isInferenceRunning;
+            inferencePurposeChanged = onPurposeChanged;
+            inferenceModelSelectionChanged = onModelSelectionChanged;
+            ToggleLabelingAssistPanelCommand = new RelayCommand(
+                ExecuteToggleLabelingAssistPanelCommand,
+                () => CanToggleLabelingAssistPanel);
+            RunInferenceTargetCommand = new RelayCommand(
+                ExecuteRunInferenceTargetCommand,
+                CanRunInferenceTargetCommand);
+            ApplySelectedInferenceModelCommand = new RelayCommand(
+                ExecuteApplySelectedInferenceModelCommand,
+                () => CanApplySelectedInferenceModel);
+            RefreshInferenceReviewState();
+        }
+
+        internal void ConfigureInferenceResultReview(
+            Func<InferenceResultReviewContext> contextProvider,
+            Func<string, bool> openImage,
+            Action<YoloWorkerSmokeTestResult> restoreResult,
+            Action onResultRoleChanged,
+            Action resetResultFilters = null,
+            Action<YoloWorkerSmokeCandidate> selectPrediction = null,
+            Func<YoloWorkerSmokeCandidate> selectedPredictionProvider = null,
+            Func<IReadOnlyList<WpfClassCatalogListItem>> classCatalogProvider = null,
+            Func<InferenceResultReviewEntry, double, bool> sendResultToLabeling = null,
+            Func<string, string> exportResults = null,
+            Func<Func<string>, string> exportDeferredResults = null)
+        {
+            inferenceClassCatalogProvider = classCatalogProvider;
+            sendInferenceResultToLabeling = sendResultToLabeling;
+            SendInferenceResultsToLabelingCommand = new RelayCommand(ExecuteSendInferenceResultsToLabeling, () => CanSendInferenceResultsToLabeling);
+            exportInferenceResults = exportResults;
+            exportDeferredInferenceResults = exportDeferredResults;
+            ExportInferenceResultsCommand = new RelayCommand(ExecuteExportInferenceResults, () => CanExportInferenceResults);
+            selectInferencePrediction = selectPrediction;
+            selectedInferencePredictionProvider = selectedPredictionProvider;
+            resetInferenceResultFilters = resetResultFilters;
+            inferenceReviewContextProvider = contextProvider;
+            openInferenceResultImage = openImage;
+            restoreInferenceResult = restoreResult;
+            inferenceResultRoleChanged = onResultRoleChanged;
+            MarkInferenceResultSeenCommand = new RelayCommand(ExecuteMarkInferenceResultSeen, () => CanMarkInferenceResultSeen);
+            MarkInferenceResultSeenAndNextCommand = new RelayCommand(ExecuteMarkInferenceResultSeenAndNext, () => CanMoveToNextInferenceResult);
+            ShowInferenceResultsCommand = new RelayCommand(ExecuteShowInferenceResults, () => CanShowInferenceResults);
+            RefreshInferenceResultPresentation();
+        }
+
+        internal void ConfigureInferenceDecisionReview(Func<InferenceResultReviewEntry, ModelDecisionResult> evaluator, Action<InferenceResultReviewEntry> openRule, Func<(Func<InferenceResultReviewEntry, ModelDecisionResult> Evaluate, Func<bool> Validate)> factory = null, Func<InferenceResultReviewEntry, (double? Threshold, bool? SavedVerdict)> anomalyEvidence = null)
+        {
+            inferenceResultReview.ConfigureDecisionEvaluation(evaluator, factory);
+            inferenceAnomalyEvidenceProvider = anomalyEvidence;
+            inferenceDecisionRefreshPending = true;
+            openInferenceDecisionRule = openRule;
+            OpenInferenceDecisionRuleCommand = new RelayCommand(() => openInferenceDecisionRule?.Invoke(DisplayedInferenceResult), () => openInferenceDecisionRule != null && HasDisplayedInferenceResult && !inferenceReviewContext.IsBusy && !inferenceReviewContext.IsClosing);
+            OnPropertyChanged(nameof(InferencePartDecisionText));
+        }
+
+        public void RecordInferenceResult(YoloWorkerSmokeTestResult result)
+        {
+            InferenceResultReviewContext context = inferenceReviewContextProvider?.Invoke() ?? inferenceReviewContext;
+            inferenceResultReview.SetScope(context.RecipeIdentity);
+            inferenceResultReview.Record(result);
+            inferenceDecisionRefreshPending = true;
+            inferenceNavigationMessage = string.Empty;
+            RefreshInferenceResultPresentation();
+        }
+
+        internal void InvalidateInferenceDecisionProjections()
+        {
+            inferenceResultReview.InvalidateDecisionProjections();
+            inferenceDecisionRefreshPending = true;
+            RefreshInferenceResultPresentation();
+        }
+
+        internal void RefreshInferenceResultPresentation()
+        {
+            if (refreshingInferenceResultPresentation) return;
+            refreshingInferenceResultPresentation = true;
+            try
+            {
+                InferenceResultReviewContext next = inferenceReviewContextProvider?.Invoke() ?? inferenceReviewContext;
+                bool imageChanged = !string.Equals(next.ImagePath, inferenceReviewContext.ImagePath, StringComparison.OrdinalIgnoreCase);
+                bool enteredResults = IsInferenceControlsVisible && !inferenceResultsWereVisible;
+                bool enteredWorkspace = IsInferenceStageActive && !inferenceWorkspaceWasActive;
+                inferenceResultReview.SetScope(next.RecipeIdentity);
+                bool modelChanged = inferenceResultReview.SelectModel(next.NextSettings);
+                inferenceReviewContext = next;
+                inferenceResultsWereVisible = IsInferenceControlsVisible;
+                inferenceWorkspaceWasActive = IsInferenceStageActive;
+                if (!next.IsBusy && !next.IsClosing && (inferenceDecisionRefreshPending || imageChanged || enteredResults || enteredWorkspace || modelChanged))
+                {
+                    inferenceResultReview.RefreshDecisionProjections(inferenceDecisionRefreshPending ? null : next.ImagePath);
+                    inferenceAnomalyEvidence = IsAnomalyImageReviewMode ? inferenceAnomalyEvidenceProvider?.Invoke(DisplayedInferenceResult) ?? default : default;
+                    inferenceDecisionRefreshPending = false;
+                }
+                if (imageChanged || enteredResults || enteredWorkspace || modelChanged) inferenceResultRestorePending = true;
+                if (IsLabelingStageActive && next.LabelingTransferEntry != null) inferenceResultRestorePending = false;
+                if (imageChanged || modelChanged) inferenceNavigationMessage = string.Empty;
+                if (inferenceResultRestorePending && IsInferenceControlsVisible && !next.IsBusy && !next.IsClosing && !next.IsComparisonEvidence && !next.HasUnsavedLabels && !next.HasPendingCandidates && !(IsLabelingStageActive && next.LabelingTransferEntry != null))
+                {
+                    YoloWorkerSmokeTestResult result = DisplayedInferenceResult?.Result;
+                    inferenceResultRestorePending = false;
+                    restoreInferenceResult?.Invoke(result);
+                    inferenceReviewContext = inferenceReviewContextProvider?.Invoke() ?? next;
+                }
+                if (!next.IsBusy) inferenceSummary = inferenceResultReview.BuildSummary(next.AllImages ?? next.VisibleImages, next.DisplayConfidence);
+                OnPropertyChanged(nameof(InferencePartDecisionText));
+                foreach (string property in new[] { nameof(IsAnomalyInference), nameof(InferenceDecisionTitleText), nameof(InferenceDecisionValueText), nameof(InferenceDecisionIsNg), nameof(InferenceDecisionLabelText), nameof(InferenceAnomalyThresholdText), nameof(InferenceAnomalyScoreText), nameof(InferenceSavedVerdictText), nameof(InferenceVisiblePredictionCountText), nameof(InferencePanelTitleText) }) OnPropertyChanged(property);
+                if (OpenInferenceDecisionRuleCommand is RelayCommand decisionCommand) decisionCommand.RaiseCanExecuteChanged();
+                ModelDecisionResult displayedDecision = inferenceResultReview.GetDecisionProjection(DisplayedInferenceResult);
+                var rows = InferencePredictions.Select(candidate =>
+                {
+                    WpfCandidateReviewListItem row = BuildInferenceReviewItem(candidate.ClassName, candidate.ClassId,
+                        candidate.ImageLevel ? candidate.AnomalyScore?.ToString("0.00", CultureInfo.CurrentCulture) ?? "—" : candidate.Confidence.ToString("0.00", CultureInfo.CurrentCulture), candidate);
+                    row = inferencePredictionListItems.FirstOrDefault(previous => ReferenceEquals(previous.Payload, candidate) && previous.Title == row.Title
+                        && previous.SecondaryText == row.SecondaryText && ReferenceEquals(previous.StateBrush, row.StateBrush)) ?? row;
+                    row.IsInferenceDecisionEvidence = !candidate.ImageLevel && displayedDecision.IsNg.HasValue && displayedDecision.EvidenceIndices.Contains(candidate.Index);
+                    return row;
+                }).ToArray();
+                if (!rows.SequenceEqual(inferencePredictionListItems)) inferencePredictionListItems = rows;
+                foreach (string property in new[] { nameof(CanSelectInferencePrediction), nameof(CanSendInferenceResultsToLabeling), nameof(IsInferenceSummaryReady), nameof(InferenceClassSummaryItems), nameof(InferenceClassSummaryRows), nameof(InferenceSummaryText), nameof(InferenceResultTitleText), nameof(InferencePredictions), nameof(InferencePredictionListItems), nameof(HasVisibleInferencePredictions), nameof(InferenceResultEmptyText), nameof(SelectedInferencePrediction) }) OnPropertyChanged(property);
+                foreach (string property in new[] { nameof(DisplayedInferenceResult), nameof(HasDisplayedInferenceResult), nameof(IsInferenceNotRunHintVisible), nameof(IsInferenceResultReadOnly), nameof(CanReviewInferenceResult), nameof(CanMarkInferenceResultSeen), nameof(CanMoveToNextInferenceResult), nameof(CanShowInferenceResults), nameof(IsInferenceResultOutsideFilter), nameof(IsInferenceResultSettingsChanged), nameof(InferenceResultSourceText), nameof(InferenceResultCountsText), nameof(InferenceResultWarningText), nameof(InferenceResultReviewText), nameof(InferenceResultOutsideFilterText) }) OnPropertyChanged(property);
+                OnPropertyChanged(nameof(CanExportInferenceResults));
+                foreach (ICommand command in new[] { MarkInferenceResultSeenCommand, MarkInferenceResultSeenAndNextCommand, ShowInferenceResultsCommand, SendInferenceResultsToLabelingCommand, ExportInferenceResultsCommand }) if (command is RelayCommand relay) relay.RaiseCanExecuteChanged();
+                bool readOnly = IsInferenceResultReadOnly;
+                if (lastInferenceResultReadOnly != readOnly)
+                {
+                    lastInferenceResultReadOnly = readOnly;
+                    inferenceResultRoleChanged?.Invoke();
+                }
+                RefreshInferenceTargetCommandState();
+            }
+            finally { refreshingInferenceResultPresentation = false; }
+        }
+
+        private WpfCandidateReviewListItem BuildInferenceReviewItem(string className, int? classId, string value, object payload)
+        {
+            IReadOnlyList<WpfClassCatalogListItem> classes = inferenceClassCatalogProvider?.Invoke() ?? Array.Empty<WpfClassCatalogListItem>();
+            WpfClassCatalogListItem item = classId.HasValue ? classes.FirstOrDefault(candidate => candidate.CanonicalIndex == classId.Value) : null;
+            item ??= classes.FirstOrDefault(candidate => string.Equals(candidate.Text, className, StringComparison.OrdinalIgnoreCase));
+            return new WpfCandidateReviewListItem(string.IsNullOrWhiteSpace(className) ? "Defect" : className, value, string.Empty, payload, MahApps.Metro.IconPacks.PackIconMaterialKind.CrosshairsGps, item?.DrawBrush);
+        }
+
+        private void ExecuteExportInferenceResults()
+        {
+            RefreshInferenceResultPresentation();
+            if (!CanExportInferenceResults) return;
+            exportingInferenceResults = true;
+            OnPropertyChanged(nameof(CanExportInferenceResults));
+            if (ExportInferenceResultsCommand is RelayCommand command) command.RaiseCanExecuteChanged();
+            try
+            {
+                InferenceResultReviewContext captured = inferenceReviewContext;
+                string[] paths = (captured.AllImages ?? captured.VisibleImages).ToArray();
+                var model = (captured.NextSettings?.ModelEngine, captured.NextSettings?.WeightsPath, captured.NextSettings?.ProjectRootPath);
+                string BuildCsv()
+                {
+                    InferenceResultReviewContext current = inferenceReviewContextProvider?.Invoke() ?? inferenceReviewContext;
+                    if (current.IsClosing || current.IsBusy || !string.Equals(current.RecipeIdentity, captured.RecipeIdentity, StringComparison.OrdinalIgnoreCase)
+                        || !string.Equals(inferenceResultReview.ScopeIdentity, captured.RecipeIdentity, StringComparison.OrdinalIgnoreCase)
+                        || model != (current.NextSettings?.ModelEngine, current.NextSettings?.WeightsPath, current.NextSettings?.ProjectRootPath))
+                        throw new InvalidDataException(OpenVisionLanguageService.T("WpfComparisonWorkspace.RuleStale"));
+                    return inferenceResultReview.BuildCsv(paths, captured.DisplayConfidence);
+                }
+                string path = exportDeferredInferenceResults != null ? exportDeferredInferenceResults(BuildCsv) : exportInferenceResults(BuildCsv());
+                inferenceNavigationMessage = string.IsNullOrWhiteSpace(path) ? OpenVisionLanguageService.T("WpfInference.Export.Canceled")
+                    : string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfInference.Export.Done"), path);
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+            {
+                inferenceNavigationMessage = string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfInference.Export.Failed"), ex.Message);
+            }
+            finally { exportingInferenceResults = false; RefreshInferenceResultPresentation(); }
+        }
+
+        private void ExecuteSendInferenceResultsToLabeling()
+        {
+            RefreshInferenceResultPresentation();
+            if (!CanSendInferenceResultsToLabeling) return;
+            InferenceResultReviewEntry entry = DisplayedInferenceResult;
+            double confidence = inferenceReviewContext.DisplayConfidence;
+            int count = InferencePredictions.Count;
+            sendingInferenceResultToLabeling = true;
+            try
+            {
+                inferenceNavigationMessage = sendInferenceResultToLabeling?.Invoke(entry, confidence) == true
+                    ? string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfInference.Transfer.Done"), count)
+                    : OpenVisionLanguageService.T("WpfInference.Transfer.Blocked");
+            }
+            finally { sendingInferenceResultToLabeling = false; RefreshInferenceResultPresentation(); }
+        }
+
+        private void ExecuteMarkInferenceResultSeen()
+        {
+            RefreshInferenceResultPresentation();
+            if (!CanMarkInferenceResultSeen) return;
+            inferenceResultReview.MarkSeen(inferenceReviewContext.ImagePath);
+            inferenceNavigationMessage = string.Empty;
+            RefreshInferenceResultPresentation();
+        }
+
+        private void ExecuteMarkInferenceResultSeenAndNext()
+        {
+            RefreshInferenceResultPresentation();
+            if (!CanMoveToNextInferenceResult) return;
+            inferenceResultReview.MarkSeen(inferenceReviewContext.ImagePath);
+            string next = inferenceResultReview.FindNextUnseen(inferenceReviewContext.VisibleImages, inferenceReviewContext.ImagePath);
+            if (!string.IsNullOrEmpty(next))
+            {
+                if (openInferenceResultImage?.Invoke(next) != true) inferenceNavigationMessage = OpenVisionLanguageService.T("WpfInference.Seen.OpenFailed");
+            }
+            else inferenceNavigationMessage = OpenVisionLanguageService.T("WpfInference.Seen.NoNext");
+            RefreshInferenceResultPresentation();
+        }
+
+        private void ExecuteShowInferenceResults()
+        {
+            RefreshInferenceResultPresentation();
+            if (!CanShowInferenceResults) return;
+            resetInferenceResultFilters?.Invoke();
+            string path = inferenceResultReview.FindFirstResultNeedingReview();
+            if (!string.IsNullOrEmpty(path) && openInferenceResultImage?.Invoke(path) != true) inferenceNavigationMessage = OpenVisionLanguageService.T("WpfInference.Seen.OpenFailed");
+            RefreshInferenceResultPresentation();
+        }
+
+        internal void RefreshInferenceReviewState()
+        {
+            RefreshInferenceResultPresentation();
+            OnPropertyChanged(nameof(CanChangeInferencePurpose));
+            OnPropertyChanged(nameof(CanToggleLabelingAssistPanel));
+            RefreshInferenceTargetCommandState();
+            RefreshLabelingAssistPanelCommandState();
+        }
+
+        private void ExecuteToggleLabelingAssistPanelCommand()
+        {
+            if (CanToggleLabelingAssistPanel)
+            {
+                IsLabelingAssistPanelExpanded = !IsLabelingAssistPanelExpanded;
+            }
+        }
+
+        private void RefreshLabelingAssistPanelCommandState()
+        {
+            if (ToggleLabelingAssistPanelCommand is RelayCommand command)
+            {
+                command.RaiseCanExecuteChanged();
+            }
+        }
+
+        private void ExecuteRunInferenceTargetCommand()
+        {
+            if (!CanRunInferenceTargetCommand())
+            {
+                return;
+            }
+
+            (inferenceTargetIndex == 1 ? runUnexecutedInferenceTarget : inferenceTargetIndex == 2 ? runVisibleInferenceTarget : runCurrentInferenceTarget)?.Invoke();
+        }
+
+        private void ExecuteApplySelectedInferenceModelCommand()
+        {
+            if (!CanApplySelectedInferenceModel)
+            {
+                return;
+            }
+
+            SelectedModelRegistryHistoryItem = SelectedInferenceModelHistoryItem;
+            PromoteSelectedModelHistoryCommand.Execute(null);
+        }
+
+        private bool CanRunInferenceTargetCommand()
+        {
+            if (!IsInferenceControlsVisible || !IsInferenceModelSelectionReady)
+            {
+                return false;
+            }
+
+            return inferenceTargetIndex switch
+            {
+                1 => canRunUnexecutedInferenceTarget?.Invoke() == true,
+                2 => canRunVisibleInferenceTarget?.Invoke() == true,
+                _ => canRunCurrentInferenceTarget?.Invoke() == true
+            };
+        }
+
+        private void RefreshInferenceTargetCommandState()
+        {
+            OnPropertyChanged(nameof(CanRunInferenceTarget));
+            OnPropertyChanged(nameof(InferenceRunTargetToolTipText));
+            if (RunInferenceTargetCommand is RelayCommand command)
+            {
+                command.RaiseCanExecuteChanged();
+            }
+
+            RefreshInferenceModelCommandState();
+        }
+
+        private void RefreshInferenceModelCommandState()
+        {
+            OnPropertyChanged(nameof(CanApplySelectedInferenceModel));
+            if (ApplySelectedInferenceModelCommand is RelayCommand command)
+            {
+                command.RaiseCanExecuteChanged();
+            }
+        }
+
+        public void ConfigureTemporaryOriginalViewLifecycle(
+            Action<KeyInputCommandArgs> previewKeyUp,
+            Action deactivated)
+        {
+            PreviewKeyUpCommand = new RelayCommand<KeyInputCommandArgs>(previewKeyUp ?? NoOpKeyCommand);
+            DeactivatedCommand = new RelayCommand(deactivated ?? NoOpCommand);
+        }
+
         public void RestoreWorkspaceLayoutSettings()
         {
             ApplyWorkspaceLayoutSettings(workspaceLayoutSettingsService.Load());
+            workspaceLayoutSettingsRestored = true;
+            ApplyResponsiveWorkspaceDefaults();
         }
 
         public void SaveWorkspaceLayoutSettings()
@@ -1191,6 +2108,9 @@ namespace MvcVisionSystem
         public void ApplyWorkflowCommandState(WorkflowCommandState state)
         {
             IsCurrentImageDetectionEnabled = state?.CanRunInference == true;
+            canRunInferenceTarget = state?.CanRunInferenceTarget == true;
+            inferenceRunTargetUnavailableHint = state?.BatchDetectionToolTip ?? string.Empty;
+            OnPropertyChanged(nameof(IsInferenceTargetEnabled));
             canRunModelCenterCommands = state?.CanSaveProjectConfig == true;
             canRunModelCenterReviewCommands = state?.CanRunGeneralCommands == true;
             modelCenterConfirmModelUnavailableToolTip = state?.CanSaveProjectConfigUnavailableHint ?? string.Empty;
@@ -1199,6 +2119,7 @@ namespace MvcVisionSystem
             RefreshModelCenterInspectCurrentImageEnabled();
             RefreshSelectedModelHistoryActionEnabled();
             RefreshModelCenterAnomalyEvaluationPickerEnabled();
+            RefreshInferenceReviewState();
         }
 
         private async Task ExecuteRunAnomalyEvaluationCommandAsync()
@@ -1330,9 +2251,10 @@ namespace MvcVisionSystem
             SetRightWorkflowDockExpanded(true);
         }
 
-        public void ShowCandidateReviewWorkflow()
+        public void ShowCandidateReviewWorkflow(bool keepLabelingStage = false)
         {
-            SetWorkflowStage(WpfShellWorkflowStage.Inference);
+            SetWorkflowStage(keepLabelingStage ? WpfShellWorkflowStage.Labeling : WpfShellWorkflowStage.Inference);
+            if (keepLabelingStage) SetRightWorkflowShortcut(WpfRightWorkflowShortcut.SavedLabels);
             SetRightWorkflowDockExpanded(true);
         }
 
@@ -1362,31 +2284,69 @@ namespace MvcVisionSystem
             SetRightWorkflowDockExpanded(true);
         }
 
+        internal void ConfigureWorkflowStageChanged(Action<WpfShellWorkflowStage> callback) => workflowStageChanged = callback;
+
         public void SetWorkflowStage(WpfShellWorkflowStage stage)
         {
+            bool changed = currentWorkflowStage != stage;
+            if (stage != WpfShellWorkflowStage.Labeling && isLabelingAssistPanelExpanded)
+            {
+                isLabelingAssistPanelExpanded = false;
+                OnPropertyChanged(nameof(IsLabelingAssistPanelExpanded));
+                OnPropertyChanged(nameof(IsInferenceControlsVisible));
+            }
+
             currentWorkflowStage = stage;
             IsDatasetStageActive = stage == WpfShellWorkflowStage.Dataset;
             IsLabelingStageActive = stage == WpfShellWorkflowStage.Labeling;
             IsInferenceStageActive = stage == WpfShellWorkflowStage.Inference;
             IsTrainingModelStageActive = stage == WpfShellWorkflowStage.TrainingModel;
+            IsModelComparisonStageActive = stage == WpfShellWorkflowStage.ModelComparison;
+            OnPropertyChanged(nameof(IsInferenceControlsVisible));
+            OnPropertyChanged(nameof(CanToggleLabelingAssistPanel));
+            RefreshInferenceTargetCommandState();
+            RefreshLabelingAssistPanelCommandState();
             ApplyWorkspaceStageLayout(stage);
             ApplyWorkflowStageViewVisibility(stage);
-            RefreshWorkflowStageModelActionPanelVisibility();
             ApplyWorkflowStageShortcutState(stage);
             ApplyRightWorkflowDockPreset(stage);
 
             RefreshLocalizedPresentation();
+            if (changed) workflowStageChanged?.Invoke(stage);
         }
 
         public void RefreshLocalizedPresentation()
         {
-            WorkflowStagePresentation presentation = WorkflowStagePresentationService.Build(currentWorkflowStage);
+            OnPropertyChanged(nameof(InferenceTargetOptions));
+            OnPropertyChanged(nameof(InferenceTargetIndex));
+            WorkflowStagePresentation presentation = WorkflowStagePresentationService.Build(currentWorkflowStage, IsAnomalyImageReviewMode);
             WorkflowStageProgressText = presentation.ProgressText;
             WorkflowStageTitleText = presentation.TitleText;
             WorkflowStageDetailText = presentation.DetailText;
             WorkflowStageNextActionText = presentation.NextActionText;
             ApplyRightWorkflowPresentation();
             RefreshRightWorkflowDockPresentation();
+            RefreshInferenceResultPresentation();
+            foreach (string property in new[]
+            {
+                nameof(RightWorkflowDockToggleText), nameof(RightWorkflowDockToggleToolTip), nameof(RightWorkflowViewDetailText),
+                nameof(RightWorkflowRailCurrentViewText), nameof(CurrentDatasetName), nameof(CurrentDatasetPurposeText),
+                nameof(CurrentDatasetPathText), nameof(CurrentDatasetStoragePathText), nameof(CurrentDatasetImageRootText),
+                nameof(CurrentDatasetSourceText), nameof(CurrentDatasetToolTip), nameof(ModelCenterTrainingStatusText),
+                nameof(ModelCenterTrainingDetailText), nameof(ModelCenterCurrentModelText), nameof(ModelCenterCandidateModelText),
+                nameof(ModelCenterAdoptionText), nameof(ModelCenterNextActionText), nameof(ModelCenterCurrentModelDetailText),
+                nameof(ModelCenterCandidateModelDetailText), nameof(ModelCenterAdoptionDetailText), nameof(ModelCenterNextActionDetailText),
+                nameof(ModelCenterDecisionSummaryText), nameof(ModelCenterDecisionEvidenceText), nameof(ModelCenterDecisionActionText),
+                nameof(ModelRegistrySummaryPrimaryText), nameof(ModelRegistryProfileText), nameof(ModelRegistryTrainingRunText),
+                nameof(ModelRegistryCandidateModelText), nameof(ModelRegistryActionText), nameof(ModelRegistryHistorySummaryText),
+                nameof(ModelCenterConfirmModelButtonText), nameof(ModelCenterConfirmModelButtonToolTip), nameof(ModelCenterInspectCurrentImageButtonText),
+                nameof(ModelCenterInspectCurrentImageButtonToolTip), nameof(ModelCenterReviewCandidateButtonText), nameof(ModelCenterReviewCandidateButtonToolTip),
+                nameof(ModelCenterActionStateText)
+            })
+            {
+                OnPropertyChanged(property);
+            }
+            RefreshModelRegistryLocalizedText();
         }
 
         public void SetRightWorkflowShortcut(WpfRightWorkflowShortcut shortcut)
@@ -1405,6 +2365,7 @@ namespace MvcVisionSystem
             IsSavedLabelsShortcutActive = shortcut == WpfRightWorkflowShortcut.SavedLabels;
             IsLabelingGuideShortcutActive = shortcut == WpfRightWorkflowShortcut.LabelingGuide;
             IsClassCatalogShortcutActive = shortcut == WpfRightWorkflowShortcut.ClassCatalog;
+            IsRightWorkflowShortcutBarVisible = !IsInferenceStageActive && (currentWorkflowStage != WpfShellWorkflowStage.Dataset || IsClassCatalogShortcutActive);
             ApplyRightWorkflowPresentation(shortcut);
         }
 
@@ -1434,7 +2395,9 @@ namespace MvcVisionSystem
                 currentWorkflowStage,
                 shortcut);
             RightWorkflowViewTitleText = presentation.TitleText;
-            RightWorkflowViewDetailText = presentation.DetailText;
+            RightWorkflowViewDetailText = currentWorkflowStage == WpfShellWorkflowStage.Dataset && shortcut != WpfRightWorkflowShortcut.ClassCatalog
+                ? CurrentDatasetPurposeText
+                : presentation.DetailText;
             RightWorkflowRailCurrentViewText = presentation.RailCurrentViewText;
         }
 
@@ -1483,8 +2446,8 @@ namespace MvcVisionSystem
             visibleViewCount += IsGuideToolsViewVisible ? 1 : 0;
             visibleViewCount += IsClassCatalogViewVisible ? 1 : 0;
             visibleViewCount += IsYoloModelCenterViewVisible ? 1 : 0;
-            IsRightWorkflowShortcutBarVisible = true;
-            IsRightWorkflowSubNavigationVisible = visibleViewCount > 1 && !IsRightWorkflowShortcutBarVisible;
+            IsRightWorkflowShortcutBarVisible = !IsInferenceStageActive;
+            IsRightWorkflowSubNavigationVisible = !IsInferenceStageActive && visibleViewCount > 1 && !IsRightWorkflowShortcutBarVisible;
         }
 
         public void SetAnomalyImageReviewMode(bool enabled)
@@ -1493,11 +2456,16 @@ namespace MvcVisionSystem
             IsAnnotationWorkflowVisible = !enabled;
             ApplyWorkflowStageViewVisibility(currentWorkflowStage);
             ApplyWorkflowStageShortcutState(currentWorkflowStage);
+            RefreshLocalizedPresentation();
         }
 
-        private void RefreshWorkflowStageModelActionPanelVisibility()
+        public void OpenClassCatalogDialog()
         {
-            IsWorkflowStageModelActionPanelVisible = IsTrainingModelStageActive && !IsYoloModelCenterViewVisible;
+            if (!IsRecipeLibraryVisible)
+            {
+                OperationsTabIndex = 3;
+                IsClassCatalogDialogOpen = true;
+            }
         }
 
         public void SetRightWorkflowDockExpanded(bool isExpanded)
@@ -1513,9 +2481,7 @@ namespace MvcVisionSystem
 
             IsRightWorkflowDockExpanded = isExpanded;
             IsRightWorkflowDockRailVisible = !isExpanded;
-            RightWorkflowPaneGridLength = isExpanded
-                ? new GridLength(rightWorkflowExpandedPaneWidth)
-                : RightWorkflowCollapsedPaneGridLengthValue;
+            ApplyVisibleWorkspacePaneWidths();
             RefreshRightWorkflowDockPresentation();
         }
 
@@ -1544,10 +2510,7 @@ namespace MvcVisionSystem
             }
 
             rightWorkflowExpandedPaneWidth = Math.Clamp(width, 280D, 640D);
-            if (IsRightWorkflowDockExpanded)
-            {
-                RightWorkflowPaneGridLength = new GridLength(rightWorkflowExpandedPaneWidth);
-            }
+            ApplyVisibleWorkspacePaneWidths();
         }
 
         public void SetImageQueueExpandedPaneWidth(double width)
@@ -1557,11 +2520,30 @@ namespace MvcVisionSystem
                 return;
             }
 
-            imageQueueExpandedPaneWidth = Math.Clamp(width, 260D, 640D);
-            if (!IsModelWorkspaceActive)
+            imageQueueExpandedPaneWidth = Math.Clamp(
+                width,
+                WpfWorkspaceLayoutSettings.MinimumImageQueuePaneWidth,
+                WpfWorkspaceLayoutSettings.MaximumPaneWidth);
+            ApplyVisibleWorkspacePaneWidths();
+        }
+
+        private void ApplyVisibleWorkspacePaneWidths()
+        {
+            if (IsModelWorkspaceActive) return;
+            double workflowWidth = IsRightWorkflowDockExpanded ? rightWorkflowExpandedPaneWidth : RightWorkflowCollapsedPaneGridLengthValue.Value;
+            double queueWidth = imageQueueExpandedPaneWidth;
+            WorkspaceSplitterPaneGridLength = IsInferenceStageActive || IsLabelingStageActive ? new GridLength(0D) : IsDatasetStageActive ? new GridLength(IsCompactDatasetLayout ? 12D : 22D) : WorkspaceSplitterPaneGridLengthValue;
+            if (workspaceViewportWidth > 0D)
             {
-                ImageQueuePaneGridLength = new GridLength(imageQueueExpandedPaneWidth);
+                double datasetPadding = IsDatasetStageActive ? (IsCompactDatasetLayout ? 28D : 56D) : 0D;
+                double paneBudget = workspaceViewportWidth - datasetPadding - CanvasWorkspacePaneMinWidth - 2D * WorkspaceSplitterPaneGridLength.Value;
+                double workflowMinimum = IsRightWorkflowDockExpanded ? WpfWorkspaceLayoutSettings.MinimumWorkflowPaneWidth : RightWorkflowCollapsedPaneGridLengthValue.Value;
+                workflowWidth = Math.Min(workflowWidth, Math.Max(workflowMinimum, paneBudget - WpfWorkspaceLayoutSettings.MinimumImageQueuePaneWidth));
+                queueWidth = Math.Min(queueWidth, Math.Max(WpfWorkspaceLayoutSettings.MinimumImageQueuePaneWidth, paneBudget - workflowWidth));
             }
+
+            RightWorkflowPaneGridLength = new GridLength(workflowWidth);
+            ImageQueuePaneGridLength = new GridLength(queueWidth);
         }
 
         private void ExecuteWorkflowPaneResizeCommand(double width)
@@ -1576,9 +2558,45 @@ namespace MvcVisionSystem
             SaveWorkspaceLayoutSettings();
         }
 
+        private void ExecuteWorkspaceViewportSizeChangedCommand(double width)
+        {
+            if (!double.IsFinite(width) || width <= 0D)
+            {
+                return;
+            }
+
+            workspaceViewportWidth = width;
+            OnPropertyChanged(nameof(IsStackedWorkflowHeader));
+            OnPropertyChanged(nameof(IsCompactDatasetLayout));
+            OnPropertyChanged(nameof(IsCompactInferenceLayout));
+            ApplyResponsiveWorkspaceDefaults();
+            ApplyVisibleWorkspacePaneWidths();
+        }
+
+        private void ApplyResponsiveWorkspaceDefaults()
+        {
+            if (!workspaceLayoutSettingsRestored || workspaceLayoutSettingsService.HasValidSavedSettings)
+            {
+                return;
+            }
+
+            WpfWorkspaceLayoutSettings defaults = WpfWorkspaceLayoutSettings.CreateDefault(workspaceViewportWidth);
+            if (IsDatasetStageActive)
+            {
+                defaults.WorkflowPaneWidth = IsCompactDatasetLayout ? 344D : 410D;
+                defaults.ImageQueuePaneWidth = IsCompactDatasetLayout ? 224D : 296D;
+            }
+            else if (IsInferenceStageActive)
+            {
+                defaults.WorkflowPaneWidth = IsCompactInferenceLayout ? 300D : 330D;
+                defaults.ImageQueuePaneWidth = IsCompactInferenceLayout ? 240D : 270D;
+            }
+            ApplyWorkspaceLayoutSettings(defaults);
+        }
+
         private void ExecuteResetWorkspaceLayoutCommand()
         {
-            WpfWorkspaceLayoutSettings defaults = WpfWorkspaceLayoutSettings.CreateDefault();
+            WpfWorkspaceLayoutSettings defaults = WpfWorkspaceLayoutSettings.CreateDefault(workspaceViewportWidth);
             ApplyWorkspaceLayoutSettings(defaults);
             if (PersistWorkspaceLayoutSettings(defaults))
             {
@@ -1613,21 +2631,32 @@ namespace MvcVisionSystem
 
         private void ApplyRightWorkflowDockPreset(WpfShellWorkflowStage stage)
         {
-            SetRightWorkflowDockExpanded(stage != WpfShellWorkflowStage.Labeling);
+            // The labeling workbench keeps the object/class/history context visible
+            // beside the canvas. Only the model-center stage needs the full-width
+            // workspace without the annotation dock.
+            SetRightWorkflowDockExpanded(stage != WpfShellWorkflowStage.TrainingModel);
         }
 
         private void ApplyWorkspaceStageLayout(WpfShellWorkflowStage stage)
         {
             bool isModelWorkspace = stage == WpfShellWorkflowStage.TrainingModel;
+            bool isFocusedLabelingWorkspace = stage == WpfShellWorkflowStage.Labeling;
+            // Dataset, labeling, and inference share queue-image-support order;
+            // training uses its own history-and-work-area layout.
+            LabelingWorkspaceFlowDirection = FlowDirection.RightToLeft;
+            RightWorkflowDockColumn = 0;
+            ImageQueueColumn = 4;
+            WorkflowContextHeaderHeight = 48D;
+            WorkflowStageRailHeight = 48D;
             IsModelWorkspaceActive = isModelWorkspace;
             IsCanvasWorkspaceVisible = !isModelWorkspace;
             IsImageQueueWorkspaceVisible = !isModelWorkspace;
-            IsWorkspaceSplitterVisible = !isModelWorkspace;
+            IsWorkspaceSplitterVisible = !isModelWorkspace && !IsInferenceStageActive;
             IsRightWorkflowDockToggleVisible = !isModelWorkspace;
             RightWorkflowPaneMinWidth = isModelWorkspace ? 420D : 72D;
             RightWorkflowPaneMaxWidth = isModelWorkspace ? double.PositiveInfinity : 640D;
-            CanvasWorkspacePaneMinWidth = isModelWorkspace ? 0D : 420D;
-            ImageQueuePaneMinWidth = isModelWorkspace ? 0D : 260D;
+            CanvasWorkspacePaneMinWidth = isModelWorkspace ? 0D : 440D;
+            ImageQueuePaneMinWidth = isModelWorkspace ? 0D : WpfWorkspaceLayoutSettings.MinimumImageQueuePaneWidth;
             CanvasWorkspacePaneGridLength = isModelWorkspace
                 ? WorkspaceHiddenPaneGridLengthValue
                 : WorkspaceCanvasPaneGridLengthValue;
@@ -1641,6 +2670,11 @@ namespace MvcVisionSystem
             if (isModelWorkspace)
             {
                 RightWorkflowPaneGridLength = WorkspaceCanvasPaneGridLengthValue;
+            }
+            else
+            {
+                ApplyResponsiveWorkspaceDefaults();
+                ApplyVisibleWorkspacePaneWidths();
             }
         }
 
@@ -1772,7 +2806,7 @@ namespace MvcVisionSystem
                 ? "\uD6C4\uBCF4 \uC5C6\uC74C"
                 : reviewCandidateButtonText.Trim();
             ModelCenterReviewCandidateButtonToolTip = string.IsNullOrWhiteSpace(reviewCandidateButtonToolTip)
-                ? "\uAC80\uD1A0\uD560 \uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378\uC774 \uC5C6\uC2B5\uB2C8\uB2E4."
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelCenterDashboard.Review.NoResultTooltip")
                 : reviewCandidateButtonToolTip.Trim();
             isModelCenterReviewCandidateAvailable = canReviewCandidate;
             RefreshModelCenterReviewCandidateEnabled();
@@ -1780,15 +2814,26 @@ namespace MvcVisionSystem
 
         public void SetModelRegistryState(WpfModelRegistryPresentation presentation)
         {
-            ApplyModelRegistryState(
-                ModelRegistryPresentationService.BuildState(
-                    presentation,
-                    SelectedModelRegistryHistoryItem?.CandidateId,
-                    SelectedModelRegistryHistoryItem?.WeightsPath));
+            ModelRegistryState state = ModelRegistryPresentationService.BuildState(presentation, SelectedModelRegistryHistoryItem?.CandidateId, SelectedModelRegistryHistoryItem?.WeightsPath);
+            var source = new WpfModelRegistryPresentation
+            {
+                SummaryPrimaryText = presentation?.SummaryPrimaryText,
+                SummarySecondaryText = presentation?.SummarySecondaryText,
+                ProfileText = presentation?.ProfileText,
+                TrainingRunText = presentation?.TrainingRunText,
+                CandidateModelText = presentation?.CandidateModelText,
+                InspectionModelText = presentation?.InspectionModelText,
+                ActionText = presentation?.ActionText,
+                HistoryItems = state.HistoryItems,
+                DecisionTextSource = presentation?.DecisionTextSource
+            };
+            ApplyModelRegistryState(state);
+            modelRegistryLocalizationSource = source;
         }
 
         internal void ApplyModelRegistryState(ModelRegistryState state)
         {
+            modelRegistryLocalizationSource = null;
             if (state == null)
             {
                 return;
@@ -1801,31 +2846,100 @@ namespace MvcVisionSystem
             ModelRegistryCandidateModelText = state.CandidateModelText ?? string.Empty;
             ModelRegistryInspectionModelText = state.InspectionModelText ?? string.Empty;
             ModelRegistryActionText = state.ActionText ?? string.Empty;
-            ModelRegistryHistoryItems.Clear();
-            foreach (WpfModelRegistryHistoryItem item in state.HistoryItems ?? Array.Empty<WpfModelRegistryHistoryItem>())
+            isRefreshingModelRegistryHistory = true;
+            try
             {
-                if (item != null)
+                ModelRegistryHistoryItems.Clear();
+                foreach (WpfModelRegistryHistoryItem item in state.HistoryItems ?? Array.Empty<WpfModelRegistryHistoryItem>())
                 {
-                    ModelRegistryHistoryItems.Add(item);
+                    if (item != null)
+                    {
+                        ModelRegistryHistoryItems.Add(item);
+                    }
                 }
+            }
+            finally
+            {
+                isRefreshingModelRegistryHistory = false;
             }
 
             IsModelRegistryHistoryVisible = state.IsHistoryVisible;
             ModelRegistryHistoryHeaderText = state.HistoryHeaderText ?? string.Empty;
             ModelRegistryHistorySummaryText = state.HistorySummaryText ?? string.Empty;
+            RefreshSelectedInferenceModelHistoryItem();
             SetProperty(
                 ref selectedModelRegistryHistoryItem,
                 state.SelectedHistoryItem,
                 nameof(SelectedModelRegistryHistoryItem));
             ApplySelectedModelHistoryPresentation(state.SelectedHistoryPresentation);
+            RefreshInferenceTargetCommandState();
         }
 
-        private void RefreshSelectedModelHistoryState()
+        private void RefreshSelectedInferenceModelHistoryItem()
         {
-            ApplySelectedModelHistoryPresentation(
-                ModelRegistryPresentationService.BuildSelectedHistoryPresentation(
-                    ModelRegistryHistoryItems,
-                    SelectedModelRegistryHistoryItem));
+            WpfModelRegistryHistoryItem selection = hasExplicitInferenceModelSelection
+                ? ModelRegistryHistoryItems.FirstOrDefault(item =>
+                    string.Equals(item.CandidateId, selectedInferenceModelCandidateId, StringComparison.Ordinal)
+                    && string.Equals(item.WeightsPath, selectedInferenceModelWeightsPath, StringComparison.OrdinalIgnoreCase))
+                : null;
+            if (hasExplicitInferenceModelSelection && selection == null)
+            {
+                hasExplicitInferenceModelSelection = false;
+                selectedInferenceModelCandidateId = string.Empty;
+                selectedInferenceModelWeightsPath = string.Empty;
+            }
+
+            selection ??= ModelRegistryHistoryItems.FirstOrDefault(item => item.IsCurrentInspectionModel);
+
+            SetProperty(
+                ref selectedInferenceModelHistoryItem,
+                selection,
+                nameof(SelectedInferenceModelHistoryItem));
+            OnPropertyChanged(nameof(IsInferenceModelSelectionReady));
+            RefreshInferenceModelCommandState();
+            inferenceModelSelectionChanged?.Invoke();
+        }
+
+        private void RefreshModelRegistryLocalizedText()
+        {
+            WpfModelRegistryPresentation source = modelRegistryLocalizationSource;
+            if (source == null) return;
+            foreach (WpfModelRegistryHistoryItem item in ModelRegistryHistoryItems) item.RefreshLocalizedPresentation();
+            ModelRegistryState state = ModelRegistryPresentationService.BuildState(source, SelectedModelRegistryHistoryItem?.CandidateId, SelectedModelRegistryHistoryItem?.WeightsPath);
+            ModelRegistrySummarySecondaryText = state.SummarySecondaryText;
+            ModelRegistryInspectionModelText = state.InspectionModelText;
+            ModelRegistryHistoryHeaderText = state.HistoryHeaderText;
+            RefreshSelectedModelHistoryState(localizedTextOnly: true);
+            if (source.DecisionTextSource == null) return;
+            var origin = source.DecisionTextSource(false, false);
+            bool renderCandidate = string.Equals(source.CandidateModelText, origin.OriginCandidate, StringComparison.Ordinal);
+            bool renderAction = string.Equals(source.ActionText, origin.OriginAction, StringComparison.Ordinal);
+            if (!renderCandidate && !renderAction) return;
+            var text = source.DecisionTextSource(renderCandidate, renderAction);
+            if (renderCandidate) ModelRegistryCandidateModelText = ModelRegistryPresentationService.NormalizeRegistryText(text.CandidateText, OpenVisionLab.OpenVisionLanguageService.T("WpfModelCenterDashboard.Candidate.None"));
+            if (renderAction) ModelRegistryActionText = ModelRegistryPresentationService.NormalizeRegistryText(text.ActionText, OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Action.Structure"));
+        }
+
+        internal void ClearModelRegistryLocalizationSource()
+            => modelRegistryLocalizationSource = null;
+
+        private void RefreshSelectedModelHistoryState(bool localizedTextOnly = false)
+        {
+            WpfModelRegistryHistorySelectionPresentation presentation = ModelRegistryPresentationService.BuildSelectedHistoryPresentation(ModelRegistryHistoryItems, SelectedModelRegistryHistoryItem);
+            if (!localizedTextOnly)
+            {
+                ApplySelectedModelHistoryPresentation(presentation);
+                return;
+            }
+            SelectedModelHistoryTitleText = presentation.TitleText;
+            SelectedModelHistoryDetailText = presentation.DetailText;
+            SelectedModelHistoryDecisionText = presentation.DecisionText;
+            SelectedModelHistoryComparisonTitleText = presentation.ComparisonTitleText;
+            SelectedModelHistoryCurrentModelText = presentation.CurrentModelText;
+            SelectedModelHistorySelectedModelText = presentation.SelectedModelText;
+            SelectedModelHistoryActionText = presentation.ActionText;
+            SelectedModelHistoryActionToolTip = presentation.ActionToolTip;
+            RefreshSelectedModelHistoryActionEnabled(updateEnabled: false);
         }
 
         private void ApplySelectedModelHistoryPresentation(WpfModelRegistryHistorySelectionPresentation presentation)
@@ -1850,14 +2964,14 @@ namespace MvcVisionSystem
             RefreshSelectedModelHistoryActionEnabled();
         }
 
-        private void RefreshSelectedModelHistoryActionEnabled()
+        private void RefreshSelectedModelHistoryActionEnabled(bool updateEnabled = true)
         {
-            IsSelectedModelHistoryActionEnabled = isSelectedModelHistoryActionAvailable && canRunModelCenterCommands;
+            if (updateEnabled) IsSelectedModelHistoryActionEnabled = isSelectedModelHistoryActionAvailable && canRunModelCenterCommands;
             if (SelectedModelRegistryHistoryItem != null
                 && (IsSelectedModelHistoryActionEnabled || string.IsNullOrWhiteSpace(modelCenterConfirmModelUnavailableToolTip)))
             {
                 SelectedModelHistoryActionToolTip = string.IsNullOrWhiteSpace(SelectedModelRegistryHistoryItem.ActionToolTip)
-                    ? "\uC120\uD0DD\uD55C \uBAA8\uB378 \uC774\uB825\uC744 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD569\uB2C8\uB2E4."
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Selection.AssignToolTip")
                     : SelectedModelRegistryHistoryItem.ActionToolTip.Trim();
             }
 
@@ -1892,6 +3006,7 @@ namespace MvcVisionSystem
             CurrentDatasetSourceText = presentation.SourceText;
             CurrentDatasetToolTip = presentation.Tooltip;
             IsOpenDatasetFolderEnabled = canOpenDatasetFolder;
+            ApplyRightWorkflowPresentation();
         }
 
         private void RefreshModelCenterConfirmModelEnabled()
@@ -1909,7 +3024,7 @@ namespace MvcVisionSystem
 
         private void RefreshModelCenterInspectCurrentImageState()
         {
-            ModelCenterInspectCurrentImageButtonText = "\uD604\uC7AC \uAC80\uC0AC";
+            ModelCenterInspectCurrentImageButtonText = OpenVisionLab.OpenVisionLanguageService.T("WpfShell.ModelCenter.InferCurrentImage.Text");
             ModelCenterInspectCurrentImageButtonToolTip = ModelCenterDashboardPresentationService.BuildInspectCurrentImageToolTip(
                 ModelCenterCurrentModelDetailText,
                 ModelCenterRuntimeActionText);
@@ -1928,7 +3043,7 @@ namespace MvcVisionSystem
                 isModelCenterConfirmModelAvailable,
                 IsModelCenterConfirmModelEnabled,
                 modelCenterConfirmModelUnavailableToolTip,
-                modelCenterConfirmModelBaseToolTip);
+                modelCenterConfirmModelBaseToolTip ?? OpenVisionLab.OpenVisionLanguageService.T("WpfModelCenterDashboard.Confirm.NoResultTooltip"));
         }
 
         private void RefreshModelCenterActionStateText()
@@ -1950,6 +3065,9 @@ namespace MvcVisionSystem
                 canRunModelCenterReviewCommands && IsCurrentImageDetectionEnabled,
                 ModelCenterInspectCurrentImageButtonToolTip);
         }
+
+        private static string FormatInferenceDecisionStatusLabel(ModelDecisionResult decision)
+            => OpenVisionLanguageService.T(decision.Status == "not_configured" ? "WpfComparisonWorkspace.RuleUnconfigured" : "WpfComparisonWorkspace." + decision.Status);
 
         private static string T(string key) => OpenVisionLanguageService.T(key);
     }

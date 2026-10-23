@@ -1,3 +1,4 @@
+using OpenVisionLab;
 using MvcVisionSystem._1._Core;
 using MvcVisionSystem.Yolo;
 using System;
@@ -15,6 +16,7 @@ namespace MvcVisionSystem
     {
         private readonly ProjectSettingsWorkflowAdapterContext context;
         private bool isRecipeSelectionRefreshActive;
+        private bool isRecipeApplyRunning;
 
         private LabelingProjectData projectData => context.DataProvider?.Invoke();
 
@@ -26,6 +28,8 @@ namespace MvcVisionSystem
         }
 
         internal bool IsRecipeSelectionRefreshActive => isRecipeSelectionRefreshActive;
+
+        internal bool IsRecipeApplyRunning => isRecipeApplyRunning;
 
         #region ProjectSettingsWorkflow
 
@@ -53,6 +57,7 @@ namespace MvcVisionSystem
             }
 
             CompleteProjectRecipeApply(result.PreviousRecipeName, recipeName);
+            context.CompleteDatasetRecipeSwitch?.Invoke();
         }
 
         internal void HandleProjectConfigWorkflowError(string message)
@@ -101,18 +106,22 @@ namespace MvcVisionSystem
             string recipeName = GetCurrentRecipeName();
             string configPath = GetCurrentRecipeConfigPath();
             context.ProjectConfigViewModel?.LoadFrom(recipeName, ProjectRecipeService.GetRecipeRootDirectory());
-            if (context.ProjectConfigViewModel != null)
-            {
-                context.ProjectConfigViewModel.SetDatasetVersionInfo(
-                    RecipeDatasetVersionPresentationService.Build(context.ProjectConfigViewModel.ManifestPath));
-            }
-
+            RefreshDatasetVersionPresentation();
             PopulateProjectRecipeList(recipeName);
 
             SetProjectConfigStatus(string.IsNullOrWhiteSpace(recipeName)
-                ? "Recipe 이름이 아직 없습니다. 저장 전에 recipe를 선택하거나 생성해야 합니다."
+                ? OpenVisionLanguageService.T("WpfProjectConfig.Status.SelectBeforeSave")
                 : $"현재 설정 파일: {Path.GetFileName(configPath)}");
             context.UpdateYoloCommandButtons?.Invoke();
+        }
+
+        internal void RefreshDatasetVersionPresentation()
+        {
+            if (context.ProjectConfigViewModel != null)
+            {
+                context.ProjectConfigViewModel.SetDatasetVersionInfo(
+                    RecipeDatasetVersionPresentationService.BuildCurrent(context.ProjectConfigViewModel.ManifestPath, projectData));
+            }
         }
 
         internal bool PopulateProjectRecipeList(string selectedRecipeName)
@@ -136,8 +145,8 @@ namespace MvcVisionSystem
             catch (Exception ex)
             {
                 viewModel.SetRecipeList(Array.Empty<string>(), string.Empty);
-                SetProjectConfigStatus($"Recipe 목록 읽기 실패: {ex.Message}");
-                context.AppendLog?.Invoke($"Recipe 목록 읽기 실패: {ex.Message}");
+                SetProjectConfigStatus(string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.ListReadFailed"), ex.Message));
+                context.AppendLog?.Invoke(string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.ListReadFailed"), ex.Message));
                 return false;
             }
             finally
@@ -171,6 +180,7 @@ namespace MvcVisionSystem
                 {
                     PopulateProjectRecipeList(recipeName);
                     context.ProjectConfigViewModel?.SelectRecipeFromList(recipeName);
+                    context.RefreshRecipeLibrary?.Invoke(recipeName);
                 },
                 AppendLog = context.AppendLog,
                 IsApplicationCloseApproved = context.IsApplicationCloseApproved
@@ -187,12 +197,12 @@ namespace MvcVisionSystem
                 Directory.CreateDirectory(directoryPath);
                 context.OpenFolder?.Invoke(directoryPath);
                 SetProjectConfigStatus($"폴더 열기: {directoryPath}");
-                context.AppendLog?.Invoke($"Recipe 설정 폴더 열기: {directoryPath}");
+                context.AppendLog?.Invoke(string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Log.OpenSettingsFolder"), directoryPath));
             }
             catch (Exception ex)
             {
                 SetProjectConfigStatus($"폴더 열기 실패: {ex.Message}");
-                context.AppendLog?.Invoke($"Recipe 설정 폴더 열기 실패: {ex.Message}");
+                context.AppendLog?.Invoke(string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Log.OpenSettingsFolderFailed"), ex.Message));
             }
         }
 
@@ -207,6 +217,34 @@ namespace MvcVisionSystem
                 updateYoloDataYaml: false,
                 refreshDatasetVersion: false);
 
+        internal RecipeConfigurationSaveResult SaveRecipeMetadata(
+            string recipeName,
+            string productCode,
+            string recipeDescription,
+            RecipeImageSelectionMode previewImageMode,
+            string previewImageRelativePath)
+        {
+            RecipeConfigurationSaveResult result = context.ProjectRecipeSessionService.SaveRecipeMetadata(
+                ProjectRecipeService.GetRecipeRootDirectory(),
+                recipeName,
+                productCode,
+                recipeDescription,
+                previewImageMode,
+                previewImageRelativePath);
+            if (result.IsSuccess && string.Equals(GetCurrentRecipeName(), recipeName, StringComparison.OrdinalIgnoreCase))
+            {
+                EnsureProjectSettings();
+                projectData.ProjectSettings.ProductCode = productCode?.Trim() ?? string.Empty;
+                projectData.ProjectSettings.RecipeDescription = recipeDescription?.Trim() ?? string.Empty;
+                projectData.ProjectSettings.RecipeListPreviewImageMode = previewImageMode;
+                projectData.ProjectSettings.RecipeListPreviewImageRelativePath = previewImageMode == RecipeImageSelectionMode.Selected
+                    ? previewImageRelativePath?.Trim() ?? string.Empty
+                    : string.Empty;
+            }
+
+            return result;
+        }
+
         internal bool SaveModelMetadataConfigFromPanel()
             => SaveProjectConfigFromPanelCore(recipeName =>
                 context.ProjectRecipeSessionService.Save(projectData, recipeName, refreshDatasetVersion: false));
@@ -216,7 +254,7 @@ namespace MvcVisionSystem
             string recipeName = GetCurrentRecipeName();
             if (string.IsNullOrWhiteSpace(recipeName))
             {
-                SetProjectConfigStatus("Recipe 이름이 없어 설정을 저장하지 않았습니다.");
+                SetProjectConfigStatus(OpenVisionLanguageService.T("WpfProjectConfig.Status.NoRecipeNameForSave"));
                 return false;
             }
 
@@ -237,27 +275,37 @@ namespace MvcVisionSystem
             }
         }
 
-        internal async Task<bool> ApplyProjectRecipeFromPanelAsync()
+        internal async Task<ProjectRecipeApplyResult> ApplyProjectRecipeFromPanelAsync(string requestedRecipeName = null)
         {
-            if (context.IsApplicationCloseApproved?.Invoke() == true)
+            if (context.IsApplicationCloseApproved?.Invoke() == true || isRecipeApplyRunning)
             {
-                return false;
+                return ProjectRecipeApplyResult.Cancelled;
             }
 
-            context.CancelFourPointBoxDraft?.Invoke();
-            string recipeName = context.ProjectConfigViewModel?.RecipeName?.Trim() ?? string.Empty;
+            string recipeName = (requestedRecipeName ?? context.ProjectConfigViewModel?.RecipeName)?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(recipeName))
             {
-                SetProjectConfigStatus("적용할 recipe 이름을 입력하세요.");
-                return false;
+                SetProjectConfigStatus(OpenVisionLanguageService.T("WpfProjectConfig.Status.EnterRecipeName"));
+                return ProjectRecipeApplyResult.Cancelled;
             }
 
             if (!ProjectRecipeService.IsValidRecipeName(recipeName))
             {
-                SetProjectConfigStatus("Recipe 이름에 사용할 수 없는 문자가 있습니다.");
-                return false;
+                SetProjectConfigStatus(OpenVisionLanguageService.T("WpfProjectConfig.Status.InvalidRecipeName"));
+                return ProjectRecipeApplyResult.Cancelled;
             }
 
+            WorkflowTransitionApproval approval = context.WorkflowTransitionAdapterProvider?.Invoke()?.TryApprove(
+                recipeName,
+                replacesRecipe: true) ?? WorkflowTransitionApproval.Allowed;
+            if (!approval.IsAllowed)
+            {
+                SetProjectConfigStatus(OpenVisionLanguageService.T("WpfProjectConfig.Status.ApplyCanceledOrBlocked"));
+                return ProjectRecipeApplyResult.Cancelled;
+            }
+
+            isRecipeApplyRunning = true;
+            context.WorkflowTransitionAdapterProvider?.Invoke()?.RefreshCommandState();
             try
             {
                 ProjectRecipeApplyResult applyResult = await context.ProjectRecipeApplyWorkflowService.ApplyAsync(
@@ -265,34 +313,71 @@ namespace MvcVisionSystem
                     recipeName);
                 if (!applyResult.IsApplied || context.IsApplicationCloseApproved?.Invoke() == true)
                 {
-                    return false;
+                    if (!context.IsApplicationCloseApproved?.Invoke() == true)
+                    {
+                        SetProjectConfigStatus(OpenVisionLanguageService.T("WpfProjectConfig.Status.NotApplied"));
+                    }
+
+                    return applyResult;
                 }
 
-                CompleteProjectRecipeApply(applyResult.PreviousRecipeName, recipeName);
-                return true;
+                return applyResult;
             }
             catch (OperationCanceledException)
             {
-                return false;
+                return ProjectRecipeApplyResult.Cancelled;
             }
             catch (Exception ex)
             {
                 if (context.IsApplicationCloseApproved?.Invoke() == true)
                 {
-                    return false;
+                    return ProjectRecipeApplyResult.Closed;
                 }
 
-                SetProjectConfigStatus($"Recipe 적용 실패: {ex.Message}");
-                context.AppendLog?.Invoke($"Recipe 적용 실패: {ex.Message}");
+                SetProjectConfigStatus(string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.ApplyFailed"), ex.Message));
+                context.AppendLog?.Invoke(string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.ApplyFailed"), ex.Message));
+                return ProjectRecipeApplyResult.Cancelled;
+            }
+            finally
+            {
+                isRecipeApplyRunning = false;
+                context.WorkflowTransitionAdapterProvider?.Invoke()?.RefreshCommandState();
+            }
+        }
+
+        internal bool ReloadCurrentRecipeSettingsFromDisk()
+        {
+            string recipeName = GetCurrentRecipeName();
+            if (string.IsNullOrWhiteSpace(recipeName))
+            {
+                return false;
+            }
+
+            try
+            {
+                string previousRecipeName = context.ProjectRecipeSessionService.Apply(context.ApplicationState, recipeName);
+                CompleteProjectRecipeApply(previousRecipeName, recipeName);
+                SetProjectConfigStatus("저장된 레시피 설정을 불러왔습니다.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                SetProjectConfigStatus($"저장된 레시피 설정을 불러오지 못했습니다: {ex.Message}");
+                context.AppendLog?.Invoke($"저장된 레시피 설정 다시 불러오기 실패: {ex.Message}");
                 return false;
             }
         }
 
         internal void CompleteProjectRecipeApply(string previousRecipeName, string recipeName)
         {
+            var d1Total = System.Diagnostics.Stopwatch.StartNew();
+            System.Diagnostics.Trace.WriteLine(FormattableString.Invariant($"D1_PROJECT_BEGIN previous={previousRecipeName} recipe={recipeName}"));
+            context.ResetSmartMaskPromptSession?.Invoke();
             context.RememberLastOpenedDatasetRecipe?.Invoke(recipeName);
             EnsureProjectSettings();
+            double d1BeforePurpose = d1Total.Elapsed.TotalMilliseconds;
             context.ApplyProjectDatasetPurposeToWorkflow?.Invoke();
+            double d1AfterPurpose = d1Total.Elapsed.TotalMilliseconds;
             PopulateProjectConfigPanelFields();
             context.PopulateYoloEditorFields?.Invoke();
             context.PopulateTrainingEditorFields?.Invoke();
@@ -301,11 +386,14 @@ namespace MvcVisionSystem
             context.RefreshCandidateList?.Invoke();
             context.RefreshObjectList?.Invoke();
             context.RefreshTrainingReadinessPanel?.Invoke(false);
-            context.SetDatasetStatus?.Invoke($"데이터셋: recipe {recipeName}");
+            if (context.RefreshYoloStatus != null) context.RefreshYoloStatus();
+            else context.RefreshModelCenterDashboard?.Invoke();
+            context.SetDatasetStatus?.Invoke(string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.DatasetRecipe"), recipeName));
             SetProjectConfigStatus(string.Equals(previousRecipeName, recipeName, StringComparison.OrdinalIgnoreCase)
-                ? $"Recipe 재적용: {recipeName}"
-                : $"Recipe 적용: {recipeName}");
-            context.AppendLog?.Invoke($"Recipe 적용: {recipeName}");
+                ? string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.Reapplied"), recipeName)
+                : string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.Applied"), recipeName));
+            context.AppendLog?.Invoke(string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.Applied"), recipeName));
+            System.Diagnostics.Trace.WriteLine(FormattableString.Invariant($"D1_PROJECT_END recipe={recipeName} totalMs={d1Total.Elapsed.TotalMilliseconds:F3} beforePurposeMs={d1BeforePurpose:F3} purposeMs={d1AfterPurpose - d1BeforePurpose:F3} afterPurposeMs={d1Total.Elapsed.TotalMilliseconds - d1AfterPurpose:F3}"));
         }
 
         internal string BuildLabelPathSummary()
@@ -344,6 +432,7 @@ namespace MvcVisionSystem
         internal Action<string> AppendLog { get; init; }
         internal Action UpdateYoloCommandButtons { get; init; }
         internal Action CancelFourPointBoxDraft { get; init; }
+        internal Action ResetSmartMaskPromptSession { get; init; }
         internal Action<string> RememberLastOpenedDatasetRecipe { get; init; }
         internal Action ApplyProjectDatasetPurposeToWorkflow { get; init; }
         internal Action PopulateYoloEditorFields { get; init; }
@@ -353,6 +442,11 @@ namespace MvcVisionSystem
         internal Action RefreshCandidateList { get; init; }
         internal Action RefreshObjectList { get; init; }
         internal Action<bool> RefreshTrainingReadinessPanel { get; init; }
+        internal Action RefreshModelCenterDashboard { get; init; }
+        internal Action RefreshYoloStatus { get; init; }
         internal Action<string> OpenFolder { get; init; }
+        internal Func<WorkflowTransitionAdapter> WorkflowTransitionAdapterProvider { get; init; }
+        internal Action CompleteDatasetRecipeSwitch { get; init; }
+        internal Action<string> RefreshRecipeLibrary { get; init; }
     }
 }

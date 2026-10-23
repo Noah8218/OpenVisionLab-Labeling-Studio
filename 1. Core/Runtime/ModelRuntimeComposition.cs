@@ -22,8 +22,24 @@ namespace MvcVisionSystem._1._Core
             Func<LabelingProjectData> dataAccessor,
             Action<LabelingProjectData> dataSetter,
             Action<IReadOnlyList<DefectInfo>, string, string> detectionResultSink = null)
+            : this(dataAccessor, dataSetter, detectionResultSink, null)
         {
-            clientLifecycle = new ModelRuntimeClientLifecycle(dataAccessor, dataSetter, detectionResultSink);
+        }
+
+        public ModelRuntimeComposition(
+            Func<LabelingProjectData> dataAccessor,
+            Action<LabelingProjectData> dataSetter,
+            Action<IReadOnlyList<DefectInfo>, string, string> detectionResultSink,
+            Func<string, string, string, bool> detectionFailureSink)
+            : this(dataAccessor, dataSetter, detectionResultSink, detectionFailureSink, null)
+        {
+        }
+
+        public ModelRuntimeComposition(Func<LabelingProjectData> dataAccessor, Action<LabelingProjectData> dataSetter,
+            Action<IReadOnlyList<DefectInfo>, string, string> detectionResultSink, Func<string, string, string, bool> detectionFailureSink,
+            Action<DetectionResultParseResult> rawDetectionResultSink)
+        {
+            clientLifecycle = new ModelRuntimeClientLifecycle(dataAccessor, dataSetter, detectionResultSink, detectionFailureSink, rawDetectionResultSink);
         }
 
         public YoloDetectionWorkflowService DetectionWorkflow => detectionWorkflow.Value;

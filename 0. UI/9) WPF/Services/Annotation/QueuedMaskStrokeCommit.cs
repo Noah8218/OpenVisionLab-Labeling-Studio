@@ -17,7 +17,9 @@ namespace MvcVisionSystem
             string className,
             LabelClass classItem,
             string actionName,
-            bool hasActiveCandidates)
+            bool hasActiveCandidates,
+            MaskEraserScope eraserScope = MaskEraserScope.VisibleEditable,
+            int selectedSegmentIndex = -1)
         {
             Sequence = sequence;
             ImagePath = imagePath ?? string.Empty;
@@ -29,6 +31,8 @@ namespace MvcVisionSystem
             ClassItem = classItem;
             ActionName = string.IsNullOrWhiteSpace(actionName) ? "Mask edit" : actionName;
             HasActiveCandidates = hasActiveCandidates;
+            EraserScope = eraserScope;
+            SelectedSegmentIndex = selectedSegmentIndex;
             CreatedTicks = Stopwatch.GetTimestamp();
         }
 
@@ -51,6 +55,10 @@ namespace MvcVisionSystem
         public string ActionName { get; }
 
         public bool HasActiveCandidates { get; }
+
+        public MaskEraserScope EraserScope { get; }
+
+        public int SelectedSegmentIndex { get; }
 
         public long CreatedTicks { get; }
     }

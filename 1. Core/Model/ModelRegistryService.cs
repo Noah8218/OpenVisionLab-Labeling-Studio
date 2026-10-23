@@ -1,10 +1,14 @@
+using MvcVisionSystem._1._Core;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 
 namespace MvcVisionSystem
 {
+    public sealed record ModelDecisionResult(string Status, bool? IsNg, IReadOnlyList<int> EvidenceIndices);
+
     public static class ModelRegistryService
     {
         public const int ProfileHistoryLimit = 16;
@@ -15,6 +19,62 @@ namespace MvcVisionSystem
         public const string CandidateDecisionPending = "Pending";
         public const string CandidateDecisionAdopted = "Adopted";
         public const string CandidateDecisionRejected = "Rejected";
+
+        public static string ValidateDecisionRule(ModelDecisionRule rule)
+        {
+            if (rule == null) return "RuleUnconfigured";
+            if (string.IsNullOrWhiteSpace(rule.TrainingRunId) || !IsDecisionHash(rule.WeightsSha256)
+                || string.IsNullOrWhiteSpace(rule.DatasetVersionId) || !IsDecisionHash(rule.DatasetContentSha256)
+                || !IsDecisionHash(rule.ReviewEvidenceSha256)) return "RuleIdentityInvalid";
+            if (!Enum.IsDefined(typeof(LabelingDatasetPurpose), rule.DatasetPurpose)) return "RulePurposeInvalid";
+            ModelDecisionTestSummary test = rule.FixedTestSummary;
+            if (test != null && (test.NgCount < 0 || test.OkCount < 0 || test.Misses < 0 || test.Extras < 0 || test.ExcludedCount < 0
+                || test.NgCount == 0 && test.OkCount == 0 || test.Misses > test.NgCount || test.Extras > test.OkCount || !IsDecisionHash(test.EvaluationEvidenceSha256))) return "RuleTestSummaryInvalid";
+            if (rule.DatasetPurpose == LabelingDatasetPurpose.AnomalyDetection)
+                return rule.AnomalyScoreThreshold.HasValue && double.IsFinite(rule.AnomalyScoreThreshold.Value) ? string.Empty : "RuleAnomalyInvalid";
+            if (!IsDecisionConfidence(rule.Confidence)) return "RuleConfidenceInvalid";
+            if (!double.IsFinite(rule.MinimumShortSidePixels) || rule.MinimumShortSidePixels < 0) return "RuleSizeInvalid";
+            if (rule.MinimumDefectCount < 1) return "RuleCountInvalid";
+            if (rule.Classes == null || rule.Classes.Count == 0 || rule.Classes.Any(item => item == null || item.ClassId < 0 || string.IsNullOrWhiteSpace(item.ClassName)
+                || item.Confidence.HasValue && !IsDecisionConfidence(item.Confidence.Value))
+                || rule.Classes.Select(item => item.ClassId).Distinct().Count() != rule.Classes.Count) return "RuleClassesInvalid";
+            return string.Empty;
+        }
+
+        public static bool DecisionRuleMatches(ModelDecisionRule rule, string runId, string weightsHash, string version, string contentHash, string reviewHash)
+            => rule != null && rule.TrainingRunId == runId && string.Equals(rule.WeightsSha256, weightsHash, StringComparison.OrdinalIgnoreCase)
+                && rule.DatasetVersionId == version && string.Equals(rule.DatasetContentSha256, contentHash, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(rule.ReviewEvidenceSha256, reviewHash, StringComparison.OrdinalIgnoreCase);
+
+        // Raw candidates only. Display confidence never enters this policy.
+        public static ModelDecisionResult EvaluateDecision(ModelDecisionRule rule, IReadOnlyList<YoloWorkerSmokeCandidate> candidates)
+        {
+            string error = ValidateDecisionRule(rule);
+            if (error.Length > 0) return new(error, null, Array.Empty<int>());
+            if (candidates == null || candidates.Any(candidate => candidate == null)) return new("RuleRawUnavailable", null, Array.Empty<int>());
+            if (rule.DatasetPurpose == LabelingDatasetPurpose.AnomalyDetection)
+            {
+                YoloWorkerSmokeCandidate[] scores = candidates.Where(candidate => candidate.ImageLevel).ToArray();
+                if (scores.Length != 1 || !scores[0].AnomalyScore.HasValue || !double.IsFinite(scores[0].AnomalyScore.Value)) return new("RuleRawScoreUnavailable", null, Array.Empty<int>());
+                bool ng = scores[0].AnomalyScore.Value >= rule.AnomalyScoreThreshold.Value;
+                return new("ready", ng, ng ? new[] { scores[0].Index } : Array.Empty<int>());
+            }
+            if (candidates.Any(candidate => candidate.ImageLevel || !candidate.ClassId.HasValue || !double.IsFinite(candidate.Confidence)
+                || candidate.Confidence < 0 || candidate.Confidence > 1 || !double.IsFinite(candidate.Width) || !double.IsFinite(candidate.Height)
+                || candidate.Width <= 0 || candidate.Height <= 0 || candidate.Index < 0 || !double.IsFinite(candidate.X) || !double.IsFinite(candidate.Y)
+                || !rule.Classes.Any(item => item.ClassId == candidate.ClassId.Value && item.ClassName == candidate.ClassName))
+                || candidates.Select(candidate => candidate.Index).Distinct().Count() != candidates.Count) return new("RuleRawInvalid", null, Array.Empty<int>());
+            int[] hits = candidates.Where(candidate =>
+            {
+                ModelDecisionClassRule item = rule.Classes.Single(ruleClass => ruleClass.ClassId == candidate.ClassId.Value);
+                return item.Enabled && candidate.Confidence >= (item.Confidence ?? rule.Confidence)
+                    && Math.Min(candidate.Width, candidate.Height) >= rule.MinimumShortSidePixels;
+            }).Select(candidate => candidate.Index).ToArray();
+            return new("ready", hits.Length >= rule.MinimumDefectCount, hits);
+        }
+
+        private static bool IsDecisionHash(string value) => value?.Length == 64 && value.All(Uri.IsHexDigit);
+        private static bool IsDecisionConfidence(double value) => double.IsFinite(value) && value >= 0 && value <= 1;
 
         public static ModelCandidate RecordTrainingCandidate(
             ModelRegistrySettings registry,
@@ -33,7 +93,10 @@ namespace MvcVisionSystem
             string trainingRunId = "",
             string trainingRunName = "",
             string candidateWeightsSha256 = "",
-            string candidateArtifactPath = "")
+            string candidateArtifactPath = "",
+            bool recordAdoption = true,
+            TrainingRunParameters trainingParameters = null,
+            string trainingModelEngine = "")
         {
             if (registry == null)
             {
@@ -41,7 +104,9 @@ namespace MvcVisionSystem
             }
 
             registry.EnsureDefaults();
-            ModelProfile profile = EnsureProfile(registry, settings, datasetPurpose);
+            ModelProfile inspectionProfile = EnsureProfile(registry, settings, datasetPurpose);
+            ModelProfile profile = string.IsNullOrWhiteSpace(trainingModelEngine) || PythonModelSettings.NormalizeModelEngine(trainingModelEngine) == inspectionProfile.ModelEngine
+                ? inspectionProfile : EnsureProfile(registry, new PythonModelSettings { ModelEngine = trainingModelEngine, ProjectRootPath = settings?.ProjectRootPath ?? string.Empty }, datasetPurpose);
             string candidatePath = NormalizePath(candidateWeightsPath);
             if (string.IsNullOrWhiteSpace(candidatePath))
             {
@@ -50,7 +115,7 @@ namespace MvcVisionSystem
 
             string now = UtcNowText();
             string baselinePath = NormalizePath(baselineWeightsPath);
-            EnsureBaselineInspectionCandidate(registry, profile, baselinePath, now);
+            EnsureBaselineInspectionCandidate(registry, inspectionProfile, baselinePath, now);
             ModelArtifactCaptureResult artifact = ModelArtifactStoreService.Capture(
                 candidatePath,
                 outputRootPath,
@@ -74,6 +139,8 @@ namespace MvcVisionSystem
                 artifact,
                 now);
 
+            if (trainingParameters != null) run.Parameters = trainingParameters.Copy();
+
             ModelCandidate candidate = UpsertCandidate(
                 registry,
                 profile,
@@ -85,7 +152,7 @@ namespace MvcVisionSystem
                 artifact,
                 now);
 
-            registry.CurrentProfileId = profile.ProfileId;
+            registry.CurrentProfileId = savedToRecipe ? profile.ProfileId : inspectionProfile.ProfileId;
             registry.LatestTrainingRunId = run.TrainingRunId;
             registry.LatestCandidateId = candidate.CandidateId;
 
@@ -93,7 +160,7 @@ namespace MvcVisionSystem
             {
                 SetCandidateDecisionState(candidate, CandidateDecisionAdopted, "검사 모델로 저장됨", now, savedToRecipe: true);
                 MarkCurrentInspectionModel(registry, candidate);
-                UpsertAdoption(registry, profile, candidate, baselinePath, metricsSummary, now);
+                if (recordAdoption) UpsertAdoption(registry, profile, candidate, baselinePath, metricsSummary, now);
                 UpsertCandidateDecision(
                     registry,
                     profile,
@@ -107,7 +174,7 @@ namespace MvcVisionSystem
             }
             else
             {
-                SetCandidateDecisionState(candidate, CandidateDecisionPending, "검토 대기", now, savedToRecipe: false);
+                SetCandidateDecisionState(candidate, CandidateDecisionPending, "확인 대기", now, savedToRecipe: false);
                 if (string.Equals(registry.CurrentInspectionModelId, candidate.CandidateId, StringComparison.Ordinal))
                 {
                     RestoreBaselineInspectionModel(registry, baselinePath);
@@ -138,7 +205,17 @@ namespace MvcVisionSystem
         {
             string normalizedDecision = NormalizeCandidateDecision(decision);
             bool adopt = string.Equals(normalizedDecision, CandidateDecisionAdopted, StringComparison.Ordinal);
-            ModelCandidate candidate = RecordTrainingCandidate(
+            ModelCandidate candidate = null;
+            if (registry != null && !string.IsNullOrWhiteSpace(candidateWeightsSha256))
+            {
+                registry.EnsureDefaults();
+                ModelProfile candidateProfile = EnsureProfile(registry, settings, datasetPurpose);
+                candidate = FindInspectionModelByPath(registry, NormalizePath(candidateWeightsPath), candidateProfile.ProfileId);
+                if (candidate != null && (!string.Equals(candidate.WeightsSha256, candidateWeightsSha256, StringComparison.OrdinalIgnoreCase)
+                    || !registry.TrainingRuns.Any(run => run.TrainingRunId == candidate.TrainingRunId)
+                    || !string.IsNullOrWhiteSpace(trainingRunId) && candidate.TrainingRunId != NormalizeTrainingRunId(trainingRunId))) candidate = null;
+            }
+            if (candidate == null) candidate = RecordTrainingCandidate(
                 registry,
                 settings,
                 datasetPurpose,
@@ -155,7 +232,8 @@ namespace MvcVisionSystem
                 trainingRunId: trainingRunId,
                 trainingRunName: trainingRunName,
                 candidateWeightsSha256: candidateWeightsSha256,
-                candidateArtifactPath: candidateArtifactPath);
+                candidateArtifactPath: candidateArtifactPath,
+                recordAdoption: false);
             if (registry == null || candidate == null)
             {
                 return candidate;
@@ -170,7 +248,11 @@ namespace MvcVisionSystem
             string summary = string.IsNullOrWhiteSpace(decisionSummary)
                 ? FormatCandidateDecisionSummary(normalizedDecision)
                 : decisionSummary.Trim();
+            EnsureBaselineInspectionCandidate(registry, profile, baselinePath, now);
+            candidate.LastSeenUtc = now;
+            registry.CurrentProfileId = candidate.ProfileId;
             SetCandidateDecisionState(candidate, normalizedDecision, summary, now, adopt && savedToRecipe);
+            if (adopt && savedToRecipe) MarkCurrentInspectionModel(registry, candidate);
             UpsertCandidateDecision(
                 registry,
                 profile,
@@ -181,6 +263,8 @@ namespace MvcVisionSystem
                 summary,
                 savedToRecipe: adopt && savedToRecipe,
                 now);
+
+            if (adopt && savedToRecipe) UpsertAdoption(registry, profile, candidate, baselinePath, summary, now, forceNewRecord: true);
 
             if (string.Equals(normalizedDecision, CandidateDecisionRejected, StringComparison.Ordinal))
             {
@@ -212,7 +296,8 @@ namespace MvcVisionSystem
             }
 
             string now = UtcNowText();
-            string candidateId = BuildStableId("candidate", weightsPath);
+            ModelCandidate candidate = FindInspectionModelByPath(registry, weightsPath, profile?.ProfileId);
+            string candidateId = candidate?.CandidateId ?? BuildStableId("candidate", weightsPath);
             ModelCandidate previous = FindCurrentInspectionModel(registry);
             string previousPath = NormalizePath(previousWeightsPath);
             if (string.IsNullOrWhiteSpace(previousPath)
@@ -222,8 +307,6 @@ namespace MvcVisionSystem
                 previousPath = NormalizePath(previous.WeightsPath);
             }
 
-            ModelCandidate candidate = registry.Candidates
-                .FirstOrDefault(item => string.Equals(item.CandidateId, candidateId, StringComparison.Ordinal));
             if (candidate == null)
             {
                 candidate = new ModelCandidate
@@ -235,6 +318,8 @@ namespace MvcVisionSystem
             }
 
             string storedBaselinePath = NormalizePath(candidate.BaselineWeightsPath);
+            if (FindInspectionModelByPath(registry, previousPath, candidate.ProfileId)?.CandidateId == candidate.CandidateId)
+                previousPath = storedBaselinePath;
             if ((string.IsNullOrWhiteSpace(previousPath)
                     || string.Equals(previousPath, weightsPath, StringComparison.OrdinalIgnoreCase))
                 && !string.IsNullOrWhiteSpace(storedBaselinePath)
@@ -254,10 +339,11 @@ namespace MvcVisionSystem
                 : decisionSummary.Trim();
 
             candidate.ProfileId = profile?.ProfileId ?? string.Empty;
-            candidate.WeightsPath = weightsPath;
+            if (string.IsNullOrWhiteSpace(candidate.WeightsPath)) candidate.WeightsPath = weightsPath;
             candidate.BaselineWeightsPath = previousPath;
             candidate.LastSeenUtc = now;
-            SetCandidateDecisionState(candidate, CandidateDecisionAdopted, summary, now, savedToRecipe: true);
+            if (changedCurrentModel || string.IsNullOrWhiteSpace(candidate.Decision) || !string.IsNullOrWhiteSpace(decisionSummary))
+                SetCandidateDecisionState(candidate, CandidateDecisionAdopted, summary, now, savedToRecipe: true);
             MarkCurrentInspectionModel(registry, candidate);
             registry.LatestCandidateId = candidate.CandidateId;
 
@@ -282,6 +368,33 @@ namespace MvcVisionSystem
 
             TrimRegistry(registry);
             return candidate;
+        }
+
+        public static ModelCandidate FindInspectionModelByPath(ModelRegistrySettings registry, string weightsPath, string profileId = "")
+        {
+            string path = NormalizePath(weightsPath);
+            if (registry?.Candidates == null || path.Length == 0) return null;
+            return registry.Candidates.Where(item => item != null && (string.IsNullOrEmpty(profileId) || item.ProfileId == profileId)
+                && (string.Equals(NormalizePath(item.WeightsPath), path, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(NormalizePath(item.ArtifactPath), path, StringComparison.OrdinalIgnoreCase)))
+                .OrderByDescending(item => item.CandidateId == registry.CurrentInspectionModelId).FirstOrDefault();
+        }
+
+        public static InspectionModelAdoption FindLatestInspectionModelAdoption(ModelRegistrySettings registry)
+            => registry?.AdoptionHistory?.Where(item => item != null).OrderByDescending(item => ParseUtc(item.AdoptedUtc)).FirstOrDefault();
+
+        public static bool RestoreInspectionModelAdoption(ModelRegistrySettings registry, InspectionModelAdoption adoption, string reason)
+        {
+            if (registry == null || adoption == null || !registry.AdoptionHistory.Contains(adoption)
+                || !string.IsNullOrEmpty(adoption.UndoneUtc) || registry.CurrentInspectionModelId != adoption.CandidateId
+                || !ReferenceEquals(adoption, FindLatestInspectionModelAdoption(registry))) return false;
+            ModelCandidate previous = registry.Candidates.FirstOrDefault(item => item.CandidateId == adoption.PreviousCandidateId && item.ProfileId == adoption.ProfileId);
+            if (previous == null) return false;
+            MarkCurrentInspectionModel(registry, previous);
+            registry.CurrentProfileId = previous.ProfileId;
+            adoption.UndoneUtc = UtcNowText();
+            adoption.UndoReason = reason?.Trim() ?? string.Empty;
+            return true;
         }
 
         public static ModelProfile EnsureProfile(
@@ -466,8 +579,7 @@ namespace MvcVisionSystem
             }
 
             string baselineCandidateId = BuildStableId("candidate", baselineWeightsPath);
-            ModelCandidate baseline = registry.Candidates
-                .FirstOrDefault(item => string.Equals(item.CandidateId, baselineCandidateId, StringComparison.Ordinal));
+            ModelCandidate baseline = FindInspectionModelByPath(registry, baselineWeightsPath, profile?.ProfileId);
             if (baseline == null)
             {
                 baseline = new ModelCandidate
@@ -501,9 +613,7 @@ namespace MvcVisionSystem
                 return;
             }
 
-            string baselineCandidateId = BuildStableId("candidate", baselineWeightsPath);
-            ModelCandidate baseline = registry.Candidates
-                .FirstOrDefault(item => string.Equals(item.CandidateId, baselineCandidateId, StringComparison.Ordinal));
+            ModelCandidate baseline = FindInspectionModelByPath(registry, baselineWeightsPath);
             if (baseline == null)
             {
                 registry.CurrentInspectionModelId = string.Empty;
@@ -592,16 +702,17 @@ namespace MvcVisionSystem
             ModelCandidate candidate,
             string previousWeightsPath,
             string decisionSummary,
-            string now)
+            string now,
+            bool forceNewRecord = false)
         {
             string adoptionId = BuildStableId("adoption", $"{candidate?.CandidateId}|{candidate?.WeightsPath}|{previousWeightsPath}");
-            InspectionModelAdoption adoption = registry.AdoptionHistory
-                .FirstOrDefault(item => string.Equals(item.AdoptionId, adoptionId, StringComparison.Ordinal));
+            InspectionModelAdoption adoption = forceNewRecord ? null : registry.AdoptionHistory.FirstOrDefault(item => item.CandidateId == candidate?.CandidateId
+                && item.WeightsPath == candidate?.WeightsPath && item.PreviousWeightsPath == previousWeightsPath && string.IsNullOrEmpty(item.UndoneUtc));
             if (adoption == null)
             {
                 adoption = new InspectionModelAdoption
                 {
-                    AdoptionId = adoptionId
+                    AdoptionId = registry.AdoptionHistory.Any(item => item.AdoptionId == adoptionId) ? adoptionId + "-" + Guid.NewGuid().ToString("N") : adoptionId
                 };
                 registry.AdoptionHistory.Add(adoption);
             }
@@ -683,7 +794,7 @@ namespace MvcVisionSystem
             {
                 CandidateDecisionAdopted => "검사 모델로 저장됨",
                 CandidateDecisionRejected => "후보 거절, 기존 검사 모델 유지",
-                _ => "검토 대기"
+                _ => "확인 대기"
             };
         }
 

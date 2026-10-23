@@ -1,5 +1,6 @@
 using MvcVisionSystem.Yolo;
 using System;
+using MvcVisionSystem._1._Core;
 using System.IO;
 
 namespace MvcVisionSystem
@@ -9,6 +10,8 @@ namespace MvcVisionSystem
         public LabelingProjectData Data { get; init; }
 
         public WpfTrainingWeightsComparison Comparison { get; init; }
+
+        public PythonModelRuntimeState RuntimeState { get; init; }
 
         public string ConfiguredWeightsPathOverride { get; init; } = string.Empty;
 
@@ -86,7 +89,8 @@ namespace MvcVisionSystem
                 data.ProjectSettings.ModelRegistry,
                 configuredWeightsPath,
                 hasPendingModelSelection,
-                request.IsModelPromotionHeld);
+                request.IsModelPromotionHeld,
+                request.RuntimeState);
 
             return new ModelCenterDashboardWorkflowResult(
                 dashboardState,

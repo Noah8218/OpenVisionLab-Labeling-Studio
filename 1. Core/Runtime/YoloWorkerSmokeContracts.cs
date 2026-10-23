@@ -46,11 +46,21 @@ namespace MvcVisionSystem._1._Core
         public string ClientScriptPath { get; set; } = string.Empty;
         public string ModelRootPath { get; set; } = string.Empty;
         public string WeightsPath { get; set; } = string.Empty;
+        public string InferenceModelCandidateId { get; set; } = string.Empty;
+        public InferenceResultSource Source { get; internal set; }
         public string ImagePath { get; set; } = string.Empty;
         public int CandidateCount { get; set; }
         public string FirstClassName { get; set; } = string.Empty;
         public double? FirstConfidence { get; set; }
         public IReadOnlyList<YoloWorkerSmokeCandidate> Candidates { get; set; } = Array.Empty<YoloWorkerSmokeCandidate>();
+        public double? CaptureConfidenceFloor { get; set; }
+        public bool HasCompletePredictions { get; set; }
+        public int? CaptureCandidateLimit { get; set; }
+        public string CaptureImageSha256 { get; set; } = string.Empty;
+        public string CaptureWeightsSha256 { get; set; } = string.Empty;
+        public double? CaptureAnomalyScore { get; set; }
+        public string CaptureTrainingRunId { get; set; } = string.Empty;
+        public string CaptureCandidateSettingsIdentity { get; set; } = string.Empty;
         public int? ElapsedMilliseconds { get; set; }
         public string Output { get; set; } = string.Empty;
         public string Error { get; set; } = string.Empty;

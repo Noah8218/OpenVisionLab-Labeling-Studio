@@ -306,7 +306,7 @@ namespace MvcVisionSystem
 
         public static string BuildModelTestModeSwitchLog()
         {
-            return "\uBAA8\uB378 \uD14C\uC2A4\uD2B8\uB97C \uC704\uD574 \uCD94\uB860 \uAC80\uD1A0 \uBAA8\uB4DC\uB85C \uC804\uD658\uD588\uC2B5\uB2C8\uB2E4.";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloEnvironmentCommandPresentationService.309");
         }
 
         public static string BuildModelTestStartingStatus()
@@ -336,12 +336,12 @@ namespace MvcVisionSystem
 
         public static string BuildWorkerRestartStartingStatus()
         {
-            return "\uCD94\uB860 \uC2E4\uD589\uAE30 \uC7AC\uC2DC\uC791 \uC911...";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloEnvironmentCommandPresentationService.339");
         }
 
         public static string BuildWorkerRestartConnectedStatus()
         {
-            return "\uCD94\uB860 \uC2E4\uD589\uAE30 \uC7AC\uC2DC\uC791 \uBC0F \uC5F0\uACB0 \uC644\uB8CC.";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloEnvironmentCommandPresentationService.344");
         }
 
         public static YoloWorkerCommandPresentation BuildWorkerRestartResult(bool connected, string disconnectedText)
@@ -364,15 +364,15 @@ namespace MvcVisionSystem
         {
             return new YoloEnvironmentRecoveryPresentation
             {
-                Title = "\uCD94\uB860 \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uC2E4\uD328",
+                Title = OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloEnvironmentCommandPresentationService.367"),
                 Detail = NormalizeMessage(detail),
-                Action = "\uB2E4\uC74C: \uBAA8\uB378 \uD14C\uC2A4\uD2B8\uB85C \uD658\uACBD\uC744 \uD655\uC778\uD558\uAC70\uB098 \uC2E4\uD589 \uD30C\uC77C/\uC2A4\uD06C\uB9BD\uD2B8 \uACBD\uB85C\uB97C \uC218\uC815\uD55C \uB4A4 \uC7AC\uC2DC\uC791\uD558\uC138\uC694."
+                Action = OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloEnvironmentCommandPresentationService.RestartConnectionAction")
             };
         }
 
         public static string BuildWorkerRestartFailureStatus(string message)
         {
-            return $"\uCD94\uB860 \uC2E4\uD589\uAE30 \uC7AC\uC2DC\uC791 \uC2E4\uD328: {NormalizeMessage(message)}";
+            return string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloEnvironmentCommandPresentationService.375"), NormalizeMessage(message));
         }
 
         public static YoloWorkerCommandPresentation BuildWorkerRestartFailure(string message)
@@ -390,20 +390,20 @@ namespace MvcVisionSystem
         {
             return new YoloEnvironmentRecoveryPresentation
             {
-                Title = "\uCD94\uB860 \uC2E4\uD589\uAE30 \uC7AC\uC2DC\uC791 \uC2E4\uD328",
+                Title = OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloEnvironmentCommandPresentationService.393"),
                 Detail = NormalizeMessage(detail),
-                Action = "\uB2E4\uC74C: \uC0C1\uC138 \uB85C\uADF8\uC5D0\uC11C \uC624\uB958\uB97C \uD655\uC778\uD558\uACE0 Python/\uBAA8\uB378 \uC2E4\uD589 \uC124\uC815 \uACBD\uB85C\uB97C \uC218\uC815\uD558\uC138\uC694."
+                Action = OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloEnvironmentCommandPresentationService.RestartFailureAction")
             };
         }
 
         public static string BuildWorkerStopStartingStatus()
         {
-            return "\uCD94\uB860 \uC2E4\uD589\uAE30 \uC911\uC9C0 \uC911...";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloEnvironmentCommandPresentationService.401");
         }
 
         public static string BuildWorkerStopCompletedStatus()
         {
-            return "\uCD94\uB860 \uC2E4\uD589\uAE30 \uC911\uC9C0 \uC644\uB8CC.";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloEnvironmentCommandPresentationService.406");
         }
 
         public static YoloWorkerCommandPresentation BuildWorkerStopCompleted()
@@ -418,7 +418,7 @@ namespace MvcVisionSystem
 
         public static string BuildWorkerStopFailureStatus(string message)
         {
-            return $"\uCD94\uB860 \uC2E4\uD589\uAE30 \uC911\uC9C0 \uC2E4\uD328: {NormalizeMessage(message)}";
+            return string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloEnvironmentCommandPresentationService.421"), NormalizeMessage(message));
         }
 
         public static YoloWorkerCommandPresentation BuildWorkerStopFailure(string message)

@@ -61,7 +61,8 @@ namespace MvcVisionSystem.Yolo
                 Size imageSize;
                 try
                 {
-                    using Image image = Image.FromFile(imagePath);
+                    using FileStream stream = File.OpenRead(imagePath);
+                    using Image image = Image.FromStream(stream);
                     imageSize = image.Size;
                 }
                 catch

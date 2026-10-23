@@ -108,7 +108,8 @@ function Assert-RequiredPayload {
         "SharpGL.WinForms.dll",
         "LICENSE",
         "NOTICE",
-        "THIRD-PARTY-NOTICES.txt"
+        "THIRD-PARTY-NOTICES.txt",
+        "scripts\compare-yolo-models.ps1"
     )
 
     if ($selfContainedBuild) {

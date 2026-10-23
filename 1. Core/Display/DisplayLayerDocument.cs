@@ -49,7 +49,7 @@ namespace MvcVisionSystem._1._Core
         public void SetImage(Bitmap image, bool zoomToFit = true)
         {
             ThrowIfDisposed();
-            viewer.SetDisplayImage(image, Text, string.Empty, resetAnnotations: false, zoomToFit: zoomToFit);
+            viewer.SetDisplayImage(image, resetAnnotations: false, zoomToFit: zoomToFit);
         }
 
         public Bitmap GetCurrentImage()

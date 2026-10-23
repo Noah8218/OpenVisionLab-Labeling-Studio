@@ -37,6 +37,7 @@ namespace MvcVisionSystem
                 modelComparisonHistorySelectionChanged: null,
                 context.ExecuteTogglePatchCoreHeatmapCommand);
             context.CandidateReviewViewModel.ConfigureSelectionWorkflow(context.ApplyCandidateSelectionChangedEffects);
+            context.CandidateReviewViewModel.ConfigureCandidateClassFilterWorkflow(context.ExecuteCandidateClassFilterChangedCommand);
             context.CandidateReviewViewModel.ConfigureModelComparisonHistorySelectionWorkflow(context.ApplyModelComparisonHistorySelectionEffects);
             context.CandidateReviewViewModel.ConfigureCandidatePreviewKeyWorkflow();
             context.RefreshAttachedCommandBindings(
@@ -69,6 +70,7 @@ namespace MvcVisionSystem
         internal Action ExecuteRejectModelCandidateCommand { get; init; }
         internal Action ExecuteTogglePatchCoreHeatmapCommand { get; init; }
         internal Action<WpfCandidateReviewListItem> ApplyCandidateSelectionChangedEffects { get; init; }
+        internal Action<string> ExecuteCandidateClassFilterChangedCommand { get; init; }
         internal Action<WpfModelComparisonHistoryItem> ApplyModelComparisonHistorySelectionEffects { get; init; }
         internal Slider CandidateConfidenceSlider { get; init; }
         internal ListBox CandidateListBox { get; init; }

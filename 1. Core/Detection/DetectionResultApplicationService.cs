@@ -15,6 +15,7 @@ namespace MvcVisionSystem._1._Core
         private readonly LabelingWorkflowService labelingWorkflow;
         private readonly Func<LabelingProjectData> dataAccessor;
         private List<DefectInfo> lastDefects = new List<DefectInfo>();
+        private DetectionResultParseResult lastRawResult;
         private DetectionRequestContext lastDetectionContext = DetectionRequestContext.Empty;
         private int selectedCandidateIndex;
 
@@ -175,11 +176,31 @@ namespace MvcVisionSystem._1._Core
             }
         }
 
-        public bool ApplyToDetectLayer(IReadOnlyList<DefectInfo> defects, string requestId = "", string imageId = "")
+        public bool ApplyFailure(string errorMessage, string requestId = "", string imageId = "")
         {
             if (DisplayManager.IsDisplayInvokeRequired)
             {
-                return DisplayManager.InvokeOnDisplayThread(() => ApplyToDetectLayer(defects, requestId, imageId));
+                return DisplayManager.InvokeOnDisplayThread(() => ApplyFailure(errorMessage, requestId, imageId));
+            }
+            if (!transport.TryTakePendingDetectionContext(requestId, imageId, out DetectionRequestContext context))
+            {
+                return false;
+            }
+            RaiseDetectionCandidatesUpdated(context, 0, DetectionCandidateUpdateReason.RequestFailed, errorMessage);
+            return true;
+        }
+
+        public bool ApplyToDetectLayer(IReadOnlyList<DefectInfo> defects, string requestId = "", string imageId = "")
+            => ApplyToDetectLayerCore(defects, requestId, imageId, null);
+
+        public bool ApplyRawToDetectLayer(DetectionResultParseResult result)
+            => result?.Status == DetectionResultParseStatus.Parsed && ApplyToDetectLayerCore(result.Defects, result.RequestId, result.ImageId, result);
+
+        private bool ApplyToDetectLayerCore(IReadOnlyList<DefectInfo> defects, string requestId, string imageId, DetectionResultParseResult rawResult)
+        {
+            if (DisplayManager.IsDisplayInvokeRequired)
+            {
+                return DisplayManager.InvokeOnDisplayThread(() => ApplyToDetectLayerCore(defects, requestId, imageId, rawResult));
             }
 
             if (transport.TakePendingDetectionCanceled())
@@ -228,6 +249,7 @@ namespace MvcVisionSystem._1._Core
 
             if (defects == null || defects.Count == 0)
             {
+                lastRawResult = rawResult;
                 SetLastResult(defects, detectionContext);
                 DisplayManager.SetDetectionOverlays("Main", null);
                 AppLog.NORMAL($"YOLO detection completed with no candidates. Image:{detectionContext.DisplayName}");
@@ -235,6 +257,7 @@ namespace MvcVisionSystem._1._Core
                 return false;
             }
 
+            lastRawResult = rawResult;
             List<DefectInfo> reviewDefects = NormalizeDetectionCandidates(defects);
             if (reviewDefects.Count == 0)
             {
@@ -607,6 +630,7 @@ namespace MvcVisionSystem._1._Core
             lock (sync)
             {
                 lastDefects = new List<DefectInfo>();
+                lastRawResult = null;
                 lastDetectionContext = DetectionRequestContext.Empty;
                 selectedCandidateIndex = 0;
             }
@@ -698,7 +722,8 @@ namespace MvcVisionSystem._1._Core
         private void RaiseDetectionCandidatesUpdated(
             DetectionRequestContext context,
             int candidateCount,
-            DetectionCandidateUpdateReason reason)
+            DetectionCandidateUpdateReason reason,
+            string errorMessage = "")
         {
             DetectionCandidatesUpdated?.Invoke(
                 this,
@@ -706,7 +731,8 @@ namespace MvcVisionSystem._1._Core
                     context?.ImageName ?? string.Empty,
                     context?.ImagePath ?? string.Empty,
                     candidateCount,
-                    reason));
+                    reason,
+                    errorMessage) { RawResult = reason == DetectionCandidateUpdateReason.ResultCompleted ? lastRawResult : null });
         }
 
         private DetectionRequestContext CaptureCurrentContext(

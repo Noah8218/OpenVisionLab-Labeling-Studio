@@ -2,11 +2,11 @@
 
 산업용 이미지 데이터셋을 만들고, 라벨링하고, 여러 모델로 학습·검증·비교하는 Windows 데스크톱 작업대입니다.
 
-![실제 Windows EXE에서 결함 박스 입력, MobileSAM 자동 외곽선 후보 검토, 라벨 확정과 저장으로 이어지는 Smart Mask 흐름](docs/tutorial/images/github/labeling-smart-mask-zero-drift-20260805.gif)
+![실제 Windows EXE에서 결함 박스 입력, MobileSAM 자동 외곽선 후보 검토, 라벨 확정과 저장으로 이어지는 Smart Mask 흐름](docs/tutorial/images/current-20261023/labeling-smart-mask.gif)
 
-> 최신 Windows EXE를 직접 조작해 녹화한 약 6.5초 화면입니다. 실제 패널 전환과 후보 검토 중에도 뷰어의 이미지 위치와 배율이 유지되며, 결함 박스 입력부터 MobileSAM 후보 확인, 명시적 확정과 저장까지 보여 줍니다. [실제 EXE 정지 이미지 보기](docs/tutorial/images/github/labeling-smart-mask-stable-20260805-poster.png)
+> 최신 Windows EXE를 직접 조작해 녹화한 약 6.5초 화면입니다. 실제 패널 전환과 후보 검토 중에도 뷰어의 이미지 위치와 배율이 유지되며, 결함 박스 입력부터 MobileSAM 후보 확인, 명시적 확정과 저장까지 보여 줍니다. [실제 EXE 정지 이미지 보기](docs/tutorial/images/current-20261023/labeling-smart-mask-poster.png)
 
-![객체탐지 라벨링 화면](docs/tutorial/images/workflows-20260722/object-detection-labeling-1920x1080.png)
+![객체탐지 라벨링 화면](docs/tutorial/images/current-20261023/object-detection.png)
 
 위 화면은 결함이 없는 이미지에 임의 도형을 그린 예가 아닙니다. 눈에 보이는 대각선 `scratch_crack` 결함을 원본 정답 좌표대로 박스로 다시 연 화면입니다.
 
@@ -41,13 +41,13 @@ Visual Studio에서는 `OpenVisionLab.LabelingStudio.sln`을 열고
 
 대상의 위치와 종류가 필요할 때 사용합니다. 캔버스에서 실제 결함이 들어가는 최소 영역을 박스로 그리고 클래스를 지정한 뒤 `라벨 저장`을 누릅니다. 아래 예시는 눈에 보이는 대각선 스크래치 하나에만 `scratch_crack` 박스를 표시합니다. 대상이 없는 이미지는 `객체 없음`으로 명시합니다.
 
-![객체탐지 라벨링](docs/tutorial/images/workflows-20260722/object-detection-labeling-1920x1080.png)
+![객체탐지 라벨링](docs/tutorial/images/current-20261023/object-detection.png)
 
 ### 세그멘테이션
 
 결함이나 부품의 실제 경계가 필요할 때 사용합니다. 폴리곤, 브러시, 지우개로 영역을 만들고 객체 목록과 캔버스에서 결과를 함께 확인합니다. 아래 예시는 객체탐지 화면과 같은 스크래치의 가느다란 경계를 10점 폴리곤으로 따라간 결과입니다.
 
-![세그멘테이션 라벨링](docs/tutorial/images/workflows-20260722/segmentation-labeling-1920x1080.png)
+![세그멘테이션 라벨링](docs/tutorial/images/current-20261023/segmentation.png)
 
 반복해서 자동 경계를 만들려면 세그멘테이션 Recipe의 `라벨링 옵션`에서
 `자동 윤곽`을 한 번 켭니다. 이후 결함을 사각형으로 감쌀 때마다
@@ -64,7 +64,7 @@ MobileSAM 후보가 별도 생성 버튼 없이 바로 나타나며, 작업 패�
 
 이미지 전체가 정상인지 이상인지 먼저 분류할 때 사용합니다. 박스나 마스크는 필수가 아닙니다. `정상(OK) → 다음` 또는 `이상(NG) → 다음`을 누르면 판정이 저장되고 다음 미판정 이미지로 이동합니다.
 
-![이상탐지 OK/NG 판정](docs/tutorial/images/workflows-20260722/anomaly-ok-ng-review-1920x1080.png)
+![이상탐지 OK/NG 판정](docs/tutorial/images/current-20261023/anomaly-ok-ng-review.png)
 
 이상탐지는 두 모델 계약을 제공합니다. YOLOv8/YOLO11 분류는 OK와 NG 예시를 모두 사용하는 2클래스 지도학습이며 이미지 전체 판정을 반환합니다. PatchCore bounded pilot은 검토 완료 정상 이미지만 학습하고 이미지 판정, 이상 점수/임계값, 미확정 위치 후보와 heatmap을 반환합니다. 후보 검토의 `히트맵 보기`는 명시적으로 눌렀을 때만 읽기 전용 검토 창을 열며 라벨·후보·모델을 자동 변경하지 않습니다. 위치 후보는 자동 저장되지 않으며 생산 품질은 별도 held-out 검증이 필요합니다.
 

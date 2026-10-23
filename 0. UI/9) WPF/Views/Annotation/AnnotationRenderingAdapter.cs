@@ -18,6 +18,7 @@ namespace MvcVisionSystem
     internal sealed class AnnotationRenderingAdapter
     {
         private readonly AnnotationRenderingAdapterContext context;
+        private bool ShowLabelNames => context.ShowLabelNamesProvider?.Invoke() != false;
 
         internal AnnotationRenderingAdapter(AnnotationRenderingAdapterContext context)
         {
@@ -179,7 +180,14 @@ namespace MvcVisionSystem
         {
             LabelingProjectData data = context.DataProvider?.Invoke();
             LabelClass classItem = classCatalogWorkflowService.EnsureClassItem(data, FirstNonEmpty(className, "Defect"));
-            return classItem?.DrawColor ?? DrawingColor.FromArgb(34, 197, 94);
+            return ApplyOverlayOpacity(classItem?.DrawColor ?? DrawingColor.FromArgb(34, 197, 94));
+        }
+
+        private DrawingColor ApplyOverlayOpacity(DrawingColor color)
+        {
+            double opacity = Math.Clamp(CanvasPanelViewModel?.OverlayOpacity ?? CanvasLayerPresentationWorkflowService.DefaultLabelOverlayOpacity, 0D, 1D);
+            int alpha = (int)Math.Round(color.A * opacity);
+            return DrawingColor.FromArgb(alpha, color.R, color.G, color.B);
         }
 
         internal DrawingColor GetManualRoiDrawColor(int index)
@@ -416,7 +424,7 @@ namespace MvcVisionSystem
                             roi,
                             ObjectReviewPresentationService.GetManualRoiShapeKind(manualRoiShapeKinds, i),
                             GetClassDrawColor(className),
-                            className);
+                            className, isLabelAnnotation: true, showLabelEditHandles: !sessionState.IsLocked);
                         manualRoiOverlayIds[i] = overlay?.UniqueId ?? string.Empty;
                         var overlayItem = MainCanvasViewModel.ImageViewer
                             .GetCanvasOverlayManager()
@@ -437,24 +445,36 @@ namespace MvcVisionSystem
                                 bounds,
                                 CanvasRoiShapeKind.Rectangle,
                                 GetClassDrawColor(candidate.ClassName),
-                                candidate.ClassName);
+                                candidate.ClassName, isLabelAnnotation: true);
                         }
                     }
                 }
 
+                var detectionOverlays = new List<RoiImageCanvasDetectionOverlay>();
                 if (showInference)
                 {
-                    MainCanvasViewModel.SetDetectionOverlays(
-                        CandidateReviewPresentationService.BuildDetectionOverlays(
-                            pendingDetectionCandidates,
+                    IReadOnlyList<WpfClassCatalogListItem> classes = context.ClassCatalogProvider?.Invoke() ?? Array.Empty<WpfClassCatalogListItem>();
+                    bool inference = context.IsInferenceStageActiveProvider?.Invoke() == true;
+                    Func<YoloWorkerSmokeCandidate, DrawingColor?> labelColor = context.IsLabelingStageActiveProvider?.Invoke() == true || inference ? candidate =>
+                    {
+                        WpfClassCatalogListItem item = candidate.ClassId.HasValue ? classes.FirstOrDefault(entry => entry.CanonicalIndex == candidate.ClassId.Value) : null;
+                        item ??= classes.FirstOrDefault(entry => string.Equals(entry.Text, candidate.ClassName, StringComparison.OrdinalIgnoreCase));
+                        return item?.DrawBrush is System.Windows.Media.SolidColorBrush brush ? DrawingColor.FromArgb(brush.Color.A, brush.Color.R, brush.Color.G, brush.Color.B) : null;
+                    } : null;
+                    detectionOverlays.AddRange(CandidateReviewPresentationService.BuildDetectionOverlays(
+                            context.VisibleDetectionCandidatesProvider?.Invoke() ?? pendingDetectionCandidates,
                             GetSelectedCandidate(),
                             activeImageSize,
-                            context.IsCandidateConfirmableProvider));
+                            context.IsCandidateConfirmableProvider, labelColor, inference));
+                    foreach (RoiImageCanvasDetectionOverlay overlay in detectionOverlays)
+                    {
+                        if (!overlay.IsLabelingSuggestion && !overlay.IsInferencePrediction) overlay.Color = ApplyOverlayOpacity(overlay.Color);
+                    }
+
                 }
-                else
-                {
-                    MainCanvasViewModel.SetDetectionOverlays(Array.Empty<RoiImageCanvasDetectionOverlay>());
-                }
+                if (!isApplicationCloseApproved && context.IsLabelingStageActiveProvider?.Invoke() == true)
+                    detectionOverlays.AddRange(context.LabelSuspicionOverlaysProvider?.Invoke() ?? Array.Empty<RoiImageCanvasDetectionOverlay>());
+                MainCanvasViewModel.SetDetectionOverlays(detectionOverlays);
 
                 if (showLabels)
                 {
@@ -507,7 +527,7 @@ namespace MvcVisionSystem
                 return false;
             }
 
-            float maskOpacity = (float)(LearningWorkflowViewModel?.MaskOpacity ?? 0.66);
+            float maskOpacity = (float)(LearningWorkflowViewModel?.MaskOpacity ?? 0.45);
             WpfObjectReviewListItem selectedObject = ObjectReviewViewModel?.SelectedObject;
             string selectedSourceKey = selectedObject?.SourceKey ?? string.Empty;
             int selectedSourceIndex = selectedObject?.SourceIndex ?? -1;
@@ -574,14 +594,15 @@ namespace MvcVisionSystem
                 segment.MaskSize,
                 maskBounds,
                 overlayColor,
-                maskOpacity,
+                isRemoveUnderlyingPreview ? maskOpacity : Math.Min(.9F, maskOpacity + .3F),
                 segment.RenderVersion,
                 isSegmentSelected,
                 isRemoveUnderlyingPreview
-                    ? $"REMOVE PREVIEW {displayIndex} {className}"
-                    : $"SEG {displayIndex} {className}",
+                    ? $"REMOVE PREVIEW {displayIndex}" + (ShowLabelNames ? $" {className}" : string.Empty)
+                    : $"SEG {displayIndex}" + (ShowLabelNames ? $" {className}" : string.Empty),
                 segment.RenderDirtyBounds,
-                (uploadedVersion, uploadedBounds) => ClearMaskRenderDirtyBounds(segment, uploadedVersion, uploadedBounds));
+                (uploadedVersion, uploadedBounds) => ClearMaskRenderDirtyBounds(segment, uploadedVersion, uploadedBounds),
+                className: isRemoveUnderlyingPreview ? null : className);
             return true;
         }
         internal static void ClearMaskRenderDirtyBounds(LabelingSegmentationObject segment, int uploadedVersion, DrawingRectangle uploadedBounds)
@@ -624,8 +645,22 @@ namespace MvcVisionSystem
             manualSegments.Add(annotation);
             polygonAnnotationService.Reset();
             RefreshPolygonOverlays();
-            RefreshObjectList();
+            // Keep the just-created polygon selected so the next action in the
+            // normal workflow (SmartMask or brush editing) targets this object.
+            // Without an explicit preferred selection, a pre-existing object can
+            // remain selected and SmartMask correctly rejects the stale target.
+            RefreshObjectListWithSelection(WpfObjectReviewItemRef.ManualSegment(manualSegments.Count - 1));
+            // The selected polygon is also a valid Smart Mask starting region. Refresh
+            // the command state after selection so the reference workflow can move
+            // directly from polygon confirmation to the AI prompt without requiring
+            // a second bounding-box draft.
+            RefreshSmartMaskCommandState();
             ShowSavedLabelsWorkflowView();
+            // Workflow navigation can rebuild the review panel and clear a transient
+            // selection notification. Re-evaluate once after that navigation as well,
+            // so the direct polygon-to-SmartMask action remains enabled in the final
+            // visible state.
+            RefreshSmartMaskCommandState();
             SetModelStatus($"Polygon added: {annotation.ClassName} / {annotation.Points.Count} points");
             AppendLog($"Polygon added: {annotation.ClassName} / {annotation.Points.Count} points / {FormatSegmentBoundsCompact(annotation)}");
             RefreshActiveImageQueueStatus(hasActiveCandidates: pendingDetectionCandidates.Count > 0);
@@ -665,7 +700,7 @@ namespace MvcVisionSystem
 
             var overlays = new List<RoiImageCanvasPolygonOverlay>();
             var maskOverlays = new List<RoiImageCanvasMaskOverlay>();
-            float maskOpacity = (float)(LearningWorkflowViewModel?.MaskOpacity ?? 0.66);
+            float maskOpacity = (float)(LearningWorkflowViewModel?.MaskOpacity ?? 0.45);
             WpfObjectReviewListItem selectedObject = ObjectReviewViewModel?.SelectedObject;
             string selectedSourceKey = selectedObject?.SourceKey ?? string.Empty;
             int selectedSourceIndex = selectedObject?.SourceIndex ?? -1;
@@ -714,25 +749,39 @@ namespace MvcVisionSystem
                     overlays.Add(new RoiImageCanvasPolygonOverlay(
                         segment.Points,
                         isRemoveUnderlyingPreview
-                            ? $"REMOVE PREVIEW {i + 1} {className}"
-                            : $"SEG {i + 1} {className}",
+                            ? $"REMOVE PREVIEW {i + 1}" + (ShowLabelNames ? $" {className}" : string.Empty)
+                            : $"SEG {i + 1}" + (ShowLabelNames ? $" {className}" : string.Empty),
                         overlayColor,
                         isClosed: true,
                         isDraft: false,
                         isSelected: isSegmentSelected,
                         selectedPointIndex: annotationSegmentEditAdapter.ActiveSegmentDragIndex == i
                             ? annotationSegmentEditAdapter.ActivePolygonPointDragIndex
-                            : -1));
+                            : -1,
+                        className: isRemoveUnderlyingPreview ? null : className,
+                        opacity: maskOpacity,
+                        showEditHandles: !sessionState.IsLocked));
                 }
 
                 if (polygonAnnotationService.Points.Count > 0)
                 {
+                    // Keep the operation-specific candidate label in the overlay contract;
+                    // the canvas renderer hides draft badges so the reference editor stays clean.
+                    bool isSmartMaskCandidateDraft = context.SmartMaskCandidateEditAvailableProvider?.Invoke() == true;
+                    MaskRegionOperation candidateOperation = context.SmartMaskCandidateRegionOperationProvider?.Invoke()
+                        ?? MaskRegionOperation.Add;
                     overlays.Add(new RoiImageCanvasPolygonOverlay(
                         polygonAnnotationService.Points,
-                        $"Draft {polygonAnnotationService.Points.Count}",
-                        System.Drawing.Color.FromArgb(80, 180, 255),
+                        isSmartMaskCandidateDraft
+                            ? $"CANDIDATE {(candidateOperation == MaskRegionOperation.Subtract ? "SUBTRACT" : "ADD")} {polygonAnnotationService.Points.Count}"
+                            : string.Empty,
+                        isSmartMaskCandidateDraft && candidateOperation == MaskRegionOperation.Subtract
+                            ? DrawingColor.FromArgb(220, 100, 90)
+                            : isSmartMaskCandidateDraft ? DrawingColor.FromArgb(80, 210, 120) : GetClassDrawColor(GetSelectedClassName()),
                         polygonAnnotationService.IsClosed,
-                        isDraft: true));
+                        isDraft: true,
+                        className: isSmartMaskCandidateDraft ? null : GetSelectedClassName(),
+                        opacity: .12F));
                 }
 
                 if (pendingSegmentationHoleEditMode == WpfSegmentationHoleEditMode.Add
@@ -759,10 +808,68 @@ namespace MvcVisionSystem
                 }
             }
 
+            if (showSavedLabels)
+            {
+                AppendMaskQualityMarkerOverlays(overlays);
+            }
             AppendSmartMaskPromptOverlays(overlays);
             AppendFourPointBoxDraftOverlays(overlays);
             AppendPendingSmartMaskCandidateMask(maskOverlays, maskOpacity);
+            if (CanvasPanelViewModel?.OverlayOpacity is double opacity && opacity < 1D)
+            {
+                overlays = overlays.Select(overlay => new RoiImageCanvasPolygonOverlay(
+                    overlay.ImagePoints,
+                    overlay.Label,
+                    ApplyOverlayOpacity(overlay.Color),
+                    overlay.IsClosed,
+                    overlay.IsDraft,
+                    overlay.IsSelected,
+                    overlay.SelectedPointIndex,
+                    overlay.ClassName,
+                    overlay.Opacity,
+                    overlay.ShowEditHandles,
+                    overlay.IsBoxPointDraft)).ToList();
+            }
+
             MainCanvasViewModel.SetSegmentationOverlays(overlays, maskOverlays);
+        }
+
+        private void AppendMaskQualityMarkerOverlays(List<RoiImageCanvasPolygonOverlay> overlays)
+        {
+            if (overlays == null || activeImageSize.IsEmpty)
+            {
+                return;
+            }
+
+            WpfMaskQualityMarkerItem selected = ObjectReviewViewModel?.SelectedMaskQualityMarker;
+            foreach (WpfMaskQualityMarkerItem item in context.MaskQualityMarkersProvider?.Invoke()
+                ?? Array.Empty<WpfMaskQualityMarkerItem>())
+            {
+                DrawingRectangle bounds = DrawingRectangle.Intersect(
+                    new DrawingRectangle(System.Drawing.Point.Empty, activeImageSize),
+                    item.Bounds);
+                if (bounds.IsEmpty)
+                {
+                    continue;
+                }
+
+                System.Drawing.Color color = item.Marker.Kind == MaskQualityMarkerKind.Hole
+                    ? System.Drawing.Color.Orange
+                    : System.Drawing.Color.Gold;
+                overlays.Add(new RoiImageCanvasPolygonOverlay(
+                    new[]
+                    {
+                        new System.Drawing.Point(bounds.Left, bounds.Top),
+                        new System.Drawing.Point(Math.Max(bounds.Left, bounds.Right - 1), bounds.Top),
+                        new System.Drawing.Point(Math.Max(bounds.Left, bounds.Right - 1), Math.Max(bounds.Top, bounds.Bottom - 1)),
+                        new System.Drawing.Point(bounds.Left, Math.Max(bounds.Top, bounds.Bottom - 1))
+                    },
+                    $"QA {item.SegmentIndex + 1} {item.KindText} {item.Marker.Area}px",
+                    color,
+                    isClosed: true,
+                    isDraft: true,
+                    isSelected: ReferenceEquals(item, selected)));
+            }
         }
 
         internal void AppendFourPointBoxDraftOverlays(List<RoiImageCanvasPolygonOverlay> overlays)
@@ -776,39 +883,8 @@ namespace MvcVisionSystem
             string[] roles = { "\uC704", "\uC544\uB798", "\uC67C\uCABD", "\uC624\uB978\uCABD" };
             for (int index = 0; index < points.Count; index++)
             {
-                System.Drawing.Point point = points[index];
-                bool horizontal = index < 2;
-                var guidePoints = horizontal
-                    ? new[]
-                    {
-                        new System.Drawing.Point(0, point.Y),
-                        new System.Drawing.Point(activeImageSize.Width - 1, point.Y)
-                    }
-                    : new[]
-                    {
-                        new System.Drawing.Point(point.X, 0),
-                        new System.Drawing.Point(point.X, activeImageSize.Height - 1)
-                    };
-                overlays.Add(new RoiImageCanvasPolygonOverlay(
-                    guidePoints,
-                    $"4P {index + 1}/4 {roles[index]}",
-                    System.Drawing.Color.DeepSkyBlue,
-                    isClosed: false,
-                    isDraft: true));
-
-                const int markerRadius = 4;
-                overlays.Add(new RoiImageCanvasPolygonOverlay(
-                    new[]
-                    {
-                        new System.Drawing.Point(Math.Max(0, point.X - markerRadius), point.Y),
-                        new System.Drawing.Point(point.X, Math.Max(0, point.Y - markerRadius)),
-                        new System.Drawing.Point(Math.Min(activeImageSize.Width - 1, point.X + markerRadius), point.Y),
-                        new System.Drawing.Point(point.X, Math.Min(activeImageSize.Height - 1, point.Y + markerRadius))
-                    },
-                    $"4P {index + 1}",
-                    System.Drawing.Color.White,
-                    isClosed: true,
-                    isDraft: true));
+                overlays.Add(new RoiImageCanvasPolygonOverlay(new[] { points[index] }, $"4P {index + 1}/4 {roles[index]}",
+                    GetClassDrawColor(GetSelectedClassName()), isClosed: false, isDraft: true, className: GetSelectedClassName(), isBoxPointDraft: true));
             }
         }
 
@@ -822,10 +898,41 @@ namespace MvcVisionSystem
             }
 
             YoloWorkerSmokeCandidate candidate = GetSelectedCandidate();
+            if (candidate == null)
+            {
+                return;
+            }
+
+            float candidateOpacity = Math.Clamp(configuredOpacity * 0.62F, 0.34F, 0.46F);
+            System.Drawing.Color candidateColor = ResolveSmartMaskCandidateColor(candidate);
+            MaskCandidateEditSnapshot editedSnapshot = context.SmartMaskCandidateEditSnapshotProvider?.Invoke();
+            if (editedSnapshot != null)
+            {
+                if (editedSnapshot.IsEmpty
+                    || editedSnapshot.MaskSize.IsEmpty
+                    || editedSnapshot.MaskBounds.IsEmpty)
+                {
+                    return;
+                }
+
+                maskOverlays.Add(new RoiImageCanvasMaskOverlay(
+                    $"smart-mask-candidate:{candidate.Index}",
+                    editedSnapshot.MaskData,
+                    editedSnapshot.MaskSize,
+                    editedSnapshot.MaskBounds,
+                    candidateColor,
+                    candidateOpacity,
+                    editedSnapshot.RenderVersion,
+                    isSelected: false,
+                    label: string.Empty,
+                    showMarker: false));
+                return;
+            }
+
             IReadOnlyList<System.Drawing.PointF> contour = CandidateReviewPresentationService.GetCandidateContourPoints(
                 candidate,
                 activeImageSize);
-            if (candidate == null || contour.Count < 3)
+            if (contour.Count < 3)
             {
                 return;
             }
@@ -858,18 +965,25 @@ namespace MvcVisionSystem
                 renderVersion = unchecked((renderVersion * 31) + point.Y);
             }
 
-            float candidateOpacity = Math.Clamp(configuredOpacity * 0.62F, 0.34F, 0.46F);
             maskOverlays.Add(new RoiImageCanvasMaskOverlay(
                 $"smart-mask-candidate:{candidate.Index}",
                 maskData,
                 activeImageSize,
                 maskBounds,
-                System.Drawing.Color.FromArgb(80, 180, 255),
+                candidateColor,
                 candidateOpacity,
                 renderVersion,
                 isSelected: false,
                 label: string.Empty,
                 showMarker: false));
+        }
+
+        private System.Drawing.Color ResolveSmartMaskCandidateColor(YoloWorkerSmokeCandidate candidate)
+        {
+            string className = FirstNonEmpty(candidate?.ClassName, "Defect");
+            LabelClass classItem = context.DataProvider?.Invoke()?.ClassNamedList?
+                .FirstOrDefault(item => string.Equals(item?.Text, className, StringComparison.OrdinalIgnoreCase));
+            return classItem?.DrawColor ?? System.Drawing.Color.DeepSkyBlue;
         }
 
         internal void AppendSmartMaskPromptOverlays(List<RoiImageCanvasPolygonOverlay> overlays)
@@ -926,6 +1040,7 @@ namespace MvcVisionSystem
 
     internal sealed class AnnotationRenderingAdapterContext
     {
+        internal Func<bool> ShowLabelNamesProvider { get; init; }
         internal Func<LabelingProjectData> DataProvider { get; init; }
         internal List<DrawingRectangle> ManualRois { get; init; }
         internal List<string> ManualRoiClassNames { get; init; }
@@ -938,15 +1053,20 @@ namespace MvcVisionSystem
         internal Func<RoiImageCanvasViewModel> MainCanvasViewModelProvider { get; init; }
         internal Func<WpfLearningWorkflowPanelViewModel> LearningWorkflowViewModelProvider { get; init; }
         internal Func<WpfObjectReviewPanelViewModel> ObjectReviewViewModelProvider { get; init; }
+        internal Func<IReadOnlyList<WpfMaskQualityMarkerItem>> MaskQualityMarkersProvider { get; init; }
         internal PolygonAnnotationService PolygonAnnotationService { get; init; }
         internal PolygonAnnotationService HolePolygonAnnotationService { get; init; }
         internal PolygonBoundaryEditWorkflowService PolygonBoundaryEditWorkflowService { get; init; }
         internal SmartMaskPromptSessionService SmartMaskPromptSession { get; init; }
+        internal Func<MaskCandidateEditSnapshot> SmartMaskCandidateEditSnapshotProvider { get; init; }
+        internal Func<bool> SmartMaskCandidateEditAvailableProvider { get; init; }
+        internal Func<MaskRegionOperation> SmartMaskCandidateRegionOperationProvider { get; init; }
         internal FourPointBoxService FourPointBoxService { get; init; }
         internal ClassCatalogWorkflowService ClassCatalogWorkflowService { get; init; }
         internal AnnotationSegmentEditAdapter AnnotationSegmentEditAdapter { get; init; }
         internal Func<WpfSegmentationHoleEditMode?> PendingSegmentationHoleEditModeProvider { get; init; }
         internal Func<IReadOnlyList<YoloWorkerSmokeCandidate>> PendingDetectionCandidatesProvider { get; init; }
+        internal Func<IReadOnlyList<YoloWorkerSmokeCandidate>> VisibleDetectionCandidatesProvider { get; init; }
         internal Func<IReadOnlyList<YoloWorkerSmokeCandidate>> ConfirmedDetectionCandidatesProvider { get; init; }
         internal Func<YoloWorkerSmokeCandidate> SelectedCandidateProvider { get; init; }
         internal Func<YoloWorkerSmokeCandidate, bool> IsCandidateConfirmableProvider { get; init; }
@@ -978,5 +1098,9 @@ namespace MvcVisionSystem
         internal Action RefreshSmartMaskCommandState { get; init; }
         internal Action<CanvasRect<float>> TryStartAutoSmartMaskForNewRoi { get; init; }
         internal Action RefreshCanvasLayerVisibilityState { get; init; }
+        internal Func<bool> IsLabelingStageActiveProvider { get; init; }
+        internal Func<bool> IsInferenceStageActiveProvider { get; init; }
+        internal Func<IReadOnlyList<WpfClassCatalogListItem>> ClassCatalogProvider { get; init; }
+        internal Func<IReadOnlyList<RoiImageCanvasDetectionOverlay>> LabelSuspicionOverlaysProvider { get; init; }
     }
 }

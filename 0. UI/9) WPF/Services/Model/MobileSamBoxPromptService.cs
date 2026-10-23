@@ -44,6 +44,7 @@ namespace MvcVisionSystem
 
     public class MobileSamBoxPromptService
     {
+        private const string ApprovedLocalMobileSamRuntimeRoot = @"C:\Git\AI\yolov8";
         private readonly ExternalProcessRunner processRunner;
 
         public MobileSamBoxPromptService(ExternalProcessRunner processRunner = null)
@@ -76,23 +77,23 @@ namespace MvcVisionSystem
             var errors = new List<string>();
             if (!File.Exists(pythonPath))
             {
-                errors.Add("Ultralytics Python 실행기를 찾을 수 없습니다.");
+                errors.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfSmartMask.Error.PythonMissing"));
             }
             if (!File.Exists(weightsPath))
             {
-                errors.Add("MobileSAM 가중치 mobile_sam.pt를 찾을 수 없습니다.");
+                errors.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfSmartMask.Error.ModelMissing"));
             }
             if (!File.Exists(workerPath))
             {
-                errors.Add("앱의 MobileSAM 박스 프롬프트 worker를 찾을 수 없습니다.");
+                errors.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfSmartMask.Error.ScriptMissing"));
             }
             if (string.IsNullOrWhiteSpace(normalizedImagePath) || !File.Exists(normalizedImagePath))
             {
-                errors.Add("스마트 마스크를 만들 원본 이미지를 찾을 수 없습니다.");
+                errors.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfSmartMask.Input.ImageMissing"));
             }
             if (promptBounds.Width <= 0 || promptBounds.Height <= 0)
             {
-                errors.Add("결함을 감싼 박스를 먼저 그려야 합니다.");
+                errors.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfSmartMask.Input.BoxMissing"));
             }
 
             return new MobileSamBoxPromptRequest
@@ -125,12 +126,12 @@ namespace MvcVisionSystem
                 .ConfigureAwait(false);
             if (processResult.Canceled)
             {
-                return Failure("Canceled", "MobileSAM 후보 생성을 취소했습니다.");
+                return Failure("Canceled", OpenVisionLab.OpenVisionLanguageService.T("WpfSmartMask.Error.Canceled"));
             }
 
             if (processResult.TimedOut)
             {
-                return Failure("Timeout", "MobileSAM 후보 생성은 45초 안에 끝나지 않았습니다.");
+                return Failure("Timeout", OpenVisionLab.OpenVisionLanguageService.T("WpfSmartMask.Error.Timeout"));
             }
 
             if (!processResult.Started)
@@ -154,7 +155,7 @@ namespace MvcVisionSystem
             {
                 return Failure(
                     payload?.Value<string>("errorCode") ?? "WorkerFailed",
-                    payload?.Value<string>("error") ?? FirstNonEmpty(stderr, stdout, "MobileSAM worker가 실패했습니다."));
+                    payload?.Value<string>("error") ?? FirstNonEmpty(stderr, stdout, OpenVisionLab.OpenVisionLanguageService.T("WpfSmartMask.Error.Failed")));
             }
 
             IReadOnlyList<DetectionPolygonPoint> polygon = (payload["polygon"] as JArray)?
@@ -167,7 +168,7 @@ namespace MvcVisionSystem
                 .ToList() ?? new List<DetectionPolygonPoint>();
             if (polygon.Count < 3)
             {
-                return Failure("InvalidMask", "MobileSAM 후보 경계점이 3개보다 적습니다.");
+                return Failure("InvalidMask", OpenVisionLab.OpenVisionLanguageService.T("WpfSmartMask.Error.InvalidContour"));
             }
 
             JObject bounds = payload["bounds"] as JObject;
@@ -204,7 +205,7 @@ namespace MvcVisionSystem
                 MaskArea = payload.Value<int?>("maskArea") ?? 0,
                 WeightsSha256 = payload.Value<string>("weightsSha256") ?? string.Empty,
                 RuntimeSummary = runtime,
-                Summary = $"스마트 마스크 후보 1개 생성 / +{request.PromptPoints.Count(point => point.Kind == WpfSmartMaskPointKind.Positive)} -{request.PromptPoints.Count(point => point.Kind == WpfSmartMaskPointKind.Negative)} / 경계점 {polygon.Count}개 / {elapsed.ToString("N0", CultureInfo.CurrentCulture)}ms"
+                Summary = string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfSmartMask.Result.Summary"), request.PromptPoints.Count(point => point.Kind == WpfSmartMaskPointKind.Positive), request.PromptPoints.Count(point => point.Kind == WpfSmartMaskPointKind.Negative), polygon.Count, elapsed.ToString("N0", CultureInfo.CurrentCulture))
             };
         }
 
@@ -272,7 +273,8 @@ namespace MvcVisionSystem
             {
                 settings?.ProjectRootPath,
                 Environment.CurrentDirectory,
-                AppContext.BaseDirectory
+                AppContext.BaseDirectory,
+                ApprovedLocalMobileSamRuntimeRoot
             })
             {
                 string candidate = PythonModelRuntimeConnectionService.ResolveKnownLocalRuntimeFolder(source, "yolov8");

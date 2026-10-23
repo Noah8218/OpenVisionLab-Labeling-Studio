@@ -356,7 +356,7 @@ namespace MvcVisionSystem
                     metadata,
                     metadataFileExists,
                     artifactIdMismatch,
-                    "results.csv 없음");
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingWeightsService.ResultsMissing"));
                 return true;
             }
 
@@ -408,7 +408,7 @@ namespace MvcVisionSystem
                     metadata,
                     metadataFileExists,
                     artifactIdMismatch,
-                    "results.csv 행 없음");
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingWeightsService.ResultsNoRows"));
                 metrics.ResultsCsvPath = resultsCsvPath;
                 return true;
             }
@@ -434,7 +434,7 @@ namespace MvcVisionSystem
                         metadata,
                         metadataFileExists,
                         artifactIdMismatch,
-                        $"checkpoint epoch {metadata.Epoch.Value} results.csv 행 없음");
+                        string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingWeightsService.CheckpointRowMissing"), metadata.Epoch.Value));
                     metrics.ResultsCsvPath = resultsCsvPath;
                     return true;
                 }
@@ -453,7 +453,7 @@ namespace MvcVisionSystem
 
             if (!metrics.HasEvaluationMetrics && metadataRead)
             {
-                metrics.CheckpointReferenceText = $"{referenceText}; 평가 지표 없음/부분 행";
+                metrics.CheckpointReferenceText = string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingWeightsService.PartialMetrics"), referenceText);
                 return true;
             }
 
@@ -564,23 +564,23 @@ namespace MvcVisionSystem
             if (metadataRead && metadata?.Epoch.HasValue == true)
             {
                 parts.Add(matched
-                    ? "checkpoint epoch 연결"
-                    : "checkpoint epoch 참고값");
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingWeightsService.CheckpointMatched")
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingWeightsService.CheckpointReference"));
             }
             else if (metadataFileExists)
             {
                 parts.Add(metadataRead
-                    ? "checkpoint epoch 없음; 마지막 epoch 참고값"
-                    : "checkpoint metadata 읽기 실패; 마지막 epoch 참고값");
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingWeightsService.CheckpointNoEpoch")
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingWeightsService.CheckpointReadFailed"));
             }
             else
             {
-                parts.Add("마지막 epoch 참고값 (checkpoint metadata 없음)");
+                parts.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingWeightsService.CheckpointMissing"));
             }
 
             if (artifactIdMismatch)
             {
-                parts.Add("artifact hash 불일치; 파일 hash 사용");
+                parts.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingWeightsService.ArtifactMismatch"));
             }
 
             if (!string.IsNullOrWhiteSpace(fallbackText))
@@ -771,7 +771,7 @@ namespace MvcVisionSystem
         {
             if (string.IsNullOrWhiteSpace(latestWeightsPath))
             {
-                return "학습 결과 모델 후보 없음";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.TrainingComparison.Term.NoTrainedModel");
             }
 
             string latestName = FormatWeightsDisplayPath(latestWeightsPath);
@@ -779,23 +779,23 @@ namespace MvcVisionSystem
             if (PathsEqual(latestWeightsPath, currentWeightsPath))
             {
                 return latestMatchesCurrentDataset
-                    ? $"현재 데이터셋 학습 완료: {latestName} (현재 검사 모델)"
-                    : $"현재 검사 모델: {latestName}";
+                    ? string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingWeightsService.DatasetCurrent"), latestName)
+                    : string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingWeightsService.CurrentModel"), latestName);
             }
 
             if (shouldApply)
             {
-                string currentText = currentUtc.HasValue ? $" / 현재 {currentName} {currentUtc.Value:yyyy-MM-dd HH:mm}Z" : string.Empty;
+                string currentText = currentUtc.HasValue ? string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingWeightsService.CurrentNameTime"), currentName, currentUtc.Value.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.CurrentCulture)) : string.Empty;
                 string latestText = latestUtc.HasValue ? $" ({latestUtc.Value:yyyy-MM-dd HH:mm}Z)" : string.Empty;
-                string prefix = latestMatchesCurrentDataset ? "현재 데이터셋 학습 완료" : "새 학습 모델 후보";
+                string prefix = latestMatchesCurrentDataset ? OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingWeightsService.DatasetDonePrefix") : OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.TrainingComparison.Term.NewTrainedModel");
                 return $"{prefix}: {latestName}{latestText}{currentText}";
             }
 
             return string.IsNullOrWhiteSpace(currentWeightsPath)
-                ? $"학습 모델 후보 사용 불가: {latestName}"
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.TrainingComparison.Term.TrainedModelUnavailable") + $": {latestName}"
                 : latestMatchesCurrentDataset
-                    ? $"현재 데이터셋 학습 완료: {latestName} / 현재 검사 모델 유지: {currentName}"
-                    : $"현재 검사 모델 유지: {currentName}";
+                    ? string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingWeightsService.DatasetKeepCurrent"), latestName, currentName)
+                    : string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingWeightsService.KeepCurrent"), currentName);
         }
 
         private static string BuildComparisonStatusText(
@@ -807,25 +807,25 @@ namespace MvcVisionSystem
         {
             if (string.IsNullOrWhiteSpace(latestWeightsPath))
             {
-                return "학습 결과 모델 후보 없음";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.TrainingComparison.Term.NoTrainedModel");
             }
 
             string latestName = Path.GetFileName(latestWeightsPath);
             if (PathsEqual(latestWeightsPath, currentWeightsPath))
             {
-                return $"현재 검사 모델: {latestName}";
+                return string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingWeightsService.CurrentModel"), latestName);
             }
 
             if (shouldApply)
             {
-                string currentText = currentUtc.HasValue ? $" / 현재 {currentUtc.Value:yyyy-MM-dd HH:mm}Z" : string.Empty;
+                string currentText = currentUtc.HasValue ? string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingWeightsService.CurrentTime"), currentUtc.Value.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.CurrentCulture)) : string.Empty;
                 string latestText = latestUtc.HasValue ? $" ({latestUtc.Value:yyyy-MM-dd HH:mm}Z)" : string.Empty;
-                return $"새 학습 모델 후보: {latestName}{latestText}{currentText}";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.TrainingComparison.Term.NewTrainedModel") + $": {latestName}{latestText}{currentText}";
             }
 
             return string.IsNullOrWhiteSpace(currentWeightsPath)
-                ? $"학습 모델 후보 사용 불가: {latestName}"
-                : $"현재 검사 모델 유지: {Path.GetFileName(currentWeightsPath)}";
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.TrainingComparison.Term.TrainedModelUnavailable") + $": {latestName}"
+                : string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingWeightsService.KeepCurrent"), Path.GetFileName(currentWeightsPath));
         }
 
         private static string TryFindSiblingWeightsPath(string weightsPath, string fileName)

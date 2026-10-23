@@ -1,13 +1,44 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Drawing;
 using System.Linq;
 using System.Windows.Input;
 using MvcVisionSystem.Yolo;
+using OpenVisionLab;
 using OpenVisionLab.Mvvm;
 
 namespace MvcVisionSystem
 {
+    public sealed class WpfMaskQualityMarkerItem : WpfObservableViewModel
+    {
+        private bool isSelected;
+
+        public WpfMaskQualityMarkerItem(int segmentIndex, MaskQualityMarker marker)
+        {
+            SegmentIndex = segmentIndex;
+            Marker = marker ?? throw new ArgumentNullException(nameof(marker));
+        }
+
+        public int SegmentIndex { get; }
+        public MaskQualityMarker Marker { get; }
+        public Rectangle Bounds => Marker.Bounds;
+        public string KindText => OpenVisionLanguageService.T(Marker.Kind == MaskQualityMarkerKind.Hole ? "WpfObjectReview.MaskQuality.Hole" : "WpfObjectReview.MaskQuality.SmallComponent");
+        public string DisplayText => $"SEG {SegmentIndex + 1} · {KindText} · {Marker.Area}px · ({Marker.Bounds.X},{Marker.Bounds.Y})";
+
+        public void RefreshLocalizedPresentation()
+        {
+            OnPropertyChanged(nameof(KindText));
+            OnPropertyChanged(nameof(DisplayText));
+        }
+
+        public bool IsSelected
+        {
+            get => isSelected;
+            set => SetProperty(ref isSelected, value);
+        }
+    }
+
     public sealed class WpfObjectReviewPanelViewModel : WpfObservableViewModel
     {
         public const string AllMetadataTagsFilter = ObjectReviewMetadataFilterPresentationService.AllMetadataTagsFilter;
@@ -33,6 +64,7 @@ namespace MvcVisionSystem
         private string selectedClassName = string.Empty;
         private bool isDeleteEnabled;
         private bool isApplyClassEnabled;
+        private bool isApplySelectedObjectsClassEnabled;
         private bool isMergeSelectedSegmentsEnabled;
         private string mergeSelectionText = "\uBCD1\uD569 \uC120\uD0DD 0\uAC1C \u00B7 \uAC19\uC740 \uD074\uB798\uC2A4 2\uAC1C \uC774\uC0C1";
         private bool isSplitEnabled;
@@ -40,7 +72,7 @@ namespace MvcVisionSystem
         private string splitStatusText = "\uC120\uD0DD\uD55C \uC138\uADF8\uBA3C\uD2B8\uB97C \uC138\uB85C \uB610\uB294 \uAC00\uB85C\uB85C \uC808\uB2E8\uD569\uB2C8\uB2E4.";
         private bool isHoleEditEnabled;
         private bool isHoleEditPending;
-        private string holeEditStatusText = "\uB0B4\uBD80 \uAD6C\uBA4D\uC744 \uB2E4\uAC01\uD615\uC73C\uB85C \uCD94\uAC00\uD558\uAC70\uB098 \uD074\uB9AD\uD574 \uCC44\uC6C1\uB2C8\uB2E4.";
+        private string holeEditStatusText = "내부 구멍을 폴리곤으로 추가하거나 클릭해 채웁니다.";
         private bool isPolygonVertexContextVisible;
         private bool isVertexEditEnabled;
         private bool isVertexEditPending;
@@ -56,7 +88,7 @@ namespace MvcVisionSystem
         private string zOrderStatusText = "\uC120\uD0DD\uD55C \uC138\uADF8\uBA3C\uD2B8\uC758 \uC55E\uB4A4 \uD45C\uC2DC \uC21C\uC11C\uB97C \uBCC0\uACBD\uD569\uB2C8\uB2E4.";
         private bool isRemoveUnderlyingPreviewEnabled;
         private bool isRemoveUnderlyingPreviewPending;
-        private string removeUnderlyingStatusText = "\uC704\uCABD \uAC1D\uCCB4\uC640 \uACB9\uCE58\uB294 \uB4A4\uCABD geometry\uB97C \uBD84\uC11D\uD55C \uD6C4 \uD655\uC778\uD574 \uC81C\uAC70\uD569\uB2C8\uB2E4.";
+        private string removeUnderlyingStatusText = "\uC704\uCABD \uAC1D\uCCB4\uC640 \uACB9\uCE58\uB294 \uB4A4\uCABD \uD615\uC0C1\uC744 \uBD84\uC11D\uD55C \uD6C4 \uD655\uC778\uD574 \uC81C\uAC70\uD569\uB2C8\uB2E4.";
         private bool isObjectSessionStateEnabled;
         private bool isSelectedObjectHidden;
         private bool isSelectedObjectLocked;
@@ -80,16 +112,30 @@ namespace MvcVisionSystem
         private string groupSelectionStatusText = "\uADF8\uB8F9 \uAD6C\uC131\uC744 \uC2DC\uC791\uD558\uBA74 \uC800\uC7A5 \uAC1D\uCCB4\uB97C 2\uAC1C \uC774\uC0C1 \uC120\uD0DD\uD569\uB2C8\uB2E4.";
         private bool isCreateGroupEnabled;
         private bool isSelectedObjectGrouped;
+        private ObjectReviewActionAvailabilitySnapshot actionAvailabilitySnapshot;
+        private int mergePresentationCount;
         private bool isSegmentContextVisible;
         private bool isSegmentAdvancedEditorOpen;
         private string qualityReviewStatusText = "이미지 없음";
         private string qualityReviewDetailText = "이미지를 열면 품질 검수 상태를 표시합니다.";
         private string qualityReviewNoteText = string.Empty;
         private bool isQualityReviewEnabled;
+        private bool qualityHasSavedLabelWork;
+        private bool isReviewModeActive;
+        private bool isReviewModeAvailable;
+        private bool isApproveAndNextEnabled;
+        private bool isRejectImageEnabled;
+        private int pendingReviewCount;
+        private string reviewGuidance = string.Empty;
         private bool isMarkQualityReviewedEnabled;
         private bool isQualityUnreviewedActive;
         private bool isQualityNeedsFixActive;
         private bool isQualityReviewedActive;
+        private bool isEditHistoryExpanded;
+        private string editHistorySummaryText = "편집 이력 0건";
+        private int smallComponentMaximumArea;
+        private int holeMaximumArea;
+        private WpfMaskQualityMarkerItem selectedMaskQualityMarker;
         private int selectionNotificationSuppressDepth;
         private readonly ObjectReviewActionAvailabilityService actionAvailabilityService =
             new ObjectReviewActionAvailabilityService();
@@ -101,6 +147,8 @@ namespace MvcVisionSystem
             new ObjectReviewSelectedObjectPresentationService();
         private ObjectReviewWorkflowService groupSelectionWorkflowService;
         private Func<bool> deleteSelectedObject = () => false;
+        private Func<string> selectedReferenceClassNameProvider = () => string.Empty;
+        private Func<object, bool> isObjectKeyInputProtected = _ => false;
         private Func<IReadOnlyList<WpfObjectReviewObjectSnapshot>> capturePersistentOccludedSnapshots = EmptyObjectReviewSnapshots;
         private Func<WpfObjectReviewMutationResult, bool> applyPersistentOccludedMutation = RejectObjectReviewMutation;
         private Action<WpfObjectReviewMutationResult> reportPersistentOccludedError = _ => { };
@@ -135,6 +183,7 @@ namespace MvcVisionSystem
         private Action<string> reportGroupDissolveError = _ => { };
         private ICommand deleteObjectCommand = new RelayCommand(NoOpCommand);
         private ICommand applyObjectClassCommand = new RelayCommand(NoOpCommand);
+        private ICommand applySelectedObjectsClassCommand = new RelayCommand(NoOpCommand);
         private ICommand mergeSelectedSegmentsCommand = new RelayCommand(NoOpCommand);
         private ICommand mergeSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private ICommand beginVerticalSplitCommand = new RelayCommand(NoOpCommand);
@@ -156,6 +205,7 @@ namespace MvcVisionSystem
         private ICommand previewRemoveUnderlyingCommand = new RelayCommand(NoOpCommand);
         private ICommand applyRemoveUnderlyingCommand = new RelayCommand(NoOpCommand);
         private ICommand cancelRemoveUnderlyingCommand = new RelayCommand(NoOpCommand);
+        private ICommand toggleAllObjectsHiddenCommand = new RelayCommand(NoOpCommand);
         private ICommand toggleObjectHiddenCommand = new RelayCommand(NoOpCommand);
         private ICommand toggleObjectLockedCommand = new RelayCommand(NoOpCommand);
         private ICommand toggleObjectPinnedCommand = new RelayCommand(NoOpCommand);
@@ -174,15 +224,31 @@ namespace MvcVisionSystem
         private ICommand resetMetadataFilterCommand;
         private ICommand objectSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private ICommand objectPreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(NoOpKeyCommand);
+        private ICommand setLabelingModeCommand = new RelayCommand(NoOpCommand);
+        private ICommand setReviewModeCommand = new RelayCommand(NoOpCommand);
+        private ICommand approveAndNextCommand = new RelayCommand(NoOpCommand);
+        private ICommand rejectImageCommand = new RelayCommand(NoOpCommand);
         private ICommand markQualityUnreviewedCommand = new RelayCommand(NoOpCommand);
         private ICommand markQualityNeedsFixCommand = new RelayCommand(NoOpCommand);
         private ICommand markQualityReviewedCommand = new RelayCommand(NoOpCommand);
         private ICommand exportQualityReviewReportCommand = new RelayCommand(NoOpCommand);
+        private ICommand analyzeMaskQualityCommand = new RelayCommand(NoOpCommand);
+        private ICommand repairSelectedMaskQualityMarkerCommand = new RelayCommand(NoOpCommand);
+        private Action analyzeMaskQuality = NoOpCommand;
+        private Action<WpfMaskQualityMarkerItem> repairSelectedMaskQualityMarker = _ => { };
+        private Func<WpfMaskQualityMarkerItem, bool> maskQualityRepairAdmission = _ => true;
 
         public event Action<string> WorkflowStatusChanged;
 
         public WpfObjectReviewPanelViewModel()
         {
+            ApplyReferenceClassCommand = new RelayCommand(ExecuteReferenceClassSelection, CanApplyReferenceClassSelection);
+            ToggleRowHiddenCommand = new RelayCommand<WpfObjectReviewListItem>(row => ExecuteRowSessionState(row, WpfObjectSessionStateKind.Hidden), row => row?.SupportsSessionState == true && Objects.Contains(row));
+            ToggleRowLockedCommand = new RelayCommand<WpfObjectReviewListItem>(row => ExecuteRowSessionState(row, WpfObjectSessionStateKind.Locked), row => row?.SupportsSessionState == true && Objects.Contains(row));
+            DeleteRowCommand = new RelayCommand<WpfObjectReviewListItem>(row =>
+            {
+                if (ObjectReviewActionAvailabilityService.CanEditRow(row) && SelectInlineRow(row)) DeleteObjectCommand.Execute(null);
+            }, row => ObjectReviewActionAvailabilityService.CanEditRow(row) && Objects.Contains(row));
             MetadataTagFilters.Add(AllMetadataTagsFilter);
             GroupFilters.Add(AllGroupsFilter);
             GroupFilters.Add(UngroupedFilter);
@@ -204,15 +270,28 @@ namespace MvcVisionSystem
 
         public string PanelModeBadgeText => "\uC800\uC7A5 \uB77C\uBCA8\uB9CC";
 
-        public string PanelModeScopeText => "\uBBF8\uD655\uC815 AI \uD6C4\uBCF4 \uD45C\uC2DC \uC548 \uD568";
+        public string PanelModeScopeText => OpenVisionLanguageService.T("WpfObjectReview.Scope.PendingCandidates");
 
         public string PanelModeDetailText => "\uC774 \uD328\uB110\uC740 \uD30C\uC77C\uC5D0 \uBC18\uC601\uB420 \uC800\uC7A5 \uB77C\uBCA8\uB9CC \uD3B8\uC9D1\uD569\uB2C8\uB2E4. \uBBF8\uD655\uC815 AI \uD6C4\uBCF4\uB294 \uD45C\uC2DC\uD558\uC9C0 \uC54A\uC73C\uBA70, AI \uD6C4\uBCF4\uB97C \uD655\uC815\uD558\uBA74 \uC800\uC7A5 \uB77C\uBCA8\uB85C \uC804\uD658\uB418\uC5B4 \uC5EC\uAE30\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
 
-        public string ActionGuideText => "\uC0AD\uC81C/\uD074\uB798\uC2A4 \uBCC0\uACBD\uC740 \uD604\uC7AC \uC774\uBBF8\uC9C0\uC5D0 \uBC14\uB85C \uBC18\uC601\uB418\uACE0 \uC800\uC7A5 \uD544\uC694 \uC0C1\uD0DC\uB85C \uBC14\uB00D\uB2C8\uB2E4. \uD30C\uC77C\uC5D0 \uBC18\uC601\uD558\uB824\uBA74 \uB77C\uBCA8 \uC800\uC7A5\uC744 \uB204\uB974\uC138\uC694.";
+        public string ActionGuideText => "삭제·클래스 변경은 편집 내용에 반영됩니다. 라벨을 저장해야 파일에 남습니다.";
 
         public BulkObservableCollection<WpfObjectReviewListItem> Objects { get; } = new BulkObservableCollection<WpfObjectReviewListItem>();
 
+        public ObservableCollection<WpfMaskQualityMarkerItem> MaskQualityMarkers { get; } =
+            new ObservableCollection<WpfMaskQualityMarkerItem>();
+
+        public ObservableCollection<string> EditHistoryItems { get; } = new ObservableCollection<string>();
+
         public ObservableCollection<string> ClassNames { get; } = new ObservableCollection<string>();
+
+        public ICommand ToggleRowHiddenCommand { get; }
+
+        public ICommand ToggleRowLockedCommand { get; }
+
+        public ICommand DeleteRowCommand { get; }
+
+        public ICommand ApplyReferenceClassCommand { get; }
 
         public ObservableCollection<string> MetadataTagOptions { get; } = new ObservableCollection<string>();
 
@@ -230,6 +309,12 @@ namespace MvcVisionSystem
         {
             get => applyObjectClassCommand;
             private set => SetProperty(ref applyObjectClassCommand, value);
+        }
+
+        public ICommand ApplySelectedObjectsClassCommand
+        {
+            get => applySelectedObjectsClassCommand;
+            private set => SetProperty(ref applySelectedObjectsClassCommand, value);
         }
 
         public ICommand MergeSelectedSegmentsCommand
@@ -358,6 +443,13 @@ namespace MvcVisionSystem
             private set => SetProperty(ref cancelRemoveUnderlyingCommand, value);
         }
 
+        public ICommand ToggleAllObjectsHiddenCommand
+        {
+            get => toggleAllObjectsHiddenCommand;
+            private set => SetProperty(ref toggleAllObjectsHiddenCommand, value);
+        }
+        public bool AreAllObjectsHidden => Objects.Any(row => row.SupportsSessionState) && Objects.Where(row => row.SupportsSessionState).All(row => row.IsHidden);
+
         public ICommand ToggleObjectHiddenCommand
         {
             get => toggleObjectHiddenCommand;
@@ -482,6 +574,25 @@ namespace MvcVisionSystem
             private set => SetProperty(ref exportQualityReviewReportCommand, value);
         }
 
+        public ICommand AnalyzeMaskQualityCommand
+        {
+            get => analyzeMaskQualityCommand;
+            private set => SetProperty(ref analyzeMaskQualityCommand, value);
+        }
+
+        public ICommand RepairSelectedMaskQualityMarkerCommand
+        {
+            get => repairSelectedMaskQualityMarkerCommand;
+            private set => SetProperty(ref repairSelectedMaskQualityMarkerCommand, value);
+        }
+
+        public bool IsRepairSelectedMaskQualityMarkerEnabled
+            => SelectedMaskQualityMarker != null
+                && ObjectReviewActionAvailabilityService.CanRepairMaskQualityMarker(
+                    Objects.FirstOrDefault(row => row.IsManualSegment && row.SourceIndex == SelectedMaskQualityMarker.SegmentIndex),
+                    IsSplitPending || IsHoleEditPending || IsVertexEditPending || IsIntelligentScissorsPending || IsRemoveUnderlyingPreviewPending)
+                && maskQualityRepairAdmission(SelectedMaskQualityMarker);
+
         public string SummaryText
         {
             get => summaryText;
@@ -551,13 +662,22 @@ namespace MvcVisionSystem
         public bool IsDeleteEnabled
         {
             get => isDeleteEnabled;
-            private set => SetProperty(ref isDeleteEnabled, value);
+            private set
+            {
+                if (SetProperty(ref isDeleteEnabled, value)) CommandManager.InvalidateRequerySuggested();
+            }
         }
 
         public bool IsApplyClassEnabled
         {
             get => isApplyClassEnabled;
             private set => SetProperty(ref isApplyClassEnabled, value);
+        }
+
+        public bool IsApplySelectedObjectsClassEnabled
+        {
+            get => isApplySelectedObjectsClassEnabled;
+            private set => SetProperty(ref isApplySelectedObjectsClassEnabled, value);
         }
 
         public bool IsMergeSelectedSegmentsEnabled
@@ -652,7 +772,7 @@ namespace MvcVisionSystem
 
         public string IntelligentScissorsStatusText
         {
-            get => intelligentScissorsStatusText;
+            get => ObjectReviewPresenter.LocalizeIntelligentScissorsStatus(intelligentScissorsStatusText);
             private set => SetProperty(ref intelligentScissorsStatusText, value ?? string.Empty);
         }
 
@@ -700,7 +820,7 @@ namespace MvcVisionSystem
 
         public string RemoveUnderlyingStatusText
         {
-            get => removeUnderlyingStatusText;
+            get => ObjectReviewPresenter.LocalizeRemoveUnderlyingStatus(removeUnderlyingStatusText);
             private set => SetProperty(ref removeUnderlyingStatusText, value ?? string.Empty);
         }
 
@@ -954,6 +1074,55 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isQualityReviewedActive, value);
         }
 
+        public bool IsReviewModeActive => isReviewModeActive;
+        public bool IsLabelingModeActive => !isReviewModeActive;
+        public bool IsReviewModeAvailable => isReviewModeAvailable;
+        public bool IsApproveAndNextEnabled => isApproveAndNextEnabled;
+        public bool IsRejectImageEnabled => isRejectImageEnabled;
+        public int PendingReviewCount => pendingReviewCount;
+        public string ReviewModeText => string.Format(System.Globalization.CultureInfo.InvariantCulture, OpenVisionLanguageService.T("WpfReview.Mode.Count"), pendingReviewCount);
+        public string ReviewGuidanceText => !string.IsNullOrWhiteSpace(reviewGuidance) ? reviewGuidance
+            : OpenVisionLanguageService.T(pendingReviewCount > 0 ? "WpfReview.Guidance.Pending" : "WpfReview.Guidance.None");
+        public ICommand SetLabelingModeCommand => setLabelingModeCommand;
+        public ICommand SetReviewModeCommand => setReviewModeCommand;
+        public ICommand ApproveAndNextCommand => approveAndNextCommand;
+        public ICommand RejectImageCommand => rejectImageCommand;
+
+        public void ConfigureReviewModeCommands(Action setLabelingMode, Action setReviewMode, Action approveAndNext, Action rejectImage)
+        {
+            setLabelingModeCommand = new RelayCommand(setLabelingMode ?? NoOpCommand, () => IsReviewModeAvailable);
+            setReviewModeCommand = new RelayCommand(setReviewMode ?? NoOpCommand, () => IsReviewModeAvailable);
+            approveAndNextCommand = new RelayCommand(approveAndNext ?? NoOpCommand, () => IsReviewModeActive && IsApproveAndNextEnabled);
+            rejectImageCommand = new RelayCommand(rejectImage ?? NoOpCommand, () => IsReviewModeActive && IsRejectImageEnabled);
+            OnPropertyChanged(nameof(SetLabelingModeCommand));
+            OnPropertyChanged(nameof(SetReviewModeCommand));
+            OnPropertyChanged(nameof(ApproveAndNextCommand));
+            OnPropertyChanged(nameof(RejectImageCommand));
+        }
+
+        public void SetReviewMode(bool active)
+        {
+            if (SetProperty(ref isReviewModeActive, active, nameof(IsReviewModeActive))) OnPropertyChanged(nameof(IsLabelingModeActive));
+            SetReviewGuidance(string.Empty);
+            CommandManager.InvalidateRequerySuggested();
+        }
+
+        public void SetReviewModeState(bool available, bool canApprove, bool canReject, int pendingCount)
+        {
+            SetProperty(ref isReviewModeAvailable, available, nameof(IsReviewModeAvailable));
+            SetProperty(ref isApproveAndNextEnabled, canApprove, nameof(IsApproveAndNextEnabled));
+            SetProperty(ref isRejectImageEnabled, canReject, nameof(IsRejectImageEnabled));
+            if (SetProperty(ref pendingReviewCount, Math.Max(0, pendingCount), nameof(PendingReviewCount)))
+            {
+                OnPropertyChanged(nameof(ReviewModeText));
+                OnPropertyChanged(nameof(ReviewGuidanceText));
+            }
+            CommandManager.InvalidateRequerySuggested();
+        }
+
+        public void SetReviewGuidance(string text)
+            => SetProperty(ref reviewGuidance, text ?? string.Empty, nameof(ReviewGuidanceText));
+
         public bool IsSelectionNotificationSuppressed => selectionNotificationSuppressDepth > 0;
 
         public void ConfigureCommands(
@@ -999,11 +1168,15 @@ namespace MvcVisionSystem
             Action removeSelectedFromGroup = null,
             Action dissolveSelectedGroup = null,
             Action toggleGroupOccluded = null,
-            Action<string> toggleGroupTag = null)
+            Action<string> toggleGroupTag = null,
+            Action applySelectedObjectsClass = null,
+            Func<string> selectedReferenceClassName = null)
         {
+            selectedReferenceClassNameProvider = selectedReferenceClassName ?? (() => string.Empty);
             // The review panel exposes commands; the shell injects workflow actions without owning the view events.
             DeleteObjectCommand = new RelayCommand(deleteObject ?? NoOpCommand);
             ApplyObjectClassCommand = new RelayCommand(applyObjectClass ?? NoOpCommand);
+            ApplySelectedObjectsClassCommand = new RelayCommand(applySelectedObjectsClass ?? NoOpCommand);
             MarkQualityUnreviewedCommand = new RelayCommand(markQualityUnreviewed ?? NoOpCommand);
             MarkQualityNeedsFixCommand = new RelayCommand(markQualityNeedsFix ?? NoOpCommand);
             MarkQualityReviewedCommand = new RelayCommand(markQualityReviewed ?? NoOpCommand);
@@ -1057,6 +1230,36 @@ namespace MvcVisionSystem
                 () => (toggleGroupTag ?? (_ => { }))(SelectedMetadataTag));
         }
 
+        public void ConfigureMaskQualityWorkflow(
+            Action analyze,
+            Action<WpfMaskQualityMarkerItem> repair)
+        {
+            analyzeMaskQuality = analyze ?? NoOpCommand;
+            repairSelectedMaskQualityMarker = repair ?? (_ => { });
+            AnalyzeMaskQualityCommand = new RelayCommand(() => analyzeMaskQuality());
+            RepairSelectedMaskQualityMarkerCommand = new RelayCommand(
+                () => { if (IsRepairSelectedMaskQualityMarkerEnabled) repairSelectedMaskQualityMarker(SelectedMaskQualityMarker); },
+                () => IsRepairSelectedMaskQualityMarkerEnabled);
+        }
+
+        public void ConfigureMaskQualityRepairAdmission(Func<WpfMaskQualityMarkerItem, bool> admission)
+        {
+            maskQualityRepairAdmission = admission ?? (_ => true);
+            OnPropertyChanged(nameof(IsRepairSelectedMaskQualityMarkerEnabled));
+        }
+
+        public void SetMaskQualityMarkers(IEnumerable<WpfMaskQualityMarkerItem> markers)
+        {
+            MaskQualityMarkers.Clear();
+            foreach (WpfMaskQualityMarkerItem marker in markers ?? Array.Empty<WpfMaskQualityMarkerItem>())
+            {
+                MaskQualityMarkers.Add(marker);
+            }
+
+            SelectedMaskQualityMarker = MaskQualityMarkers.FirstOrDefault();
+            OnPropertyChanged(nameof(MaskQualityMarkers));
+        }
+
         public void ConfigureGroupSelectionWorkflow(ObjectReviewWorkflowService workflowService)
         {
             groupSelectionWorkflowService = workflowService ?? throw new ArgumentNullException(nameof(workflowService));
@@ -1106,8 +1309,14 @@ namespace MvcVisionSystem
 
         public void ConfigureObjectSessionStateWorkflow(
             Func<WpfObjectReviewItemRef, WpfObjectSessionStateKind, WpfObjectSessionState> toggleState,
-            Action<string> reportError = null)
+            Action<string> reportError = null,
+            Action toggleAllHidden = null)
         {
+            ToggleAllObjectsHiddenCommand = new RelayCommand(() =>
+            {
+                toggleAllHidden?.Invoke();
+                RefreshActionState();
+            }, () => Objects.Any(row => row.SupportsSessionState));
             toggleObjectSessionState = toggleState ?? ((_, __) => null);
             reportObjectSessionStateError = reportError ?? (_ => { });
             ToggleObjectHiddenCommand = new RelayCommand(
@@ -1118,9 +1327,10 @@ namespace MvcVisionSystem
                 () => ExecuteToggleObjectSessionState(WpfObjectSessionStateKind.Pinned));
         }
 
-        public void ConfigureObjectDeleteShortcutWorkflow(Func<bool> deleteAction)
+        public void ConfigureObjectDeleteShortcutWorkflow(Func<bool> deleteAction, Func<object, bool> protectInput = null)
         {
             deleteSelectedObject = deleteAction ?? (() => false);
+            isObjectKeyInputProtected = protectInput ?? (_ => false);
             ObjectPreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(ExecuteObjectPreviewKeyDown);
         }
 
@@ -1265,15 +1475,15 @@ namespace MvcVisionSystem
                 string.Equals(value, tag, StringComparison.OrdinalIgnoreCase));
             WorkflowStatusChanged?.Invoke(
                 isApplied
-                    ? $"\uD0DC\uADF8 \uC801\uC6A9: {tag} \u00B7 \uB77C\uBCA8 \uC800\uC7A5 \uD544\uC694"
-                    : $"\uD0DC\uADF8 \uD574\uC81C: {tag} \u00B7 \uB77C\uBCA8 \uC800\uC7A5 \uD544\uC694");
+                    ? string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfObjectReviewPanelViewModel.TagApplied"), tag)
+                    : string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfObjectReviewPanelViewModel.TagRemoved"), tag));
         }
 
         private void ExecuteResetRecipeMetadataTags()
         {
             if (groupSelectionWorkflowService == null)
             {
-                ReportRecipeMetadataResetError("Recipe \uD0DC\uADF8 \uBAA9\uB85D\uC744 \uCD08\uAE30\uD654\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+                ReportRecipeMetadataResetError("레시피 태그 목록을 초기화할 수 없습니다.");
                 return;
             }
 
@@ -1289,12 +1499,12 @@ namespace MvcVisionSystem
 
             if (!applyRecipeMetadataResetMutation(workflowResult))
             {
-                ReportRecipeMetadataResetError("Recipe \uD0DC\uADF8 \uBAA9\uB85D \uBCC0\uACBD\uC744 \uD654\uBA74\uC5D0 \uBC18\uC601\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
+                ReportRecipeMetadataResetError("레시피 태그 목록 변경을 화면에 반영하지 못했습니다.");
                 return;
             }
 
             WorkflowStatusChanged?.Invoke(
-                "Recipe \uD0DC\uADF8 \uBAA9\uB85D\uC744 \uAE30\uBCF8\uAC12(\uBE48 \uBAA9\uB85D)\uC73C\uB85C \uB418\uB3CC\uB838\uC2B5\uB2C8\uB2E4. \uAE30\uC874 \uAC1D\uCCB4\uC5D0 \uC800\uC7A5\uB41C \uD0DC\uADF8\uB294 \uC0AD\uC81C\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
+                "레시피 태그 목록을 빈 목록으로 되돌렸습니다. 기존 객체에 저장된 태그는 유지됩니다.");
         }
 
         private bool TryResolveSelectedSnapshot(
@@ -1356,9 +1566,44 @@ namespace MvcVisionSystem
             WorkflowStatusChanged?.Invoke($"{action}: {stateText} \u00B7 \uD604\uC7AC \uC774\uBBF8\uC9C0 \uC138\uC158\uB9CC");
         }
 
+        private bool SelectInlineRow(WpfObjectReviewListItem row)
+        {
+            if (row?.IsEnabled != true || !Objects.Contains(row)) return false;
+            using (SuppressSelectionNotifications()) SelectedObject = row;
+            ObjectSelectionChangedCommand.Execute(row);
+            return true;
+        }
+
+        private void ExecuteRowSessionState(WpfObjectReviewListItem row, WpfObjectSessionStateKind kind)
+        {
+            if (row?.SupportsSessionState == true && SelectInlineRow(row)) ExecuteToggleObjectSessionState(kind);
+        }
+
+        private bool CanApplyReferenceClassSelection()
+        {
+            string target = selectedReferenceClassNameProvider();
+            return IsLabelingModeActive && ObjectReviewActionAvailabilityService.CanEditRow(SelectedObject)
+                && Objects.Contains(SelectedObject) && ClassNames.Any(name => string.Equals(name, target, StringComparison.OrdinalIgnoreCase))
+                && !string.Equals(SelectedObject.ClassName, target, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void ExecuteReferenceClassSelection()
+        {
+            if (CanApplyReferenceClassSelection()) SelectedObject.SelectedClassName = selectedReferenceClassNameProvider();
+        }
+
+        private void ExecuteInlineClassChange(WpfObjectReviewListItem row, string className)
+        {
+            string target = ClassNames.FirstOrDefault(name => string.Equals(name, className, StringComparison.OrdinalIgnoreCase));
+            if (target == null || !ObjectReviewActionAvailabilityService.CanEditRow(row) || !SelectInlineRow(row)) return;
+            SelectedClassName = target;
+            ApplyObjectClassCommand.Execute(null);
+        }
+
         private void ExecuteObjectPreviewKeyDown(KeyInputCommandArgs args)
         {
-            if (args == null || (args.Key != Key.Delete && args.Key != Key.Back))
+            if (args == null || (args.Key != Key.Delete && args.Key != Key.Back)
+                || args.Modifiers != ModifierKeys.None || args.IsRepeat || isObjectKeyInputProtected(args.OriginalSource))
             {
                 return;
             }
@@ -1451,7 +1696,7 @@ namespace MvcVisionSystem
             groupSelectionWorkflowService.CancelGroupSelection();
             SetGroupSelectionMode(false);
             RefreshGroupSelectionPresentation();
-            WorkflowStatusChanged?.Invoke($"검수 그룹 생성: {memberCount}개 · 라벨 저장 필요");
+            WorkflowStatusChanged?.Invoke(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfObjectReviewPanelViewModel.GroupCreated"), memberCount));
         }
 
         private void ExecuteToggleGroupOccluded()
@@ -1480,8 +1725,8 @@ namespace MvcVisionSystem
                 return;
             }
 
-            string state = workflowResult.AppliedValue ? "\uAC00\uB9BC \uC801\uC6A9" : "\uAC00\uB9BC \uD574\uC81C";
-            WorkflowStatusChanged?.Invoke($"\uADF8\uB8F9 {members.Count}\uAC1C \uAC1D\uCCB4 {state} \u00B7 \uB77C\uBCA8 \uC800\uC7A5 \uD544\uC694");
+            string state = workflowResult.AppliedValue ? OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfObjectReviewPanelViewModel.OcclusionAppliedState") : OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfObjectReviewPanelViewModel.OcclusionRemovedState");
+            WorkflowStatusChanged?.Invoke(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfObjectReviewPanelViewModel.GroupOccluded"), members.Count, state));
         }
 
         private void ExecuteRemoveSelectedFromGroup()
@@ -1521,8 +1766,8 @@ namespace MvcVisionSystem
             }
 
             string status = workflowResult.DissolvedGroupCount > 0
-                ? "\uADF8\uB8F9\uC5D0\uC11C \uC81C\uAC70\uD588\uACE0 1\uAC1C\uB9CC \uB0A8\uC740 \uADF8\uB8F9\uC740 \uC790\uB3D9 \uD574\uC81C\uD588\uC2B5\uB2C8\uB2E4. \uB77C\uBCA8 \uC800\uC7A5 \uD544\uC694"
-                : "\uC120\uD0DD \uAC1D\uCCB4\uB97C \uADF8\uB8F9\uC5D0\uC11C \uC81C\uAC70\uD588\uC2B5\uB2C8\uB2E4. \uB77C\uBCA8 \uC800\uC7A5 \uD544\uC694";
+                ? "그룹에서 제거하고 구성원이 하나만 남은 그룹은 해제했습니다. 라벨을 저장하세요."
+                : "선택 객체를 그룹에서 제거했습니다. 라벨을 저장하세요.";
             WorkflowStatusChanged?.Invoke(status);
         }
 
@@ -1537,7 +1782,7 @@ namespace MvcVisionSystem
             WpfObjectReviewItemRef selected = SelectedObject?.Payload as WpfObjectReviewItemRef;
             if (string.IsNullOrWhiteSpace(requestedTag?.Trim()) || selected == null)
             {
-                reportGroupTagError("\uADF8\uB8F9\uACFC Recipe \uD0DC\uADF8\uB97C \uC120\uD0DD\uD558\uC138\uC694.");
+                reportGroupTagError("그룹과 레시피 태그를 선택하세요.");
                 return;
             }
 
@@ -1546,7 +1791,7 @@ namespace MvcVisionSystem
                 groupSelectionWorkflowService.GetGroupMembers(snapshots, selected);
             if (members.Count < 2)
             {
-                reportGroupTagError("\uADF8\uB8F9\uACFC Recipe \uD0DC\uADF8\uB97C \uC120\uD0DD\uD558\uC138\uC694.");
+                reportGroupTagError("그룹과 레시피 태그를 선택하세요.");
                 return;
             }
 
@@ -1558,7 +1803,7 @@ namespace MvcVisionSystem
             if (!workflowResult.IsApplicable)
             {
                 string error = string.IsNullOrWhiteSpace(workflowResult.ErrorMessage)
-                    ? "\uADF8\uB8F9\uACFC Recipe \uD0DC\uADF8\uB97C \uC120\uD0DD\uD558\uC138\uC694."
+                    ? "그룹과 레시피 태그를 선택하세요."
                     : workflowResult.ErrorMessage;
                 reportGroupTagError(error);
                 return;
@@ -1570,9 +1815,9 @@ namespace MvcVisionSystem
                 return;
             }
 
-            string state = workflowResult.AppliedValue ? "\uC801\uC6A9" : "\uD574\uC81C";
+            string state = workflowResult.AppliedValue ? OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfObjectReviewPanelViewModel.AppliedState") : OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfObjectReviewPanelViewModel.RemovedState");
             WorkflowStatusChanged?.Invoke(
-                $"\uADF8\uB8F9 {members.Count}\uAC1C \uAC1D\uCCB4 \uD0DC\uADF8 {state}: {workflowResult.Tag} \u00B7 \uB77C\uBCA8 \uC800\uC7A5 \uD544\uC694");
+                string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfObjectReviewPanelViewModel.GroupTagged"), members.Count, state, workflowResult.Tag));
         }
 
         private void ExecuteDissolveSelectedGroup()
@@ -1610,7 +1855,7 @@ namespace MvcVisionSystem
             }
 
             WorkflowStatusChanged?.Invoke(
-                $"\uAC80\uC218 \uADF8\uB8F9 \uD574\uC81C: {members.Count}\uAC1C \u00B7 \uB77C\uBCA8 \uC800\uC7A5 \uD544\uC694");
+                string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfObjectReviewPanelViewModel.GroupDissolved"), members.Count));
         }
 
         private bool TryResolveSelectedGroupMembers(
@@ -1665,10 +1910,10 @@ namespace MvcVisionSystem
             HoleEditStatusText = mode switch
             {
                 WpfSegmentationHoleEditMode.Add
-                    => "\uAC1D\uCCB4 \uC548\uCABD\uC5D0 \uAD6C\uBA4D \uB2E4\uAC01\uD615\uC744 \uADF8\uB9AC\uACE0 \uCCAB \uC810\uC744 \uD074\uB9AD\uD558\uAC70\uB098 \uB354\uBE14\uD074\uB9AD\uD558\uC138\uC694.",
+                    => "객체 안쪽에 구멍 폴리곤을 그리고 첫 점을 클릭하거나 더블클릭하세요.",
                 WpfSegmentationHoleEditMode.Remove
                     => "\uCC44\uC6B8 \uB0B4\uBD80 \uAD6C\uBA4D\uC744 \uCE94\uBC84\uC2A4\uC5D0\uC11C \uD074\uB9AD\uD558\uC138\uC694.",
-                _ => "\uB0B4\uBD80 \uAD6C\uBA4D\uC744 \uB2E4\uAC01\uD615\uC73C\uB85C \uCD94\uAC00\uD558\uAC70\uB098 \uD074\uB9AD\uD574 \uCC44\uC6C1\uB2C8\uB2E4."
+                _ => "내부 구멍을 폴리곤으로 추가하거나 클릭해 채웁니다."
             };
             RefreshActionState();
         }
@@ -1716,7 +1961,7 @@ namespace MvcVisionSystem
             }
             RemoveUnderlyingStatusText = pending && !string.IsNullOrWhiteSpace(statusText)
                 ? statusText.Trim()
-                : "\uC704\uCABD \uAC1D\uCCB4\uC640 \uACB9\uCE58\uB294 \uB4A4\uCABD geometry\uB97C \uBD84\uC11D\uD55C \uD6C4 \uD655\uC778\uD574 \uC81C\uAC70\uD569\uB2C8\uB2E4.";
+                : "\uC704\uCABD \uAC1D\uCCB4\uC640 \uACB9\uCE58\uB294 \uB4A4\uCABD \uD615\uC0C1\uC744 \uBD84\uC11D\uD55C \uD6C4 \uD655\uC778\uD574 \uC81C\uAC70\uD569\uB2C8\uB2E4.";
             RefreshActionState();
         }
 
@@ -1753,6 +1998,7 @@ namespace MvcVisionSystem
             List<WpfObjectReviewListItem> rows = (objects ?? Array.Empty<WpfObjectReviewListItem>()).ToList();
             foreach (WpfObjectReviewListItem item in rows)
             {
+                item.ConfigureInlineClassChange(ExecuteInlineClassChange);
                 if (selected == null
                     && item.IsEnabled
                     && string.Equals(item.SourceKey, selectedSourceKey, StringComparison.OrdinalIgnoreCase)
@@ -1773,6 +2019,22 @@ namespace MvcVisionSystem
                 ? selected
                 : Objects.FirstOrDefault(item => item.IsEnabled && item.IsMetadataFilterMatch);
             RefreshActionState();
+        }
+
+        public void RefreshLocalizedPresentation()
+        {
+            SummaryText = ObjectReviewPresenter.BuildSummary(Objects.Count(item => item.IsEnabled));
+            foreach (WpfObjectReviewListItem item in Objects) item.RefreshLocalizedPresentation();
+            OnPropertyChanged(nameof(PanelModeScopeText));
+            OnPropertyChanged(nameof(ReviewModeText));
+            OnPropertyChanged(nameof(ReviewGuidanceText));
+            RefreshQualityReviewText();
+            OnPropertyChanged(nameof(MaskQualityThresholdSummaryText));
+            foreach (WpfMaskQualityMarkerItem marker in MaskQualityMarkers) marker.RefreshLocalizedPresentation();
+            RefreshSegmentActionText(refreshMergeSelection: true);
+            OnPropertyChanged(nameof(IntelligentScissorsStatusText));
+            OnPropertyChanged(nameof(RemoveUnderlyingStatusText));
+            ApplySelectedObjectPresentation();
         }
 
         public void SetMetadataTagDefinitions(IEnumerable<string> tags)
@@ -1807,6 +2069,73 @@ namespace MvcVisionSystem
             GroupSelectionCount = snapshot.SelectedCount;
             IsCreateGroupEnabled = snapshot.IsCreateGroupEnabled;
             GroupSelectionStatusText = snapshot.StatusText;
+            RefreshActionState(refreshSegmentCollectionState: false);
+        }
+
+        public int SmallComponentMaximumArea
+        {
+            get => smallComponentMaximumArea;
+            set
+            {
+                if (SetProperty(ref smallComponentMaximumArea, Math.Max(0, value)))
+                {
+                    OnPropertyChanged(nameof(MaskQualityThresholdSummaryText));
+                }
+            }
+        }
+
+        public int HoleMaximumArea
+        {
+            get => holeMaximumArea;
+            set
+            {
+                if (SetProperty(ref holeMaximumArea, Math.Max(0, value)))
+                {
+                    OnPropertyChanged(nameof(MaskQualityThresholdSummaryText));
+                }
+            }
+        }
+
+        public string MaskQualityThresholdSummaryText
+            => ObjectReviewPresenter.FormatMaskQualityThresholds(SmallComponentMaximumArea, HoleMaximumArea);
+
+        public WpfMaskQualityMarkerItem SelectedMaskQualityMarker
+        {
+            get => selectedMaskQualityMarker;
+            set
+            {
+                if (SetProperty(ref selectedMaskQualityMarker, value))
+                {
+                    OnPropertyChanged(nameof(IsRepairSelectedMaskQualityMarkerEnabled));
+                }
+            }
+        }
+
+        public bool IsEditHistoryExpanded
+        {
+            get => isEditHistoryExpanded;
+            set => SetProperty(ref isEditHistoryExpanded, value);
+        }
+
+        public string EditHistorySummaryText
+        {
+            get => editHistorySummaryText;
+            private set => SetProperty(ref editHistorySummaryText, value ?? string.Empty);
+        }
+
+        public void SetEditHistory(IEnumerable<string> actionNames)
+        {
+            EditHistoryItems.Clear();
+            foreach (string actionName in actionNames ?? Array.Empty<string>())
+            {
+                if (!string.IsNullOrWhiteSpace(actionName))
+                {
+                    EditHistoryItems.Add(actionName);
+                }
+            }
+
+            EditHistorySummaryText = $"편집 이력 {EditHistoryItems.Count}건";
+            OnPropertyChanged(nameof(EditHistoryItems));
         }
 
         public string GetSelectedObjectGroupId()
@@ -1835,6 +2164,8 @@ namespace MvcVisionSystem
             {
                 return false;
             }
+
+            item.ConfigureInlineClassChange(ExecuteInlineClassChange);
 
             if (summary != null)
             {
@@ -1971,14 +2302,12 @@ namespace MvcVisionSystem
         public void SetClassNames(IEnumerable<string> classNames, string selectedName = "")
         {
             string normalizedSelection = selectedName?.Trim() ?? string.Empty;
-            ClassNames.Clear();
-
-            foreach (string className in classNames ?? Array.Empty<string>())
+            string[] names = (classNames ?? Array.Empty<string>()).Where(name => !string.IsNullOrWhiteSpace(name)).ToArray();
+            if (!ClassNames.SequenceEqual(names, StringComparer.Ordinal))
             {
-                if (!string.IsNullOrWhiteSpace(className))
-                {
-                    ClassNames.Add(className);
-                }
+                ClassNames.Clear();
+                foreach (string name in names) ClassNames.Add(name);
+                foreach (WpfObjectReviewListItem row in Objects) row.RefreshInlineClassSelection();
             }
 
             if (!string.IsNullOrWhiteSpace(normalizedSelection))
@@ -2010,8 +2339,10 @@ namespace MvcVisionSystem
             YoloImageQualityReviewState state,
             bool hasActiveImage,
             bool canMarkReviewed,
-            string qualityReviewNote = "")
+            string qualityReviewNote = "",
+            bool hasSavedLabelWork = false)
         {
+            qualityHasSavedLabelWork = hasSavedLabelWork || canMarkReviewed;
             IsQualityReviewEnabled = hasActiveImage;
             IsMarkQualityReviewedEnabled = hasActiveImage && canMarkReviewed;
             IsQualityUnreviewedActive = hasActiveImage && state == YoloImageQualityReviewState.Unreviewed;
@@ -2021,34 +2352,31 @@ namespace MvcVisionSystem
                 ? YoloImageReviewStatusService.NormalizeQualityReviewNote(qualityReviewNote)
                 : string.Empty;
 
-            if (!hasActiveImage)
-            {
-                QualityReviewStatusText = "이미지 없음";
-                QualityReviewDetailText = "Detection/Segmentation 이미지를 열면 품질 검수 상태를 표시합니다.";
-                return;
-            }
+            RefreshQualityReviewText();
+        }
 
-            switch (state)
-            {
-                case YoloImageQualityReviewState.NeedsFix:
-                    QualityReviewStatusText = "수정 필요";
-                    QualityReviewDetailText = "사유를 고치면 수정 필요를 다시 눌러 저장하세요.";
-                    break;
-                case YoloImageQualityReviewState.Reviewed:
-                    QualityReviewStatusText = "검수 완료";
-                    QualityReviewDetailText = "현재 저장 라벨이 품질 검수를 통과했습니다.";
-                    break;
-                default:
-                    QualityReviewStatusText = "미검토";
-                    QualityReviewDetailText = canMarkReviewed
-                        ? "저장 라벨을 확인한 뒤 수정 필요 또는 검수 완료를 선택하세요."
-                        : "라벨 저장 또는 객체 없음 완료 후 검수 완료를 선택할 수 있습니다.";
-                    break;
-            }
+        private void RefreshQualityReviewText()
+        {
+            string statusKey = !IsQualityReviewEnabled ? "WpfReview.Status.NoImage" : IsQualityNeedsFixActive ? "WpfReview.Status.Rejected"
+                : IsQualityReviewedActive ? "WpfReview.Status.Reviewed" : qualityHasSavedLabelWork ? "WpfReview.Status.Labeled" : "WpfReview.Status.Unworked";
+            string detailKey = !IsQualityReviewEnabled ? "WpfReview.Detail.NoImage" : IsQualityNeedsFixActive ? "WpfReview.Detail.Rejected"
+                : IsQualityReviewedActive ? "WpfReview.Detail.Reviewed" : qualityHasSavedLabelWork ? "WpfReview.Detail.Labeled" : "WpfReview.Detail.Unworked";
+            QualityReviewStatusText = OpenVisionLanguageService.T(statusKey);
+            QualityReviewDetailText = OpenVisionLanguageService.T(detailKey);
         }
 
         public void RefreshActionState()
             => RefreshActionState(refreshSegmentCollectionState: true);
+
+        public bool MoveObjectSelection(int direction)
+        {
+            WpfObjectReviewListItem[] visible = Objects.Where(item => item.IsMetadataFilterMatch && !item.IsHidden).ToArray();
+            if (visible.Length == 0 || direction == 0) return false;
+            int index = Array.IndexOf(visible, SelectedObject);
+            int next = index < 0 ? (direction > 0 ? 0 : visible.Length - 1) : (index + Math.Sign(direction) + visible.Length) % visible.Length;
+            SelectedObject = visible[next];
+            return true;
+        }
 
         private bool SetSelectedObject(
             WpfObjectReviewListItem value,
@@ -2065,6 +2393,7 @@ namespace MvcVisionSystem
 
         private void RefreshActionState(bool refreshSegmentCollectionState)
         {
+            OnPropertyChanged(nameof(AreAllObjectsHidden));
             ObjectReviewActionAvailabilitySnapshot snapshot = actionAvailabilityService.Build(
                 SelectedObject,
                 Objects,
@@ -2084,6 +2413,11 @@ namespace MvcVisionSystem
             }
             IsDeleteEnabled = snapshot.IsDeleteEnabled;
             IsApplyClassEnabled = snapshot.IsApplyClassEnabled;
+            if (refreshSegmentCollectionState)
+            {
+                IsApplySelectedObjectsClassEnabled = GetMergeSelectedManualSegmentIndices().Count >= 2
+                    && !string.IsNullOrWhiteSpace(SelectedClassName);
+            }
             IsSplitEnabled = snapshot.IsSplitEnabled;
             IsHoleEditEnabled = snapshot.IsHoleEditEnabled;
             IsVertexEditEnabled = snapshot.IsVertexEditEnabled;
@@ -2092,14 +2426,24 @@ namespace MvcVisionSystem
             IsSendBackwardEnabled = snapshot.IsSendBackwardEnabled;
             IsBringForwardEnabled = snapshot.IsBringForwardEnabled;
             IsBringToFrontEnabled = snapshot.IsBringToFrontEnabled;
-            ZOrderStatusText = snapshot.ZOrderStatusText;
+            actionAvailabilitySnapshot = snapshot;
+            if (refreshSegmentCollectionState) mergePresentationCount = snapshot.MergeSelectionCount;
+            RefreshSegmentActionText(refreshSegmentCollectionState);
             IsRemoveUnderlyingPreviewEnabled = snapshot.IsRemoveUnderlyingPreviewEnabled;
             if (refreshSegmentCollectionState)
             {
                 IsMergeSelectedSegmentsEnabled = snapshot.IsMergeSelectedSegmentsEnabled;
-                MergeSelectionText = snapshot.MergeSelectionText;
             }
             ApplySelectedObjectPresentation();
+            OnPropertyChanged(nameof(IsRepairSelectedMaskQualityMarkerEnabled));
+        }
+
+        private void RefreshSegmentActionText(bool refreshMergeSelection)
+        {
+            if (actionAvailabilitySnapshot == null) return;
+            ZOrderStatusText = ObjectReviewPresenter.FormatSegmentOrder(actionAvailabilitySnapshot.SelectedSegmentIndex,
+                actionAvailabilitySnapshot.ManualSegmentCount, actionAvailabilitySnapshot.CanChangeZOrder);
+            if (refreshMergeSelection) MergeSelectionText = ObjectReviewPresenter.FormatMergeSelection(mergePresentationCount);
         }
 
         private void ApplySelectedObjectPresentation()

@@ -42,7 +42,7 @@ namespace MvcVisionSystem
 
             if (summary.UnreviewedImageCount > 0)
             {
-                return $"\uB2E4\uC74C: anomaly \uBBF8\uAC80\uD1A0 {summary.UnreviewedImageCount}\uC7A5\uC744 \uC815\uC0C1/\uC774\uC0C1\uC73C\uB85C \uBD84\uB958\uD558\uC138\uC694.";
+                return string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfAnomalyDashboard.Next.Undecided"), summary.UnreviewedImageCount);
             }
 
             return "\uBB38\uC81C \uC5C6\uC74C: anomaly \uC815\uC0C1/\uC774\uC0C1 \uBD84\uB958\uAC00 \uC644\uB8CC\uB410\uC2B5\uB2C8\uB2E4.";

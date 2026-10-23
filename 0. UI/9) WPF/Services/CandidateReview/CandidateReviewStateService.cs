@@ -1,4 +1,5 @@
 using MvcVisionSystem._1._Core;
+using MvcVisionSystem.Yolo;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,6 +25,8 @@ namespace MvcVisionSystem
 
         public bool HasPendingCandidates => pendingCandidates.Count > 0;
 
+        public InferenceResultReviewEntry LabelingTransferEntry { get; private set; }
+
         public YoloWorkerSmokeCandidate GetPendingCandidateAt(int index)
             => index >= 0 && index < pendingCandidates.Count ? pendingCandidates[index] : null;
 
@@ -32,6 +35,7 @@ namespace MvcVisionSystem
 
         public int LoadPendingCandidates(IEnumerable<YoloWorkerSmokeCandidate> candidates, bool clearConfirmed)
         {
+            LabelingTransferEntry = null;
             pendingCandidates.Clear();
             if (clearConfirmed)
             {
@@ -49,8 +53,52 @@ namespace MvcVisionSystem
             return pendingCandidates.Count;
         }
 
+        public static IReadOnlyList<YoloWorkerSmokeCandidate> BuildCandidatePresentation(YoloWorkerSmokeTestResult result, IReadOnlyList<LabelClass> supportedClasses = null, InferenceResultSource sourceOverride = null)
+        {
+            InferenceResultSource source = sourceOverride ?? result?.Source;
+            if (result?.Succeeded != true || source == null || !float.IsFinite(source.Confidence) || source.Confidence < 0 || source.Confidence > 1 || source.MaximumCandidates < 1)
+                return Array.Empty<YoloWorkerSmokeCandidate>();
+            return (result.Candidates ?? Array.Empty<YoloWorkerSmokeCandidate>()).Where(candidate => candidate != null && !candidate.ImageLevel
+                && double.IsFinite(candidate.Confidence) && candidate.Confidence >= source.Confidence && candidate.Confidence <= 1
+                && (supportedClasses == null || supportedClasses.Any(label => ClassCatalogService.IsActiveClass(label)
+                    && string.Equals(label.Text, candidate.ClassName?.Trim(), StringComparison.OrdinalIgnoreCase))))
+                .Take(source.MaximumCandidates).ToArray();
+        }
+
+        public bool AttachInferenceResultForLabeling(InferenceResultReviewEntry entry)
+        {
+            if (entry?.Result?.Succeeded != true || string.IsNullOrWhiteSpace(entry.Result.Source?.ImagePath)
+                || entry.Result.Candidates?.Any(candidate => candidate?.ImageLevel == true) == true) return false;
+            LabelingTransferEntry = entry;
+            return true;
+        }
+
+        public bool LoadInferenceResultForLabeling(InferenceResultReviewEntry entry, double displayConfidence, IReadOnlyList<LabelClass> supportedClasses = null)
+        {
+            YoloWorkerSmokeTestResult result = entry?.Result;
+            if (result?.Succeeded != true || string.IsNullOrWhiteSpace(result.Source?.ImagePath)
+                || !double.IsFinite(displayConfidence) || displayConfidence < 0 || displayConfidence > 1
+                || result.Candidates?.Any(candidate => candidate?.ImageLevel == true) == true) return false;
+            var candidates = BuildCandidatePresentation(result, supportedClasses)
+                .Select(AnnotationHistoryService.CloneCandidate).ToArray();
+            LoadPendingCandidates(candidates, clearConfirmed: false);
+            LabelingTransferEntry = entry;
+            return true;
+        }
+
+        public bool RestoreCandidateDraft(InferenceResultReviewEntry entry, bool restoreConfirmed = true)
+        {
+            if (entry?.Result?.Succeeded != true || entry.PendingDraft == null || entry.Result.Candidates?.Any(candidate => candidate?.ImageLevel == true) == true) return false;
+            LoadPendingCandidates(entry.PendingDraft.Select(AnnotationHistoryService.CloneCandidate), clearConfirmed: true);
+            foreach (YoloWorkerSmokeCandidate candidate in restoreConfirmed ? entry.ConfirmedDraft ?? Array.Empty<YoloWorkerSmokeCandidate>() : Array.Empty<YoloWorkerSmokeCandidate>())
+                if (candidate != null) confirmedCandidates.Add(AnnotationHistoryService.CloneCandidate(candidate));
+            LabelingTransferEntry = entry;
+            return true;
+        }
+
         public void ClearAll()
         {
+            LabelingTransferEntry = null;
             pendingCandidates.Clear();
             confirmedCandidates.Clear();
         }
@@ -107,6 +155,45 @@ namespace MvcVisionSystem
                     confirmedCandidates.Add(candidate);
                 }
             }
+        }
+
+        public void RevertConfirmation(
+            IEnumerable<YoloWorkerSmokeCandidate> confirmableCandidates,
+            IReadOnlyList<YoloWorkerSmokeCandidate> pendingOrder)
+        {
+            List<YoloWorkerSmokeCandidate> targets = (confirmableCandidates ?? Array.Empty<YoloWorkerSmokeCandidate>())
+                .Where(candidate => candidate != null)
+                .ToList();
+            if (targets.Count == 0)
+            {
+                return;
+            }
+
+            foreach (YoloWorkerSmokeCandidate candidate in targets)
+            {
+                confirmedCandidates.Remove(candidate);
+            }
+
+            List<YoloWorkerSmokeCandidate> currentPending = pendingCandidates.ToList();
+            var restoredPending = new List<YoloWorkerSmokeCandidate>();
+            foreach (YoloWorkerSmokeCandidate candidate in pendingOrder ?? Array.Empty<YoloWorkerSmokeCandidate>())
+            {
+                if (candidate != null && !restoredPending.Contains(candidate))
+                {
+                    restoredPending.Add(candidate);
+                }
+            }
+
+            foreach (YoloWorkerSmokeCandidate candidate in currentPending)
+            {
+                if (candidate != null && !restoredPending.Contains(candidate))
+                {
+                    restoredPending.Add(candidate);
+                }
+            }
+
+            pendingCandidates.Clear();
+            pendingCandidates.AddRange(restoredPending);
         }
     }
 

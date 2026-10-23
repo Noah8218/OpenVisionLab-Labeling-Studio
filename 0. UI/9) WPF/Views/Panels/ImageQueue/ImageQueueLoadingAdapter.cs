@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using OpenVisionLab.Wpf.MessageDialogs;
 
 namespace MvcVisionSystem
 {
@@ -68,6 +69,13 @@ namespace MvcVisionSystem
                 return true;
             }
 
+            if (context.AutoSaveOnImageMove?.Invoke() == false)
+            {
+                WpfMessageDialogResult decision = context.ConfirmPendingAnnotationSave?.Invoke() ?? WpfMessageDialogResult.Cancel;
+                if (decision == WpfMessageDialogResult.No) return true;
+                if (decision != WpfMessageDialogResult.Yes) return false;
+            }
+
             if (context.SaveCurrentAnnotations?.Invoke(out int savedCount) == true)
             {
                 context.AppendLog?.Invoke($"이미지 전환 전 라벨 자동 저장: {Path.GetFileName(activeImagePath)} / 객체 {savedCount}개");
@@ -119,7 +127,13 @@ namespace MvcVisionSystem
         internal void PopulateImageQueueAfterLoad(string imagePath, bool refreshQueueDetails)
         {
             string currentImageRoot = context.CurrentImageRootProvider?.Invoke() ?? string.Empty;
-            string queueRoot = context.IsImageQueued?.Invoke(imagePath) == true
+            bool isQueued = context.IsImageQueued?.Invoke(imagePath) == true;
+            if (isQueued && !Directory.Exists(currentImageRoot))
+            {
+                string availableRoot = context.AvailableConfiguredImageRootProvider?.Invoke();
+                if (Directory.Exists(availableRoot)) currentImageRoot = availableRoot;
+            }
+            string queueRoot = isQueued
                 && !string.IsNullOrWhiteSpace(currentImageRoot)
                 && Directory.Exists(currentImageRoot)
                 ? currentImageRoot
@@ -159,6 +173,8 @@ namespace MvcVisionSystem
         internal Func<System.Drawing.Bitmap> ActiveImageBitmapProvider { get; init; }
         internal Func<bool> HasPendingMaskStrokeCommitWork { get; init; }
         internal SaveImageAnnotationsCallback SaveCurrentAnnotations { get; init; }
+        internal Func<bool> AutoSaveOnImageMove { get; init; }
+        internal Func<WpfMessageDialogResult> ConfirmPendingAnnotationSave { get; init; }
         internal Action<Action> ScheduleBackground { get; init; }
         internal Action RefreshCandidateList { get; init; }
         internal Action RefreshObjectList { get; init; }
@@ -174,5 +190,6 @@ namespace MvcVisionSystem
         internal Func<string, bool> IsImageQueued { get; init; }
         internal Func<string, string, bool> IsSameImageRoot { get; init; }
         internal Func<string> CurrentImageRootProvider { get; init; }
+        internal Func<string> AvailableConfiguredImageRootProvider { get; init; }
     }
 }

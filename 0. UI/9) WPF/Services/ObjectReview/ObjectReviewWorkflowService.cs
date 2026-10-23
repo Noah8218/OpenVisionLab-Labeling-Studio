@@ -197,7 +197,7 @@ namespace MvcVisionSystem
 
             return WpfObjectReviewMutationResult.Failure(
                 string.Empty,
-                "현재 Recipe 태그 목록이 이미 비어 있습니다.");
+                OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.ObjectReviewWorkflowService.TagsEmpty"));
         }
 
         public WpfObjectReviewMutationResult CreateGroup(
@@ -391,7 +391,7 @@ namespace MvcVisionSystem
             EnsureProjectSettings(data);
             if (data == null)
             {
-                error = "Recipe를 적용한 후 객체 태그 목록을 저장하세요.";
+                error = OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.ObjectReviewWorkflowService.RecipeRequired");
                 return false;
             }
 
@@ -403,7 +403,7 @@ namespace MvcVisionSystem
 
             if (tags.Count >= ObjectMetadataStateService.MaximumTagCount)
             {
-                error = $"현재 Recipe에는 태그를 {ObjectMetadataStateService.MaximumTagCount}개까지 정의할 수 있습니다.";
+                error = string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.ObjectReviewWorkflowService.TagLimit"), ObjectMetadataStateService.MaximumTagCount);
                 return false;
             }
 
@@ -434,7 +434,7 @@ namespace MvcVisionSystem
             appendErrorToLog = false;
             if (string.IsNullOrWhiteSpace(recipeName))
             {
-                error = "Recipe를 적용한 후 객체 태그 목록을 저장하세요.";
+                error = OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.ObjectReviewWorkflowService.RecipeRequired");
                 return false;
             }
 
@@ -445,7 +445,7 @@ namespace MvcVisionSystem
             }
             catch (Exception ex)
             {
-                error = $"Recipe 태그 목록 저장 실패: {ex.Message}";
+                error = string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.ObjectReviewWorkflowService.TagSaveFailed"), ex.Message);
                 appendErrorToLog = true;
                 return false;
             }

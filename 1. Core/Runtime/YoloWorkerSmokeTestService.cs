@@ -1,4 +1,5 @@
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 using MvcVisionSystem._3._Communication.TCP;
 using System;
 using System.Collections.Generic;
@@ -27,8 +28,28 @@ namespace MvcVisionSystem._1._Core
             PythonModelSettings settings,
             string imagePathOverride,
             CancellationToken cancellationToken = default)
+            => await RunAsync(settings, imagePathOverride, cancellationToken, false, string.Empty).ConfigureAwait(false);
+
+        public static async Task<YoloWorkerSmokeTestResult> RunAsync(
+            PythonModelSettings settings,
+            string imagePathOverride,
+            CancellationToken cancellationToken,
+            bool decisionEvaluation,
+            string decisionOutputDirectory = "")
         {
             settings ??= new PythonModelSettings();
+            if (decisionEvaluation)
+            {
+                settings = JsonConvert.DeserializeObject<PythonModelSettings>(JsonConvert.SerializeObject(settings));
+                settings.MinimumDetectionConfidence = 0;
+                settings.ClientScriptPath = PythonModelSettings.NormalizeModelEngine(settings.ModelEngine) switch
+                {
+                    PythonModelSettings.EngineUnet => PythonModelRuntimeBundledWorkerService.ResolveUnetWorkerScriptPath(),
+                    PythonModelSettings.EnginePatchCore => PythonModelRuntimeBundledWorkerService.ResolvePatchCoreWorkerScriptPath(),
+                    PythonModelSettings.EngineYoloV5 or PythonModelSettings.EngineYoloV8 or PythonModelSettings.EngineYolo11 => PythonModelRuntimeBundledWorkerService.ResolveUltralyticsWorkerScriptPath(),
+                    _ => settings.ClientScriptPath
+                };
+            }
             PythonModelRuntimePathResolver.ApplyDefaults(settings);
 
             string pythonExecutablePath = PythonModelSettingsValidator.ResolvePythonExecutable(settings);
@@ -47,23 +68,32 @@ namespace MvcVisionSystem._1._Core
                 return BuildInputFailure(errors, pythonExecutablePath, projectRootPath, clientScriptPath, modelRootPath, weightsPath, imagePath);
             }
 
+            string captureImageHash = decisionEvaluation ? HashingService.ComputeFileSha256(imagePath, lowerCase: true) : string.Empty;
+            string captureWeightsHash = decisionEvaluation ? HashingService.ComputeFileSha256(weightsPath, lowerCase: true) : string.Empty;
             int timeoutMilliseconds = Math.Clamp((settings.DetectionTimeoutSeconds + 90) * 1000, 120000, 300000);
+            ProcessStartInfo startInfo = CreateSmokeStartInfo(
+                pythonExecutablePath,
+                projectRootPath,
+                clientScriptPath,
+                modelRootPath,
+                weightsPath,
+                imagePath,
+                settings.InferenceImageSize,
+                settings.MinimumDetectionConfidence,
+                modelName, decisionEvaluation, decisionOutputDirectory);
+            string decisionResultPath = string.Empty;
+            if (decisionEvaluation && (modelName is "yolov5" or "yolov8" or "yolo11")
+                && !string.IsNullOrWhiteSpace(decisionOutputDirectory))
+            {
+                Directory.CreateDirectory(decisionOutputDirectory);
+                decisionResultPath = Path.Combine(Path.GetFullPath(decisionOutputDirectory), Guid.NewGuid().ToString("N") + "-result.json");
+                startInfo.ArgumentList.Add("--result-json");
+                startInfo.ArgumentList.Add(decisionResultPath);
+            }
             ExternalProcessRunResult processResult = await ProcessRunner
-                .RunAsync(
-                    CreateSmokeStartInfo(
-                        pythonExecutablePath,
-                        projectRootPath,
-                        clientScriptPath,
-                        modelRootPath,
-                        weightsPath,
-                        imagePath,
-                        settings.InferenceImageSize,
-                        settings.MinimumDetectionConfidence,
-                        modelName),
-                    TimeSpan.FromMilliseconds(timeoutMilliseconds),
-                    cancellationToken)
+                .RunAsync(startInfo, TimeSpan.FromMilliseconds(timeoutMilliseconds), cancellationToken)
                 .ConfigureAwait(false);
-            if (processResult.Canceled)
+            if (processResult.Canceled || !string.IsNullOrEmpty(decisionResultPath) && cancellationToken.IsCancellationRequested)
             {
                 return BuildProcessFailure("YOLO smoke test canceled.", pythonExecutablePath, projectRootPath, clientScriptPath, modelRootPath, weightsPath, imagePath, processResult.Output, processResult.Error);
             }
@@ -89,9 +119,30 @@ namespace MvcVisionSystem._1._Core
                     processResult.Error);
             }
 
-            return ParseSmokeOutput(
+            string resultOutput = processResult.Output;
+            if (!string.IsNullOrEmpty(decisionResultPath))
+            {
+                if (processResult.ExitCode != 0)
+                {
+                    YoloWorkerSmokeTestResult failure = ParseSmokeOutput(processResult.ExitCode, processResult.Output, processResult.Error,
+                        pythonExecutablePath, projectRootPath, clientScriptPath, modelRootPath, weightsPath, imagePath);
+                    return BuildProcessFailure(FirstNonEmpty(failure.Errors.FirstOrDefault(), $"YOLO smoke test failed. ExitCode={processResult.ExitCode}"),
+                        pythonExecutablePath, projectRootPath, clientScriptPath, modelRootPath, weightsPath, imagePath, processResult.Output, processResult.Error, processResult.ExitCode);
+                }
+                try
+                {
+                    JObject envelope = JObject.Parse(File.ReadAllText(decisionResultPath, new System.Text.UTF8Encoding(false, true)));
+                    if (envelope["type"]?.Value<string>() != "SmokeTestResult") throw new JsonException("Expected a SmokeTestResult object.");
+                    resultOutput = envelope.ToString(Formatting.None);
+                }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or System.Text.DecoderFallbackException)
+                {
+                    return BuildProcessFailure("YOLO decision evaluation result could not be read: " + error.Message, pythonExecutablePath, projectRootPath, clientScriptPath, modelRootPath, weightsPath, imagePath, processResult.Output, processResult.Error, processResult.ExitCode);
+                }
+            }
+            YoloWorkerSmokeTestResult parsed = ParseSmokeOutput(
                 processResult.ExitCode,
-                processResult.Output,
+                resultOutput,
                 processResult.Error,
                 pythonExecutablePath,
                 projectRootPath,
@@ -99,6 +150,17 @@ namespace MvcVisionSystem._1._Core
                 modelRootPath,
                 weightsPath,
                 imagePath);
+            parsed.Output = processResult.Output;
+            if (decisionEvaluation)
+            {
+                parsed.CaptureImageSha256 = captureImageHash; parsed.CaptureWeightsSha256 = captureWeightsHash;
+                parsed.HasCompletePredictions = parsed.HasCompletePredictions && parsed.Succeeded
+                    && string.Equals(Path.GetFullPath(parsed.ImagePath), Path.GetFullPath(imagePath), StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(Path.GetFullPath(parsed.WeightsPath), Path.GetFullPath(weightsPath), StringComparison.OrdinalIgnoreCase)
+                    && HashingService.ComputeFileSha256(imagePath, lowerCase: true) == captureImageHash
+                    && HashingService.ComputeFileSha256(weightsPath, lowerCase: true) == captureWeightsHash;
+            }
+            return parsed;
         }
 
         public static string ResolveSmokeImagePath(PythonModelSettings settings)
@@ -183,7 +245,9 @@ namespace MvcVisionSystem._1._Core
             string imagePath,
             int imageSize,
             float confidence,
-            string modelName)
+            string modelName,
+            bool decisionEvaluation = false,
+            string decisionOutputDirectory = "")
         {
             var startInfo = new ProcessStartInfo
             {
@@ -197,6 +261,13 @@ namespace MvcVisionSystem._1._Core
 
             startInfo.ArgumentList.Add(clientScriptPath);
             startInfo.ArgumentList.Add("--smoke-test");
+            if (decisionEvaluation) startInfo.ArgumentList.Add("--decision-evaluation");
+            if (decisionEvaluation && modelName == "patchcore")
+            {
+                if (string.IsNullOrWhiteSpace(decisionOutputDirectory)) throw new ArgumentException("A decision-evaluation output directory is required.");
+                startInfo.ArgumentList.Add("--heatmap-output");
+                startInfo.ArgumentList.Add(Path.Combine(decisionOutputDirectory, Guid.NewGuid().ToString("N") + "-heatmap.png"));
+            }
             startInfo.ArgumentList.Add("--weights");
             startInfo.ArgumentList.Add(weightsPath);
             if (!string.IsNullOrWhiteSpace(modelName))
@@ -267,6 +338,10 @@ namespace MvcVisionSystem._1._Core
                 FirstClassName = firstCandidate?.ClassName ?? string.Empty,
                 FirstConfidence = firstCandidate?.Confidence,
                 Candidates = parsedCandidates,
+                CaptureConfidenceFloor = envelope["image"]?["captureConfidenceFloor"]?.Value<double?>(),
+                HasCompletePredictions = envelope["image"]?["hasCompletePredictions"]?.Value<bool>() == true,
+                CaptureCandidateLimit = envelope["image"]?["captureCandidateLimit"]?.Value<int?>(),
+                CaptureAnomalyScore = envelope["image"]?["anomalyScore"]?.Value<double?>(),
                 ElapsedMilliseconds = envelope["elapsedMs"]?.Value<int?>(),
                 Output = output ?? string.Empty,
                 Error = error ?? string.Empty,

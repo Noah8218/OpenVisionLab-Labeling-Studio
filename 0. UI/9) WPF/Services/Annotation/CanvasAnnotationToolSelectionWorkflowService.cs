@@ -51,6 +51,7 @@ namespace MvcVisionSystem
             => new CanvasAnnotationToolSelectionSnapshot(
                 selectedTool,
                 selectedTool == WpfAnnotationTool.Brush || selectedTool == WpfAnnotationTool.Eraser,
+                selectedTool == WpfAnnotationTool.Eraser,
                 lastDrawingTool,
                 lastLabelClassName);
     }
@@ -60,11 +61,13 @@ namespace MvcVisionSystem
         public CanvasAnnotationToolSelectionSnapshot(
             WpfAnnotationTool? selectedTool,
             bool isMaskBrushControlVisible,
+            bool isEraserScopeControlVisible,
             WpfAnnotationTool? lastDrawingTool,
             string lastLabelClassName)
         {
             SelectedTool = selectedTool;
             IsMaskBrushControlVisible = isMaskBrushControlVisible;
+            IsEraserScopeControlVisible = isEraserScopeControlVisible;
             LastDrawingTool = lastDrawingTool;
             LastLabelClassName = lastLabelClassName ?? string.Empty;
         }
@@ -72,6 +75,8 @@ namespace MvcVisionSystem
         public WpfAnnotationTool? SelectedTool { get; }
 
         public bool IsMaskBrushControlVisible { get; }
+
+        public bool IsEraserScopeControlVisible { get; }
 
         public WpfAnnotationTool? LastDrawingTool { get; }
 

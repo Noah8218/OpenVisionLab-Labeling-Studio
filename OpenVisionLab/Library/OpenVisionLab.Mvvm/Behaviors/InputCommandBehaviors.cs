@@ -64,6 +64,13 @@ namespace OpenVisionLab.Mvvm.Behaviors
                 typeof(InputCommandBehaviors),
                 new PropertyMetadata(null, OnPreviewKeyInputCommandChanged));
 
+        public static readonly DependencyProperty PreviewKeyUpInputCommandProperty =
+            DependencyProperty.RegisterAttached(
+                "PreviewKeyUpInputCommand",
+                typeof(ICommand),
+                typeof(InputCommandBehaviors),
+                new PropertyMetadata(null, OnPreviewKeyUpInputCommandChanged));
+
         public static readonly DependencyProperty TextChangedCommandProperty =
             DependencyProperty.RegisterAttached(
                 "TextChangedCommand",
@@ -95,6 +102,20 @@ namespace OpenVisionLab.Mvvm.Behaviors
                 typeof(ICommand),
                 typeof(InputCommandBehaviors),
                 new PropertyMetadata(null, OnMouseClickInputCommandChanged));
+
+        public static readonly DependencyProperty PressCommandProperty =
+            DependencyProperty.RegisterAttached(
+                "PressCommand",
+                typeof(ICommand),
+                typeof(InputCommandBehaviors),
+                new PropertyMetadata(null, OnPressCommandChanged));
+
+        public static readonly DependencyProperty ReleaseCommandProperty =
+            DependencyProperty.RegisterAttached(
+                "ReleaseCommand",
+                typeof(ICommand),
+                typeof(InputCommandBehaviors),
+                new PropertyMetadata(null, OnReleaseCommandChanged));
 
         public static readonly DependencyProperty ValueChangedCommandProperty =
             DependencyProperty.RegisterAttached(
@@ -181,6 +202,16 @@ namespace OpenVisionLab.Mvvm.Behaviors
             target.SetValue(PreviewKeyInputCommandProperty, value);
         }
 
+        public static ICommand GetPreviewKeyUpInputCommand(DependencyObject target)
+        {
+            return (ICommand)target.GetValue(PreviewKeyUpInputCommandProperty);
+        }
+
+        public static void SetPreviewKeyUpInputCommand(DependencyObject target, ICommand value)
+        {
+            target.SetValue(PreviewKeyUpInputCommandProperty, value);
+        }
+
         public static ICommand GetTextChangedCommand(DependencyObject target)
         {
             return (ICommand)target.GetValue(TextChangedCommandProperty);
@@ -226,6 +257,26 @@ namespace OpenVisionLab.Mvvm.Behaviors
         public static void SetMouseClickInputCommand(DependencyObject target, ICommand value)
         {
             target.SetValue(MouseClickInputCommandProperty, value);
+        }
+
+        public static ICommand GetPressCommand(DependencyObject target)
+        {
+            return (ICommand)target.GetValue(PressCommandProperty);
+        }
+
+        public static void SetPressCommand(DependencyObject target, ICommand value)
+        {
+            target.SetValue(PressCommandProperty, value);
+        }
+
+        public static ICommand GetReleaseCommand(DependencyObject target)
+        {
+            return (ICommand)target.GetValue(ReleaseCommandProperty);
+        }
+
+        public static void SetReleaseCommand(DependencyObject target, ICommand value)
+        {
+            target.SetValue(ReleaseCommandProperty, value);
         }
 
         public static ICommand GetValueChangedCommand(DependencyObject target)
@@ -283,7 +334,7 @@ namespace OpenVisionLab.Mvvm.Behaviors
 
         private static void Selector_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (sender is not DependencyObject target)
+            if (sender is not DependencyObject target || !ReferenceEquals(e.OriginalSource, sender))
             {
                 return;
             }
@@ -306,7 +357,7 @@ namespace OpenVisionLab.Mvvm.Behaviors
 
         private static void Selector_SelectedItemChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (sender is not Selector selector || sender is not DependencyObject target)
+            if (sender is not Selector selector || sender is not DependencyObject target || !ReferenceEquals(e.OriginalSource, sender))
             {
                 return;
             }
@@ -405,6 +456,36 @@ namespace OpenVisionLab.Mvvm.Behaviors
             Key key = e.Key == Key.System ? e.SystemKey : e.Key;
             var args = new KeyInputCommandArgs(key, Keyboard.Modifiers, e.IsRepeat, e.OriginalSource);
             Execute(GetPreviewKeyInputCommand(target), args);
+            if (args.Handled)
+            {
+                e.Handled = true;
+            }
+        }
+
+        private static void OnPreviewKeyUpInputCommandChanged(DependencyObject target, DependencyPropertyChangedEventArgs e)
+        {
+            if (target is not UIElement element)
+            {
+                return;
+            }
+
+            element.PreviewKeyUp -= Element_PreviewKeyUpInput;
+            if (e.NewValue != null)
+            {
+                element.PreviewKeyUp += Element_PreviewKeyUpInput;
+            }
+        }
+
+        private static void Element_PreviewKeyUpInput(object sender, KeyEventArgs e)
+        {
+            if (sender is not DependencyObject target)
+            {
+                return;
+            }
+
+            Key key = e.Key == Key.System ? e.SystemKey : e.Key;
+            var args = new KeyInputCommandArgs(key, Keyboard.Modifiers, e.IsRepeat, e.OriginalSource);
+            Execute(GetPreviewKeyUpInputCommand(target), args);
             if (args.Handled)
             {
                 e.Handled = true;
@@ -532,6 +613,96 @@ namespace OpenVisionLab.Mvvm.Behaviors
                 command.Execute(null);
                 e.Handled = true;
             }
+        }
+
+        private static void OnPressCommandChanged(DependencyObject target, DependencyPropertyChangedEventArgs e)
+        {
+            if (target is not UIElement element)
+            {
+                return;
+            }
+
+            element.PreviewMouseLeftButtonDown -= Element_PreviewMouseLeftButtonDown;
+            element.PreviewKeyDown -= Element_PreviewPressKeyDown;
+            if (e.NewValue != null)
+            {
+                element.PreviewMouseLeftButtonDown += Element_PreviewMouseLeftButtonDown;
+                element.PreviewKeyDown += Element_PreviewPressKeyDown;
+            }
+        }
+
+        private static void OnReleaseCommandChanged(DependencyObject target, DependencyPropertyChangedEventArgs e)
+        {
+            if (target is not UIElement element)
+            {
+                return;
+            }
+
+            element.PreviewMouseLeftButtonUp -= Element_PreviewMouseLeftButtonUp;
+            element.PreviewKeyUp -= Element_PreviewReleaseKeyUp;
+            element.LostMouseCapture -= Element_ReleaseInput;
+            element.LostKeyboardFocus -= Element_ReleaseInput;
+            if (element is FrameworkElement frameworkElement)
+            {
+                frameworkElement.Unloaded -= Element_ReleaseInput;
+            }
+            if (e.NewValue != null)
+            {
+                element.PreviewMouseLeftButtonUp += Element_PreviewMouseLeftButtonUp;
+                element.PreviewKeyUp += Element_PreviewReleaseKeyUp;
+                element.LostMouseCapture += Element_ReleaseInput;
+                element.LostKeyboardFocus += Element_ReleaseInput;
+                if (element is FrameworkElement loadedElement)
+                {
+                    loadedElement.Unloaded += Element_ReleaseInput;
+                }
+            }
+        }
+
+        private static void Element_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is DependencyObject target)
+            {
+                Execute(GetPressCommand(target), null);
+            }
+        }
+
+        private static void Element_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is DependencyObject target)
+            {
+                Execute(GetReleaseCommand(target), null);
+            }
+        }
+
+        private static void Element_PreviewPressKeyDown(object sender, KeyEventArgs e)
+        {
+            if (!e.IsRepeat && IsPressKey(e) && sender is DependencyObject target)
+            {
+                Execute(GetPressCommand(target), null);
+            }
+        }
+
+        private static void Element_PreviewReleaseKeyUp(object sender, KeyEventArgs e)
+        {
+            if (IsPressKey(e) && sender is DependencyObject target)
+            {
+                Execute(GetReleaseCommand(target), null);
+            }
+        }
+
+        private static void Element_ReleaseInput(object sender, RoutedEventArgs e)
+        {
+            if (sender is DependencyObject target)
+            {
+                Execute(GetReleaseCommand(target), null);
+            }
+        }
+
+        private static bool IsPressKey(KeyEventArgs e)
+        {
+            Key key = e.Key == Key.System ? e.SystemKey : e.Key;
+            return key == Key.Space || key == Key.Enter;
         }
 
         private static void OnValueChangedCommandChanged(DependencyObject target, DependencyPropertyChangedEventArgs e)

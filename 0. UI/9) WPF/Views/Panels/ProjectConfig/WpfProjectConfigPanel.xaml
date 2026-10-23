@@ -1,289 +1,134 @@
 <UserControl x:Class="MvcVisionSystem.WpfProjectConfigPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:MvcVisionSystem"
              xmlns:mvvm="clr-namespace:OpenVisionLab.Mvvm.Behaviors;assembly=OpenVisionLab.Mvvm"
              xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
-             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             FontFamily="{DynamicResource UiFontFamily}" FontSize="13" UseLayoutRounding="True">
     <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../../../Themes/WpfButtonStateTemplates.xaml" />
+            </ResourceDictionary.MergedDictionaries>
         <Style x:Key="ProjectConfigLabelStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Margin" Value="0,6,8,0" />
-        </Style>
-
-        <Style x:Key="ProjectConfigTextBoxStyle" TargetType="TextBox">
-            <Setter Property="Height" Value="26" />
-            <Setter Property="MinWidth" Value="128" />
-            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="Padding" Value="6,3" />
-            <Setter Property="Margin" Value="0,5,0,0" />
-            <Setter Property="IsReadOnly" Value="True" />
-        </Style>
-
-        <Style x:Key="ProjectConfigComboBoxStyle" TargetType="ComboBox">
-            <Setter Property="Height" Value="26" />
-            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="Margin" Value="0,5,5,0" />
-            <Setter Property="MaxDropDownHeight" Value="220" />
-            <Setter Property="ItemContainerStyle">
-                <Setter.Value>
-                    <Style TargetType="ComboBoxItem">
-                        <Setter Property="Background" Value="{DynamicResource InputBrush}" />
-                        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-                        <Setter Property="Padding" Value="6,3" />
-                    </Style>
-                </Setter.Value>
-            </Setter>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="{x:Type ComboBox}">
-                        <Grid MinWidth="{TemplateBinding ActualWidth}">
-                            <ToggleButton x:Name="ToggleButton"
-                                          Focusable="False"
-                                          ClickMode="Press"
-                                          HorizontalAlignment="Stretch"
-                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
-                                          Background="{TemplateBinding Background}"
-                                          BorderBrush="{TemplateBinding BorderBrush}">
-                                <ToggleButton.Template>
-                                    <ControlTemplate TargetType="{x:Type ToggleButton}">
-                                        <Border Background="{TemplateBinding Background}"
-                                                BorderBrush="{TemplateBinding BorderBrush}"
-                                                BorderThickness="1"
-                                                CornerRadius="2">
-                                            <ContentPresenter />
-                                        </Border>
-                                    </ControlTemplate>
-                                </ToggleButton.Template>
-                                <Grid>
-                                    <ContentPresenter Content="{TemplateBinding SelectionBoxItem}"
-                                                      ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
-                                                      Margin="6,2,24,2"
-                                                      VerticalAlignment="Center"
-                                                      HorizontalAlignment="Left" />
-                                    <Path Data="M 0 0 L 4 4 L 8 0 Z"
-                                          Width="8"
-                                          Height="4"
-                                          Stretch="Fill"
-                                          Fill="{TemplateBinding Foreground}"
-                                          HorizontalAlignment="Right"
-                                          VerticalAlignment="Center"
-                                          Margin="0,0,8,0" />
-                                </Grid>
-                            </ToggleButton>
-                            <Popup x:Name="Popup"
-                                   Placement="Bottom"
-                                   IsOpen="{TemplateBinding IsDropDownOpen}"
-                                   AllowsTransparency="True"
-                                   Focusable="False">
-                                <Border MinWidth="{TemplateBinding ActualWidth}"
-                                        MaxHeight="{TemplateBinding MaxDropDownHeight}"
-                                        Background="{DynamicResource InputBrush}"
-                                        BorderBrush="{DynamicResource InputBorderBrush}"
-                                        BorderThickness="1">
-                                    <ScrollViewer CanContentScroll="True">
-                                        <ItemsPresenter />
-                                    </ScrollViewer>
-                                </Border>
-                            </Popup>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Resources>
-                <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#202833" />
-                <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#202833" />
-                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#334052" />
-                <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#F4F7FB" />
-            </Style.Resources>
-        </Style>
-
-        <Style x:Key="ProjectConfigButtonStyle" TargetType="{x:Type ui:Button}">
-            <Setter Property="Template" Value="{DynamicResource WpfUiDarkButtonTemplate}" />
-            <Setter Property="Height" Value="30" />
-            <Setter Property="MinHeight" Value="30" />
-            <Setter Property="Padding" Value="8,0" />
-            <Setter Property="Margin" Value="0,0,5,5" />
-            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" />
             <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="LineHeight" Value="17.4" />
+            <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+        <Style x:Key="ProjectConfigHeadingStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,14" />
+        </Style>
+        <Style x:Key="ProjectConfigTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource RecipeInputStyle}">
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
-                    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
-                    <Setter Property="Opacity" Value="0.45" />
+                    <Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
-
-        <Style x:Key="ProjectConfigIconStyle" TargetType="{x:Type iconPacks:PackIconMaterial}">
-            <Setter Property="Width" Value="14" />
-            <Setter Property="Height" Value="14" />
-            <Setter Property="Margin" Value="0,0,4,0" />
-            <Setter Property="VerticalAlignment" Value="Center" />
+        <Style x:Key="ProjectConfigComboBoxStyle" TargetType="ComboBox" BasedOn="{StaticResource RecipeComboBoxStyle}">
+            <Setter Property="Height" Value="Auto" />
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Padding" Value="8,5,28,5" />
+            <Setter Property="ItemTemplate">
+                <Setter.Value><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="560" HorizontalAlignment="Left" /></DataTemplate></Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
+        <Style x:Key="ProjectConfigButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource RecipeSecondaryButtonStyle}">
+            <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style x:Key="ProjectConfigSaveButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource RecipePrimaryButtonStyle}">
+            <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style x:Key="ProjectConfigIconStyle" TargetType="{x:Type iconPacks:PackIconMaterial}">
+            <Setter Property="Width" Value="16" />
+            <Setter Property="Height" Value="16" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        </ResourceDictionary>
     </UserControl.Resources>
 
-    <Expander x:Name="ProjectConfigExpander"
-              Header="프로젝트"
-              IsExpanded="False"
-              Foreground="{DynamicResource PrimaryTextBrush}"
-              Margin="0,12,0,0">
-        <StackPanel Margin="0,8,0,0">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="74" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-
-                <TextBlock Text="Recipe"
-                           Style="{StaticResource ProjectConfigLabelStyle}" />
-                <TextBox x:Name="ProjectRecipeNameBox"
-                         Grid.Column="1"
-                         Style="{StaticResource ProjectConfigTextBoxStyle}"
-                         IsReadOnly="False"
-                         Text="{Binding RecipeName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="{Binding RecipeName}" />
-                <ui:Button x:Name="ApplyProjectRecipeButton"
-                           Grid.Column="2"
-                           Style="{StaticResource ProjectConfigButtonStyle}"
-                           IsEnabled="{Binding IsApplyRecipeEnabled}"
-                           MinWidth="56"
-                           AutomationProperties.Name="Recipe 적용"
-                           ToolTip="입력한 recipe로 전환하거나 새로 생성"
-                           Command="{Binding ApplyRecipeCommand}">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <iconPacks:PackIconMaterial Style="{StaticResource ProjectConfigIconStyle}" Kind="Check" />
-                        <TextBlock Text="적용" VerticalAlignment="Center" />
-                    </StackPanel>
-                </ui:Button>
-
-                <TextBlock Grid.Row="1"
-                           Text="목록"
-                           Style="{StaticResource ProjectConfigLabelStyle}" />
-                <ComboBox x:Name="ProjectRecipeListBox"
-                          Grid.Row="1"
-                          Grid.Column="1"
-                          Style="{StaticResource ProjectConfigComboBoxStyle}"
-                          ItemsSource="{Binding RecipeNames}"
-                          SelectedItem="{Binding SelectedRecipeName, Mode=TwoWay}"
-                          mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding RecipeSelectionChangedCommand}"
-                          ToolTip="{Binding SelectedRecipeName}" />
-                <ui:Button x:Name="RefreshProjectRecipeListButton"
-                           Grid.Row="1"
-                           Grid.Column="2"
-                           Style="{StaticResource ProjectConfigButtonStyle}"
-                           IsEnabled="{Binding IsRefreshRecipeListEnabled}"
-                           MinWidth="56"
-                           AutomationProperties.Name="Recipe 목록 갱신"
-                           ToolTip="RECIPE 폴더를 다시 읽습니다"
-                           Command="{Binding RefreshRecipeListCommand}">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <iconPacks:PackIconMaterial Style="{StaticResource ProjectConfigIconStyle}" Kind="Refresh" />
-                        <TextBlock Text="갱신" VerticalAlignment="Center" />
-                    </StackPanel>
-                </ui:Button>
-
-                <TextBlock Grid.Row="2"
-                           Text="Config"
-                           Style="{StaticResource ProjectConfigLabelStyle}" />
-                <TextBox x:Name="ProjectConfigPathBox"
-                         Grid.Row="2"
-                         Grid.Column="1"
-                         Grid.ColumnSpan="2"
-                         Style="{StaticResource ProjectConfigTextBoxStyle}"
-                         Text="{Binding ConfigPath, Mode=OneWay}"
-                         ToolTip="{Binding ConfigPath}" />
-                <TextBlock Grid.Row="3"
-                           Text="Manifest"
-                           Style="{StaticResource ProjectConfigLabelStyle}" />
-                <TextBox x:Name="ProjectManifestPathBox"
-                         Grid.Row="3"
-                         Grid.Column="1"
-                         Grid.ColumnSpan="2"
-                         Style="{StaticResource ProjectConfigTextBoxStyle}"
-                         Text="{Binding ManifestPath, Mode=OneWay}"
-                         ToolTip="{Binding ManifestPath}" />
-                <TextBlock Grid.Row="4"
-                           Text="데이터 버전"
-                           Style="{StaticResource ProjectConfigLabelStyle}" />
-                <TextBox x:Name="ProjectDatasetVersionBox"
-                         Grid.Row="4"
-                         Grid.Column="1"
-                         Grid.ColumnSpan="2"
-                         Style="{StaticResource ProjectConfigTextBoxStyle}"
-                         Text="{Binding DatasetVersionText, Mode=OneWay}"
-                         ToolTip="{Binding DatasetVersionText}"
-                         AutomationProperties.Name="현재 Dataset Version" />
-                <TextBlock Grid.Row="5"
-                           Text="콘텐츠"
-                           Style="{StaticResource ProjectConfigLabelStyle}" />
-                <TextBox x:Name="ProjectDatasetVersionDetailBox"
-                         Grid.Row="5"
-                         Grid.Column="1"
-                         Grid.ColumnSpan="2"
-                         Style="{StaticResource ProjectConfigTextBoxStyle}"
-                         Text="{Binding DatasetVersionDetailText, Mode=OneWay}"
-                         ToolTip="{Binding DatasetVersionDetailText}"
-                         AutomationProperties.Name="Dataset Version 상세" />
-            </Grid>
-
-            <WrapPanel Margin="0,8,0,0">
-                <ui:Button x:Name="SaveProjectConfigButton"
-                           Style="{StaticResource ProjectConfigButtonStyle}"
-                           IsEnabled="{Binding IsSaveProjectConfigEnabled}"
-                           MinWidth="92"
-                           AutomationProperties.Name="프로젝트 설정 저장"
-                           ToolTip="현재 recipe의 VISION.xml 설정 저장"
-                           Command="{Binding SaveProjectConfigCommand}">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <iconPacks:PackIconMaterial Style="{StaticResource ProjectConfigIconStyle}" Kind="ContentSaveOutline" />
-                        <TextBlock Text="설정 저장" VerticalAlignment="Center" />
-                    </StackPanel>
-                </ui:Button>
-                <ui:Button x:Name="OpenProjectConfigFolderButton"
-                           Style="{StaticResource ProjectConfigButtonStyle}"
-                           IsEnabled="{Binding IsOpenProjectConfigFolderEnabled}"
-                           MinWidth="82"
-                           AutomationProperties.Name="프로젝트 설정 폴더 열기"
-                           ToolTip="현재 recipe 설정 폴더 열기"
-                           Command="{Binding OpenProjectConfigFolderCommand}">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <iconPacks:PackIconMaterial Style="{StaticResource ProjectConfigIconStyle}" Kind="FolderOpenOutline" />
-                        <TextBlock Text="폴더" VerticalAlignment="Center" />
-                    </StackPanel>
-                </ui:Button>
-            </WrapPanel>
-
-            <TextBlock x:Name="ProjectConfigStatusText"
-                       Text="{Binding StatusText}"
-                       Foreground="{DynamicResource SecondaryTextBrush}"
-                       FontFamily="Segoe UI"
-                       FontSize="11"
-                       TextWrapping="Wrap"
-                       Margin="0,4,0,0" />
+    <Expander x:Name="ProjectConfigExpander" Header="{Binding [WpfProjectConfig.Title], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource DatasetExpanderStyle}" IsExpanded="False" Margin="0,12,0,0">
+        <StackPanel>
+            <Border Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock x:Name="ProjectRecipeSelectionTitleText" Text="{Binding [WpfProjectConfig.SelectionTitle], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource ProjectConfigHeadingStyle}" />
+                    <TextBlock Text="{Binding [WpfProjectConfig.RecipeName], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource ProjectConfigLabelStyle}" />
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <TextBox x:Name="ProjectRecipeNameBox" Style="{StaticResource ProjectConfigTextBoxStyle}" IsReadOnly="False" Text="{Binding RecipeName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="{Binding [WpfProjectConfig.RecipeName], Source={x:Static local:WpfLocalizationViewModel.Instance}}" ToolTip="{Binding RecipeName}" />
+                        <ui:Button x:Name="ApplyProjectRecipeButton" Grid.Column="1" Style="{StaticResource ProjectConfigButtonStyle}" Margin="8,0,0,0" VerticalAlignment="Top" IsEnabled="{Binding IsApplyRecipeEnabled}" AutomationProperties.Name="{Binding [WpfProjectConfig.Apply], Source={x:Static local:WpfLocalizationViewModel.Instance}}" ToolTip="{Binding [WpfProjectConfig.ApplyHint], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Command="{Binding ApplyRecipeCommand}">
+                            <StackPanel Orientation="Horizontal"><iconPacks:PackIconMaterial Style="{StaticResource ProjectConfigIconStyle}" Kind="Check" /><TextBlock Text="{Binding [WpfProjectConfig.Apply], Source={x:Static local:WpfLocalizationViewModel.Instance}}" VerticalAlignment="Center" /></StackPanel>
+                        </ui:Button>
+                    </Grid>
+                    <TextBlock Text="{Binding [WpfProjectConfig.SavedRecipes], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource ProjectConfigLabelStyle}" />
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <ComboBox x:Name="ProjectRecipeListBox" Style="{StaticResource ProjectConfigComboBoxStyle}" ItemsSource="{Binding RecipeNames}" SelectedItem="{Binding SelectedRecipeName, Mode=TwoWay}" mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding RecipeSelectionChangedCommand}" ToolTip="{Binding SelectedRecipeName}" AutomationProperties.Name="{Binding [WpfProjectConfig.SavedRecipes], Source={x:Static local:WpfLocalizationViewModel.Instance}}" />
+                        <ui:Button x:Name="RefreshProjectRecipeListButton" Grid.Column="1" Style="{StaticResource ProjectConfigButtonStyle}" Margin="8,0,0,0" VerticalAlignment="Top" IsEnabled="{Binding IsRefreshRecipeListEnabled}" AutomationProperties.Name="{Binding [WpfProjectConfig.Refresh], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Command="{Binding RefreshRecipeListCommand}">
+                            <StackPanel Orientation="Horizontal"><iconPacks:PackIconMaterial Style="{StaticResource ProjectConfigIconStyle}" Kind="Refresh" /><TextBlock Text="{Binding [WpfProjectConfig.Refresh], Source={x:Static local:WpfLocalizationViewModel.Instance}}" VerticalAlignment="Center" /></StackPanel>
+                        </ui:Button>
+                    </Grid>
+                    <TextBlock x:Name="ProjectRecipeSelectionHelpText" Text="{Binding [WpfProjectConfig.SelectionHint], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+            <Border Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="16">
+                <StackPanel>
+                    <TextBlock x:Name="ProjectConfigFilesTitleText" Text="{Binding [WpfProjectConfig.FilesTitle], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource ProjectConfigHeadingStyle}" />
+                    <TextBlock Text="{Binding [WpfProjectConfig.ConfigFile], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource ProjectConfigLabelStyle}" />
+                    <TextBox x:Name="ProjectConfigPathBox" Style="{StaticResource ProjectConfigTextBoxStyle}" Text="{Binding ConfigPath, Mode=OneWay}" ToolTip="{Binding ConfigPath}" AutomationProperties.Name="{Binding [WpfProjectConfig.ConfigFile], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Margin="0,0,0,12" />
+                    <TextBlock Text="{Binding [WpfProjectConfig.ManifestFile], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource ProjectConfigLabelStyle}" />
+                    <TextBox x:Name="ProjectManifestPathBox" Style="{StaticResource ProjectConfigTextBoxStyle}" Text="{Binding ManifestPath, Mode=OneWay}" ToolTip="{Binding ManifestPath}" AutomationProperties.Name="{Binding [WpfProjectConfig.ManifestFile], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Margin="0,0,0,12" />
+                    <TextBlock Text="{Binding [WpfProjectConfig.DatasetVersion], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource ProjectConfigLabelStyle}" />
+                    <TextBox x:Name="ProjectDatasetVersionBox" Style="{StaticResource ProjectConfigTextBoxStyle}" Text="{Binding DatasetVersionText, Mode=OneWay}" ToolTip="{Binding DatasetVersionText}" AutomationProperties.Name="{Binding [WpfProjectConfig.DatasetVersion], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Margin="0,0,0,12" />
+                    <TextBlock Text="{Binding [WpfProjectConfig.DatasetDetail], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource ProjectConfigLabelStyle}" />
+                    <TextBox x:Name="ProjectDatasetVersionDetailBox" Style="{StaticResource ProjectConfigTextBoxStyle}" Text="{Binding DatasetVersionDetailText, Mode=OneWay}" ToolTip="{Binding DatasetVersionDetailText}" AutomationProperties.Name="{Binding [WpfProjectConfig.DatasetDetail], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Margin="0,0,0,14" />
+                    <WrapPanel>
+                        <ui:Button x:Name="SaveProjectConfigButton" Style="{StaticResource ProjectConfigSaveButtonStyle}" Margin="0,0,8,8" IsEnabled="{Binding IsSaveProjectConfigEnabled}" AutomationProperties.Name="{Binding [WpfProjectConfig.Save], Source={x:Static local:WpfLocalizationViewModel.Instance}}" ToolTip="{Binding [WpfProjectConfig.SaveHint], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Command="{Binding SaveProjectConfigCommand}">
+                            <StackPanel Orientation="Horizontal"><iconPacks:PackIconMaterial Style="{StaticResource ProjectConfigIconStyle}" Kind="ContentSaveOutline" /><TextBlock Text="{Binding [WpfProjectConfig.Save], Source={x:Static local:WpfLocalizationViewModel.Instance}}" VerticalAlignment="Center" /></StackPanel>
+                        </ui:Button>
+                        <ui:Button x:Name="OpenProjectConfigFolderButton" Style="{StaticResource ProjectConfigButtonStyle}" Margin="0,0,0,8" IsEnabled="{Binding IsOpenProjectConfigFolderEnabled}" AutomationProperties.Name="{Binding [WpfProjectConfig.OpenFolder], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Command="{Binding OpenProjectConfigFolderCommand}">
+                            <StackPanel Orientation="Horizontal"><iconPacks:PackIconMaterial Style="{StaticResource ProjectConfigIconStyle}" Kind="FolderOpenOutline" /><TextBlock Text="{Binding [WpfProjectConfig.OpenFolder], Source={x:Static local:WpfLocalizationViewModel.Instance}}" VerticalAlignment="Center" /></StackPanel>
+                        </ui:Button>
+                    </WrapPanel>
+                    <TextBlock x:Name="ProjectConfigSaveHelpText" Text="{Binding [WpfProjectConfig.SaveHint], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" />
+                    <TextBlock x:Name="ProjectConfigStatusText" Text="{Binding StatusText}" Foreground="{DynamicResource RecipeMutedTextBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,10,0,0" />
+                </StackPanel>
+            </Border>
         </StackPanel>
     </Expander>
 </UserControl>

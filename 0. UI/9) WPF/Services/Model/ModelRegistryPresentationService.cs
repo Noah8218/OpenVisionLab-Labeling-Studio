@@ -1,4 +1,5 @@
 using System;
+using MvcVisionSystem._1._Core;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -47,8 +48,20 @@ namespace MvcVisionSystem
                 registry,
                 hasPendingInspectionModelSelection);
 
+        public static WpfModelRegistryPresentation Build(
+            PythonModelSettings settings,
+            WpfTrainingWeightsComparison comparison,
+            YoloTrainingGuideHistory history,
+            ModelRegistrySettings registry,
+            bool hasPendingInspectionModelSelection,
+            PythonModelRuntimeState runtimeState)
+            => ModelRegistrySummaryPresentationService.Build(settings, comparison, history, registry, hasPendingInspectionModelSelection, runtimeState);
+
         public static string BuildSelectedRuntimeSummaryText(PythonModelSettings settings)
             => ModelRegistrySummaryPresentationService.BuildSelectedRuntimeSummaryText(settings);
+
+        public static string BuildSelectedRuntimeSummaryText(PythonModelSettings settings, PythonModelRuntimeState runtimeState)
+            => ModelRegistrySummaryPresentationService.BuildSelectedRuntimeSummaryText(settings, runtimeState);
 
         public static string BuildCompactMetricSummary(string metricsText)
             => ModelRegistrySummaryPresentationService.BuildCompactMetricSummary(metricsText);
@@ -73,31 +86,31 @@ namespace MvcVisionSystem
             {
                 SummaryPrimaryText = NormalizeRegistryText(
                     presentation?.SummaryPrimaryText,
-                    "현재 검사: 없음 / 학습 후보: 없음"),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Summary.Empty")),
                 SummarySecondaryText = NormalizeRegistryText(
                     presentation?.SummarySecondaryText,
-                    "YOLOv5 / 최근 학습 없음 / 이력 0건 / 후보 없음"),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.State.EmptySecondary")),
                 ProfileText = NormalizeRegistryText(
                     presentation?.ProfileText,
-                    "모델 프로필: 미설정"),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Profile.Unset")),
                 TrainingRunText = NormalizeRegistryText(
                     presentation?.TrainingRunText,
-                    "최근 학습 실행: 없음"),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.TrainingRun.None")),
                 CandidateModelText = NormalizeRegistryText(
                     presentation?.CandidateModelText,
-                    "모델 후보: 없음"),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfModelCenterDashboard.Candidate.None")),
                 InspectionModelText = NormalizeRegistryText(
                     presentation?.InspectionModelText,
-                    "현재 검사 모델: 없음"),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.State.InspectionNone")),
                 ActionText = NormalizeRegistryText(
                     presentation?.ActionText,
-                    "구조: 모델 프로필 -> 학습 실행 -> 후보 모델 -> 현재 검사 모델로 분리해 관리합니다."),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Action.Structure")),
                 HistoryHeaderText = historyCount <= 0
-                    ? "최근 모델 이력 0건"
-                    : $"최근 모델 이력 {historyCount}건",
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.State.HistoryHeaderEmpty")
+                    : string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.State.HistoryHeaderCount"), historyCount),
                 HistorySummaryText = historyCount <= 0
-                    ? "학습 후보를 저장하거나 거절하면 여기에 최근 이력이 표시됩니다."
-                    : "학습 run, 후보 모델, 지표, 채택/거절 결정을 함께 비교합니다.",
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.EmptySummary")
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Summary"),
                 IsHistoryVisible = historyCount > 0,
                 HistoryItems = historyItems,
                 SelectedHistoryItem = selectedHistoryItem,
@@ -105,7 +118,7 @@ namespace MvcVisionSystem
             };
         }
 
-        private static string NormalizeRegistryText(string value, string fallback)
+        internal static string NormalizeRegistryText(string value, string fallback)
             => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
     }
 

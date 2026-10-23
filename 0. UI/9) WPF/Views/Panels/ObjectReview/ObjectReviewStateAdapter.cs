@@ -432,7 +432,23 @@ namespace MvcVisionSystem
             }
 
             RefreshObjectListWithSelection(item);
+            context.RefreshSmartMaskCommandState?.Invoke();
             return state;
+        }
+
+        internal void ToggleAllObjectsHidden()
+        {
+            WpfObjectReviewListItem[] rows = ObjectReviewViewModel.Objects.Where(row => row.SupportsSessionState).ToArray();
+            bool hide = rows.Any(row => !row.IsHidden);
+            foreach (WpfObjectReviewListItem row in rows)
+            {
+                if (row.Payload is WpfObjectReviewItemRef item && row.IsHidden != hide
+                    && TryToggleObjectSessionState(item, WpfObjectSessionStateKind.Hidden, out WpfObjectSessionState state))
+                    row.ApplySessionState(state);
+            }
+            RedrawReviewRois();
+            RefreshPolygonOverlays();
+            context.RefreshSmartMaskCommandState?.Invoke();
         }
 
         private bool TryToggleObjectSessionState(
@@ -551,6 +567,7 @@ namespace MvcVisionSystem
         internal Action<bool> SetCanvasImagePointInputMode { get; init; }
         internal Action RedrawReviewRois { get; init; }
         internal Action RefreshPolygonOverlays { get; init; }
+        internal Action RefreshSmartMaskCommandState { get; init; }
         internal Func<int, bool> ConfirmObjectGroupDissolve { get; init; }
         internal Action EnsureProjectSettings { get; init; }
     }

@@ -40,10 +40,10 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 				PointF bottomCenter = new PointF(left + width / 2.0f, bottom);
 
 				gl.Disable(OpenGL.GL_LINE_STIPPLE);
-				gl.LineWidth(3.0f);
+				gl.LineWidth(2.0f);
 				gl.Begin(OpenGL.GL_LINES);
 				{
-					gl.Color(1f, 1f, 0.0f); // Yellow
+					gl.Color(0.20f, 0.85f, 0.45f); // Polygon drafting green
 					gl.Vertex(leftCenter.X, leftCenter.Y);
 					gl.Vertex(rightCenter.X, rightCenter.Y);
 
@@ -60,13 +60,15 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 		public static void DrawRoiEditHandles(OpenGL gl, CanvasRect<float> canvasRect, float zoomScale, System.Windows.Media.SolidColorBrush color, float handleScreenSize = 14.0f)
 		{
 			if (canvasRect == null || canvasRect.IsEmpty()) { return; }
+			bool labelStyle = canvasRect.IsLabelAnnotation && canvasRect.ShapeKind == CanvasRoiShapeKind.Rectangle;
+			if (labelStyle && (!canvasRect.IsEditing || canvasRect.IsLabelDraft || !canvasRect.ShowLabelEditHandles)) return;
 
 			float r, g, b, a;
 			(r, g, b, a) = ConvertColorToOpenGLRGB(color);
 
 			float safeZoomScale = Math.Max(zoomScale, 0.001f);
-			float handleSize = GetRoiEditHandleWorldSize(safeZoomScale, handleScreenSize);
-			DrawRectangleWithHandles(gl, canvasRect.Points.Select(x => new PointF(x.X, x.Y)), handleSize, 2, new float[] { r, g, b }, safeZoomScale);
+			float handleSize = labelStyle ? 8F * safeZoomScale : GetRoiEditHandleWorldSize(safeZoomScale, handleScreenSize);
+			DrawRectangleWithHandles(gl, canvasRect.Points.Select(x => new PointF(x.X, x.Y)), handleSize, 2, new float[] { r, g, b }, safeZoomScale, labelStyle);
 		}
 
 		public static float GetRoiEditHandleWorldSize(float zoomScale, float handleScreenSize)
@@ -76,7 +78,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			return screenSize * safeZoomScale;
 		}
 
-		public static void DrawRectangleWithHandles(OpenGL gl, IEnumerable<PointF> mainRectPoints, float handleSize, float lineWidth, float[] lineColorRGB, float zoomScale = 1.0f)
+		public static void DrawRectangleWithHandles(OpenGL gl, IEnumerable<PointF> mainRectPoints, float handleSize, float lineWidth, float[] lineColorRGB, float zoomScale = 1.0f, bool labelStyle = false)
 		{
 			var pointsList = mainRectPoints.ToList();
 			if (pointsList.Count < 4)
@@ -94,9 +96,12 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 
 				// Selection handles are editor affordances, not labels. Draw a dark halo
 				// plus a stable accent color so the ROI class color remains meaningful.
-				DrawSolidLineLoop(gl, pointsList, lineWidth + 4.0f, new float[] { 0f, 0f, 0f }, 0.42f);
-				DrawSolidLineLoop(gl, pointsList, lineWidth + 1.5f, new float[] { 1f, 1f, 1f }, 0.82f);
-				DrawSolidLineLoop(gl, pointsList, lineWidth, lineColorRGB, 1.0f);
+				if (!labelStyle)
+				{
+					DrawSolidLineLoop(gl, pointsList, lineWidth + 4.0f, new float[] { 0f, 0f, 0f }, 0.42f);
+					DrawSolidLineLoop(gl, pointsList, lineWidth + 1.5f, new float[] { 1f, 1f, 1f }, 0.82f);
+					DrawSolidLineLoop(gl, pointsList, lineWidth, lineColorRGB, 1.0f);
+				}
 
 				PointF topCenter = new PointF((pointsList[0].X + pointsList[1].X) / 2, pointsList[0].Y);
 				PointF bottomCenter = new PointF((pointsList[2].X + pointsList[3].X) / 2, pointsList[2].Y);
@@ -107,7 +112,13 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 				foreach (var center in allPoints)
 				{
 					float halfSize = handleSize / 2.0f;
-					DrawFilledHandle(gl, center, halfSize, zoomScale, lineColorRGB);
+					if (labelStyle)
+					{
+						DrawFilledRect(gl, center, halfSize, new[] { 1F, 1F, 1F }, 1F);
+						var handle = new[] { new PointF(center.X - halfSize, center.Y - halfSize), new PointF(center.X + halfSize, center.Y - halfSize), new PointF(center.X + halfSize, center.Y + halfSize), new PointF(center.X - halfSize, center.Y + halfSize) };
+						DrawSolidLineLoop(gl, handle, 1F, new[] { 11F / 255F, 14F / 255F, 18F / 255F }, 1F);
+					}
+					else DrawFilledHandle(gl, center, halfSize, zoomScale, lineColorRGB);
 				}
 			}
 			finally
@@ -513,7 +524,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 				&& !isDotted
 				&& array.Length >= 4)
 			{
-				DrawReadableLabelRectangle(gl, array.Select(point => new PointF(point.X, point.Y)).ToArray(), color, lineWidth, isFill || canvasRect.IsFill);
+				DrawReadableLabelRectangle(gl, array.Select(point => new PointF(point.X, point.Y)).ToArray(), color, lineWidth, isFill || canvasRect.IsFill, canvasRect);
 				return;
 			}
 
@@ -527,7 +538,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			gl.End();
 		}
 
-		private static void DrawReadableLabelRectangle(OpenGL gl, IReadOnlyList<PointF> points, System.Drawing.Color color, float lineWidth, bool isFill)
+		private static void DrawReadableLabelRectangle(OpenGL gl, IReadOnlyList<PointF> points, System.Drawing.Color color, float lineWidth, bool isFill, CanvasRect<float> label)
 		{
 			float[] classColorRgb = new float[]
 			{
@@ -535,6 +546,22 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 				color.G / 255.0f,
 				color.B / 255.0f
 			};
+
+			if (label?.IsLabelAnnotation == true)
+			{
+				gl.PushAttrib(OpenGL.GL_ENABLE_BIT | OpenGL.GL_LINE_BIT | OpenGL.GL_CURRENT_BIT | OpenGL.GL_COLOR_BUFFER_BIT);
+				try
+				{
+					gl.Disable(OpenGL.GL_TEXTURE_2D); gl.Disable(OpenGL.GL_LINE_STIPPLE);
+					gl.Enable(OpenGL.GL_BLEND); gl.BlendFunc(OpenGL.GL_SRC_ALPHA, OpenGL.GL_ONE_MINUS_SRC_ALPHA);
+					DrawFilledPointFPolygon(gl, points, classColorRgb, label.IsLabelDraft ? .15F : color.A / 255F);
+					if (label.IsLabelDraft) { gl.Enable(OpenGL.GL_LINE_STIPPLE); gl.LineStipple(1, 0x1F1F); }
+					DrawSolidLineLoop(gl, points, label.IsLabelDraft ? 2F : label.IsEditing ? 3F : label.IsLabelHovered ? 2.6F : 1.7F, classColorRgb, 1F);
+				}
+				finally { gl.PopAttrib(); }
+				return;
+			}
+
 			float mainLineWidth = Math.Max(2.5f, lineWidth + 1.0f);
 			float haloLineWidth = mainLineWidth + 3.0f;
 			float tintAlpha = isFill ? 0.18f : 0.12f;

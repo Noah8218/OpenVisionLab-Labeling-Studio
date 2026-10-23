@@ -9,11 +9,95 @@ using System.Text.RegularExpressions;
 
 namespace MvcVisionSystem
 {
+    // Raw explicit-evaluation contract; filtered performance reports do not satisfy it.
+    public sealed record ModelDecisionEvaluationCache(string TrainingRunId, string WeightsSha256, string DatasetVersionId, string DatasetContentSha256,
+        string ReviewEvidenceSha256, LabelingDatasetPurpose DatasetPurpose, double CaptureConfidenceFloor, bool HasCompletePredictions,
+        IReadOnlyList<ModelDecisionEvaluationSample> Samples);
+    public sealed record ModelDecisionEvaluationSample(string ImagePath, string ImageSha256, string SavedLabelSha256, string Split,
+        bool IsGroundTruthConfirmed, bool IsRejected, IReadOnlyList<int> SavedClassIds, bool? SavedAnomalyIsNg,
+        IReadOnlyList<MvcVisionSystem._1._Core.YoloWorkerSmokeCandidate> RawCandidates, bool HasCompletePredictions);
+    public sealed record ModelDecisionEvaluation(string Status, string Split, int NgCount, int OkCount, int Misses, int Extras, int ExcludedCount, IReadOnlyList<string> ErrorImagePaths)
+    {
+        public int ImageCount => NgCount + OkCount;
+        public double? Accuracy => Status == "ready" && ImageCount > 0 ? (ImageCount - Misses - Extras) / (double)ImageCount : null;
+        public IReadOnlyList<string> MissImagePaths { get; init; } = Array.Empty<string>();
+        public IReadOnlyList<string> ExtraImagePaths { get; init; } = Array.Empty<string>();
+    }
+    public sealed record ModelDecisionThresholdPoint(double Threshold, ModelDecisionEvaluation Evaluation);
+
     public class ModelComparisonReviewService
     {
         private const double DefaultIouThreshold = 0.5D;
         private const double DefaultConfidenceThreshold = 0.25D;
         private static readonly string[] ImageExtensions = { ".bmp", ".jpg", ".jpeg", ".png", ".tif", ".tiff" };
+
+        public static ModelDecisionEvaluation EvaluateDecisionRule(ModelDecisionRule rule, ModelDecisionEvaluationCache cache, string split)
+        {
+            string error = ModelRegistryService.ValidateDecisionRule(rule);
+            if (error.Length > 0) return new(error, split, 0, 0, 0, 0, 0, Array.Empty<string>());
+            if (split != "val" && split != "test") return new("RuleSplitInvalid", split, 0, 0, 0, 0, 0, Array.Empty<string>());
+            if (cache == null || !cache.HasCompletePredictions || cache.Samples == null) return new("RuleNeedsEvaluation", split, 0, 0, 0, 0, 0, Array.Empty<string>());
+            if (!ModelRegistryService.DecisionRuleMatches(rule, cache.TrainingRunId, cache.WeightsSha256, cache.DatasetVersionId, cache.DatasetContentSha256, cache.ReviewEvidenceSha256))
+                return new("RuleStale", split, 0, 0, 0, 0, 0, Array.Empty<string>());
+            if (rule.DatasetPurpose != cache.DatasetPurpose) return new("RulePurposeInvalid", split, 0, 0, 0, 0, 0, Array.Empty<string>());
+            if (rule.DatasetPurpose != LabelingDatasetPurpose.AnomalyDetection && (!double.IsFinite(cache.CaptureConfidenceFloor) || cache.CaptureConfidenceFloor < 0
+                || rule.Classes.Where(item => item.Enabled).Any(item => (item.Confidence ?? rule.Confidence) < cache.CaptureConfidenceFloor)))
+                return new("RuleIncompleteCapture", split, 0, 0, 0, 0, 0, Array.Empty<string>());
+            ModelDecisionEvaluationSample[] samples = cache.Samples.Where(sample => sample != null && sample.Split == split).ToArray();
+            int excluded = samples.Count(sample => !sample.IsGroundTruthConfirmed || sample.IsRejected);
+            var eligible = samples.Where(sample => sample.IsGroundTruthConfirmed && !sample.IsRejected).ToArray();
+            if (eligible.Length == 0) return new("RuleNeedsEvaluation", split, 0, 0, 0, 0, excluded, Array.Empty<string>());
+            if (cache.Samples.Where(sample => sample != null && sample.Split == "val").Select(sample => sample.ImagePath)
+                .Intersect(cache.Samples.Where(sample => sample != null && sample.Split == "test").Select(sample => sample.ImagePath), StringComparer.OrdinalIgnoreCase).Any())
+                return new("RuleSplitInvalid", split, 0, 0, 0, 0, excluded, Array.Empty<string>());
+            if (eligible.Any(sample => !sample.HasCompletePredictions || string.IsNullOrWhiteSpace(sample.ImagePath) || sample.ImageSha256?.Length != 64
+                || sample.SavedLabelSha256?.Length != 64 || sample.RawCandidates == null || sample.SavedClassIds == null
+                || rule.DatasetPurpose != LabelingDatasetPurpose.AnomalyDetection && sample.SavedClassIds.Any(id => !rule.Classes.Any(item => item.ClassId == id))
+                || rule.DatasetPurpose == LabelingDatasetPurpose.AnomalyDetection && !sample.SavedAnomalyIsNg.HasValue)
+                || eligible.Select(sample => sample.ImagePath).Distinct(StringComparer.OrdinalIgnoreCase).Count() != eligible.Length)
+                return new("RuleRawUnavailable", split, 0, 0, 0, 0, excluded, Array.Empty<string>());
+            int ng = 0, ok = 0, misses = 0, extras = 0;
+            var errors = new List<string>();
+            var missImages = new List<string>(); var extraImages = new List<string>();
+            foreach (ModelDecisionEvaluationSample sample in eligible)
+            {
+                ModelDecisionResult result = ModelRegistryService.EvaluateDecision(rule, sample.RawCandidates);
+                if (!result.IsNg.HasValue) return new(result.Status, split, 0, 0, 0, 0, excluded, Array.Empty<string>());
+                bool expected = rule.DatasetPurpose == LabelingDatasetPurpose.AnomalyDetection ? sample.SavedAnomalyIsNg.Value
+                    : sample.SavedClassIds.Any(id => rule.Classes.Any(item => item.Enabled && item.ClassId == id));
+                if (expected) ng++; else ok++;
+                if (expected && !result.IsNg.Value) { misses++; errors.Add(sample.ImagePath); missImages.Add(sample.ImagePath); }
+                if (!expected && result.IsNg.Value) { extras++; errors.Add(sample.ImagePath); extraImages.Add(sample.ImagePath); }
+            }
+            return new("ready", split, ng, ok, misses, extras, excluded, errors) { MissImagePaths = missImages, ExtraImagePaths = extraImages };
+        }
+
+        // Validation alone chooses a threshold. Test samples are never read by this selection.
+        public static double? FindZeroMissDecisionThreshold(ModelDecisionRule rule, ModelDecisionEvaluationCache cache)
+        {
+            return ScanDecisionThresholds(rule, cache).Where(point => point.Evaluation.Status == "ready" && point.Evaluation.NgCount > 0
+                && point.Evaluation.Misses == 0).Select(point => (double?)point.Threshold).OrderByDescending(value => value).FirstOrDefault();
+        }
+
+        public static IReadOnlyList<ModelDecisionThresholdPoint> ScanDecisionThresholds(ModelDecisionRule rule, ModelDecisionEvaluationCache cache)
+        {
+            if (rule == null || cache == null) return Array.Empty<ModelDecisionThresholdPoint>();
+            var values = rule.DatasetPurpose == LabelingDatasetPurpose.AnomalyDetection
+                ? cache.Samples?.Where(sample => sample != null && sample.Split == "val" && sample.IsGroundTruthConfirmed && !sample.IsRejected)
+                    .SelectMany(sample => sample.RawCandidates ?? Array.Empty<MvcVisionSystem._1._Core.YoloWorkerSmokeCandidate>())
+                    .Where(candidate => candidate?.ImageLevel == true && candidate.AnomalyScore.HasValue && double.IsFinite(candidate.AnomalyScore.Value))
+                    .Select(candidate => candidate.AnomalyScore.Value).Distinct().OrderByDescending(value => value).ToArray()
+                : Enumerable.Range(1, 19).Select(index => Math.Round(index * 0.05, 2)).OrderByDescending(value => value).ToArray();
+            var points = new List<ModelDecisionThresholdPoint>();
+            foreach (double threshold in values ?? Array.Empty<double>())
+            {
+                ModelDecisionRule draft = rule.Copy();
+                if (draft.DatasetPurpose == LabelingDatasetPurpose.AnomalyDetection) draft.AnomalyScoreThreshold = threshold; else draft.Confidence = threshold;
+                ModelDecisionEvaluation evaluation = EvaluateDecisionRule(draft, cache, "val");
+                points.Add(new(threshold, evaluation));
+            }
+            return points.OrderBy(point => point.Threshold).ToArray();
+        }
 
         public WpfModelComparisonReviewReport BuildLatestReport(
             IReadOnlyList<string> classNames,
@@ -125,11 +209,11 @@ namespace MvcVisionSystem
             else if (isEngineComparison && string.Equals(task, "val", StringComparison.OrdinalIgnoreCase))
             {
                 promotionDecision = "benchmark";
-                promotionReason = "\uD559\uC2B5 \uAC80\uC99D(val) \uACB0\uACFC\uB294 \uC5D4\uC9C4 \uC131\uB2A5 \uBD84\uC11D\uC6A9\uC774\uBA70 \uAC80\uC0AC \uBAA8\uB378 \uAD50\uCCB4 \uADFC\uAC70\uAC00 \uC544\uB2D9\uB2C8\uB2E4.";
+                promotionReason = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.ValOnly");
                 promotionReasons = new[] { promotionReason };
             }
 
-            return BuildFromLabelDirectories(
+            WpfModelComparisonReviewReport report = BuildFromLabelDirectories(
                 baselineLabelsPath,
                 candidateLabelsPath,
                 resolvedClassNames,
@@ -144,6 +228,15 @@ namespace MvcVisionSystem
                 candidateConfidenceSweepText,
                 benchmarkText,
                 isEngineComparison);
+            string baselineWeights = summary.SelectToken("baseline.weights")?.Value<string>() ?? summary.SelectToken("baseline.weightsPath")?.Value<string>() ?? "?";
+            string candidateWeights = summary.SelectToken("candidate.weights")?.Value<string>() ?? summary.SelectToken("candidate.weightsPath")?.Value<string>() ?? "?";
+            double? nmsIou = summary.SelectToken("uiNmsIou")?.Value<double?>();
+            string predictionConditions = nmsIou.HasValue ? $" · NMS IoU {nmsIou.Value:P0}" : string.Empty;
+            foreach (WpfModelComparisonReviewExample example in report.Examples)
+            {
+                example.ComparisonConditionsText += predictionConditions + Environment.NewLine + task + " · A: " + ModelRegistryTextPresentationService.FormatModelPath(baselineWeights) + " · B: " + ModelRegistryTextPresentationService.FormatModelPath(candidateWeights) + Environment.NewLine + summaryJsonPath;
+            }
+            return report;
         }
 
         public WpfModelComparisonReviewReport BuildFromLabelDirectories(
@@ -182,6 +275,12 @@ namespace MvcVisionSystem
             List<WpfModelComparisonReviewExample> examples = BuildExamples(baseline, candidate, iouThreshold, resolveImagePath)
                 .Take(Math.Max(1, maxExamples))
                 .ToList();
+            foreach (WpfModelComparisonReviewExample example in examples)
+            {
+                example.BaselinePredictions = baseline.TryGetValue(example.ImageKey, out var a) ? a.Select(ToPrediction).ToArray() : Array.Empty<ModelComparisonPrediction>();
+                example.CandidatePredictions = candidate.TryGetValue(example.ImageKey, out var b) ? b.Select(ToPrediction).ToArray() : Array.Empty<ModelComparisonPrediction>();
+                example.ComparisonConditionsText = $"{example.ImageKey} · confidence {confidenceThreshold:P0} · 검출 대응 IoU {iouThreshold:P0}";
+            }
             int differenceImageCount = BuildDifferenceImageKeys(baseline, candidate, iouThreshold).Count;
             int baselineCount = baseline.Values.Sum(items => items.Count);
             int candidateCount = candidate.Values.Sum(items => items.Count);
@@ -211,6 +310,8 @@ namespace MvcVisionSystem
                 isEngineComparison: isEngineComparison);
         }
 
+        private static ModelComparisonPrediction ToPrediction(YoloLabelDetection item) => new(item.ClassName, item.Confidence, item.Left, item.Top, item.Right, item.Bottom);
+
         private static string BuildBenchmarkText(JObject summary)
         {
             if (summary == null)
@@ -227,7 +328,7 @@ namespace MvcVisionSystem
 
             int imageSize = summary.SelectToken("imageSize")?.Value<int?>() ?? 0;
             int batchSize = summary.SelectToken("batchSize")?.Value<int?>() ?? 0;
-            string condition = $"\uBAA8\uB378 Takt=\uC804\uCC98\uB9AC+\uCD94\uB860+\uD6C4\uCC98\uB9AC / batch {(batchSize > 0 ? batchSize : 1)}";
+            string condition = string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.TimingBasis"), (batchSize > 0 ? batchSize : 1));
             if (imageSize > 0)
             {
                 condition += $" / image {imageSize}";
@@ -238,7 +339,7 @@ namespace MvcVisionSystem
                 ?? 1;
             if (repeatCount > 1)
             {
-                condition += $" / \uBC18\uBCF5 {repeatCount}\uD68C \uC911\uC559\uAC12";
+                condition += " " + string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.TimingRepeat"), repeatCount);
             }
 
             string comparisonBasis = BuildEngineComparisonBasisText(summary);
@@ -262,10 +363,10 @@ namespace MvcVisionSystem
             int comparisonCount = summary.SelectToken("evidence.comparisonLabelCount")?.Value<int?>()
                 ?? summary.SelectToken("evidence.imageCount")?.Value<int?>()
                 ?? 0;
-            string countText = comparisonCount > 0 ? $" {comparisonCount}\uC7A5" : string.Empty;
+            string countText = comparisonCount > 0 ? " " + string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.ImageCount"), comparisonCount) : string.Empty;
             return string.Equals(task, "test", StringComparison.OrdinalIgnoreCase)
-                ? $"\uBE44\uAD50 \uAE30\uC900: test{countText} (\uC81C\uC5B4\uB41C \uC5D4\uC9C4 \uBE44\uAD50, \uD604\uC7A5 \uAC80\uC99D \uC544\uB2D8)"
-                : $"\uBE44\uAD50 \uAE30\uC900: val{countText} (\uC81C\uC5B4\uB41C \uD559\uC2B5 \uAC80\uC99D\uC14B, \uD604\uC7A5 \uAC80\uC99D\u00B7\uAD50\uCCB4 \uD310\uB2E8 \uC544\uB2D8)";
+                ? string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.TestBasis"), countText)
+                : string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.ValidationBasis"), countText);
         }
 
         private static string BuildBenchmarkLine(JObject summary, string modelKey, string fallbackEngine)
@@ -345,11 +446,11 @@ namespace MvcVisionSystem
 
             string label = decision.Trim().ToLowerInvariant() switch
             {
-                "promote" => "\uAD50\uCCB4 \uCD94\uCC9C",
-                "hold" => "\uAD50\uCCB4 \uBCF4\uB958",
-                "review" => "\uC608\uC2DC \uAC80\uD1A0",
-                "benchmark" => "\uC5D4\uC9C4 \uBD84\uC11D",
-                _ => "\uAD50\uCCB4 \uD310\uB2E8"
+                "promote" => OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.Promote"),
+                "hold" => OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.Hold"),
+                "review" => OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.ExampleCheck"),
+                "benchmark" => OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.EngineAnalysis"),
+                _ => OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.ModelDecision")
             };
             List<string> reasonTexts = (reasons ?? Array.Empty<string>())
                 .Select(BuildPromotionReasonText)
@@ -386,10 +487,10 @@ namespace MvcVisionSystem
                 string compared = numbers.Count > 0 ? FormatReasonPercent(numbers[0].Value) : string.Empty;
                 string current = numbers.Count > 1 ? FormatReasonPercent(numbers[1].Value) : string.Empty;
                 return string.IsNullOrWhiteSpace(compared) || string.IsNullOrWhiteSpace(current)
-                    ? "\uBE44\uAD50 \uAC80\uC99D \uC2E0\uB8B0\uB3C4\uC640 \uD604\uC7AC \uAC80\uC0AC \uC2E0\uB8B0\uB3C4\uAC00 \uB2E4\uB985\uB2C8\uB2E4. \uD604\uC7AC \uC2E0\uB8B0\uB3C4\uB85C \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694."
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.ConfidenceMismatch")
                     : string.Format(
                         CultureInfo.CurrentCulture,
-                        "\uBE44\uAD50 \uAC80\uC99D \uC2E0\uB8B0\uB3C4 {0}\uC640 \uD604\uC7AC \uAC80\uC0AC \uC2E0\uB8B0\uB3C4 {1}\uAC00 \uB2E4\uB985\uB2C8\uB2E4. \uD604\uC7AC \uC2E0\uB8B0\uB3C4\uB85C \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694.",
+                        OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.ConfidenceMismatchValues"),
                         compared,
                         current);
             }
@@ -414,10 +515,10 @@ namespace MvcVisionSystem
                 string current = numbers.Count > 0 ? FormatReasonPercent(numbers[0].Value) : string.Empty;
                 string minimum = numbers.Count > 1 ? FormatReasonPercent(numbers[1].Value) : string.Empty;
                 return string.IsNullOrWhiteSpace(current) || string.IsNullOrWhiteSpace(minimum)
-                    ? "\uC815\uBC00\uB3C4\uAC00 \uCD5C\uC18C \uAE30\uC900\uBCF4\uB2E4 \uB0AE\uC2B5\uB2C8\uB2E4. \uB77C\uBCA8\uACFC \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uB354 \uD655\uC778\uD55C \uB4A4 \uAD50\uCCB4\uD558\uC138\uC694."
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.PrecisionLow")
                     : string.Format(
                         CultureInfo.CurrentCulture,
-                        "\uC815\uBC00\uB3C4 {0}\uAC00 \uCD5C\uC18C \uAE30\uC900 {1}\uBCF4\uB2E4 \uB0AE\uC2B5\uB2C8\uB2E4. \uB77C\uBCA8\uACFC \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uB354 \uD655\uC778\uD55C \uB4A4 \uAD50\uCCB4\uD558\uC138\uC694.",
+                        OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.PrecisionLowValues"),
                         current,
                         minimum);
             }
@@ -430,10 +531,10 @@ namespace MvcVisionSystem
                 string current = numbers.Count > 0 ? numbers[0].Value : string.Empty;
                 string minimum = numbers.Count > 1 ? numbers[1].Value : string.Empty;
                 return string.IsNullOrWhiteSpace(current) || string.IsNullOrWhiteSpace(minimum)
-                    ? "\uCD5C\uC885 \uAC80\uC99D \uB77C\uBCA8 \uC218\uAC00 \uAD50\uCCB4 \uD310\uB2E8\uC5D0 \uBD80\uC871\uD569\uB2C8\uB2E4."
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.TestLabelsLow")
                     : string.Format(
                         CultureInfo.CurrentCulture,
-                        "\uCD5C\uC885 \uAC80\uC99D \uB77C\uBCA8\uC774 {0}\uAC1C\uBFD0\uC785\uB2C8\uB2E4. \uBAA8\uB378 \uAD50\uCCB4 \uC804\uC5D0 \uCD5C\uC18C {1}\uAC1C\uAE4C\uC9C0 \uD655\uBCF4\uD558\uC138\uC694.",
+                        OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.TestLabelsLowValues"),
                         current,
                         minimum);
             }
@@ -444,10 +545,10 @@ namespace MvcVisionSystem
                 MatchCollection numbers = Regex.Matches(trimmed, @"[-+]?\d+(?:\.\d+)?");
                 string threshold = numbers.Count > 1 ? FormatReasonPercent(numbers[1].Value) : string.Empty;
                 return string.IsNullOrWhiteSpace(threshold)
-                    ? "\uAC80\uD1A0 \uAE30\uC900 \uC2E0\uB8B0\uB3C4\uC5D0\uC11C \uC0C8 \uBAA8\uB378 \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uAE30\uC900\uC744 \uB0AE\uCD94\uAC70\uB098 \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uBCF4\uAC15\uD55C \uB4A4 \uAD50\uCCB4\uD558\uC138\uC694."
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.SuggestionsMissing")
                     : string.Format(
                         CultureInfo.CurrentCulture,
-                        "\uAC80\uD1A0 \uAE30\uC900 \uC2E0\uB8B0\uB3C4 {0}\uC5D0\uC11C \uC0C8 \uBAA8\uB378 \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uAE30\uC900\uC744 \uB0AE\uCD94\uAC70\uB098 \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uBCF4\uAC15\uD55C \uB4A4 \uAD50\uCCB4\uD558\uC138\uC694.",
+                        OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.SuggestionsMissingValue"),
                         threshold);
             }
 
@@ -458,10 +559,10 @@ namespace MvcVisionSystem
                 string current = numbers.Count > 0 ? numbers[0].Value : string.Empty;
                 string minimum = numbers.Count > 1 ? numbers[1].Value : string.Empty;
                 return string.IsNullOrWhiteSpace(current) || string.IsNullOrWhiteSpace(minimum)
-                    ? "\uCD5C\uC885 \uAC80\uC99D \uC591\uC131 \uB9C8\uC2A4\uD06C \uB77C\uBCA8\uC774 \uAD50\uCCB4 \uD310\uB2E8\uC5D0 \uBD80\uC871\uD569\uB2C8\uB2E4."
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.MaskLabelsLow")
                     : string.Format(
                         CultureInfo.CurrentCulture,
-                        "\uCD5C\uC885 \uAC80\uC99D \uC591\uC131 \uB9C8\uC2A4\uD06C \uB77C\uBCA8\uC774 {0}\uAC1C\uBFD0\uC785\uB2C8\uB2E4. \uBAA8\uB378 \uAD50\uCCB4 \uC804\uC5D0 \uCD5C\uC18C {1}\uAC1C\uAE4C\uC9C0 \uD655\uBCF4\uD558\uC138\uC694.",
+                        OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.MaskLabelsLowValues"),
                         current,
                         minimum);
             }
@@ -473,10 +574,10 @@ namespace MvcVisionSystem
                 string current = numbers.Count > 0 ? numbers[0].Value : string.Empty;
                 string minimum = numbers.Count > 1 ? numbers[1].Value : string.Empty;
                 return string.IsNullOrWhiteSpace(current) || string.IsNullOrWhiteSpace(minimum)
-                    ? "\uCD5C\uC885 \uAC80\uC99D \uC591\uC131 \uB9C8\uC2A4\uD06C \uC774\uBBF8\uC9C0\uAC00 \uAD50\uCCB4 \uD310\uB2E8\uC5D0 \uBD80\uC871\uD569\uB2C8\uB2E4."
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.MaskImagesLow")
                     : string.Format(
                         CultureInfo.CurrentCulture,
-                        "\uCD5C\uC885 \uAC80\uC99D \uC591\uC131 \uB9C8\uC2A4\uD06C \uC774\uBBF8\uC9C0\uAC00 {0}\uC7A5\uBFD0\uC785\uB2C8\uB2E4. \uBAA8\uB378 \uAD50\uCCB4 \uC804\uC5D0 \uCD5C\uC18C {1}\uC7A5\uAE4C\uC9C0 \uD655\uBCF4\uD558\uC138\uC694.",
+                        OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.MaskImagesLowValues"),
                         current,
                         minimum);
             }
@@ -488,17 +589,17 @@ namespace MvcVisionSystem
                 string current = numbers.Count > 0 ? numbers[0].Value : string.Empty;
                 string minimum = numbers.Count > 1 ? numbers[1].Value : string.Empty;
                 return string.IsNullOrWhiteSpace(current) || string.IsNullOrWhiteSpace(minimum)
-                    ? "\uCD5C\uC885 \uAC80\uC99D \uC815\uC0C1 \uC774\uBBF8\uC9C0\uAC00 \uAD50\uCCB4 \uD310\uB2E8\uC5D0 \uBD80\uC871\uD569\uB2C8\uB2E4."
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.NormalImagesLow")
                     : string.Format(
                         CultureInfo.CurrentCulture,
-                        "\uCD5C\uC885 \uAC80\uC99D \uC815\uC0C1 \uC774\uBBF8\uC9C0\uAC00 {0}\uC7A5\uBFD0\uC785\uB2C8\uB2E4. \uBAA8\uB378 \uAD50\uCCB4 \uC804\uC5D0 \uCD5C\uC18C {1}\uC7A5\uAE4C\uC9C0 \uD655\uBCF4\uD558\uC138\uC694.",
+                        OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.NormalImagesLowValues"),
                         current,
                         minimum);
             }
 
             if (normalized.Contains("ui-threshold image evidence is incomplete", StringComparison.Ordinal))
             {
-                return "UI \uC2E0\uB8B0\uB3C4 \uAE30\uC900\uC758 \uC591\uC131/\uC815\uC0C1 \uC774\uBBF8\uC9C0 \uAC80\uC99D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. \uCD5C\uC885 \uAC80\uC99D \uBE44\uAD50\uB97C \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694.";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.TestEvaluationMissing");
             }
 
             if (normalized.Contains("ui-threshold positive image coverage", StringComparison.Ordinal)
@@ -511,10 +612,10 @@ namespace MvcVisionSystem
                 string minimum = numbers.Count > 3 ? FormatReasonPercent(numbers[3].Value) : string.Empty;
                 string confidence = numbers.Count > 4 ? FormatReasonPercent(numbers[4].Value) : string.Empty;
                 return new[] { detected, total, coverage, minimum, confidence }.Any(string.IsNullOrWhiteSpace)
-                    ? "UI \uC2E0\uB8B0\uB3C4 \uAE30\uC900\uC758 \uC591\uC131 \uC774\uBBF8\uC9C0 \uAC80\uCD9C \uBC94\uC704\uAC00 \uCD5C\uC18C \uAE30\uC900\uBCF4\uB2E4 \uB0AE\uC2B5\uB2C8\uB2E4. \uB2E4\uC591\uD55C \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uCD94\uAC00\uD558\uAC70\uB098 \uBAA8\uB378\uC744 \uC870\uC815\uD55C \uB4A4 \uAD50\uCCB4\uD558\uC138\uC694."
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.PositiveCoverageLow")
                     : string.Format(
                         CultureInfo.CurrentCulture,
-                        "\uC2E0\uB8B0\uB3C4 {4}\uC5D0\uC11C \uC591\uC131 \uC774\uBBF8\uC9C0 {1}\uC7A5 \uC911 {0}\uC7A5\uB9CC \uD6C4\uBCF4\uAC00 \uC788\uC2B5\uB2C8\uB2E4({2}, \uCD5C\uC18C {3}). \uB2E4\uC591\uD55C \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uCD94\uAC00\uD558\uAC70\uB098 \uBAA8\uB378\uC744 \uC870\uC815\uD55C \uB4A4 \uAD50\uCCB4\uD558\uC138\uC694.",
+                        OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.PositiveCoverageLowValues"),
                         detected,
                         total,
                         coverage,
@@ -532,10 +633,10 @@ namespace MvcVisionSystem
                 string maximum = numbers.Count > 3 ? FormatReasonPercent(numbers[3].Value) : string.Empty;
                 string confidence = numbers.Count > 4 ? FormatReasonPercent(numbers[4].Value) : string.Empty;
                 return new[] { detected, total, rate, maximum, confidence }.Any(string.IsNullOrWhiteSpace)
-                    ? "UI \uC2E0\uB8B0\uB3C4 \uAE30\uC900\uC758 \uC815\uC0C1 \uC774\uBBF8\uC9C0 \uC624\uAC80\uCD9C\uB960\uC774 \uCD5C\uB300 \uAE30\uC900\uBCF4\uB2E4 \uB192\uC2B5\uB2C8\uB2E4. \uC815\uC0C1 \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uCD94\uAC00\uD558\uAC70\uB098 \uBAA8\uB378\uC744 \uC870\uC815\uD55C \uB4A4 \uAD50\uCCB4\uD558\uC138\uC694."
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.NormalExtrasHigh")
                     : string.Format(
                         CultureInfo.CurrentCulture,
-                        "\uC2E0\uB8B0\uB3C4 {4}\uC5D0\uC11C \uC815\uC0C1 \uC774\uBBF8\uC9C0 {1}\uC7A5 \uC911 {0}\uC7A5\uC5D0 \uD6C4\uBCF4\uAC00 \uC0DD\uACBC\uC2B5\uB2C8\uB2E4({2}, \uCD5C\uB300 {3}). \uC815\uC0C1 \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uCD94\uAC00\uD558\uAC70\uB098 \uBAA8\uB378\uC744 \uC870\uC815\uD55C \uB4A4 \uAD50\uCCB4\uD558\uC138\uC694.",
+                        OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.NormalExtrasHighValues"),
                         detected,
                         total,
                         rate,
@@ -544,7 +645,7 @@ namespace MvcVisionSystem
             }
 
             return trimmed.All(c => c <= 127)
-                ? "\uBAA8\uB378 \uAD50\uCCB4 \uADFC\uAC70\uB97C \uB354 \uD655\uC778\uD55C \uB4A4 \uD310\uB2E8\uD558\uC138\uC694."
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.CheckMore")
                 : trimmed;
         }
 
@@ -581,7 +682,7 @@ namespace MvcVisionSystem
 
             return items.Count == 0
                 ? string.Empty
-                : "\uAC80\uD1A0 \uAE30\uC900\uBCC4 \uD6C4\uBCF4: " + string.Join(" / ", items);
+                : OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.SuggestionCounts") + " " + string.Join(" / ", items);
         }
 
         private static bool TryBuildHistoryItem(
@@ -611,11 +712,11 @@ namespace MvcVisionSystem
                 string task = summary.SelectToken("task")?.Value<string>()?.Trim() ?? "val";
                 string basisText = task.ToLowerInvariant() switch
                 {
-                    "test" => "\uCD5C\uC885 \uAC80\uC99D(test)",
+                    "test" => OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.TestSplit"),
                     "val" => "\uD559\uC2B5 \uAC80\uC99D(val)",
                     _ => task
                 };
-                string kindText = isEngineComparison ? "\uC5D4\uC9C4 \uBE44\uAD50" : "\uBAA8\uB378 \uD6C4\uBCF4 \uBE44\uAD50";
+                string kindText = isEngineComparison ? "\uC5D4\uC9C4 \uBE44\uAD50" : OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.TrainedComparison");
                 DateTime timestamp = File.GetLastWriteTime(summaryJsonPath);
                 string latestPrefix = isLatest ? "\uCD5C\uC2E0 \u00B7 " : string.Empty;
                 item = new WpfModelComparisonHistoryItem(
@@ -727,7 +828,7 @@ namespace MvcVisionSystem
                 PackIconMaterialKind.PlusCircleOutline,
                 priority: 3,
                 imagePath: imagePath,
-                actionText: "\uD655\uC778: \uC2E4\uC81C \uAC1D\uCCB4\uBA74 \uC0C8 \uBAA8\uB378 \uAC1C\uC120, \uC544\uB2C8\uBA74 \uACFC\uAC80\uCD9C",
+                actionText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonReviewService.CandidateOnlyAction"),
                 locationText: FormatLocation(candidate),
                 left: candidate.Left,
                 top: candidate.Top,
@@ -1321,6 +1422,8 @@ namespace MvcVisionSystem
         public bool IsEngineComparison { get; }
     }
 
+    public sealed record ModelComparisonPrediction(string ClassName, double Confidence, double Left, double Top, double Right, double Bottom);
+
     public sealed class WpfModelComparisonReviewExample
     {
         public WpfModelComparisonReviewExample(
@@ -1352,6 +1455,10 @@ namespace MvcVisionSystem
             Right = Clamp01(right);
             Bottom = Clamp01(bottom);
         }
+
+        public IReadOnlyList<ModelComparisonPrediction> BaselinePredictions { get; internal set; } = Array.Empty<ModelComparisonPrediction>();
+        public IReadOnlyList<ModelComparisonPrediction> CandidatePredictions { get; internal set; } = Array.Empty<ModelComparisonPrediction>();
+        public string ComparisonConditionsText { get; internal set; } = string.Empty;
 
         public string ImageKey { get; }
 

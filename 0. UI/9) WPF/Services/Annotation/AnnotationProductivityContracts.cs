@@ -10,7 +10,8 @@ namespace MvcVisionSystem
         OpenClassCatalog,
         RepeatLast,
         DuplicateSelected,
-        ToggleShortcutHelp
+        ToggleShortcutHelp,
+        ImportPreviousLabels
     }
 
     public class AnnotationShortcut

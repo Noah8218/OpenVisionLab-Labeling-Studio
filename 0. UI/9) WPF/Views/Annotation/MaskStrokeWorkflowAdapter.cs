@@ -139,6 +139,26 @@ namespace MvcVisionSystem
         private bool CanEditManualSegment(LabelingSegmentationObject segment)
             => context.CanEditManualSegment?.Invoke(segment) ?? true;
 
+        private MaskEraserScope GetEraserScope()
+            => context.EraserScopeProvider?.Invoke() ?? MaskEraserScope.VisibleEditable;
+
+        private int GetSelectedEraserSegmentIndex()
+        {
+            WpfObjectReviewItemRef selected = context.SelectedObjectProvider?.Invoke();
+            return selected?.Source == WpfObjectReviewSource.ManualSegment
+                ? selected.Index
+                : -1;
+        }
+
+        private bool CanEditEraserSegment(LabelingSegmentationObject segment, QueuedMaskStrokeCommit command)
+            => MaskEraserScopePolicy.CanEdit(
+                segment,
+                command?.EraserScope ?? MaskEraserScope.VisibleEditable,
+                command?.ClassName,
+                command?.SelectedSegmentIndex ?? -1,
+                manualSegments,
+                CanEditManualSegment);
+
         private void MarkMaskStrokeAnnotationsDirty(string reason)
             => context.MarkMaskStrokeAnnotationsDirty?.Invoke(reason);
 
@@ -260,7 +280,9 @@ namespace MvcVisionSystem
                 className,
                 classItem,
                 activeMaskStrokeActionName,
-                HasPendingDetectionCandidates());
+                HasPendingDetectionCandidates(),
+                tool == WpfAnnotationTool.Eraser ? GetEraserScope() : MaskEraserScope.VisibleEditable,
+                tool == WpfAnnotationTool.Eraser ? GetSelectedEraserSegmentIndex() : -1);
 
             queuedMaskStrokeCommits.Enqueue(command);
             pendingMaskStrokeCommitCount++;
@@ -668,7 +690,7 @@ namespace MvcVisionSystem
                     command.ImageSize,
                     out _,
                     out IReadOnlyList<LabelingSegmentationObject> changedSegments,
-                    CanEditManualSegment);
+                    segment => CanEditEraserSegment(segment, command));
                 TrackQueuedMaskStrokeSegments(changedSegments, changedSegmentIndices, ref needsFullObjectRefresh);
                 needsFullObjectRefresh |= manualSegments.Count != segmentCountBeforeErase;
                 return changed;
@@ -969,7 +991,7 @@ namespace MvcVisionSystem
         internal int GetMaskBrushRadius()
         {
             int brushSize = LearningWorkflowViewModel?.BrushSize ?? CanvasBrushSizePresentationService.DefaultSize;
-            return Math.Clamp((int)Math.Round(brushSize / 2D), 1, 128);
+            return CanvasBrushSizePresentationService.GetSourceImageRadius(brushSize);
         }
 
         internal System.Drawing.Color GetMaskCursorPreviewColor(bool isEraser)
@@ -992,7 +1014,7 @@ namespace MvcVisionSystem
                 return color;
             }
 
-            int alpha = (int)Math.Round(Math.Clamp(LearningWorkflowViewModel?.MaskOpacity ?? 0.66D, 0.1D, 1.0D) * 255D);
+            int alpha = (int)Math.Round(Math.Min(.9D, Math.Clamp(LearningWorkflowViewModel?.MaskOpacity ?? CanvasLayerPresentationWorkflowService.DefaultLabelOverlayOpacity, 0D, 1D) + .3D) * 255D);
             return System.Drawing.Color.FromArgb(alpha, color.R, color.G, color.B);
         }
 
@@ -1029,6 +1051,12 @@ namespace MvcVisionSystem
             {
                 SyncCanvasBrushSizeFromWorkflow();
             }
+            else if (string.Equals(e?.PropertyName, nameof(WpfLearningWorkflowPanelViewModel.MaskOpacity), StringComparison.Ordinal))
+            {
+                if (CanvasPanelViewModel != null && LearningWorkflowViewModel != null)
+                    CanvasPanelViewModel.OverlayOpacity = LearningWorkflowViewModel.MaskOpacity;
+                RefreshPolygonOverlays();
+            }
         }
         #endregion
     }
@@ -1049,6 +1077,8 @@ namespace MvcVisionSystem
         internal Func<bool> IsApplicationCloseApproved { get; init; }
         internal Func<bool> IsAnnotationDirty { get; init; }
         internal Func<LabelingSegmentationObject, bool> CanEditManualSegment { get; init; }
+        internal Func<MaskEraserScope> EraserScopeProvider { get; init; }
+        internal Func<WpfObjectReviewItemRef> SelectedObjectProvider { get; init; }
         internal MaskAnnotationService MaskAnnotationService { get; init; }
         internal Func<RoiImageCanvasViewModel> MainCanvasViewModelProvider { get; init; }
         internal Func<WpfCanvasPanelViewModel> CanvasPanelViewModelProvider { get; init; }

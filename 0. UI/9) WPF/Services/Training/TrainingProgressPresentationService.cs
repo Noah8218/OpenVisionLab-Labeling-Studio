@@ -11,31 +11,31 @@ namespace MvcVisionSystem
 
         public static string BuildAcceptedWorkerWaitProgressText()
         {
-            return "\uD559\uC2B5 \uBA85\uB839 \uC218\uB77D\uB428 / \uC6CC\uCEE4 \uC0C1\uD0DC \uB300\uAE30";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.Accepted");
         }
 
         public static string BuildBeforeEpochText()
         {
-            return "\uC5D0\uD3ED \uC2DC\uC791 \uC804";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.BeforeEpoch");
         }
 
         public static string BuildIdleProgressText()
         {
-            return "\uD559\uC2B5 \uB300\uAE30";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.Idle");
         }
 
         public static string BuildStatusNoResponseText()
         {
-            return "\uD559\uC2B5 \uC0C1\uD0DC \uC751\uB2F5 \uC5C6\uC74C: \uBA85\uB839 \uC804\uC1A1 \uD6C4 \uC6CC\uCEE4\uC758 \uC5D0\uD3ED/\uC0C1\uD0DC \uB85C\uADF8\uAC00 \uB3C4\uCC29\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.NoResponse");
         }
 
         public static TrainingRecoveryStatus BuildStatusNoResponseRecovery(string detail)
         {
             return new TrainingRecoveryStatus
             {
-                Title = "\uD559\uC2B5 \uC0C1\uD0DC \uC751\uB2F5 \uC5C6\uC74C",
+                Title = OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.NoResponseTitle"),
                 Detail = NormalizeDetail(detail),
-                Action = "\uB2E4\uC74C: \uC0C1\uC138 \uB85C\uADF8\uC5D0\uC11C Python worker \uCD9C\uB825\uC744 \uD655\uC778\uD558\uACE0, \uD544\uC694\uD558\uBA74 \uBAA8\uB378 \uD14C\uC2A4\uD2B8 \uB610\uB294 \uC7AC\uC2DC\uC791 \uD6C4 \uD559\uC2B5\uC744 \uB2E4\uC2DC \uC2DC\uC791\uD558\uC138\uC694."
+                Action = OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.NoResponseAction")
             };
         }
 
@@ -43,9 +43,9 @@ namespace MvcVisionSystem
         {
             return new TrainingRecoveryStatus
             {
-                Title = "\uD559\uC2B5 \uC2E4\uD328 - \uC870\uCE58 \uD544\uC694",
+                Title = OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.FailedTitle"),
                 Detail = NormalizeDetail(detail),
-                Action = "\uB2E4\uC74C: \uC0C1\uC138 \uB85C\uADF8\uC758 \uB9C8\uC9C0\uB9C9 \uC624\uB958 \uD655\uC778 -> \uB370\uC774\uD130\uC14B \uC810\uAC80 -> \uD544\uC694 \uC2DC \uC774\uBBF8\uC9C0 320/\uBC30\uCE58 4\uB85C \uB0AE\uCD98 \uB4A4 \uB2E4\uC2DC \uD559\uC2B5\uD558\uC138\uC694."
+                Action = OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.FailedAction")
             };
         }
 
@@ -54,10 +54,10 @@ namespace MvcVisionSystem
             string formattedMessage = FormatTrainingMessage(message);
             if (string.IsNullOrWhiteSpace(formattedMessage))
             {
-                formattedMessage = "Python worker\uAC00 \uC2E4\uD328 \uC0C1\uD0DC\uB97C \uBCF4\uB0C8\uC9C0\uB9CC \uC0C1\uC138 \uBA54\uC2DC\uC9C0\uB97C \uC81C\uACF5\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.";
+                formattedMessage = OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.FailureNoDetail");
             }
 
-            return "\uC6D0\uC778: " + formattedMessage;
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.CausePrefix") + " " + formattedMessage;
         }
 
         public static string BuildFailureDetail(PythonCommunicationStatus status)
@@ -74,11 +74,17 @@ namespace MvcVisionSystem
 
             List<string> parts = new List<string>
             {
-                $"\uD559\uC2B5 {FormatTrainingState(status.LastTrainingState)}"
+                string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.ProgressState"), FormatTrainingState(status.LastTrainingState))
             };
             if (status.LastTrainingProgressPercent.HasValue)
             {
                 parts.Add($"{Math.Clamp(status.LastTrainingProgressPercent.Value, 0, 100)}%");
+            }
+
+            bool isLiveTrainingStatus = IsLiveTrainingStatus(status);
+            if (isLiveTrainingStatus && !status.LastTrainingEpoch.HasValue)
+            {
+                parts.Add(BuildEpochSummary(status, isLiveTrainingStatus));
             }
 
             string message = ResolveTrainingMessage(status);
@@ -90,7 +96,7 @@ namespace MvcVisionSystem
             string trainingWeight = FormatTrainingWeight(status.LastTrainingWeightsPath);
             if (!string.IsNullOrWhiteSpace(trainingWeight))
             {
-                parts.Add($"\uD559\uC2B5 weight {trainingWeight}");
+                parts.Add(string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.ProgressWeight"), trainingWeight));
             }
 
             return string.Join(" / ", parts);
@@ -105,12 +111,12 @@ namespace MvcVisionSystem
 
             if (status?.LastTrainingEpoch.HasValue == true && status.LastTrainingTotalEpochs.HasValue)
             {
-                return $"\uC5D0\uD3ED {status.LastTrainingEpoch.Value}/{status.LastTrainingTotalEpochs.Value}";
+                return string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.EpochPair"), status.LastTrainingEpoch.Value, status.LastTrainingTotalEpochs.Value);
             }
 
             if (status?.LastTrainingEpoch.HasValue == true)
             {
-                return $"\uC5D0\uD3ED {status.LastTrainingEpoch.Value}";
+                return string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.EpochSingle"), status.LastTrainingEpoch.Value);
             }
 
             return string.Empty;
@@ -236,15 +242,15 @@ namespace MvcVisionSystem
             string normalized = state?.Trim() ?? string.Empty;
             return normalized.ToLowerInvariant() switch
             {
-                "" => "\uC0C1\uD0DC \uBBF8\uD655\uC778",
-                "idle" => "\uB300\uAE30",
-                "starting" => "\uC2DC\uC791 \uC911",
-                "started" => "\uBA85\uB839 \uC218\uB77D\uB428",
-                "running" => "\uC9C4\uD589 \uC911",
-                "completed" => "\uC644\uB8CC",
-                "stopped" => "\uC911\uC9C0\uB428",
-                "failed" => "\uC2E4\uD328",
-                "error" => "\uC624\uB958",
+                "" => OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.State.239"),
+                "idle" => OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.State.240"),
+                "starting" => OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.State.241"),
+                "started" => OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.State.242"),
+                "running" => OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.State.243"),
+                "completed" => OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.State.244"),
+                "stopped" => OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.State.245"),
+                "failed" => OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.State.246"),
+                "error" => OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.State.247"),
                 _ => normalized
             };
         }
@@ -254,24 +260,24 @@ namespace MvcVisionSystem
             string normalized = message?.Trim() ?? string.Empty;
             if (normalized.Contains(TrainingWeightDownloadRequiredCode, StringComparison.OrdinalIgnoreCase))
             {
-                return "\uD559\uC2B5 weight \uC900\uBE44 \uD544\uC694: \uBAA8\uB378 weight \uD30C\uC77C\uC744 \uCE90\uC2DC\uC5D0 \uCD94\uAC00\uD558\uAC70\uB098 \uBA85\uC2DC\uC801\uC73C\uB85C \uB2E4\uC6B4\uB85C\uB4DC\uB97C \uC2B9\uC778\uD558\uC138\uC694.";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.Message.257");
             }
 
             if (normalized.StartsWith("Training failed: process exited at the first training batch", StringComparison.OrdinalIgnoreCase)
                 || normalized.StartsWith("Training failed: process exited near the first training batch", StringComparison.OrdinalIgnoreCase))
             {
-                return "\uD559\uC2B5 \uC2E4\uD328: CPU\uC5D0\uC11C \uD604\uC7AC \uC124\uC815\uC774 \uB108\uBB34 \uD07D\uB2C8\uB2E4. yolov5s / \uC774\uBBF8\uC9C0 320 / \uBC30\uCE58 4 \uAD8C\uC7A5";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.Message.263");
             }
 
             return normalized.ToLowerInvariant() switch
             {
-                "epoch" => "\uC5D0\uD3ED",
-                "epoch update" => "\uC5D0\uD3ED \uAC31\uC2E0",
-                "yolo training accepted by worker." => "\uC6CC\uCEE4 \uC218\uB77D, \uC5D0\uD3ED \uC2DC\uC791 \uC804",
-                "yolov5 training started." => "\uC6CC\uCEE4 \uC2DC\uC791",
-                "yolov5 training completed." => "\uD559\uC2B5 \uC644\uB8CC",
-                "yolov5 training failed." => "\uD559\uC2B5 \uC2E4\uD328",
-                "yolov5 training stopped." => "\uD559\uC2B5 \uC911\uC9C0\uB428",
+                "epoch" => OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.Message.268"),
+                "epoch update" => OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.Message.269"),
+                "yolo training accepted by worker." => OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.Message.270"),
+                "yolov5 training started." => OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.Message.271"),
+                "yolov5 training completed." => OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.Message.272"),
+                "yolov5 training failed." => OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.Message.273"),
+                "yolov5 training stopped." => OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.TrainingProgressPresentationService.Message.274"),
                 _ => normalized
             };
         }

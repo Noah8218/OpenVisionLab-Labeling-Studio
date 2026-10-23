@@ -28,7 +28,26 @@ namespace OpenVisionLab.Wpf.MessageDialogs
             DetailsTextBox.Text = options.Details ?? string.Empty;
             DetailsContainer.Visibility = string.IsNullOrWhiteSpace(options.Details) ? Visibility.Collapsed : Visibility.Visible;
             DetailsTextBox.Visibility = Visibility.Collapsed;
-            DetailsToggleButton.Content = "상세 정보";
+            DetailsCaption.Text = options.DetailsCaption;
+            DetailsChevron.Text = "⌄";
+            if (TryFindResource("RecipeSurfaceBrush") is Brush)
+            {
+                ShellBorder.SetResourceReference(Border.BackgroundProperty, "RecipeSurfaceBrush");
+                ShellBorder.SetResourceReference(Border.BorderBrushProperty, "RecipeButtonBorderBrush");
+                TitleText.SetResourceReference(TextBlock.ForegroundProperty, "RecipeTextBrush");
+                MessageText.SetResourceReference(TextBlock.ForegroundProperty, "RecipeTextBrush");
+                MessageFocusCue.SetResourceReference(Border.BorderBrushProperty, "RecipeFocusBrush");
+                DetailsContainer.SetResourceReference(Border.BackgroundProperty, "RecipePageBrush");
+                DetailsContainer.SetResourceReference(Border.BorderBrushProperty, "RecipeButtonBorderBrush");
+                DetailsTextBox.SetResourceReference(TextBox.ForegroundProperty, "RecipeTextBrush");
+                if (TryFindResource("RecipeInputStyle") is Style detailsStyle)
+                {
+                    DetailsTextBox.Style = detailsStyle;
+                    DetailsTextBox.ClearValue(Control.BackgroundProperty);
+                    DetailsTextBox.ClearValue(Control.BorderThicknessProperty);
+                }
+                DetailsToggleButton.Style = TryFindResource("RecipeQuietButtonStyle") as Style ?? DetailsToggleButton.Style;
+            }
             detailsVisible = false;
 
             ApplyKind(options.Kind);
@@ -46,7 +65,12 @@ namespace OpenVisionLab.Wpf.MessageDialogs
                 var button = new Button
                 {
                     Content = spec.Text,
-                    Style = (Style)FindResource(spec.IsPrimary ? "PrimaryDialogButtonStyle" : "SecondaryDialogButtonStyle"),
+                    Style = TryFindResource(spec.IsPrimary ? "RecipePrimaryButtonStyle" : "RecipeSecondaryButtonStyle") as Style
+                        ?? (Style)FindResource(spec.IsPrimary ? "PrimaryDialogButtonStyle" : "SecondaryDialogButtonStyle"),
+                    ContentTemplate = (DataTemplate)FindResource("DialogButtonContentTemplate"),
+                    MinHeight = 30,
+                    MaxWidth = 220,
+                    Margin = new Thickness(8, 4, 0, 0),
                     IsDefault = spec.Result == defaultResult
                 };
 
@@ -155,6 +179,8 @@ namespace OpenVisionLab.Wpf.MessageDialogs
             var brush = new SolidColorBrush(color);
             KindGlyph.Text = glyph;
             KindGlyph.FontSize = glyph.Length > 1 ? 14D : 20D;
+            KindGlyph.Foreground = kind == WpfMessageDialogKind.Warning || kind == WpfMessageDialogKind.Success
+                ? new SolidColorBrush(Color.FromRgb(20, 24, 31)) : Brushes.White;
             KindBadge.Background = brush;
             AccentBar.Background = brush;
         }
@@ -163,7 +189,7 @@ namespace OpenVisionLab.Wpf.MessageDialogs
         {
             detailsVisible = !detailsVisible;
             DetailsTextBox.Visibility = detailsVisible ? Visibility.Visible : Visibility.Collapsed;
-            DetailsToggleButton.Content = detailsVisible ? "상세 정보 닫기" : "상세 정보";
+            DetailsChevron.Text = detailsVisible ? "⌃" : "⌄";
         }
     }
 }

@@ -39,7 +39,7 @@ namespace MvcVisionSystem
                 out byte[] sourceMask,
                 out Rectangle sourceBounds))
             {
-                error = "\uAD6C\uBA4D\uC744 \uCD94\uAC00\uD560 \uC138\uADF8\uBA3C\uD2B8 \uD615\uC0C1\uC744 \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.";
+                error = "구멍을 추가할 세그먼트 형상을 찾지 못했습니다.";
                 return false;
             }
 
@@ -53,7 +53,7 @@ namespace MvcVisionSystem
                 out byte[] holeMask,
                 out Rectangle holeBounds))
             {
-                error = "\uAD6C\uBA4D \uB2E4\uAC01\uD615\uC740 \uC720\uD6A8\uD55C \uC810 3\uAC1C \uC774\uC0C1\uC774 \uD544\uC694\uD569\uB2C8\uB2E4.";
+                error = "구멍을 만들려면 유효한 점 3개 이상이 필요합니다.";
                 return false;
             }
 
@@ -62,7 +62,7 @@ namespace MvcVisionSystem
                 || holeBounds.Right >= sourceBounds.Right
                 || holeBounds.Bottom >= sourceBounds.Bottom)
             {
-                error = "\uAD6C\uBA4D \uB2E4\uAC01\uD615\uC744 \uC120\uD0DD\uD55C \uAC1D\uCCB4 \uACBD\uACC4 \uC548\uCABD\uC5D0 \uADF8\uB9AC\uC138\uC694.";
+                error = "선택한 객체 경계 안쪽에 구멍을 그리세요.";
                 return false;
             }
 
@@ -81,7 +81,7 @@ namespace MvcVisionSystem
 
                     if (sourceMask[index] == 0)
                     {
-                        error = "\uAD6C\uBA4D \uB2E4\uAC01\uD615\uC740 \uC120\uD0DD\uD55C \uAC1D\uCCB4 \uC804\uACBD \uC548\uC5D0 \uC644\uC804\uD788 \uD3EC\uD568\uB418\uC5B4\uC57C \uD569\uB2C8\uB2E4.";
+                        error = "구멍은 선택한 객체 영역 안에 완전히 포함되어야 합니다.";
                         return false;
                     }
 
@@ -101,7 +101,7 @@ namespace MvcVisionSystem
                     seedIndex / imageSize.Width,
                     out _))
             {
-                error = "\uC678\uBD80 \uBC30\uACBD\uACFC \uC5F0\uACB0\uB418\uB294 \uC601\uC5ED\uC740 \uB0B4\uBD80 \uAD6C\uBA4D\uC73C\uB85C \uCD94\uAC00\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.";
+                error = "외부 배경과 연결되는 영역은 내부 구멍으로 추가할 수 없습니다.";
                 return false;
             }
 
@@ -128,14 +128,14 @@ namespace MvcVisionSystem
                 out byte[] sourceMask,
                 out Rectangle sourceBounds))
             {
-                error = "\uAD6C\uBA4D\uC744 \uCC44\uC6B8 \uC138\uADF8\uBA3C\uD2B8 \uD615\uC0C1\uC744 \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.";
+                error = "구멍을 채울 세그먼트 형상을 찾지 못했습니다.";
                 return false;
             }
 
             if (!sourceBounds.Contains(imagePoint)
                 || sourceMask[(imagePoint.Y * imageSize.Width) + imagePoint.X] != 0)
             {
-                error = "\uC120\uD0DD\uD55C \uAC1D\uCCB4\uC758 \uBE48 \uB0B4\uBD80 \uAD6C\uBA4D\uC744 \uD074\uB9AD\uD558\uC138\uC694.";
+                error = "선택한 객체의 빈 내부 구멍을 클릭하세요.";
                 return false;
             }
 
@@ -147,7 +147,7 @@ namespace MvcVisionSystem
                 imagePoint.Y,
                 out List<int> holePixels))
             {
-                error = "\uC678\uBD80 \uBC30\uACBD\uACFC \uC5F0\uACB0\uB41C \uC601\uC5ED\uC740 \uB0B4\uBD80 \uAD6C\uBA4D\uC774 \uC544\uB2D9\uB2C8\uB2E4.";
+                error = "외부 배경과 연결된 영역은 내부 구멍이 아닙니다.";
                 return false;
             }
 

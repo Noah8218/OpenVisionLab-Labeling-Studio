@@ -11,12 +11,7 @@ namespace MvcVisionSystem.Yolo
 {
     public static class YoloAnnotationService
     {
-        private static readonly string[] DatasetModes =
-        {
-            YoloDatasetSplitService.TrainMode,
-            YoloDatasetSplitService.ValidMode,
-            YoloDatasetSplitService.TestMode
-        };
+        private static readonly IReadOnlyList<string> DatasetModes = YoloDatasetSplitService.AnnotationModes;
 
         private static readonly string[] ImageExtensions = { ".bmp", ".jpg", ".jpeg", ".png", ".tif", ".tiff" };
 

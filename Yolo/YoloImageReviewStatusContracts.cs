@@ -56,6 +56,11 @@ namespace MvcVisionSystem.Yolo
 
         public string QualityReviewNote { get; internal set; }
 
+        public string LabelSuspicionDismissalIdentity { get; internal set; } = string.Empty;
+
+        public bool IsLabelSuspicionDismissed(string evidenceIdentity) => !string.IsNullOrWhiteSpace(evidenceIdentity)
+            && string.Equals(LabelSuspicionDismissalIdentity, evidenceIdentity, StringComparison.Ordinal);
+
         internal string DetectionStatusOverride { get; set; }
 
         public bool IsLabeled => LabelStatus?.HasObjects == true;

@@ -3,211 +3,287 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mvvm="clr-namespace:OpenVisionLab.Mvvm.Behaviors;assembly=OpenVisionLab.Mvvm"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks">
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             xmlns:local="clr-namespace:MvcVisionSystem">
     <UserControl.Resources>
-        <Style x:Key="TrainingLabelStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="VerticalAlignment" Value="Top" />
-            <Setter Property="Margin" Value="0,8,8,0" />
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../../../Themes/WpfButtonStateTemplates.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <Style TargetType="Expander" BasedOn="{StaticResource DatasetExpanderStyle}" />
+            <Style TargetType="TextBlock">
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
+            <Style TargetType="AccessText">
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
 
-        <Style x:Key="TrainingHelpTextStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
-            <Setter Property="FontSize" Value="10.5" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="Margin" Value="0,3,0,0" />
-        </Style>
+            <Style x:Key="TrainingLabelStyle" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" />
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontWeight" Value="Normal" />
+                <Setter Property="LineHeight" Value="17.4" />
+                <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+                <Setter Property="VerticalAlignment" Value="Top" />
+                <Setter Property="Margin" Value="0,8,8,0" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
 
-        <Style x:Key="TrainingTextBoxStyle" TargetType="TextBox">
-            <Setter Property="Height" Value="26" />
-            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="Padding" Value="6,3" />
-        </Style>
+            <Style x:Key="TrainingHelpTextStyle" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" />
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+                <Setter Property="FontSize" Value="12" /><Setter Property="LineHeight" Value="17.4" /><Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="Margin" Value="0,3,0,0" />
+            </Style>
 
-        <Style x:Key="TrainingComboBoxStyle" TargetType="ComboBox">
-            <Setter Property="Height" Value="26" />
-            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="ItemContainerStyle">
-                <Setter.Value>
-                    <Style TargetType="ComboBoxItem">
-                        <Setter Property="Background" Value="{DynamicResource InputBrush}" />
-                        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-                        <Setter Property="Padding" Value="6,3" />
-                    </Style>
-                </Setter.Value>
-            </Setter>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="{x:Type ComboBox}">
-                        <Grid>
-                            <ToggleButton x:Name="ToggleButton"
-                                          Focusable="False"
-                                          ClickMode="Press"
-                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
-                                          Background="{TemplateBinding Background}"
-                                          BorderBrush="{TemplateBinding BorderBrush}">
-                                <ToggleButton.Template>
-                                    <ControlTemplate TargetType="{x:Type ToggleButton}">
-                                        <Border Background="{TemplateBinding Background}"
-                                                BorderBrush="{TemplateBinding BorderBrush}"
-                                                BorderThickness="1"
-                                                CornerRadius="2">
-                                            <ContentPresenter />
-                                        </Border>
-                                    </ControlTemplate>
-                                </ToggleButton.Template>
-                                <Grid>
-                                    <ContentPresenter Content="{TemplateBinding SelectionBoxItem}"
-                                                      ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
-                                                      Margin="6,2,24,2"
-                                                      VerticalAlignment="Center"
-                                                      HorizontalAlignment="Left" />
-                                    <Path Data="M 0 0 L 4 4 L 8 0 Z"
-                                          Width="8"
-                                          Height="4"
-                                          Stretch="Fill"
-                                          Fill="{TemplateBinding Foreground}"
-                                          HorizontalAlignment="Right"
-                                          VerticalAlignment="Center"
-                                          Margin="0,0,8,0" />
-                                </Grid>
-                            </ToggleButton>
-                            <Popup x:Name="Popup"
-                                   Placement="Bottom"
-                                   IsOpen="{TemplateBinding IsDropDownOpen}"
-                                   AllowsTransparency="True"
-                                   Focusable="False">
-                                <Border MinWidth="{TemplateBinding ActualWidth}"
-                                        MaxHeight="{TemplateBinding MaxDropDownHeight}"
-                                        Background="{DynamicResource InputBrush}"
-                                        BorderBrush="{DynamicResource InputBorderBrush}"
-                                        BorderThickness="1">
-                                    <ScrollViewer CanContentScroll="True">
-                                        <ItemsPresenter />
-                                    </ScrollViewer>
-                                </Border>
-                            </Popup>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Resources>
-                <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#202833" />
-                <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#202833" />
-                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#334052" />
-                <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#F4F7FB" />
-            </Style.Resources>
-        </Style>
+            <Style x:Key="TrainingTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource RecipeInputStyle}">
+                <Setter Property="Height" Value="Auto" />
+                <Setter Property="MinHeight" Value="30" />
+                <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonBorderBrush}" />
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="Padding" Value="8,5" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+                <Setter Property="Validation.ErrorTemplate" Value="{x:Null}" />
+                <Style.Triggers>
+                    <Trigger Property="IsEnabled" Value="False">
+                        <Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" />
+                    </Trigger>
+                    <Trigger Property="Validation.HasError" Value="True">
+                        <Setter Property="BorderBrush" Value="{DynamicResource ErrorBrush}" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
 
-        <Style x:Key="TrainingCommandButtonStyle" TargetType="{x:Type ui:Button}">
-            <Setter Property="Template" Value="{DynamicResource WpfUiDarkButtonTemplate}" />
-            <Setter Property="Height" Value="30" />
-            <Setter Property="MinHeight" Value="30" />
-            <Setter Property="Padding" Value="8,0" />
-            <Setter Property="Margin" Value="0,0,5,5" />
-            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
-            <Setter Property="FontSize" Value="12" />
-            <Style.Triggers>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
-                    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
-                    <Setter Property="Opacity" Value="0.45" />
-                </Trigger>
-            </Style.Triggers>
-        </Style>
+            <Style x:Key="TrainingComboBoxStyle" TargetType="ComboBox" BasedOn="{StaticResource RecipeComboBoxStyle}">
+                <Setter Property="Height" Value="Auto" />
+                <Setter Property="MinHeight" Value="30" />
+                <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonBorderBrush}" />
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="ItemTemplate">
+                    <Setter.Value>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="300" />
+                        </DataTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type ComboBox}">
+                            <Grid>
+                                <ToggleButton x:Name="ToggleButton"
+                                              Focusable="False"
+                                              ClickMode="Press"
+                                              MinHeight="0"
+                                              Padding="0"
+                                              HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Stretch"
+                                              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                              Background="{TemplateBinding Background}"
+                                              BorderBrush="{TemplateBinding BorderBrush}">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="{x:Type ToggleButton}">
+                                            <Border Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="7">
+                                                <ContentPresenter />
+                                            </Border>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                    <Grid>
+                                        <ContentPresenter Content="{TemplateBinding SelectionBoxItem}"
+                                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                          ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                                          ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                                          TextElement.Foreground="{TemplateBinding Foreground}"
+                                                          Margin="{TemplateBinding Padding}"
+                                                          VerticalAlignment="Center"
+                                                          HorizontalAlignment="Left" />
+                                        <Path Data="M 0 0 L 4 4 L 8 0"
+                                              Width="8"
+                                              Height="4"
+                                              Stretch="Fill"
+                                              Stroke="{TemplateBinding Foreground}"
+                                              StrokeThickness="1.4"
+                                              HorizontalAlignment="Right"
+                                              VerticalAlignment="Center"
+                                              Margin="0,0,12,0" />
+                                    </Grid>
+                                </ToggleButton>
+                                <Popup x:Name="Popup"
+                                       Placement="Bottom"
+                                       IsOpen="{TemplateBinding IsDropDownOpen}"
+                                       AllowsTransparency="True"
+                                       Focusable="False">
+                                    <Border Width="{TemplateBinding ActualWidth}"
+                                            MinWidth="{TemplateBinding ActualWidth}"
+                                            MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                                            Background="{DynamicResource RecipeSurfaceBrush}"
+                                            BorderBrush="{DynamicResource RecipeButtonBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="7"
+                                            Padding="4">
+                                        <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                            <ItemsPresenter />
+                                        </ScrollViewer>
+                                    </Border>
+                                </Popup>
+                                <Border x:Name="TrainingComboFocusCue" BorderBrush="Transparent" BorderThickness="2" CornerRadius="7" IsHitTestVisible="False" />
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                    <Setter TargetName="TrainingComboFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="TrainingComboFocusCue" Property="BorderBrush" Value="Transparent" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Style.Resources>
+                    <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#202833" />
+                    <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#202833" />
+                    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#334052" />
+                    <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#F4F7FB" />
+                </Style.Resources>
+                <Style.Triggers>
+                    <Trigger Property="IsEnabled" Value="False">
+                        <Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" />
+                    </Trigger>
+                    <Trigger Property="Validation.HasError" Value="True">
+                        <Setter Property="BorderBrush" Value="{DynamicResource ErrorBrush}" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <Style x:Key="TrainingCommandButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource RecipeButtonBaseStyle}">
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+                <Setter Property="Margin" Value="0,0,5,5" />
+            </Style>
+
+            <Style x:Key="TrainingInlineActionButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource TrainingCommandButtonStyle}">
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="Preparation">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="Results">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </ResourceDictionary>
     </UserControl.Resources>
 
     <Expander x:Name="TrainingSettingsExpander"
               AutomationProperties.AutomationId="TrainingSettingsExpander"
-              Header="&#xD559;&#xC2B5; &#xC694;&#xC57D; / &#xC124;&#xC815;"
-              Foreground="{DynamicResource PrimaryTextBrush}"
+              IsExpanded="False"
+              Foreground="{DynamicResource RecipeTextBrush}"
               Margin="0,12,0,0">
+        <Expander.Style>
+            <Style TargetType="Expander" BasedOn="{StaticResource {x:Type Expander}}">
+                <Setter Property="Header" Value="학습 설정" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="Results">
+                        <Setter Property="Header" Value="{Binding DataContext.LanguageViewModel[WpfTraining.Result.Actions], RelativeSource={RelativeSource AncestorType=Window}}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="Preparation">
+                        <Setter Property="Header" Value="{Binding DataContext.LanguageViewModel[WpfTraining.Preparation.Settings], RelativeSource={RelativeSource AncestorType=Window}}" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Expander.Style>
         <StackPanel Margin="0,8,0,0">
+            <StackPanel x:Name="TrainingPreparationSettingsGroup">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="Results">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
             <Border x:Name="TrainingSettingsSummaryPanel"
                     AutomationProperties.AutomationId="TrainingSettingsSummaryPanel"
-                    Background="{DynamicResource PanelBrush}"
-                    BorderBrush="{DynamicResource AccentBrush}"
+                    Background="{DynamicResource RecipeSurfaceBrush}"
+                    BorderBrush="{DynamicResource RecipeAccentBrush}"
                     BorderThickness="1"
-                    CornerRadius="4"
+                    CornerRadius="7"
                     Padding="8"
                     Margin="0,0,0,8">
                 <StackPanel>
                     <TextBlock x:Name="TrainingSettingsSummaryTitleText"
                                AutomationProperties.AutomationId="TrainingSettingsSummaryTitleText"
                                Text="{Binding TrainingSettingsSummaryTitleText}"
-                               Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="12"
+                               Foreground="{DynamicResource RecipeTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                FontWeight="SemiBold"
                                TextWrapping="Wrap" />
                     <TextBlock x:Name="TrainingSettingsSummaryModelText"
                                AutomationProperties.AutomationId="TrainingSettingsSummaryModelText"
                                Text="{Binding TrainingSettingsSummaryModelText}"
-                               Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="10.5"
+                               Foreground="{DynamicResource RecipeTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                FontWeight="SemiBold"
                                TextWrapping="Wrap"
                                Margin="0,4,0,0" />
                     <TextBlock x:Name="TrainingSettingsSummaryRuntimeText"
                                AutomationProperties.AutomationId="TrainingSettingsSummaryRuntimeText"
                                Text="{Binding TrainingSettingsSummaryRuntimeText}"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="10"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                TextWrapping="Wrap"
                                Margin="0,2,0,0" />
                     <TextBlock x:Name="TrainingSettingsSummarySplitText"
                                AutomationProperties.AutomationId="TrainingSettingsSummarySplitText"
                                Text="{Binding TrainingSettingsSummarySplitText}"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="10"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                TextWrapping="Wrap"
                                Margin="0,2,0,0" />
                     <TextBlock x:Name="TrainingSettingsSummaryActionText"
                                AutomationProperties.AutomationId="TrainingSettingsSummaryActionText"
                                Text="{Binding TrainingSettingsSummaryActionText}"
-                               Foreground="{DynamicResource AccentBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="9.5"
+                               Foreground="{DynamicResource RecipeAccentBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                FontWeight="SemiBold"
                                TextWrapping="Wrap"
                                Margin="0,4,0,0" />
                 </StackPanel>
             </Border>
 
-            <Border Background="#151D26"
+            <Border Background="{DynamicResource RecipeSurfaceBrush}"
                     BorderBrush="{DynamicResource InputBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="4"
+                    CornerRadius="7"
                     Padding="8"
                     Margin="0,0,0,8">
                 <StackPanel>
                     <TextBlock Text="{Binding TrainingRecommendationTitleText}"
-                               Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="12"
-                               FontWeight="SemiBold" />
+                               Foreground="{DynamicResource RecipeTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
+                               FontWeight="SemiBold"  TextWrapping="Wrap" />
                     <TextBlock x:Name="TrainingRecommendationText"
                                Text="{Binding TrainingRecommendationText}"
                                Visibility="Collapsed"
-                               Style="{StaticResource TrainingHelpTextStyle}" />
+                               Style="{StaticResource TrainingHelpTextStyle}"  TextWrapping="Wrap" />
                     <WrapPanel HorizontalAlignment="Left" Margin="0,7,0,0">
                         <ui:Button x:Name="ApplyFastTrainingPresetButton"
                                    AutomationProperties.AutomationId="ApplyFastTrainingPresetButton"
@@ -220,7 +296,7 @@
                                    Command="{Binding ApplyFastRecommendationCommand}" />
                         <ui:Button x:Name="ApplyFinalVerificationPresetButton"
                                    AutomationProperties.AutomationId="ApplyFinalVerificationPresetButton"
-                                   AutomationProperties.Name="&#xCD5C;&#xC885; &#xAC80;&#xC99D; &#xC900;&#xBE44;"
+                                   AutomationProperties.Name="&#xD14C;&#xC2A4;&#xD2B8; &#xC900;&#xBE44;"
                                    Style="{StaticResource TrainingCommandButtonStyle}"
                                    IsEnabled="{Binding IsApplyFinalVerificationPresetEnabled}"
                                    MinWidth="116"
@@ -234,7 +310,7 @@
             <Expander x:Name="TrainingAdvancedSettingsExpander"
                       AutomationProperties.AutomationId="TrainingAdvancedSettingsExpander"
                       Header="{Binding AdvancedTrainingSettingsHeaderText}"
-                      Foreground="{DynamicResource PrimaryTextBrush}"
+                      Foreground="{DynamicResource RecipeTextBrush}"
                       Margin="0,0,0,8">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -253,7 +329,7 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <TextBlock Text="&#xC774;&#xBBF8;&#xC9C0; &#xD06C;&#xAE30;" Style="{StaticResource TrainingLabelStyle}" />
+                <TextBlock Text="&#xC774;&#xBBF8;&#xC9C0; &#xD06C;&#xAE30;" Style="{StaticResource TrainingLabelStyle}"  TextWrapping="Wrap" />
                 <StackPanel Grid.Column="1" Margin="0,4,0,5">
                     <TextBox x:Name="TrainingImageSizeBox"
                              Style="{StaticResource TrainingTextBoxStyle}"
@@ -263,10 +339,10 @@
                     <TextBlock x:Name="TrainingImageSizeGuideText"
                                Text="{Binding ImageSizeGuideText}"
                                Visibility="Collapsed"
-                               Style="{StaticResource TrainingHelpTextStyle}" />
+                               Style="{StaticResource TrainingHelpTextStyle}"  TextWrapping="Wrap" />
                 </StackPanel>
 
-                <TextBlock Grid.Row="1" Text="&#xBC30;&#xCE58;" Style="{StaticResource TrainingLabelStyle}" />
+                <TextBlock Grid.Row="1" Text="&#xBC30;&#xCE58;" Style="{StaticResource TrainingLabelStyle}"  TextWrapping="Wrap" />
                 <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,4,0,5">
                     <TextBox x:Name="TrainingBatchBox"
                              Style="{StaticResource TrainingTextBoxStyle}"
@@ -276,10 +352,10 @@
                     <TextBlock x:Name="TrainingBatchGuideText"
                                Text="{Binding BatchGuideText}"
                                Visibility="Collapsed"
-                               Style="{StaticResource TrainingHelpTextStyle}" />
+                               Style="{StaticResource TrainingHelpTextStyle}"  TextWrapping="Wrap" />
                 </StackPanel>
 
-                <TextBlock Grid.Row="2" Text="&#xC5D0;&#xD3ED;" Style="{StaticResource TrainingLabelStyle}" />
+                <TextBlock Grid.Row="2" Text="&#xC5D0;&#xD3ED;" Style="{StaticResource TrainingLabelStyle}"  TextWrapping="Wrap" />
                 <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,4,0,5">
                     <TextBox x:Name="TrainingEpochBox"
                              Style="{StaticResource TrainingTextBoxStyle}"
@@ -289,10 +365,10 @@
                     <TextBlock x:Name="TrainingEpochGuideText"
                                Text="{Binding EpochGuideText}"
                                Visibility="Collapsed"
-                               Style="{StaticResource TrainingHelpTextStyle}" />
+                               Style="{StaticResource TrainingHelpTextStyle}"  TextWrapping="Wrap" />
                 </StackPanel>
 
-                <TextBlock Grid.Row="3" Text="&#xBAA8;&#xB378; &#xAD6C;&#xC870;" Style="{StaticResource TrainingLabelStyle}" />
+                <TextBlock Grid.Row="3" Text="&#xBAA8;&#xB378; &#xAD6C;&#xC870;" Style="{StaticResource TrainingLabelStyle}"  TextWrapping="Wrap" />
                 <StackPanel Grid.Row="3" Grid.Column="1" Margin="0,4,0,5">
                     <ComboBox x:Name="TrainingCfgBox"
                               ItemsSource="{Binding TrainingModelOptions}"
@@ -303,10 +379,10 @@
                     <TextBlock x:Name="TrainingCfgGuideText"
                                Text="{Binding CfgGuideText}"
                                Visibility="Collapsed"
-                               Style="{StaticResource TrainingHelpTextStyle}" />
+                               Style="{StaticResource TrainingHelpTextStyle}"  TextWrapping="Wrap" />
                 </StackPanel>
 
-                <TextBlock Grid.Row="4" Text="&#xD559;&#xC2B5; &#xC2DC;&#xC791; &#xAC00;&#xC911;&#xCE58;" Style="{StaticResource TrainingLabelStyle}" />
+                <TextBlock Grid.Row="4" Text="&#xD559;&#xC2B5; &#xC2DC;&#xC791; &#xAC00;&#xC911;&#xCE58;" Style="{StaticResource TrainingLabelStyle}"  TextWrapping="Wrap" />
                 <StackPanel Grid.Row="4" Grid.Column="1" Margin="0,4,0,5">
                     <ComboBox x:Name="TrainingWeightBox"
                               ItemsSource="{Binding TrainingWeightOptions}"
@@ -317,10 +393,10 @@
                     <TextBlock x:Name="TrainingWeightGuideText"
                                Text="{Binding WeightGuideText}"
                                Visibility="Collapsed"
-                               Style="{StaticResource TrainingHelpTextStyle}" />
+                               Style="{StaticResource TrainingHelpTextStyle}"  TextWrapping="Wrap" />
                 </StackPanel>
 
-                <TextBlock Grid.Row="5" Text="&#xAC80;&#xC99D; %" Style="{StaticResource TrainingLabelStyle}" />
+                <TextBlock Grid.Row="5" Text="&#xAC80;&#xC99D; %" Style="{StaticResource TrainingLabelStyle}"  TextWrapping="Wrap" />
                 <StackPanel Grid.Row="5" Grid.Column="1" Margin="0,4,0,5">
                     <TextBox x:Name="TrainingValidationPercentBox"
                              Style="{StaticResource TrainingTextBoxStyle}"
@@ -330,10 +406,10 @@
                     <TextBlock x:Name="TrainingValidationPercentGuideText"
                                Text="{Binding ValidationPercentGuideText}"
                                Visibility="Collapsed"
-                               Style="{StaticResource TrainingHelpTextStyle}" />
+                               Style="{StaticResource TrainingHelpTextStyle}"  TextWrapping="Wrap" />
                 </StackPanel>
 
-                <TextBlock Grid.Row="6" Text="&#xBD84;&#xD560; &#xAE30;&#xC900;&#xAC12;" Style="{StaticResource TrainingLabelStyle}" />
+                <TextBlock Grid.Row="6" Text="&#xBD84;&#xD560; &#xAE30;&#xC900;&#xAC12;" Style="{StaticResource TrainingLabelStyle}"  TextWrapping="Wrap" />
                 <StackPanel Grid.Row="6" Grid.Column="1" Margin="0,4,0,5">
                     <TextBox x:Name="TrainingSplitSeedBox"
                              Style="{StaticResource TrainingTextBoxStyle}"
@@ -343,20 +419,20 @@
                     <TextBlock x:Name="TrainingSplitSeedGuideText"
                                Text="{Binding SplitSeedGuideText}"
                                Visibility="Collapsed"
-                               Style="{StaticResource TrainingHelpTextStyle}" />
+                               Style="{StaticResource TrainingHelpTextStyle}"  TextWrapping="Wrap" />
                 </StackPanel>
 
-                <TextBlock Grid.Row="7" Text="&#xCD5C;&#xC885; &#xAC80;&#xC99D; %" Style="{StaticResource TrainingLabelStyle}" />
+                <TextBlock Grid.Row="7" Text="&#xD14C;&#xC2A4;&#xD2B8; %" Style="{StaticResource TrainingLabelStyle}"  TextWrapping="Wrap" />
                 <StackPanel Grid.Row="7" Grid.Column="1" Margin="0,4,0,5">
                     <TextBox x:Name="TrainingTestPercentBox"
                              Style="{StaticResource TrainingTextBoxStyle}"
                              Text="{Binding TestPercentText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTip="&#xCD5C;&#xC885; &#xAC80;&#xC99D; &#xBE44;&#xC728; (0~10% &#xAD8C;&#xC7A5;)"
+                             ToolTip="&#xD14C;&#xC2A4;&#xD2B8; &#xBE44;&#xC728; (0~10% &#xAD8C;&#xC7A5;)"
                              mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
                     <TextBlock x:Name="TrainingTestPercentGuideText"
                                Text="{Binding TestPercentGuideText}"
                                Visibility="Collapsed"
-                               Style="{StaticResource TrainingHelpTextStyle}" />
+                               Style="{StaticResource TrainingHelpTextStyle}"  TextWrapping="Wrap" />
                 </StackPanel>
 
                 <TextBlock x:Name="TrainingSplitPolicyHintText"
@@ -365,7 +441,7 @@
                            Text="{Binding SplitPolicyHintText}"
                            Style="{StaticResource TrainingHelpTextStyle}"
                            Visibility="Collapsed"
-                           Margin="0,8,0,0" />
+                           Margin="0,8,0,0"  TextWrapping="Wrap" />
             </Grid>
             </Expander>
 
@@ -382,14 +458,14 @@
                 <ui:Button x:Name="StartTrainingButton"
                            AutomationProperties.AutomationId="StartTrainingButton"
                            AutomationProperties.Name="&#xD559;&#xC2B5; &#xC2DC;&#xC791;"
-                           Style="{StaticResource TrainingCommandButtonStyle}"
+                           Style="{StaticResource TrainingInlineActionButtonStyle}"
                            IsEnabled="{Binding IsStartTrainingEnabled}"
                            MinWidth="70"
                            Content="&#xC2DC;&#xC791;"
                            ToolTip="{Binding StartTrainingToolTip}"
                            Command="{Binding StartTrainingCommand}" />
                 <ui:Button x:Name="StopTrainingButton"
-                           Style="{StaticResource TrainingCommandButtonStyle}"
+                           Style="{StaticResource TrainingInlineActionButtonStyle}"
                            IsEnabled="{Binding IsStopTrainingEnabled}"
                            MinWidth="68"
                            Content="&#xC911;&#xC9C0;"
@@ -400,10 +476,22 @@
             <TextBlock x:Name="TrainingReadinessText"
                        Text="{Binding TrainingReadinessText}"
                        Foreground="{Binding TrainingReadinessForeground}"
-                       FontFamily="Segoe UI"
-                       FontSize="11"
+                       FontFamily="{DynamicResource UiFontFamily}"
+                       FontSize="13"
                        TextWrapping="Wrap"
                        Margin="0,8,0,0" />
+            </StackPanel>
+            <StackPanel>
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
             <ProgressBar x:Name="TrainingProgressBar"
                          Height="5"
                          Minimum="0"
@@ -420,50 +508,61 @@
                 <TextBlock x:Name="TrainingProgressText"
                            Text="{Binding TrainingProgressText}"
                            Foreground="{Binding TrainingProgressForeground}"
-                           FontFamily="Segoe UI"
-                           FontSize="11"
+                           FontFamily="{DynamicResource UiFontFamily}"
+                           FontSize="13"
                            TextWrapping="Wrap" />
                 <TextBlock x:Name="TrainingEpochText"
                            Grid.Column="1"
                            Text="{Binding TrainingEpochStatusText}"
-                           Foreground="{DynamicResource DisabledTextBrush}"
-                           FontFamily="Segoe UI"
-                           FontSize="11"
-                           Margin="8,0,0,0" />
+                           Foreground="{DynamicResource RecipeDisabledTextBrush}"
+                           FontFamily="{DynamicResource UiFontFamily}"
+                           FontSize="13"
+                           Margin="8,0,0,0"  TextWrapping="Wrap" />
             </Grid>
 
+            </StackPanel>
+            <StackPanel x:Name="TrainingResultActionsGroup">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="Preparation">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
             <Border x:Name="PostTrainingModelActionPanel"
                     AutomationProperties.AutomationId="PostTrainingModelActionPanel"
-                    Background="{DynamicResource PanelBrush}"
-                    BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
+                    Background="{DynamicResource RecipeSurfaceBrush}"
+                    BorderBrush="{DynamicResource RecipeButtonBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="4"
+                    CornerRadius="7"
                     Padding="8"
                     Margin="0,8,0,0">
                 <StackPanel>
                     <TextBlock x:Name="PostTrainingModelActionTitleText"
                                AutomationProperties.AutomationId="PostTrainingModelActionTitleText"
                                Text="{Binding PostTrainingModelActionTitleText}"
-                               Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="12"
+                               Foreground="{DynamicResource RecipeTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                FontWeight="SemiBold"
                                TextWrapping="Wrap" />
                     <TextBlock x:Name="PostTrainingModelStatusText"
                                AutomationProperties.AutomationId="PostTrainingModelStatusText"
                                Text="{Binding PostTrainingModelStatusText}"
-                               Foreground="{DynamicResource AccentBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="10.5"
+                               Foreground="{DynamicResource RecipeAccentBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                FontWeight="SemiBold"
                                TextWrapping="Wrap"
                                Margin="0,4,0,0" />
                     <TextBlock x:Name="PostTrainingModelDetailText"
                                AutomationProperties.AutomationId="PostTrainingModelDetailText"
                                Text="{Binding PostTrainingModelDetailText}"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="10"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                TextWrapping="Wrap"
                                Margin="0,2,0,0" />
                     <WrapPanel Margin="0,7,0,0">
@@ -477,7 +576,7 @@
                                    Command="{Binding ReviewTrainedModelCommand}">
                             <TextBlock x:Name="ReviewTrainedModelButtonText"
                                        Text="{Binding ReviewTrainedModelActionText}"
-                                       VerticalAlignment="Center" />
+                                       VerticalAlignment="Center"  TextWrapping="Wrap" />
                         </ui:Button>
                         <ui:Button x:Name="ConfirmTrainedModelButton"
                                    AutomationProperties.AutomationId="ConfirmTrainedModelButton"
@@ -489,7 +588,7 @@
                                    Command="{Binding ConfirmTrainedModelCommand}">
                             <TextBlock x:Name="ConfirmTrainedModelButtonText"
                                        Text="{Binding ConfirmTrainedModelActionText}"
-                                       VerticalAlignment="Center" />
+                                       VerticalAlignment="Center"  TextWrapping="Wrap" />
                         </ui:Button>
                         <ui:Button x:Name="RunYoloEngineComparisonButton"
                                    AutomationProperties.AutomationId="RunYoloEngineComparisonButton"
@@ -506,7 +605,7 @@
                                                             Margin="0,0,4,0" />
                                 <TextBlock x:Name="RunYoloEngineComparisonButtonText"
                                            Text="{Binding RunYoloEngineComparisonActionText}"
-                                           VerticalAlignment="Center" />
+                                           VerticalAlignment="Center"  TextWrapping="Wrap" />
                             </StackPanel>
                         </ui:Button>
                     </WrapPanel>
@@ -514,11 +613,11 @@
             </Border>
             <Border x:Name="SegmentationAdapterComparisonPanel"
                     AutomationProperties.AutomationId="SegmentationAdapterComparisonPanel"
-                    AutomationProperties.Name="U-Net와 YOLO 세그멘테이션 비교"
-                    Background="{DynamicResource CanvasBrush}"
-                    BorderBrush="{DynamicResource AccentBrush}"
+                    AutomationProperties.Name="U-Net과 YOLO 세그멘테이션 비교"
+                    Background="{DynamicResource RecipeSurfaceBrush}"
+                    BorderBrush="{DynamicResource RecipeAccentBrush}"
                     BorderThickness="1"
-                    CornerRadius="4"
+                    CornerRadius="7"
                     Padding="8"
                     Margin="0,8,0,0">
                 <Border.Style>
@@ -541,14 +640,14 @@
                             <iconPacks:PackIconMaterial Kind="Compare"
                                                         Width="14"
                                                         Height="14"
-                                                        Foreground="{DynamicResource AccentBrush}"
+                                                        Foreground="{DynamicResource RecipeAccentBrush}"
                                                         Margin="0,1,5,0" />
                             <TextBlock x:Name="SegmentationAdapterComparisonTitleText"
                                        AutomationProperties.AutomationId="SegmentationAdapterComparisonTitleText"
                                        Text="{Binding SegmentationAdapterComparisonTitleText}"
-                                       Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="12"
+                                       Foreground="{DynamicResource RecipeTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
                                        FontWeight="SemiBold"
                                        TextWrapping="Wrap" />
                         </StackPanel>
@@ -556,20 +655,19 @@
                                    AutomationProperties.AutomationId="SegmentationAdapterComparisonStatusText"
                                    Grid.Column="1"
                                    Text="{Binding SegmentationAdapterComparisonStatusText}"
-                                   Foreground="{DynamicResource AccentBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="10"
+                                   Foreground="{DynamicResource RecipeAccentBrush}"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="13"
                                    FontWeight="SemiBold"
                                    Margin="8,0,0,0"
-                                   TextTrimming="CharacterEllipsis"
-                                   MaxWidth="180" />
+                                   MaxWidth="180"  TextWrapping="Wrap" />
                     </Grid>
                     <TextBlock x:Name="SegmentationAdapterCanonicalDatasetText"
                                AutomationProperties.AutomationId="SegmentationAdapterCanonicalDatasetText"
                                Text="{Binding SegmentationAdapterCanonicalDatasetText}"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="9.5"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                Margin="0,5,0,0"
                                TextWrapping="Wrap" />
                     <Grid Margin="0,7,0,0">
@@ -584,7 +682,7 @@
                         </Grid.RowDefinitions>
                         <TextBlock Text="U-Net checkpoint"
                                    Style="{StaticResource TrainingLabelStyle}"
-                                   Margin="0,4,7,0" />
+                                   Margin="0,4,7,0"  TextWrapping="Wrap" />
                         <TextBox x:Name="SegmentationUnetCheckpointPathBox"
                                  Grid.Column="1"
                                  Style="{StaticResource TrainingTextBoxStyle}"
@@ -604,7 +702,7 @@
                         <TextBlock Grid.Row="1"
                                    Text="YOLO-seg"
                                    Style="{StaticResource TrainingLabelStyle}"
-                                   Margin="0,4,7,0" />
+                                   Margin="0,4,7,0"  TextWrapping="Wrap" />
                         <Grid Grid.Row="1" Grid.Column="1">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="92" />
@@ -638,26 +736,26 @@
                     <TextBlock x:Name="SegmentationAdapterComparisonDetailText"
                                AutomationProperties.AutomationId="SegmentationAdapterComparisonDetailText"
                                Text="{Binding SegmentationAdapterComparisonDetailText}"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="9"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                Margin="0,6,0,0"
                                TextWrapping="Wrap" />
                     <TextBlock x:Name="SegmentationAdapterComparisonActionText"
                                AutomationProperties.AutomationId="SegmentationAdapterComparisonActionText"
                                Text="{Binding SegmentationAdapterComparisonActionText}"
-                               Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="9.5"
+                               Foreground="{DynamicResource RecipeTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                FontWeight="SemiBold"
                                Margin="0,3,0,0"
                                TextWrapping="Wrap" />
                     <ui:Button x:Name="RunSegmentationAdapterComparisonButton"
                                AutomationProperties.AutomationId="RunSegmentationAdapterComparisonButton"
-                               AutomationProperties.Name="U-Net와 YOLO 세그멘테이션 비교 실행"
+                               AutomationProperties.Name="U-Net과 YOLO 세그멘테이션 비교 실행"
                                Style="{StaticResource TrainingCommandButtonStyle}"
                                IsEnabled="{Binding IsRunSegmentationAdapterComparisonEnabled}"
-                               ToolTip="현재 Segmentation recipe의 canonical test mask를 만든 뒤 U-Net과 YOLO-seg raw mask를 같은 Dice/IoU 및 component 기준으로 비교"
+                               ToolTip="{Binding [WpfSegmentation.Comparison.CompareMasks.ToolTip], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
                                Command="{Binding RunSegmentationAdapterComparisonCommand}"
                                HorizontalAlignment="Left"
                                MinWidth="132"
@@ -667,11 +765,12 @@
                                                         Width="13"
                                                         Height="13"
                                                         Margin="0,0,4,0" />
-                            <TextBlock Text="공통 마스크 비교 실행" VerticalAlignment="Center" />
+                            <TextBlock Text="공통 마스크 비교 실행" VerticalAlignment="Center"  TextWrapping="Wrap" />
                         </StackPanel>
                     </ui:Button>
                 </StackPanel>
             </Border>
+            </StackPanel>
         </StackPanel>
     </Expander>
 </UserControl>

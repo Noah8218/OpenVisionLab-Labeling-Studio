@@ -7,17 +7,33 @@ namespace MvcVisionSystem
     {
         private bool disposed;
 
+        public WpfLabelingShellViewModels()
+        {
+            MenuViewModel = new ShellMenuViewModel(this);
+            ShellViewModel.PropertyChanged += OnShellWorkspaceChanged;
+        }
+
+        public ShellMenuViewModel MenuViewModel { get; }
+
         public WpfLocalizationViewModel LanguageViewModel { get; } = WpfLocalizationViewModel.Instance;
 
         public WpfLabelingShellViewModel ShellViewModel { get; } = new WpfLabelingShellViewModel();
+
+        public WpfDatasetSelectionWindowViewModel DatasetSelectionViewModel { get; } = new WpfDatasetSelectionWindowViewModel(new DatasetSelectionPreferencesService(), selectFirstVisibleRecipe: true);
 
         public WpfLearningWorkflowPanelViewModel LearningWorkflowViewModel { get; } = new WpfLearningWorkflowPanelViewModel();
 
         public WpfImageQueuePanelViewModel ImageQueueViewModel { get; } = new WpfImageQueuePanelViewModel();
 
+        public DatasetWorkspaceViewModel DatasetWorkspaceViewModel { get; } = new DatasetWorkspaceViewModel();
+        public ModelComparisonWorkspaceViewModel ModelComparisonWorkspaceViewModel { get; } = new ModelComparisonWorkspaceViewModel();
+        public TrainingWorkspaceViewModel TrainingWorkspaceViewModel { get; } = new TrainingWorkspaceViewModel();
+
         public WpfTemplateMatchingAutoLabelViewModel TemplateMatchingAutoLabelViewModel { get; } = new WpfTemplateMatchingAutoLabelViewModel();
 
         public WpfCanvasPanelViewModel CanvasPanelViewModel { get; } = new WpfCanvasPanelViewModel();
+
+        public LabelingPreferencesViewModel LabelingPreferencesViewModel { get; } = new LabelingPreferencesViewModel();
 
         public WpfObjectReviewPanelViewModel ObjectReviewViewModel { get; } = new WpfObjectReviewPanelViewModel();
 
@@ -75,7 +91,10 @@ namespace MvcVisionSystem
         {
             ShellViewModel.ApplyWorkflowCommandState(state);
             ImageQueueViewModel.ApplyWorkflowCommandState(state);
+            DatasetWorkspaceViewModel.ApplyWorkflowCommandState(state);
+            TrainingWorkspaceViewModel.ApplyWorkflowCommandState(state);
             ProjectConfigViewModel.ApplyWorkflowCommandState(state);
+            MenuViewModel.Refresh();
             LearningWorkflowViewModel.SetModelComparisonRunState(
                 comparisonState?.IsEnabled == true,
                 comparisonState?.ActionText,
@@ -92,6 +111,14 @@ namespace MvcVisionSystem
             ModelWorkflowViewModels.TrainingSettingsViewModel.ApplyWorkflowCommandState(state);
         }
 
+        private void OnShellWorkspaceChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(WpfLabelingShellViewModel.IsDatasetStageActive) && ShellViewModel.IsDatasetStageActive)
+                DatasetWorkspaceViewModel.RequestRefresh();
+            if (e.PropertyName == nameof(WpfLabelingShellViewModel.IsTrainingModelStageActive) && ShellViewModel.IsTrainingModelStageActive)
+                TrainingWorkspaceViewModel.RequestRefresh();
+        }
+
         public void Dispose()
         {
             if (disposed)
@@ -100,9 +127,17 @@ namespace MvcVisionSystem
             }
 
             disposed = true;
+            ShellViewModel.PropertyChanged -= OnShellWorkspaceChanged;
+            ShellViewModel.ClearModelRegistryLocalizationSource();
+            DatasetWorkspaceViewModel.Dispose();
+            ModelComparisonWorkspaceViewModel.Dispose();
+            TrainingWorkspaceViewModel.Dispose();
+            ImageQueueViewModel.Dispose();
             TemplateMatchingAutoLabelViewModel.Dispose();
+            DatasetSelectionViewModel.Dispose();
             MainCanvasViewModel.Dispose();
             CanvasPanelViewModel.Dispose();
+            LabelingPreferencesViewModel.Dispose();
             LearningWorkflowViewModel.Dispose();
             StatusBarViewModel.Dispose();
             ShellLogViewModel.Dispose();

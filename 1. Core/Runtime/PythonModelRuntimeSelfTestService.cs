@@ -73,7 +73,7 @@ namespace MvcVisionSystem._1._Core
             items.Add(BuildExecutionSupportItem(settings));
 
             return new PythonModelRuntimeSelfTestReport(
-                "\uC120\uD0DD \uC2E4\uD589\uAE30 \uC810\uAC80",
+                "선택한 실행 환경 점검",
                 runtimeState.SummaryText,
                 FormatDetail(runtimeState),
                 items,
@@ -163,7 +163,7 @@ namespace MvcVisionSystem._1._Core
             return new PythonModelRuntimeSelfTestItem(
                 "Ultralytics",
                 installed ? "\uD655\uC778" : "\uC124\uCE58 \uD544\uC694",
-                installed ? sitePackagesPath : $"ultralytics \uD328\uD0A4\uC9C0 \uC5C6\uC74C: {sitePackagesPath} / \uC124\uCE58 \uC2E4\uD589 \uBC84\uD2BC\uC73C\uB85C \uC124\uCE58\uD55C \uB4A4 \uB2E4\uC2DC \uC810\uAC80\uD558\uC138\uC694.",
+                installed ? sitePackagesPath : $"ultralytics \uD328\uD0A4\uC9C0\uB97C \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4: {sitePackagesPath} / \uBAA8\uB378 \uC124\uC815\uC5D0\uC11C \uC124\uCE58\uD55C \uB4A4 \uB2E4\uC2DC \uC810\uAC80\uD558\uC138\uC694.",
                 installed,
                 isWarning: false);
         }
@@ -176,7 +176,7 @@ namespace MvcVisionSystem._1._Core
                 return new PythonModelRuntimeSelfTestItem(
                     "PyTorch U-Net",
                     "\uD655\uC778 \uD544\uC694",
-                    "Connect the Python venv for C:\\Git\\unet to check torch and Pillow.",
+                    "torch와 Pillow를 점검하려면 C:\\Git\\unet용 Python venv를 연결하세요.",
                     isPassed: false,
                     isWarning: true);
             }
@@ -186,7 +186,7 @@ namespace MvcVisionSystem._1._Core
             return new PythonModelRuntimeSelfTestItem(
                 "PyTorch U-Net",
                 installed ? "\uD655\uC778" : "\uC124\uCE58 \uD544\uC694",
-                installed ? sitePackagesPath : $"torch or Pillow package is missing: {sitePackagesPath}",
+                installed ? sitePackagesPath : $"torch 또는 Pillow 패키지가 없습니다: {sitePackagesPath}",
                 installed,
                 isWarning: false);
         }
@@ -223,9 +223,9 @@ namespace MvcVisionSystem._1._Core
                 : $"\uCC3E\uC744 \uC218 \uC5C6\uC74C: {path}";
             return labelText switch
             {
-                "\uD504\uB85C\uC81D\uD2B8" => $"{prefix} / \uBAA8\uB378 \uC2E4\uD589\uAE30 \uD504\uB85C\uD544\uC5D0\uC11C YOLO \uD504\uB85C\uC81D\uD2B8 \uD3F4\uB354\uB97C \uC5F0\uACB0\uD558\uC138\uC694.",
+                "\uD504\uB85C\uC81D\uD2B8" => $"{prefix} / \uc2e4\ud589 \ud658\uacbd \uc124\uc815\uc5d0\uc11c YOLO \ud504\ub85c\uc81d\ud2b8 \ud3f4\ub354\ub97c \uc5f0\uacb0\ud558\uc138\uc694.",
                 "\uBAA8\uB378 \uB8E8\uD2B8" => $"{prefix} / YOLOv5 \uD3F4\uB354 \uC5F0\uACB0 \uB610\uB294 \uBAA8\uB378 \uB8E8\uD2B8 \uACBD\uB85C\uB97C \uD655\uC778\uD558\uC138\uC694.",
-                "\uC774\uBBF8\uC9C0" => $"{prefix} / \uAC80\uC0AC\uD560 \uC774\uBBF8\uC9C0 \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694. \uB77C\uBCA8\uB9C1\uC740 \uACC4\uC18D\uD560 \uC218 \uC788\uC9C0\uB9CC \uD604\uC7AC \uAC80\uC0AC\uC5D0\uB294 \uC774\uBBF8\uC9C0 \uD3F4\uB354\uAC00 \uD544\uC694\uD569\uB2C8\uB2E4.",
+                "\uC774\uBBF8\uC9C0" => $"{prefix} / 이미지 폴더를 선택하거나 추론할 이미지를 여세요. 라벨링은 계속할 수 있습니다.",
                 _ => $"{prefix} / \uACBD\uB85C\uB97C \uB2E4\uC2DC \uC120\uD0DD\uD558\uC138\uC694."
             };
         }
@@ -237,8 +237,8 @@ namespace MvcVisionSystem._1._Core
                 : $"\uCC3E\uC744 \uC218 \uC5C6\uC74C: {path}";
             return labelText switch
             {
-                "\uC2E4\uD589 \uC2A4\uD06C\uB9BD\uD2B8" => $"{prefix} / \uBAA8\uB378 worker\uB97C \uC2E4\uD589\uD560 \uC2A4\uD06C\uB9BD\uD2B8 \uACBD\uB85C\uB97C \uC5F0\uACB0\uD558\uC138\uC694.",
-                "\uAC80\uC0AC \uBAA8\uB378" => $"{prefix} / \uD604\uC7AC \uAC80\uC0AC\uB294 \uBAA8\uB378 \uD30C\uC77C\uC774 \uD544\uC694\uD569\uB2C8\uB2E4. \uD559\uC2B5 \uC644\uB8CC \uD6C4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uAC70\uB098 .pt \uD30C\uC77C\uC744 \uC120\uD0DD\uD558\uC138\uC694.",
+                "\uC2E4\uD589 \uC2A4\uD06C\uB9BD\uD2B8" => $"{prefix}\r\n\uBAA8\uB378 \uD1B5\uC2E0 \uC2A4\uD06C\uB9BD\uD2B8\uC758 \uACBD\uB85C\uB97C \uC5F0\uACB0\uD558\uC138\uC694.",
+                "\uAC80\uC0AC \uBAA8\uB378" => $"{prefix} / \ud604\uc7ac \uc774\ubbf8\uc9c0 \ucd94\ub860\uc5d0 \ubaa8\ub378 \ud30c\uc77c\uc774 \ud544\uc694\ud569\ub2c8\ub2e4. \ud559\uc2b5 \ud6c4 \uac80\uc0ac \ubaa8\ub378\ub85c \uc9c0\uc815\ud558\uac70\ub098 .pt \ud30c\uc77c\uc744 \uc120\ud0dd\ud558\uc138\uc694.",
                 _ => $"{prefix} / \uD30C\uC77C \uACBD\uB85C\uB97C \uB2E4\uC2DC \uC120\uD0DD\uD558\uC138\uC694."
             };
         }
@@ -247,7 +247,7 @@ namespace MvcVisionSystem._1._Core
         {
             return string.IsNullOrWhiteSpace(pythonExecutable)
                 ? "\uACBD\uB85C \uBBF8\uC124\uC815 / Python \uC2E4\uD589 \uD30C\uC77C \uB610\uB294 venv Scripts \uD3F4\uB354\uB97C \uC5F0\uACB0\uD558\uC138\uC694."
-                : $"\uCC3E\uC744 \uC218 \uC5C6\uC74C: {pythonExecutable} / Python \uC2E4\uD589 \uD30C\uC77C \uB610\uB294 venv Scripts \uD3F4\uB354\uB97C \uB2E4\uC2DC \uC120\uD0DD\uD558\uC138\uC694.";
+                : $"\uCC3E\uC744 \uC218 \uC5C6\uC74C: {pythonExecutable}\r\nPython \uC2E4\uD589 \uD30C\uC77C\uC774\uB098 venv Scripts \uD3F4\uB354\uB97C \uB2E4\uC2DC \uC120\uD0DD\uD558\uC138\uC694.";
         }
 
         private static bool TryResolveSitePackagesPath(string pythonExecutablePath, out string sitePackagesPath)
@@ -345,7 +345,7 @@ namespace MvcVisionSystem._1._Core
 
             if (runtimeState.CanRunTraining && runtimeState.CanRunInference)
             {
-                return "\uD559\uC2B5\uACFC \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB450 \uC2E4\uD589 \uAC00\uB2A5\uD569\uB2C8\uB2E4.";
+                return "학습과 추론 모두 실행 가능합니다.";
             }
 
             if (runtimeState.CanRunTraining)

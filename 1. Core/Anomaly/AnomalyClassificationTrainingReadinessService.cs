@@ -76,8 +76,27 @@ namespace MvcVisionSystem._1._Core
 
         public static AnomalyClassificationTrainingReadinessReport Build(LabelingProjectData data)
         {
-            string[] sourceImagePaths = EnumerateSourceImages(data).ToArray();
+            return Build(data, sourceReview: false);
+        }
+
+        public static AnomalyClassificationTrainingReadinessReport BuildSourceReview(LabelingProjectData data)
+        {
+            return Build(data, sourceReview: true);
+        }
+
+        private static AnomalyClassificationTrainingReadinessReport Build(LabelingProjectData data, bool sourceReview)
+        {
+            string[] sourceImagePaths = EnumerateSourceImages(data, sourceReview).ToArray();
             var errors = new List<string>();
+            if (data?.ProjectSettings?.AdditionalImageRootPaths?.Count > 0)
+            {
+                foreach (string sourceRoot in data.ProjectSettings.ResolveImageRootPaths().Where(root => !Directory.Exists(root)))
+                    errors.Add(string.Format(OpenVisionLab.OpenVisionLanguageService.T("DatasetSourceFolders.Unavailable"), sourceRoot));
+                IEnumerable<string> configuredSources = sourceReview ? sourceImagePaths : EnumerateSourceImages(data, sourceReview: true);
+                if (configuredSources.GroupBy(Path.GetFileNameWithoutExtension, StringComparer.OrdinalIgnoreCase)
+                    .Any(group => group.Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1))
+                    errors.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfDatasetWorkspace.AddFolder.StoredNameConflict"));
+            }
             if (sourceImagePaths.Length == 0)
             {
                 errors.Add(NoSourceImagesError);
@@ -151,15 +170,17 @@ namespace MvcVisionSystem._1._Core
                 testAbnormalCount);
         }
 
-        private static IEnumerable<string> EnumerateSourceImages(LabelingProjectData data)
+        private static IEnumerable<string> EnumerateSourceImages(LabelingProjectData data, bool sourceReview)
         {
-            var roots = new[]
+            IEnumerable<string> sourceRoots = sourceReview || data?.ProjectSettings?.AdditionalImageRootPaths?.Count > 0
+                ? data?.ProjectSettings?.ResolveImageRootPaths() ?? Array.Empty<string>() : Array.Empty<string>();
+            IEnumerable<string> roots = sourceReview ? sourceRoots : sourceRoots.Concat(new[]
             {
                 data?.ProjectSettings?.PythonModel?.ImageRootPath,
                 data?.TrainImagesPath,
                 data?.ValidImagesPath,
                 data?.TestImagesPath
-            };
+            });
 
             return roots
                 .Where(path => !string.IsNullOrWhiteSpace(path) && Directory.Exists(path))

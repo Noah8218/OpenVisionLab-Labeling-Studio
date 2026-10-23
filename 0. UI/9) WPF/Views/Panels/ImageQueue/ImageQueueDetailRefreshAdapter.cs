@@ -115,26 +115,29 @@ namespace MvcVisionSystem
                 return;
             }
 
-            foreach (ImageQueueDetailRefreshResult result in results ?? Array.Empty<ImageQueueDetailRefreshResult>())
+            context.ApplyItemUpdates(() =>
             {
-                if (result == null
-                    || itemLookup == null
-                    || !itemLookup.TryGetValue(result.ImagePath, out WpfImageQueueItem item)
-                    || item == null)
+                foreach (ImageQueueDetailRefreshResult result in results ?? Array.Empty<ImageQueueDetailRefreshResult>())
                 {
-                    continue;
-                }
+                    if (result == null
+                        || itemLookup == null
+                        || !itemLookup.TryGetValue(result.ImagePath, out WpfImageQueueItem item)
+                        || item == null)
+                    {
+                        continue;
+                    }
 
-                if (result.Error != null)
-                {
-                    item.LabelStatus = "상태 확인 실패";
-                    item.DetectStatus = "대기";
-                    context.AppendLog?.Invoke($"Image status failed: {Path.GetFileName(item.ImagePath)}  {result.Error.Message}");
-                    continue;
-                }
+                    if (result.Error != null)
+                    {
+                        item.LabelStatus = "상태 확인 실패";
+                        item.DetectStatus = "대기";
+                        context.AppendLog?.Invoke($"Image status failed: {Path.GetFileName(item.ImagePath)}  {result.Error.Message}");
+                        continue;
+                    }
 
-                ApplyImageQueueDetail(item, result.Detail);
-            }
+                    ApplyImageQueueDetail(item, result.Detail);
+                }
+            });
 
             UpdateImageQueueDetailProgress(loadedCount, totalCount);
         }
@@ -185,7 +188,8 @@ namespace MvcVisionSystem
             {
                 WpfImageQueuePresenter.ApplyAnomalyReviewStatusToItem(
                     item,
-                    context.AnomalyImageReviewSession.GetStatus(item.ImagePath, isAnomalyPurpose: true));
+                    context.AnomalyImageReviewSession.GetStatus(item.ImagePath, isAnomalyPurpose: true),
+                    context.ReviewWorkflow.GetOrCreate(item.ImagePath));
                 return;
             }
 
@@ -239,6 +243,7 @@ namespace MvcVisionSystem
         internal Func<string> ActiveImagePathProvider { get; init; }
         internal Func<int> QueueItemCountProvider { get; init; }
         internal Action<WpfImageQueueItem, YoloImageReviewStatus> ApplyStandardReviewStatus { get; init; }
+        internal Action<Action> ApplyItemUpdates { get; init; } = apply => apply();
         internal Action<string> AppendLog { get; init; }
         internal Action<string> SetDatasetStatus { get; init; }
         internal Action UpdateImageQueueStatusText { get; init; }

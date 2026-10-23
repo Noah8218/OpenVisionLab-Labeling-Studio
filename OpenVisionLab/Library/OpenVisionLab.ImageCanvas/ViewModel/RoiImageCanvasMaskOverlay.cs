@@ -17,7 +17,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			string label = "",
 			Rectangle dirtyBounds = default(Rectangle),
 			Action<int, Rectangle> dirtyBoundsUploaded = null,
-			bool showMarker = true)
+			bool showMarker = true,
+			string className = null)
 		{
 			Key = string.IsNullOrWhiteSpace(key) ? "mask" : key;
 			MaskData = maskData;
@@ -28,6 +29,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			RenderVersion = renderVersion;
 			IsSelected = isSelected;
 			Label = label ?? string.Empty;
+			ClassName = className;
 			DirtyBounds = dirtyBounds;
 			ShowMarker = showMarker;
 			_dirtyBoundsUploaded = dirtyBoundsUploaded;
@@ -52,6 +54,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		public bool IsSelected { get; }
 
 		public string Label { get; }
+
+		public string ClassName { get; }
 
 		public Rectangle DirtyBounds { get; }
 

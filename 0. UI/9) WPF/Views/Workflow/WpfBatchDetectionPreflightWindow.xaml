@@ -4,7 +4,8 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-                 Title="AI &#xBC30;&#xCE58; &#xAC80;&#xC0AC; &#xC0AC;&#xC804;&#xC810;&#xAC80;"
+                 xmlns:local="clr-namespace:MvcVisionSystem"
+                 Title="&#xC77C;&#xAD04; &#xCD94;&#xB860; &#xC0AC;&#xC804; &#xC810;&#xAC80;"
                  Width="1040"
                  Height="720"
                  MinWidth="900"
@@ -13,7 +14,9 @@
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="None"
                  WindowCornerPreference="Round"
-                 WindowStartupLocation="CenterOwner">
+                 WindowStartupLocation="CenterOwner"
+                 FontFamily="{DynamicResource UiFontFamily}" FontSize="13"
+                 TextBlock.LineHeight="18.85" TextBlock.LineStackingStrategy="BlockLineHeight">
     <ui:FluentWindow.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -34,23 +37,26 @@
             <SolidColorBrush x:Key="GridHeaderBrush" Color="#202020" />
             <Style x:Key="PreflightButtonStyle" TargetType="{x:Type ui:Button}">
                 <Setter Property="Template" Value="{StaticResource WpfUiDarkButtonTemplate}" />
-                <Setter Property="Height" Value="34" />
+                <Setter Property="Height" Value="Auto" /><Setter Property="MinHeight" Value="30" />
+                <Setter Property="FontSize" Value="13" />
                 <Setter Property="MinWidth" Value="96" />
-                <Setter Property="Padding" Value="12,0" />
+                <Setter Property="Padding" Value="10,5" />
                 <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
                 <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
             </Style>
             <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
                 <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
                 <Setter Property="FontSize" Value="12" />
+                <Setter Property="LineHeight" Value="17.4" /><Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
                 <Setter Property="FontWeight" Value="SemiBold" />
             </Style>
             <Style x:Key="DetailTextStyle" TargetType="TextBlock">
                 <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
-                <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="10.5" />
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="LineHeight" Value="17.4" /><Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
                 <Setter Property="TextWrapping" Value="Wrap" />
             </Style>
         </ResourceDictionary>
@@ -71,9 +77,9 @@
             <iconPacks:PackIconMaterial Kind="ClipboardSearchOutline" Width="28" Height="28"
                                         Foreground="{DynamicResource AccentBrush}" Margin="0,0,12,0" />
             <StackPanel Grid.Column="1">
-                <TextBlock Text="AI &#xBC30;&#xCE58; &#xAC80;&#xC0AC; &#xC0AC;&#xC804;&#xC810;&#xAC80;"
-                           Foreground="{DynamicResource PrimaryTextBrush}" FontFamily="Segoe UI"
-                           FontSize="18" FontWeight="SemiBold" />
+                <TextBlock Text="&#xC77C;&#xAD04; &#xCD94;&#xB860; &#xC0AC;&#xC804; &#xC810;&#xAC80;"
+                           Foreground="{DynamicResource PrimaryTextBrush}" FontFamily="{DynamicResource UiFontFamily}"
+                           FontSize="15" FontWeight="SemiBold" LineHeight="21.75" />
                 <TextBlock Text="&#xC2E4;&#xD589; &#xC804;&#xC5D0; &#xB300;&#xC0C1;, &#xBAA8;&#xB378;, &#xD074;&#xB798;&#xC2A4;, &#xAE30;&#xC874; &#xB77C;&#xBCA8; &#xC815;&#xCC45;&#xC744; &#xD655;&#xC778;&#xD569;&#xB2C8;&#xB2E4;."
                            Style="{StaticResource DetailTextStyle}" Margin="0,4,0,0" />
             </StackPanel>
@@ -84,7 +90,7 @@
                     <TextBlock Text="{Binding ScopeText}" Foreground="{DynamicResource PrimaryTextBrush}"
                                FontWeight="SemiBold" HorizontalAlignment="Right" />
                     <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontSize="10" Margin="0,2,0,0" HorizontalAlignment="Right"
+                               FontSize="12" LineHeight="17.4" Margin="0,2,0,0" HorizontalAlignment="Right"
                                AutomationProperties.AutomationId="BatchPreflightStatusText" />
                 </StackPanel>
             </Border>
@@ -100,19 +106,21 @@
                     BorderThickness="1" CornerRadius="6" Padding="14">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
-                        <TextBlock Text="1. &#xC2E4;&#xD589; &#xACC4;&#xC57D;" Style="{StaticResource SectionTitleStyle}" />
+                        <TextBlock Text="1. &#xC2E4;&#xD589; &#xC870;&#xAC74;" Style="{StaticResource SectionTitleStyle}" />
                         <TextBlock Text="{Binding CountText}" Style="{StaticResource DetailTextStyle}" Margin="0,8,0,0" />
-                        <TextBlock Text="&#xBAA8;&#xB378; / &#xC784;&#xACC4;&#xAC12;" Style="{StaticResource SectionTitleStyle}" Margin="0,18,0,0" />
+                        <TextBlock Text="{Binding [WpfBatch.Section.ModelThreshold], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource SectionTitleStyle}" Margin="0,18,0,0" />
                         <TextBlock Text="{Binding ModelText}" Style="{StaticResource DetailTextStyle}" Margin="0,7,0,0" />
                         <TextBlock Text="&#xAE30;&#xC874; &#xB77C;&#xBCA8; &#xCC98;&#xB9AC;" Style="{StaticResource SectionTitleStyle}" Margin="0,18,0,0" />
                         <ComboBox ItemsSource="{Binding ExistingLabelPolicies}"
                                   SelectedItem="{Binding SelectedExistingLabelPolicy}"
                                   DisplayMemberPath="DisplayText" Margin="0,7,0,0"
+                                  Height="Auto" MinHeight="30" FontSize="13" Padding="8,5,28,5"
+                                  IsEnabled="{Binding IsExistingLabelPolicyEnabled}"
                                   AutomationProperties.AutomationId="BatchExistingLabelPolicyBox"
                                   AutomationProperties.Name="&#xAE30;&#xC874; &#xB77C;&#xBCA8; &#xCC98;&#xB9AC; &#xC815;&#xCC45;" />
                         <TextBlock Text="{Binding SelectedExistingLabelPolicy.DetailText}"
                                    Style="{StaticResource DetailTextStyle}" Margin="0,6,0,0" />
-                        <TextBlock Text="&#xACB0;&#xACFC; &#xC804;&#xB2EC; &#xC815;&#xCC45;" Style="{StaticResource SectionTitleStyle}" Margin="0,18,0,0" />
+                        <TextBlock Text="{Binding [WpfBatch.Section.Destination], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource SectionTitleStyle}" Margin="0,18,0,0" />
                         <Border Background="{DynamicResource CanvasBrush}" BorderBrush="{DynamicResource BorderBrushDark}"
                                 BorderThickness="1" CornerRadius="4" Padding="10,8" Margin="0,7,0,0">
                             <TextBlock Text="{Binding DestinationPolicyText}" Style="{StaticResource DetailTextStyle}" />
@@ -135,15 +143,31 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <TextBlock Text="2. Recipe &#xD074;&#xB798;&#xC2A4; &#xB9E4;&#xD551;" Style="{StaticResource SectionTitleStyle}" />
+                        <TextBlock Text="{Binding [WpfBatch.Section.ClassMapping], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource SectionTitleStyle}" />
                         <TextBlock Grid.Row="1" Text="{Binding ClassContractText}" Style="{StaticResource DetailTextStyle}" Margin="0,5,0,8" />
-                        <DataGrid Grid.Row="2" ItemsSource="{Binding ClassMappings}" IsReadOnly="True"
+                        <DataGrid Grid.Row="2" ItemsSource="{Binding ClassMappings}" IsReadOnly="True" VirtualizingPanel.ScrollUnit="Pixel"
                                   AutoGenerateColumns="False" HeadersVisibility="Column"
-                                  AutomationProperties.Name="Recipe &#xD074;&#xB798;&#xC2A4; &#xB9E4;&#xD551;">
+                                  AutomationProperties.Name="&#xB808;&#xC2DC;&#xD53C; &#xD074;&#xB798;&#xC2A4; &#xB9E4;&#xD551;">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="ID" Binding="{Binding Index}" Width="60" />
-                                <DataGridTextColumn Header="Recipe &#xD074;&#xB798;&#xC2A4;" Binding="{Binding RecipeClassName}" Width="*" />
-                                <DataGridTextColumn Header="worker &#xC774;&#xB984; &#xB9E4;&#xD551;" Binding="{Binding WorkerMappingText}" Width="280" />
+                                <DataGridTextColumn Header="&#xB808;&#xC2DC;&#xD53C; &#xD074;&#xB798;&#xC2A4;" Binding="{Binding RecipeClassName}" Width="*">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="TextWrapping" Value="Wrap" />
+                                            <Setter Property="VerticalAlignment" Value="Center" />
+                                            <Setter Property="Padding" Value="0,5" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="&#xCD94;&#xB860; &#xACB0;&#xACFC; &#xD074;&#xB798;&#xC2A4; &#xC5F0;&#xACB0;" Binding="{Binding WorkerMappingText}" Width="280">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="TextWrapping" Value="Wrap" />
+                                            <Setter Property="VerticalAlignment" Value="Center" />
+                                            <Setter Property="Padding" Value="0,5" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>
@@ -155,11 +179,11 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <TextBlock Text="3. &#xCC28;&#xB2E8; &#xBC0F; &#xC8FC;&#xC758; &#xD56D;&#xBAA9;"
+                        <TextBlock Text="{Binding [WpfBatch.Section.Findings], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
                                    Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,8" />
-                        <DataGrid Grid.Row="1" ItemsSource="{Binding Findings}" IsReadOnly="True"
+                        <DataGrid Grid.Row="1" ItemsSource="{Binding Findings}" IsReadOnly="True" VirtualizingPanel.ScrollUnit="Pixel"
                                   AutoGenerateColumns="False"
-                                  AutomationProperties.Name="AI &#xBC30;&#xCE58; &#xC0AC;&#xC804;&#xC810;&#xAC80; &#xACB0;&#xACFC;">
+                                  AutomationProperties.Name="&#xC77C;&#xAD04; &#xCD94;&#xB860; &#xC0AC;&#xC804; &#xC810;&#xAC80; &#xACB0;&#xACFC;">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="&#xAD6C;&#xBD84;" Binding="{Binding SeverityText}" Width="72" />
                                 <DataGridTextColumn Header="&#xC0C1;&#xC138;" Binding="{Binding Text}" Width="*">
@@ -183,12 +207,12 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Text="&#xC2DC;&#xC791;&#xC744; &#xB204;&#xB974;&#xAE30; &#xC804;&#xAE4C;&#xC9C0; worker &#xC2E4;&#xD589;&#xACFC; &#xB77C;&#xBCA8; &#xBCC0;&#xACBD;&#xC740; &#xC5C6;&#xC2B5;&#xB2C8;&#xB2E4;."
+            <TextBlock Text="&#xC2DC;&#xC791;&#xC744; &#xB204;&#xB974;&#xBA74; &#xC77C;&#xAD04; &#xCD94;&#xB860;&#xC744; &#xC2E4;&#xD589;&#xD569;&#xB2C8;&#xB2E4;. &#xB77C;&#xBCA8;&#xC740; &#xD655;&#xC815;&#xD558;&#xACE0; &#xC800;&#xC7A5;&#xD574;&#xC57C; &#xBC18;&#xC601;&#xB429;&#xB2C8;&#xB2E4;."
                        Style="{StaticResource DetailTextStyle}" VerticalAlignment="Center" />
             <StackPanel Grid.Column="1" Orientation="Horizontal">
                 <ui:Button Style="{StaticResource PreflightButtonStyle}" Command="{Binding RecheckCommand}"
                            AutomationProperties.AutomationId="BatchPreflightRecheckButton"
-                           AutomationProperties.Name="&#xC0AC;&#xC804;&#xC810;&#xAC80; &#xB2E4;&#xC2DC; &#xC2E4;&#xD589;">
+                           AutomationProperties.Name="&#xB2E4;&#xC2DC; &#xC810;&#xAC80;">
                     <StackPanel Orientation="Horizontal">
                         <iconPacks:PackIconMaterial Kind="Refresh" Width="14" Height="14" Margin="0,0,6,0" />
                         <TextBlock Text="&#xB2E4;&#xC2DC; &#xC810;&#xAC80;" />

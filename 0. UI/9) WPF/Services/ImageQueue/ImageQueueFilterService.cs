@@ -13,12 +13,15 @@ namespace MvcVisionSystem
         public int WorklistCount { get; internal set; }
         public int SaveRequiredCount { get; internal set; }
         public int NeedsFixCount { get; internal set; }
+        public int ReviewPendingCount { get; internal set; }
+        public int ReviewedCount { get; internal set; }
         public int RequestedCount { get; internal set; }
         public int CandidateCount { get; internal set; }
         public int ConfirmedCount { get; internal set; }
         public int SkippedCount { get; internal set; }
         public int NoCandidateCount { get; internal set; }
         public int FailedCount { get; internal set; }
+        public int LabelSuspicionCount { get; internal set; }
     }
 
     [Obsolete("Use ImageQueueSummary.", false)]
@@ -38,12 +41,15 @@ namespace MvcVisionSystem
                 WorklistCount = source.WorklistCount,
                 SaveRequiredCount = source.SaveRequiredCount,
                 NeedsFixCount = source.NeedsFixCount,
+                ReviewPendingCount = source.ReviewPendingCount,
+                ReviewedCount = source.ReviewedCount,
                 RequestedCount = source.RequestedCount,
                 CandidateCount = source.CandidateCount,
                 ConfirmedCount = source.ConfirmedCount,
                 SkippedCount = source.SkippedCount,
                 NoCandidateCount = source.NoCandidateCount,
-                FailedCount = source.FailedCount
+                FailedCount = source.FailedCount,
+                LabelSuspicionCount = source.LabelSuspicionCount
             };
         }
     }
@@ -80,8 +86,11 @@ namespace MvcVisionSystem
             {
                 WpfImageQueueFilter.Unlabeled => summary.WorklistCount,
                 WpfImageQueueFilter.NeedsFix => summary.NeedsFixCount,
+                WpfImageQueueFilter.ReviewPending => summary.ReviewPendingCount,
+                WpfImageQueueFilter.Reviewed => summary.ReviewedCount,
                 WpfImageQueueFilter.Requested => summary.RequestedCount,
                 WpfImageQueueFilter.Candidate => summary.CandidateCount,
+                WpfImageQueueFilter.LabelSuspicion => summary.LabelSuspicionCount,
                 WpfImageQueueFilter.Confirmed => summary.ConfirmedCount,
                 WpfImageQueueFilter.Skipped => summary.SkippedCount,
                 WpfImageQueueFilter.NoCandidate => summary.NoCandidateCount,
@@ -120,6 +129,14 @@ namespace MvcVisionSystem
                     summary.NeedsFixCount++;
                 }
 
+                if (item.LabelSuspicionCount > 0) summary.LabelSuspicionCount++;
+                if (item.SessionCandidateCount > 0 && item.ReviewState != YoloImageReviewState.Candidate) summary.CandidateCount++;
+
+                if (IsReviewPendingQueueItem(item)) summary.ReviewPendingCount++;
+                if (IsReviewedQueueItem(item)) summary.ReviewedCount++;
+                if (HasSavedGroundTruth(item) && !item.HasSavedNoObjectLabel) summary.ConfirmedCount++;
+                if (item.HasSavedNoObjectLabel) summary.NoCandidateCount++;
+
                 switch (item.ReviewState)
                 {
                     case YoloImageReviewState.Requested:
@@ -128,14 +145,8 @@ namespace MvcVisionSystem
                     case YoloImageReviewState.Candidate:
                         summary.CandidateCount++;
                         break;
-                    case YoloImageReviewState.Confirmed:
-                        summary.ConfirmedCount++;
-                        break;
                     case YoloImageReviewState.Skipped:
                         summary.SkippedCount++;
-                        break;
-                    case YoloImageReviewState.NoCandidate:
-                        summary.NoCandidateCount++;
                         break;
                     case YoloImageReviewState.Failed:
                         summary.FailedCount++;
@@ -246,8 +257,26 @@ namespace MvcVisionSystem
             int loadedCount,
             int totalToLoad,
             string activeImagePath)
+            => BuildDatasetStatusTextWithActiveImage(summary, visibleCount, filter, loadedCount, totalToLoad, activeImagePath, string.Empty, false);
+
+        public static string BuildDatasetStatusTextWithActiveImage(
+            ImageQueueSummary summary,
+            int visibleCount,
+            WpfImageQueueFilter filter,
+            int loadedCount,
+            int totalToLoad,
+            string activeImagePath,
+            string searchText,
+            bool hasUnsavedLabels)
         {
             string statusText = BuildDatasetStatusText(summary, visibleCount, filter, loadedCount, totalToLoad);
+            if (!string.IsNullOrWhiteSpace(searchText) && visibleCount == 0)
+            {
+                statusText = Format(hasUnsavedLabels
+                    ? "WpfShell.Status.DatasetSearchNoMatch.Unsaved"
+                    : "WpfShell.Status.DatasetSearchNoMatch", statusText);
+            }
+
             if (string.IsNullOrWhiteSpace(activeImagePath))
             {
                 return statusText;
@@ -280,15 +309,24 @@ namespace MvcVisionSystem
             {
                 WpfImageQueueFilter.Unlabeled => !IsCompletedQueueItem(item),
                 WpfImageQueueFilter.NeedsFix => item.QualityReviewState == YoloImageQualityReviewState.NeedsFix,
+                WpfImageQueueFilter.ReviewPending => IsReviewPendingQueueItem(item),
+                WpfImageQueueFilter.Reviewed => IsReviewedQueueItem(item),
                 WpfImageQueueFilter.Requested => item.ReviewState == YoloImageReviewState.Requested,
-                WpfImageQueueFilter.Candidate => item.ReviewState == YoloImageReviewState.Candidate,
-                WpfImageQueueFilter.Confirmed => item.ReviewState == YoloImageReviewState.Confirmed,
+                WpfImageQueueFilter.Candidate => item.ReviewState == YoloImageReviewState.Candidate || item.SessionCandidateCount > 0,
+                WpfImageQueueFilter.LabelSuspicion => item.LabelSuspicionCount > 0,
+                WpfImageQueueFilter.Confirmed => HasSavedGroundTruth(item) && !item.HasSavedNoObjectLabel,
                 WpfImageQueueFilter.Skipped => item.ReviewState == YoloImageReviewState.Skipped,
-                WpfImageQueueFilter.NoCandidate => item.ReviewState == YoloImageReviewState.NoCandidate,
+                WpfImageQueueFilter.NoCandidate => item.HasSavedNoObjectLabel,
                 WpfImageQueueFilter.Failed => item.ReviewState == YoloImageReviewState.Failed,
                 _ => true
             };
         }
+
+        public static bool HasSavedGroundTruth(WpfImageQueueItem item)
+            => item != null && (item.AnomalyReviewState == AnomalyImageReviewState.Normal || item.AnomalyReviewState == AnomalyImageReviewState.Abnormal || !item.IsAnomalyReviewItem && item.HasSavedLabelFile);
+
+        public static bool IsReviewPendingQueueItem(WpfImageQueueItem item)
+            => HasSavedGroundTruth(item) && !item.IsSaveRequired && item.QualityReviewState == YoloImageQualityReviewState.Unreviewed;
 
         public static bool IsCompletedQueueItem(WpfImageQueueItem item)
         {
@@ -299,11 +337,16 @@ namespace MvcVisionSystem
 
             if (item.QualityReviewState == YoloImageQualityReviewState.NeedsFix)
             {
-                return false;
+                // A rejected image has a recorded outcome and remains in its own rework filter.
+                // This progress state does not create saved GT or make it eligible for approval.
+                return true;
             }
 
             return HasCompletedLabelWork(item);
         }
+
+        public static bool IsReviewedQueueItem(WpfImageQueueItem item)
+            => HasSavedGroundTruth(item) && !item.IsSaveRequired && item.QualityReviewState == YoloImageQualityReviewState.Reviewed;
 
         public static bool HasCompletedLabelWork(WpfImageQueueItem item)
         {
@@ -312,12 +355,12 @@ namespace MvcVisionSystem
                 return false;
             }
 
-            // A saved empty label file has no objects, but it is still a reviewed normal image.
-            // Treat confirmed/skipped/no-candidate rows as complete so the work-needed filter means work remains.
+            // AI zero candidates is not an empty ground-truth label. Keep explicit
+            // confirmation/skip compatibility while deriving saved work from its own state.
             return item.IsLabeled
+                || HasSavedGroundTruth(item)
                 || item.ReviewState == YoloImageReviewState.Confirmed
-                || item.ReviewState == YoloImageReviewState.Skipped
-                || item.ReviewState == YoloImageReviewState.NoCandidate;
+                || item.ReviewState == YoloImageReviewState.Skipped;
         }
     }
 

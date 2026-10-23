@@ -1,5 +1,6 @@
 using MvcVisionSystem._1._Core;
 using MvcVisionSystem.Yolo;
+using OpenVisionLab;
 using OpenVisionLab.ImageCanvas.ViewModels;
 using System;
 using System.Collections.Generic;
@@ -21,6 +22,9 @@ namespace MvcVisionSystem
         private readonly DatasetImageRootResolver datasetImageRootResolver;
         private readonly ImageQueueSelectionService imageQueueSelectionService;
         private readonly DatasetSetupWorkflowAdapterContext context;
+        private Task<int> recipeImageQueueLoadTask = Task.FromResult(0);
+
+        internal bool IsSelectionRunning { get; private set; }
 
         internal DatasetSetupWorkflowAdapter(
             DatasetSetupPathService datasetSetupPathService,
@@ -47,11 +51,12 @@ namespace MvcVisionSystem
 
         internal void ExecuteStartDatasetSetupCommand(object selectedPurpose)
         {
-            if (IsApplicationCloseApproved())
+            if (IsApplicationCloseApproved() || IsSelectionRunning)
             {
                 return;
             }
 
+            IsSelectionRunning = true;
             try
             {
                 WpfDatasetSetupWizardViewModel wizardViewModel = CreateDatasetSetupWizardViewModel(selectedPurpose);
@@ -60,7 +65,7 @@ namespace MvcVisionSystem
                 if (wizard == null)
                 {
                     wizardViewModel.Dispose();
-                    SetFailureStatus("데이터셋 생성 창을 만들 수 없습니다.");
+                    SetFailureStatus(OpenVisionLanguageService.T("WpfDatasetSetup.Error.CreationUnavailable"));
                     return;
                 }
 
@@ -82,14 +87,27 @@ namespace MvcVisionSystem
                     browseWeights: null);
                 wizardViewModel.ConfigurePathSelectionWorkflow(CreateDatasetSetupPathSelectionCallbacks);
 
-                if (wizard.ShowDialog() == true && acceptedRequest != null && !IsApplicationCloseApproved())
+                bool? accepted;
+                using (var backdrop = new DialogBackdropScope(wizard, (System.Windows.FrameworkElement)wizard.Owner.Content, managesOwnerInput: false))
                 {
+                    accepted = wizard.ShowDialog();
+                }
+
+                if (accepted == true && acceptedRequest != null && !IsApplicationCloseApproved())
+                {
+                    // The dialog has finished; the shared transition guard must only see other running work.
+                    IsSelectionRunning = false;
                     ApplyDatasetSetupRequest(acceptedRequest);
                 }
             }
             catch (Exception ex)
             {
-                SetFailureStatus($"데이터셋 생성 실패: {ex.Message}");
+                SetFailureStatus($"{OpenVisionLanguageService.T("WpfDatasetSetup.Error.CreationFailed")}: {ex.Message}");
+            }
+            finally
+            {
+                IsSelectionRunning = false;
+                context.WorkflowTransitionAdapterProvider?.Invoke()?.RefreshCommandState();
             }
         }
 
@@ -111,85 +129,241 @@ namespace MvcVisionSystem
 
         internal void ExecuteChangeDatasetCommand()
         {
-            _ = ExecuteChangeDatasetCommandAsync();
+            ShowRecipeLibrary();
         }
 
-        internal async Task ExecuteChangeDatasetCommandAsync()
+        internal void ShowRecipeLibrary()
         {
-            if (IsApplicationCloseApproved())
+            if (IsApplicationCloseApproved() || IsSelectionRunning)
             {
                 return;
             }
 
-            // Dataset change is intentionally a selector-first flow. Opening the
-            // creation wizard directly made "change dataset" feel like "create dataset".
-            context.AppendLog?.Invoke("데이터셋 선택 창 열기");
-            var viewModel = new WpfDatasetSelectionWindowViewModel();
-            string recipeRoot = ProjectRecipeService.GetRecipeRootDirectory();
-            viewModel.LoadDatasets(recipeRoot, context.ProjectSettingsWorkflowAdapter.GetCurrentRecipeName());
-            string selectedRecipeName = string.Empty;
-            bool createNewRequested = false;
-
-            WpfDatasetSelectionWindow window = context.CreateSelectionWindow?.Invoke(viewModel);
-            if (window == null)
+            WpfDatasetSelectionWindowViewModel viewModel = context.RecipeSelectionViewModel;
+            if (viewModel == null)
             {
-                viewModel.Dispose();
-                context.AppendLog?.Invoke("데이터셋 선택 창을 만들 수 없습니다.");
+                context.AppendLog?.Invoke("레시피 목록을 표시할 수 없습니다.");
                 return;
             }
 
             viewModel.ConfigureCommands(
-                () =>
-                {
-                    if (viewModel.SelectedDataset == null || string.IsNullOrWhiteSpace(viewModel.SelectedDataset.RecipeName))
-                    {
-                        viewModel.StatusText = "열 데이터셋을 먼저 선택하세요.";
-                        return;
-                    }
-
-                    selectedRecipeName = viewModel.SelectedDataset.RecipeName;
-                    window.DialogResult = true;
-                },
-                () =>
-                {
-                    createNewRequested = true;
-                    window.DialogResult = true;
-                },
-                () => viewModel.LoadDatasets(recipeRoot, context.ProjectSettingsWorkflowAdapter.GetCurrentRecipeName()),
-                () => window.DialogResult = false);
-
-            if (window.ShowDialog() != true || IsApplicationCloseApproved())
-            {
-                return;
-            }
-
-            if (createNewRequested)
-            {
-                ExecuteStartDatasetSetupCommand(context.SelectedPurposeProvider?.Invoke());
-                return;
-            }
-
-            await ApplySelectedDatasetRecipeAsync(selectedRecipeName);
+                () => _ = OpenSelectedRecipeFromLibraryAsync(),
+                () => ExecuteStartDatasetSetupCommand(context.SelectedPurposeProvider?.Invoke()),
+                RefreshRecipeLibrary,
+                CancelRecipeLibrary,
+                context.ProjectSettingsWorkflowAdapter.SaveRecipeMetadata,
+                () => _ = OpenSelectedRecipeFromLibraryAsync(continueLabeling: true));
+            RefreshRecipeLibrary();
+            context.ShellViewModel?.SetRecipeLibraryVisible(true);
         }
 
-        internal async Task ApplySelectedDatasetRecipeAsync(string recipeName)
+        private void RefreshRecipeLibrary()
+            => RefreshRecipeLibrary(context.ProjectSettingsWorkflowAdapter.GetCurrentRecipeName());
+
+        internal void RefreshRecipeLibrary(string selectedRecipeName)
+            => context.RecipeSelectionViewModel?.LoadDatasets(ProjectRecipeService.GetRecipeRootDirectory(), selectedRecipeName);
+
+        private void CancelRecipeLibrary()
         {
+            if (!string.IsNullOrWhiteSpace(context.ProjectSettingsWorkflowAdapter.GetCurrentRecipeName()))
+            {
+                context.ShellViewModel?.SetRecipeLibraryVisible(false);
+            }
+        }
+
+        private async Task OpenSelectedRecipeFromLibraryAsync(bool continueLabeling = false)
+        {
+            WpfDatasetSelectionWindowViewModel viewModel = context.RecipeSelectionViewModel;
+            WpfDatasetSelectionItem selected = viewModel?.SelectedDataset;
+            context.AppendLog?.Invoke($"레시피 홈 요청: {selected?.RecipeName} / 이어하기:{continueLabeling} / 전환 중:{IsSelectionRunning}");
+            if (selected == null || IsApplicationCloseApproved() || IsSelectionRunning || !viewModel.TryBeginOpen())
+            {
+                return;
+            }
+
+            bool waitingToResume = false;
+            try
+            {
+                bool applied = await ApplySelectedDatasetRecipeAsync(selected.RecipeName);
+                if (!continueLabeling || !applied) return;
+                waitingToResume = true;
+                IsSelectionRunning = true;
+                context.WorkflowTransitionAdapterProvider?.Invoke()?.RefreshCommandState();
+                Task<int> catalogTask = recipeImageQueueLoadTask;
+                int count = await catalogTask;
+                await (context.ImageQueueDetailRefreshTask?.Invoke() ?? Task.CompletedTask);
+                if (count > 0 && !IsApplicationCloseApproved() && ReferenceEquals(catalogTask, recipeImageQueueLoadTask)
+                    && string.Equals(selected.RecipeName, context.ProjectSettingsWorkflowAdapter.GetCurrentRecipeName(), StringComparison.OrdinalIgnoreCase))
+                {
+                    IsSelectionRunning = false;
+                    waitingToResume = false;
+                    context.WorkflowTransitionAdapterProvider?.Invoke()?.RefreshCommandState();
+                    context.ContinueLabeling?.Invoke();
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception error)
+            {
+                string message = string.Format(OpenVisionLanguageService.T("WpfRecipeLibrary.ResumeFailed"), error.Message);
+                viewModel.StatusText = message;
+                SetFailureStatus(message);
+            }
+            finally
+            {
+                if (waitingToResume)
+                {
+                    IsSelectionRunning = false;
+                    context.WorkflowTransitionAdapterProvider?.Invoke()?.RefreshCommandState();
+                }
+                viewModel.EndOpen();
+            }
+        }
+
+        internal async Task ExecuteChangeDatasetCommandAsync()
+        {
+            if (IsApplicationCloseApproved() || IsSelectionRunning)
+            {
+                return;
+            }
+
+            IsSelectionRunning = true;
+            try
+            {
+                // Dataset change is intentionally a selector-first flow. Opening the
+                // creation wizard directly made "change dataset" feel like "create dataset".
+                context.AppendLog?.Invoke("데이터셋 선택 창 열기");
+                var viewModel = new WpfDatasetSelectionWindowViewModel();
+                string recipeRoot = ProjectRecipeService.GetRecipeRootDirectory();
+                viewModel.LoadDatasets(recipeRoot, context.ProjectSettingsWorkflowAdapter.GetCurrentRecipeName());
+                string selectedRecipeName = string.Empty;
+                bool createNewRequested = false;
+
+                WpfDatasetSelectionWindow window = context.CreateSelectionWindow?.Invoke(viewModel);
+                if (window == null)
+                {
+                    viewModel.Dispose();
+                    context.AppendLog?.Invoke("데이터셋 선택 창을 만들 수 없습니다.");
+                    return;
+                }
+
+                viewModel.ConfigureCommands(
+                    () =>
+                    {
+                        if (viewModel.SelectedDataset == null || string.IsNullOrWhiteSpace(viewModel.SelectedDataset.RecipeName))
+                        {
+                            viewModel.StatusText = OpenVisionLanguageService.T("WpfDatasetSelection.Error.SelectionRequired");
+                            return;
+                        }
+
+                        selectedRecipeName = viewModel.SelectedDataset.RecipeName;
+                        window.DialogResult = true;
+                    },
+                    () =>
+                    {
+                        createNewRequested = true;
+                        window.DialogResult = true;
+                    },
+                    () => viewModel.LoadDatasets(recipeRoot, context.ProjectSettingsWorkflowAdapter.GetCurrentRecipeName()),
+                    () => window.DialogResult = false,
+                    context.ProjectSettingsWorkflowAdapter.SaveRecipeMetadata);
+
+                if (window.ShowDialog() != true || IsApplicationCloseApproved())
+                {
+                    return;
+                }
+
+                if (createNewRequested)
+                {
+                    IsSelectionRunning = false;
+                    ExecuteStartDatasetSetupCommand(context.SelectedPurposeProvider?.Invoke());
+                    return;
+                }
+
+                IsSelectionRunning = false;
+                await ApplySelectedDatasetRecipeAsync(selectedRecipeName);
+            }
+            finally
+            {
+                IsSelectionRunning = false;
+                context.WorkflowTransitionAdapterProvider?.Invoke()?.RefreshCommandState();
+            }
+        }
+
+        internal async Task<bool> ApplySelectedDatasetRecipeAsync(string recipeName)
+        {
+            if (string.IsNullOrWhiteSpace(recipeName) || IsApplicationCloseApproved() || IsSelectionRunning)
+            {
+                return false;
+            }
+
+            Task<ProjectRecipeApplyResult> applyTask = context.ProjectSettingsWorkflowAdapter.ApplyProjectRecipeFromPanelAsync(recipeName.Trim());
+            // Let the recipe adapter admit the transition before this adapter marks its own selection busy.
+            IsSelectionRunning = true;
+            try
+            {
+                ProjectRecipeApplyResult applyResult = await applyTask;
+                if (!applyResult.IsApplied || IsApplicationCloseApproved())
+                {
+                    return false;
+                }
+
+                context.ProjectSettingsWorkflowAdapter.HandleProjectRecipeApplied(recipeName.Trim(), applyResult);
+                context.ShellViewModel?.SetWorkflowStage(WpfShellWorkflowStage.Dataset);
+                context.ShellViewModel?.SetRecipeLibraryVisible(false);
+                return true;
+            }
+            finally
+            {
+                IsSelectionRunning = false;
+                context.WorkflowTransitionAdapterProvider?.Invoke()?.RefreshCommandState();
+            }
+        }
+
+        internal bool CloseCurrentRecipe()
+        {
+            if (IsApplicationCloseApproved())
+            {
+                return false;
+            }
+
+            WorkflowTransitionApproval approval = context.WorkflowTransitionAdapterProvider?.Invoke()?.TryApprove(
+                "레시피 닫기",
+                replacesRecipe: true, closesRecipe: true) ?? WorkflowTransitionApproval.Allowed;
+            if (!approval.IsAllowed)
+            {
+                return false;
+            }
+
+            string recipeName = context.ProjectSettingsWorkflowAdapter.GetCurrentRecipeName();
             if (string.IsNullOrWhiteSpace(recipeName))
             {
-                return;
+                return false;
             }
 
-            context.ProjectConfigViewModel.RecipeName = recipeName.Trim();
-            context.ProjectConfigViewModel.SelectedRecipeName = recipeName.Trim();
-            if (!await context.ProjectSettingsWorkflowAdapter.ApplyProjectRecipeFromPanelAsync())
-            {
-                return;
-            }
-
-            if (!IsApplicationCloseApproved())
-            {
-                CompleteSelectedDatasetRecipeSwitch();
-            }
+            projectRecipeSessionService.ClearActiveRecipe(context.ApplicationState);
+            context.CancelImageQueueLoads?.Invoke();
+            recipeImageQueueLoadTask = Task.FromResult(0);
+            context.SetCurrentImageRoot?.Invoke(string.Empty);
+            context.SetCurrentImageFolder?.Invoke(string.Empty, false);
+            context.ClearImageQueueItems?.Invoke();
+            context.ClearActiveImageAfterQueueReset?.Invoke();
+            context.UpdateImageQueueStatusText?.Invoke();
+            context.PopulateProjectConfigPanelFields?.Invoke();
+            context.PopulateClassList?.Invoke(string.Empty);
+            context.PopulateYoloEditorFields?.Invoke();
+            context.PopulateTrainingEditorFields?.Invoke();
+            context.RefreshTrainingReadinessPanel?.Invoke(false);
+            context.RefreshYoloTrainingStepCompletion?.Invoke();
+            context.ShellViewModel?.SetWorkflowStage(WpfShellWorkflowStage.Dataset);
+            context.LearningWorkflowViewModel?.ShowDatasetOnboarding();
+            context.FocusDatasetOnboardingTab?.Invoke();
+            context.SetProjectConfigStatus?.Invoke(OpenVisionLanguageService.T("ShellTransition.ClosedStatus"));
+            context.SetDatasetStatus?.Invoke(OpenVisionLanguageService.T("ShellTransition.ClosedStatus"));
+            context.AppendLog?.Invoke($"레시피 닫기: {recipeName}");
+            context.RefreshShellDatasetContext?.Invoke();
+            ShowRecipeLibrary();
+            context.WorkflowTransitionAdapterProvider?.Invoke()?.RefreshCommandState();
+            return true;
         }
 
         internal void CompleteSelectedDatasetRecipeSwitch()
@@ -197,10 +371,12 @@ namespace MvcVisionSystem
             string imageRootPath = ResolveActiveDatasetImageRoot();
             if (Directory.Exists(imageRootPath))
             {
-                _ = context.LoadImageQueueFromRootAsync?.Invoke(imageRootPath, string.Empty, true, true);
+                ResetImageQueueForRecipeSwitch();
+                recipeImageQueueLoadTask = context.LoadImageQueueFromRootAsync?.Invoke(imageRootPath, string.Empty, true, true) ?? Task.FromResult(0);
             }
             else
             {
+                recipeImageQueueLoadTask = Task.FromResult(0);
                 ClearImageQueueAfterDatasetSwitch(imageRootPath);
             }
 
@@ -234,6 +410,7 @@ namespace MvcVisionSystem
             context.SetDatasetStatus?.Invoke(datasetSetupPresentationService.BuildMissingImageRootStatus());
             context.AppendLog?.Invoke(datasetSetupPresentationService.BuildMissingImageRootLog(imageRootPath));
             context.FocusDatasetOnboardingTab?.Invoke();
+            context.RefreshDatasetWorkspace?.Invoke();
         }
 
         internal void ExecuteOpenDatasetRootFolderCommand()
@@ -315,6 +492,19 @@ namespace MvcVisionSystem
 
         internal bool ApplyDatasetSetupRequest(WpfDatasetSetupRequest request)
         {
+            if (request == null)
+            {
+                return false;
+            }
+
+            WorkflowTransitionApproval approval = context.WorkflowTransitionAdapterProvider?.Invoke()?.TryApprove(
+                request.RecipeName,
+                replacesRecipe: true) ?? WorkflowTransitionApproval.Allowed;
+            if (!approval.IsAllowed)
+            {
+                return false;
+            }
+
             WpfDatasetSetupExecutionResult result = datasetSetupExecutionService.Execute(
                 request,
                 ProjectRecipeService.GetRecipeRootDirectory(),
@@ -323,6 +513,7 @@ namespace MvcVisionSystem
             {
                 string message = result.Failure switch
                 {
+                    WpfDatasetSetupExecutionFailure.InvalidRecipeMetadata => datasetSetupPresentationService.BuildInvalidRecipeMetadataMessage(),
                     WpfDatasetSetupExecutionFailure.DuplicateOutputRoot => datasetSetupPresentationService.BuildDuplicateOutputRootMessage(result.ExistingRecipeName),
                     WpfDatasetSetupExecutionFailure.SamplePreset => datasetSetupPresentationService.BuildSamplePresetFailureMessage(result.SampleError),
                     WpfDatasetSetupExecutionFailure.RecipePersistence => datasetSetupPresentationService.BuildRecipePersistenceFailureMessage(result.PersistenceError),
@@ -343,12 +534,18 @@ namespace MvcVisionSystem
                     context.ApplicationState,
                     result.RecipeName,
                     result.Data,
-                    out _))
+                    out string previousRecipeName))
             {
                 return false;
             }
 
+            context.CompleteProjectRecipeApply?.Invoke(previousRecipeName, result.RecipeName);
             context.ApplyPersistedDatasetPurposeToCurrentProject?.Invoke(request.Purpose);
+            if (Directory.Exists(result.ImageRootPath))
+            {
+                ResetImageQueueForRecipeSwitch();
+            }
+
             context.RememberLastOpenedDatasetRecipe?.Invoke(result.RecipeName);
             context.PopulateProjectConfigPanelFields?.Invoke();
             context.PopulateClassList?.Invoke(result.SelectedClassName);
@@ -356,7 +553,7 @@ namespace MvcVisionSystem
             context.PopulateTrainingEditorFields?.Invoke();
             context.RefreshTrainingReadinessPanel?.Invoke(false);
             context.RefreshYoloTrainingStepCompletion?.Invoke();
-            context.EnterLabelingWorkbenchStartView?.Invoke();
+            context.ShellViewModel?.SetWorkflowStage(WpfShellWorkflowStage.Dataset);
             if (Directory.Exists(result.ImageRootPath))
             {
                 _ = context.LoadImageQueueFromRootAsync?.Invoke(result.ImageRootPath, string.Empty, true, true);
@@ -371,6 +568,7 @@ namespace MvcVisionSystem
             context.SetProjectConfigStatus?.Invoke(status);
             context.SetDatasetStatus?.Invoke(datasetSetupPresentationService.BuildDatasetReadyStatus(result.OutputRootPath));
             context.AppendLog?.Invoke(datasetSetupPresentationService.BuildCreationLog(result.RecipeName, request.Purpose, result.OutputRootPath, result.ManifestPath));
+            context.ShellViewModel?.SetRecipeLibraryVisible(false);
             return true;
         }
 
@@ -380,6 +578,7 @@ namespace MvcVisionSystem
             string recipeName = ProjectRecipeService.ResolveStartupRecipeName(recipeRootPath, string.Empty);
             if (string.IsNullOrWhiteSpace(recipeName))
             {
+                ShowRecipeLibrary();
                 return false;
             }
 
@@ -393,12 +592,14 @@ namespace MvcVisionSystem
             }
             catch (Exception ex)
             {
-                context.SetProjectConfigStatus?.Invoke($"Recipe 적용 실패: {ex.Message}");
-                context.AppendLog?.Invoke($"Recipe 적용 실패: {ex.Message}");
+                context.SetProjectConfigStatus?.Invoke($"{OpenVisionLanguageService.T("WpfDatasetSelection.Error.ApplyFailed")}: {ex.Message}");
+                context.AppendLog?.Invoke($"{OpenVisionLanguageService.T("WpfDatasetSelection.Error.ApplyFailed")}: {ex.Message}");
+                ShowRecipeLibrary();
                 return false;
             }
 
             context.AppendLog?.Invoke($"이전 데이터셋 복원: {recipeName}");
+            context.ShellViewModel?.SetRecipeLibraryVisible(false);
             return true;
         }
 
@@ -440,6 +641,13 @@ namespace MvcVisionSystem
         private bool IsApplicationCloseApproved()
             => context.IsApplicationCloseApproved?.Invoke() == true;
 
+        private void ResetImageQueueForRecipeSwitch()
+        {
+            context.CancelImageQueueLoads?.Invoke();
+            context.ClearImageQueueItems?.Invoke();
+            context.ClearActiveImageAfterQueueReset?.Invoke();
+        }
+
         private void SetFailureStatus(string message)
         {
             SetDatasetSetupStatus(message);
@@ -456,11 +664,14 @@ namespace MvcVisionSystem
         internal WpfProjectConfigPanelViewModel ProjectConfigViewModel { get; init; }
         internal WpfLearningWorkflowPanelViewModel LearningWorkflowViewModel { get; init; }
         internal WpfLabelingShellViewModel ShellViewModel { get; init; }
+        internal WpfDatasetSelectionWindowViewModel RecipeSelectionViewModel { get; init; }
         internal Func<object> SelectedPurposeProvider { get; init; }
         internal Func<bool> IsApplicationCloseApproved { get; init; }
         internal Func<WpfDatasetSetupWizardViewModel, WpfDatasetSetupWizardWindow> CreateWizardWindow { get; init; }
         internal Func<WpfDatasetSelectionWindowViewModel, WpfDatasetSelectionWindow> CreateSelectionWindow { get; init; }
         internal Func<string, string, bool, bool, Task<int>> LoadImageQueueFromRootAsync { get; init; }
+        internal Func<Task> ImageQueueDetailRefreshTask { get; init; }
+        internal Action ContinueLabeling { get; init; }
         internal Func<string> CurrentImageRootProvider { get; init; }
         internal Action<string> SetCurrentImageRoot { get; init; }
         internal Action<string, bool> SetCurrentImageFolder { get; init; }
@@ -486,5 +697,8 @@ namespace MvcVisionSystem
         internal Action EnterLabelingWorkbenchStartView { get; init; }
         internal Func<LabelingDatasetPurpose> GetCurrentDatasetPurpose { get; init; }
         internal Action<string, string> CompleteProjectRecipeApply { get; init; }
+        internal Func<WorkflowTransitionAdapter> WorkflowTransitionAdapterProvider { get; init; }
+        internal Action RefreshShellDatasetContext { get; init; }
+        internal Action RefreshDatasetWorkspace { get; init; }
     }
 }

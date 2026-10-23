@@ -85,7 +85,7 @@ namespace MvcVisionSystem
             => context.EnsureInferenceModeForDetection?.Invoke() == true;
         private Task RunInteractiveDetectionAsync(bool allowSmokeFallback)
             => context.RunInteractiveDetectionAsync?.Invoke(allowSmokeFallback) ?? Task.CompletedTask;
-        private void SetWorkflowMode(bool isInferenceMode) => context.SetWorkflowMode?.Invoke(isInferenceMode);
+        private bool SetWorkflowMode(bool isInferenceMode) => context.SetWorkflowMode?.Invoke(isInferenceMode) == true;
         private void FocusYoloPythonPath() => context.FocusYoloPythonPath?.Invoke();
         private void FocusYoloProjectRoot() => context.FocusYoloProjectRoot?.Invoke();
         private void FocusYoloWeightsPath() => context.FocusYoloWeightsPath?.Invoke();
@@ -223,7 +223,7 @@ namespace MvcVisionSystem
             {
                 FocusYoloProjectRoot();
                 SetYoloCommandStatus("YOLOv8 \uD3F4\uB354 \uC5F0\uACB0\uC744 \uCDE8\uC18C\uD588\uC2B5\uB2C8\uB2E4. \uAE30\uC874 \uACBD\uB85C\uB97C \uD655\uC778\uD558\uAC70\uB098 \uB2E4\uC2DC \uC5F0\uACB0\uD558\uC138\uC694.", isBusy: false);
-                AppendLog("YOLOv8 local worker \uD3F4\uB354 \uC5F0\uACB0 \uCDE8\uC18C.");
+                AppendLog(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloEnvironmentWorkflowAdapter.226"));
                 return;
             }
 
@@ -271,7 +271,7 @@ namespace MvcVisionSystem
             {
                 FocusYoloProjectRoot();
                 SetYoloCommandStatus("YOLOv5 \uD3F4\uB354 \uC5F0\uACB0\uC744 \uCDE8\uC18C\uD588\uC2B5\uB2C8\uB2E4. \uAE30\uC874 \uACBD\uB85C\uB97C \uD655\uC778\uD558\uAC70\uB098 \uB2E4\uC2DC \uC5F0\uACB0\uD558\uC138\uC694.", isBusy: false);
-                AppendLog("YOLOv5 \uC2E4\uD589\uAE30 \uD3F4\uB354 \uC5F0\uACB0 \uCDE8\uC18C.");
+                AppendLog(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloEnvironmentWorkflowAdapter.274"));
                 return;
             }
 
@@ -336,6 +336,7 @@ namespace MvcVisionSystem
                     return;
                 }
 
+                LabelingProjectData savedData = projectData;
                 using RecipeSettingsStateTransaction recipeSettingsTransaction = new RecipeSettingsStateTransaction(projectData);
                 PythonModelSettings previousModelSettings = new PythonModelSettings
                 {
@@ -384,10 +385,20 @@ namespace MvcVisionSystem
                     registryTransaction.Rollback();
                 }
 
+                string trainingWorkspaceRefreshWarning = string.Empty;
                 if (configSaved)
                 {
                     PopulateYoloEditorFields();
                     PopulateTrainingEditorFields();
+                    try
+                    {
+                        context.RefreshTrainingWorkspaceAfterSettingsSave?.Invoke();
+                    }
+                    catch (Exception error)
+                    {
+                        trainingWorkspaceRefreshWarning = OpenVisionLab.OpenVisionLanguageService.T("WpfTrainingWorkspace.SettingsSavedRefreshFailed");
+                        AppendLog($"{trainingWorkspaceRefreshWarning}{Environment.NewLine}{error}");
+                    }
                 }
                 else
                 {
@@ -402,8 +413,8 @@ namespace MvcVisionSystem
                     return;
                 }
                 AppendLog(configSaved
-                    ? "\uBAA8\uB378 \uD504\uB85C\uD544 \uC124\uC815 \uC800\uC7A5 \uC644\uB8CC."
-                    : "\uBAA8\uB378 \uD504\uB85C\uD544 \uC124\uC815 \uC800\uC7A5 \uC2E4\uD328. \uD604\uC7AC \uC801\uC6A9 \uAC12\uC740 \uC720\uC9C0\uD558\uACE0 \uD3B8\uC9D1 \uB0B4\uC6A9\uC740 \uC7AC\uC2DC\uB3C4\uD560 \uC218 \uC788\uB3C4\uB85D \uB0A8\uACA8\uB450\uC5C8\uC2B5\uB2C8\uB2E4.");
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloEnvironmentWorkflowAdapter.405")
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloEnvironmentWorkflowAdapter.406"));
                 if (configSaved && pendingWeightsRecipeSave)
                 {
                     hasPendingTrainingWeightsRecipeSave = false;
@@ -412,9 +423,11 @@ namespace MvcVisionSystem
                     RefreshYoloStatus();
                     SetGlobalInferenceStatus(string.Empty, isBusy: false);
                     string appliedModelName = Path.GetFileName(projectData.ProjectSettings.PythonModel.WeightsPath ?? string.Empty);
-                    SetYoloCommandStatus($"\uAC80\uC0AC \uBAA8\uB378 \uC801\uC6A9 \uC644\uB8CC: {appliedModelName}. \uB2E4\uC74C \uD604\uC7AC \uAC80\uC0AC\uBD80\uD130 \uC774 \uBAA8\uB378\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4.", isBusy: false);
+                    SetYoloCommandStatus(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloEnvironmentWorkflowAdapter.415"), appliedModelName), isBusy: false);
                     SetProjectConfigStatus("\uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378\uC744 \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD588\uC2B5\uB2C8\uB2E4.");
                 }
+                if (trainingWorkspaceRefreshWarning.Length > 0 && ReferenceEquals(savedData, projectData))
+                    SetYoloCommandStatus(trainingWorkspaceRefreshWarning, isBusy: false);
             }
             catch (Exception ex)
             {
@@ -422,7 +435,7 @@ namespace MvcVisionSystem
                 {
                     RefreshCandidateConfidenceFilterFromAppliedSettings();
                     SetYoloCommandStatus($"설정 저장 실패: {ex.Message}", isBusy: false);
-                    AppendLog($"\uBAA8\uB378 \uD504\uB85C\uD544 \uC124\uC815 \uC800\uC7A5 \uC2E4\uD328: {ex.Message}");
+                    AppendLog(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloEnvironmentWorkflowAdapter.425"), ex.Message));
                 }
             }
         }
@@ -445,7 +458,7 @@ namespace MvcVisionSystem
             {
                 return;
             }
-            SetYoloCommandStatus("기본값을 편집란에 불러왔습니다. Recipe에 저장 및 적용하기 전에는 현재 검사 모델이 바뀌지 않습니다.", isBusy: false);
+            SetYoloCommandStatus(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloEnvironmentWorkflowAdapter.448"), isBusy: false);
             AppendLog("YOLO 모델 기본값을 편집란에 불러왔습니다. 현재 적용 설정은 유지됩니다.");
         }
         #endregion
@@ -481,6 +494,7 @@ namespace MvcVisionSystem
             {
                 HasConflictingCommand = () => WorkflowCommandStateService.HasActiveCommand(
                     false, IsDetecting, IsBatchDetectionRunning, IsTrainingCommandRunning),
+                IsWorkerConnected = () => applicationState.GetPythonCommunicationStatusSnapshot().IsClientConnected,
                 ClearRecovery = ClearYoloRecoveryStatus,
                 SetCommandStatus = SetYoloCommandStatus,
                 SetCommandBusy = value => YoloStatusViewModel.SetCommandBusy(value),
@@ -506,6 +520,28 @@ namespace MvcVisionSystem
         internal void ExecuteDetectCurrentImageCommand()
         {
             _ = ExecuteDetectCurrentImageCommandAsync();
+        }
+
+        internal void ExecuteInferenceTargetCommand(WpfModelRegistryHistoryItem selectedModel)
+        {
+            if (selectedModel == null || selectedModel.IsCurrentInspectionModel)
+            {
+                ExecuteDetectCurrentImageCommand();
+                return;
+            }
+
+            if (isApplicationCloseApproved || IsDetecting || IsBatchDetectionRunning || !EnsureInferenceModeForDetection())
+            {
+                return;
+            }
+
+            PythonModelSettings trialSettings = context.CreateTrialModelSettings?.Invoke(selectedModel);
+            if (trialSettings == null)
+            {
+                return;
+            }
+
+            _ = context.RunTrialModelDetectionAsync?.Invoke(trialSettings, selectedModel.CandidateId);
         }
 
         private async Task ExecuteDetectCurrentImageCommandAsync()
@@ -557,7 +593,11 @@ namespace MvcVisionSystem
 
             if (!IsInferenceWorkflowActive)
             {
-                SetWorkflowMode(isInferenceMode: true);
+                if (!SetWorkflowMode(isInferenceMode: true))
+                {
+                    return;
+                }
+
                 AppendLog(YoloEnvironmentCommandPresentationService.BuildModelTestModeSwitchLog());
             }
 
@@ -588,10 +628,12 @@ namespace MvcVisionSystem
         internal Func<bool> IsBatchDetectionRunning { get; init; }
         internal Func<bool> IsTrainingCommandRunning { get; init; }
         internal Func<bool> IsInferenceWorkflowActive { get; init; }
-        internal Action<bool> SetWorkflowMode { get; init; }
+        internal Func<bool, bool> SetWorkflowMode { get; init; }
         internal Func<bool> EnsureModelRuntimeForInference { get; init; }
         internal Func<bool> EnsureInferenceModeForDetection { get; init; }
         internal Func<bool, Task> RunInteractiveDetectionAsync { get; init; }
+        internal Func<WpfModelRegistryHistoryItem, PythonModelSettings> CreateTrialModelSettings { get; init; }
+        internal Func<PythonModelSettings, string, Task> RunTrialModelDetectionAsync { get; init; }
         internal Action EnsureProjectSettings { get; init; }
         internal Action<string, string> NotifyYoloPathSelected { get; init; }
         internal Action RefreshYoloStatus { get; init; }
@@ -602,6 +644,7 @@ namespace MvcVisionSystem
         internal Action PopulateYoloEditorFields { get; init; }
         internal Action PopulateTrainingEditorFields { get; init; }
         internal Action UpdateYoloTrainingHistoryText { get; init; }
+        internal Action RefreshTrainingWorkspaceAfterSettingsSave { get; init; }
         internal Action<string, bool, bool> SetGlobalInferenceStatus { get; init; }
         internal Action<string> SetProjectConfigStatus { get; init; }
         internal Action<string, bool> SetYoloCommandStatus { get; init; }

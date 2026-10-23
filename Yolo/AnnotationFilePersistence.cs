@@ -143,7 +143,7 @@ namespace MvcVisionSystem.Yolo
             });
         }
 
-        public static void WriteAtomically(string path, Action<string> writeTemporaryFile)
+        public static void WriteAtomically(string path, Action<string> writeTemporaryFile, bool overwriteExisting = true)
         {
             if (string.IsNullOrWhiteSpace(path))
             {
@@ -176,12 +176,12 @@ namespace MvcVisionSystem.Yolo
                 if (currentTransaction != null)
                 {
                     InjectTestFault(AnnotationFilePersistenceFaultPoint.BeforeCommit, fullPath);
-                    currentTransaction.Write(temporaryPath, fullPath);
+                    currentTransaction.Write(temporaryPath, fullPath, overwriteExisting);
                 }
                 else
                 {
                     InjectTestFault(AnnotationFilePersistenceFaultPoint.BeforeCommit, fullPath);
-                    ReplaceOrMove(temporaryPath, fullPath, backupPath: null);
+                    ReplaceOrMove(temporaryPath, fullPath, backupPath: null, overwriteExisting);
                 }
 
                 InjectTestFault(AnnotationFilePersistenceFaultPoint.AfterCommit, fullPath);
@@ -233,9 +233,9 @@ namespace MvcVisionSystem.Yolo
             File.Delete(fullPath);
         }
 
-        private static void ReplaceOrMove(string sourcePath, string destinationPath, string backupPath)
+        private static void ReplaceOrMove(string sourcePath, string destinationPath, string backupPath, bool overwriteExisting = true)
         {
-            if (File.Exists(destinationPath))
+            if (overwriteExisting && File.Exists(destinationPath))
             {
                 File.Replace(sourcePath, destinationPath, backupPath, ignoreMetadataErrors: true);
             }
@@ -327,21 +327,33 @@ namespace MvcVisionSystem.Yolo
                 }
             }
 
-            public void Write(string temporaryPath, string targetPath)
+            public void Write(string temporaryPath, string targetPath, bool overwriteExisting = true)
             {
                 if (entries.TryGetValue(targetPath, out _))
                 {
-                    ReplaceOrMove(temporaryPath, targetPath, backupPath: null);
+                    ReplaceOrMove(temporaryPath, targetPath, backupPath: null, overwriteExisting);
                     return;
                 }
 
                 bool originalExists = File.Exists(targetPath);
+                if (!overwriteExisting && originalExists) throw new IOException("Immutable file already exists: " + targetPath, unchecked((int)0x80070050));
                 string backupPath = originalExists ? CreateBackupPath(targetPath, id) : string.Empty;
                 var entry = new TransactionEntry(targetPath, backupPath, originalExists);
                 entries.Add(targetPath, entry);
                 order.Add(entry);
                 PersistJournal(committed: false);
-                ReplaceOrMove(temporaryPath, targetPath, originalExists ? backupPath : null);
+                try
+                {
+                    ReplaceOrMove(temporaryPath, targetPath, originalExists ? backupPath : null, overwriteExisting);
+                }
+                catch (IOException) when (!overwriteExisting && !originalExists && File.Exists(targetPath))
+                {
+                    // A competing create owns these bytes; rollback must not remove them.
+                    entries.Remove(targetPath);
+                    order.Remove(entry);
+                    PersistJournal(committed: false);
+                    throw;
+                }
             }
 
             public void Delete(string targetPath)

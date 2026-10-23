@@ -67,37 +67,37 @@ namespace MvcVisionSystem
         {
             if (comparison == null)
             {
-                return "교체 판단: 학습 결과 비교 전";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.Initial");
             }
 
             if (!comparison.HasLatestWeights)
             {
-                return "교체 판단: 학습 결과 없음";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.NoResult");
             }
 
             if (string.Equals(comparison.LatestWeightsPath?.Trim(), comparison.CurrentWeightsPath?.Trim(), StringComparison.OrdinalIgnoreCase))
             {
-                return "교체 판단: 이미 현재 검사 모델로 사용 중";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.Current");
             }
 
             if (comparison.LatestMetrics?.HasScore != true)
             {
-                return "교체 판단: 보류 - 학습 지표가 없어 채택 판단 불가";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.NoMetrics");
             }
 
             if (comparison.CurrentMetrics?.HasScore != true)
             {
-                return "교체 판단: 비교 필요 - 현재 모델 지표가 부족합니다";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.CurrentMetrics");
             }
 
             return comparison.MetricVerdictText switch
             {
                 "새 모델 우세" => comparison.ShouldApplyLatest
-                    ? "교체 판단: 새 모델 후보 우세 - 최종 검증 예시 확인 후 저장"
-                    : "교체 판단: 새 모델 지표 우세 - 파일 상태 확인 필요",
-                "현재 모델 우세" => "교체 판단: 현재 모델 유지",
-                "동률" => "교체 판단: 보류 - 차이가 작아 예시 확인 필요",
-                _ => "교체 판단: 보류 - 최종 검증 비교 필요"
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.NewStronger")
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.FilesNeeded"),
+                "현재 모델 우세" => OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.KeepCurrent"),
+                "동률" => OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.Tie"),
+                _ => OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.TestNeeded")
             };
         }
 
@@ -109,37 +109,37 @@ namespace MvcVisionSystem
             }
 
             string verdict = string.IsNullOrWhiteSpace(comparison.MetricVerdictText)
-                ? "비교 대기"
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.Waiting")
                 : comparison.MetricVerdictText;
             string decision = comparison.ShouldApplyLatest
-                ? "새 모델 후보"
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.NewModel")
                 : comparison.HasLatestWeights
-                    ? "현재 모델 유지"
-                    : "학습 결과 없음";
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.Keep")
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.ResultNone");
             bool hasMetrics = comparison.LatestMetrics?.HasScore == true;
 
             return new List<WpfTrainingResultReportItem>
             {
                 new WpfTrainingResultReportItem(
-                    "판정",
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.Decision"),
                     verdict,
                     decision,
                     hasMetrics ? PackIconMaterialKind.CheckCircleOutline : PackIconMaterialKind.AlertCircleOutline,
                     isWarning: !hasMetrics),
                 new WpfTrainingResultReportItem(
-                    "지표",
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.Metrics"),
                     FormatMetricValue(comparison),
-                    hasMetrics ? "mAP50-95를 우선 보고 precision/recall을 함께 확인합니다." : "results.csv가 없으면 모델 교체 판단을 보류합니다.",
+                    hasMetrics ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.MetricHelp") : OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.MissingCsv"),
                     PackIconMaterialKind.ProgressClock,
                     isWarning: !hasMetrics),
                 new WpfTrainingResultReportItem(
-                    "새 후보",
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.Candidate"),
                     FormatPath(comparison.LatestWeightsPath),
                     FormatCandidateMetricSource(comparison),
                     PackIconMaterialKind.FileDocumentOutline,
                     isWarning: !comparison.HasLatestWeights),
                 new WpfTrainingResultReportItem(
-                    "현재",
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.Baseline"),
                     FormatPath(comparison.CurrentWeightsPath),
                     FormatMetricSource(comparison.CurrentMetrics),
                     PackIconMaterialKind.RobotIndustrial)
@@ -150,7 +150,7 @@ namespace MvcVisionSystem
         {
             if (comparison?.LatestMetrics?.HasScore != true)
             {
-                return "지표 없음";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.MetricsNone");
             }
 
             WpfTrainingRunMetrics metrics = comparison.LatestMetrics;
@@ -171,13 +171,13 @@ namespace MvcVisionSystem
 
             return metrics.Recall.HasValue
                 ? $"recall {FormatPercent(metrics.Recall.Value)}"
-                : "지표 있음";
+                : OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.MetricsAvailable");
         }
 
         private static string FormatMetricSource(WpfTrainingRunMetrics metrics)
         {
             string source = string.IsNullOrWhiteSpace(metrics?.ResultsCsvPath)
-                ? "results.csv 없음"
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.CsvNone")
                 : $"results.csv: {Path.GetFileName(Path.GetDirectoryName(metrics.ResultsCsvPath) ?? metrics.ResultsCsvPath)}";
             string checkpoint = TrainingWeightsService.FormatCheckpointIdentity(metrics);
             return string.IsNullOrWhiteSpace(checkpoint) ? source : $"{source} / {checkpoint}";
@@ -198,7 +198,7 @@ namespace MvcVisionSystem
             => TrainingWeightsService.FormatCheckpointIdentity(metrics);
 
         private static string FormatPath(string path)
-            => string.IsNullOrWhiteSpace(path) ? "없음" : Path.GetFileName(path);
+            => string.IsNullOrWhiteSpace(path) ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.TrainingComparisonPresentationService.None") : Path.GetFileName(path);
 
         private static string FormatPercent(double value)
             => $"{(Math.Abs(value) <= 1.5D ? value * 100D : value):0.0}%";

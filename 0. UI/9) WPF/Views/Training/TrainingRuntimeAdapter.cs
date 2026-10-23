@@ -47,11 +47,20 @@ namespace MvcVisionSystem
 
             if (hasCurrentStatus)
             {
-                SetTrainingProgressStatus(
-                    TrainingProgressPresentationService.BuildProgressSummary(status),
-                    TrainingProgressPresentationService.BuildEpochSummary(status, isLiveTraining),
+                if (snapshot.IsTerminal)
+                {
+                    SetTrainingReadinessStatus(TrainingProgressPresentationService.BuildProgressSummary(status));
+                }
+                string progressText = TrainingProgressPresentationService.BuildProgressSummary(status);
+                string epochText = TrainingProgressPresentationService.BuildEpochSummary(status, isLiveTraining);
+                context.SetModelCenterTrainingState?.Invoke(progressText, string.IsNullOrWhiteSpace(epochText) ? TrainingSettingsViewModel?.TrainingReadinessText ?? string.Empty : epochText);
+                TrainingSettingsViewModel?.SetTrainingProgressFromStatus(
+                    status,
+                    isLiveTraining,
                     context.CurrentProgressValueProvider?.Invoke() ?? 0D,
                     isLiveTraining && !status.LastTrainingProgressPercent.HasValue);
+                if (snapshot.IsTerminal) TrainingSettingsViewModel?.UseTrainingProgressForReadiness();
+                if (context.SetModelCenterTrainingState != null) context.RecordModelCenterTrainingProjection?.Invoke();
                 context.UpdateTrainingGuideTrainingHistory?.Invoke(status);
                 if (TrainingWeightsService.IsCompletedTrainingState(status.LastTrainingState))
                 {
@@ -60,17 +69,17 @@ namespace MvcVisionSystem
             }
             else if (context.TrainingRuntimeWorkflowService.IsTrainingWorkflowRunning)
             {
-                SetTrainingProgressStatus(
-                    TrainingProgressPresentationService.BuildAcceptedWorkerWaitProgressText(),
-                    TrainingProgressPresentationService.BuildBeforeEpochText(),
+                SetTrainingProgressFromKeys(
+                    "WpfTraining.Remaining.TrainingProgressPresentationService.Accepted",
+                    "WpfTraining.Remaining.TrainingProgressPresentationService.BeforeEpoch",
                     context.CurrentProgressValueProvider?.Invoke() ?? 0D,
                     true);
             }
             else if (settingsViewModel?.IsTrainingCommandRunning != true)
             {
-                SetTrainingProgressStatus(
-                    TrainingProgressPresentationService.BuildIdleProgressText(),
-                    string.Empty,
+                SetTrainingProgressFromKeys(
+                    "WpfTraining.Remaining.TrainingProgressPresentationService.Idle",
+                    null,
                     0D,
                     false);
             }
@@ -117,7 +126,7 @@ namespace MvcVisionSystem
             {
                 string timeoutText = TrainingProgressPresentationService.BuildStatusNoResponseText();
                 TrainingRecoveryStatus recovery = TrainingProgressPresentationService.BuildStatusNoResponseRecovery(timeoutText);
-                SetTrainingProgressStatus(timeoutText, string.Empty, 0D, false);
+                SetTrainingProgressFromKeys("WpfTraining.Remaining.TrainingProgressPresentationService.NoResponse", null, 0D, false);
                 context.SetRecoveryStatus?.Invoke(recovery.Title, recovery.Detail, recovery.Action);
                 StopTrainingStatusPolling();
             }
@@ -140,6 +149,29 @@ namespace MvcVisionSystem
                 normalizedEpoch,
                 progressValue,
                 isIndeterminate);
+        }
+
+        internal void SetTrainingProgressFromKeys(string progressKey, string epochKey, double progressValue, bool isIndeterminate)
+        {
+            string progressText = OpenVisionLab.OpenVisionLanguageService.T(progressKey);
+            string epochText = string.IsNullOrEmpty(epochKey) ? string.Empty : OpenVisionLab.OpenVisionLanguageService.T(epochKey);
+            context.SetModelCenterTrainingState?.Invoke(progressText, string.IsNullOrWhiteSpace(epochText) ? TrainingSettingsViewModel?.TrainingReadinessText ?? string.Empty : epochText);
+            TrainingSettingsViewModel?.SetTrainingProgressFromKeys(progressKey, epochKey, progressValue, isIndeterminate);
+            if (context.SetModelCenterTrainingState != null) context.RecordModelCenterTrainingProjection?.Invoke();
+        }
+
+        internal void RefreshLocalizedPresentation(WpfTrainingSettingsPanelViewModel viewModel)
+        {
+            if (viewModel?.HasLocalizedTrainingPresentation != true || !viewModel.HasShellTrainingProjection
+                || context.SetModelCenterTrainingState == null || context.RecordModelCenterTrainingProjection == null || context.IsModelCenterTrainingProjectionCurrent == null
+                || !context.IsModelCenterTrainingProjectionCurrent(viewModel.ShellTrainingProjectionStatus, viewModel.ShellTrainingProjectionDetail))
+            {
+                return;
+            }
+
+            string epochText = viewModel.TrainingEpochStatusText;
+            context.SetModelCenterTrainingState(viewModel.TrainingProgressText, string.IsNullOrWhiteSpace(epochText) ? viewModel.TrainingReadinessText : epochText);
+            context.RecordModelCenterTrainingProjection?.Invoke();
         }
 
         internal void SetTrainingProgressValue(double value)
@@ -203,6 +235,7 @@ namespace MvcVisionSystem
                 PersistExternalDatasetSettings = PersistExternalDatasetSettingsForTraining,
                 StartStatusPolling = StartTrainingStatusPolling,
                 SetModelCenterTrainingState = context.SetModelCenterTrainingState,
+                RecordModelCenterTrainingProjection = context.RecordModelCenterTrainingProjection,
                 RefreshTrainingStatus = UpdateTrainingProgressFromWorker,
                 UpdateCommandState = context.UpdateCommandState,
                 RefreshYoloStatus = context.RefreshYoloStatus,
@@ -307,6 +340,8 @@ namespace MvcVisionSystem
         internal Action StartTrainingStatusTimer { get; init; }
         internal Action StopTrainingStatusTimer { get; init; }
         internal Action<string, string> SetModelCenterTrainingState { get; init; }
+        internal Action RecordModelCenterTrainingProjection { get; init; }
+        internal Func<string, string, bool> IsModelCenterTrainingProjectionCurrent { get; init; }
         internal Action<PythonCommunicationStatus> UpdateTrainingGuideTrainingHistory { get; init; }
         internal Action<bool> TryApplyLatestTrainingWeightsFromProject { get; init; }
         internal Action<YoloDatasetReadinessReport, bool> UpdateTrainingChecklist { get; init; }

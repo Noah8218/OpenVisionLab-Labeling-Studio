@@ -49,7 +49,8 @@ namespace MvcVisionSystem
             if (purpose == LabelingDatasetPurpose.ObjectDetection)
             {
                 ResolveCoco128Source(out string imageRoot, out string labelRoot);
-                bool available = Directory.Exists(imageRoot) && Directory.Exists(labelRoot);
+                bool available = HasMatchingFiles(imageRoot, IsImageFile)
+                    && HasMatchingFiles(labelRoot, path => string.Equals(Path.GetExtension(path), ".txt", StringComparison.OrdinalIgnoreCase));
                 presets.Add(new WpfDatasetSamplePresetItem(
                     WpfDatasetSamplePresetKind.Coco128ObjectDetection,
                     purpose,
@@ -59,9 +60,12 @@ namespace MvcVisionSystem
                     labelRoot,
                     GetCocoClassNames(),
                     available,
-                    available ? "이미지/YOLO 라벨 128개 준비됨" : "datasets/object-detection/coco128 다운로드 필요"));
+                    available ? "이미지와 YOLO 라벨 준비됨" : "샘플 이미지와 YOLO 라벨 파일 필요"));
                 string industrialImageRoot = ResolveIndustrialObjectImageRoot();
-                bool industrialAvailable = Directory.Exists(industrialImageRoot);
+                bool industrialAvailable = HasMatchingFiles(
+                    industrialImageRoot,
+                    path => IsImageFile(path) && !IsMaskLabelFile(path),
+                    SearchOption.AllDirectories);
                 presets.Add(new WpfDatasetSamplePresetItem(
                     WpfDatasetSamplePresetKind.IndustrialObjectDetectionImages,
                     purpose,
@@ -71,13 +75,17 @@ namespace MvcVisionSystem
                     string.Empty,
                     new[] { "Defect" },
                     industrialAvailable,
-                    industrialAvailable ? "kos \uC0B0\uC5C5 \uC774\uBBF8\uC9C0 \uC900\uBE44\uB428" : "KolektorSDD app/data/train/images \uACBD\uB85C \uD544\uC694"));
+                    industrialAvailable ? "산업 이미지 준비됨" : "산업 이미지 파일 경로 필요"));
             }
 
             if (purpose == LabelingDatasetPurpose.Segmentation || purpose == LabelingDatasetPurpose.AnomalyDetection)
             {
                 string industrialRoot = ResolveIndustrialDefectRoot();
-                bool available = Directory.Exists(industrialRoot);
+                bool available = HasMatchingFiles(
+                        industrialRoot,
+                        path => IsImageFile(path) && !IsMaskLabelFile(path),
+                        SearchOption.AllDirectories)
+                    && HasMatchingFiles(industrialRoot, IsMaskLabelFile, SearchOption.AllDirectories);
                 presets.Add(new WpfDatasetSamplePresetItem(
                     WpfDatasetSamplePresetKind.IndustrialDefectMasks,
                     purpose,
@@ -87,7 +95,7 @@ namespace MvcVisionSystem
                     industrialRoot,
                     new[] { "OK", "NG" },
                     available,
-                    available ? "원본/마스크 폴더 감지됨" : "KolektorSDD 같은 산업 샘플 경로 필요"));
+                    available ? "원본 이미지와 마스크 준비됨" : "원본 이미지와 마스크 파일 필요"));
             }
 
             return presets;
@@ -144,9 +152,10 @@ namespace MvcVisionSystem
             result = new DatasetSamplePresetApplyResult();
             error = string.Empty;
             ResolveCoco128Source(out string imageRoot, out string labelRoot);
-            if (!Directory.Exists(imageRoot) || !Directory.Exists(labelRoot))
+            if (!HasMatchingFiles(imageRoot, IsImageFile)
+                || !HasMatchingFiles(labelRoot, path => string.Equals(Path.GetExtension(path), ".txt", StringComparison.OrdinalIgnoreCase)))
             {
-                error = "COCO128 샘플 이미지/라벨 폴더를 찾지 못했습니다.";
+                error = "COCO128 샘플에 이미지와 YOLO 라벨 파일이 필요합니다.";
                 return false;
             }
 
@@ -154,6 +163,11 @@ namespace MvcVisionSystem
             string targetLabels = data.ProjectSettings.YoloDataset.TrainLabelsPath;
             int imageCount = CopyFiles(imageRoot, targetImages, IsImageFile);
             int labelCount = CopyFiles(labelRoot, targetLabels, path => string.Equals(Path.GetExtension(path), ".txt", StringComparison.OrdinalIgnoreCase));
+            if (imageCount == 0 || labelCount == 0)
+            {
+                error = "COCO128 샘플 이미지 또는 YOLO 라벨을 복사하지 못했습니다.";
+                return false;
+            }
 
             result = new DatasetSamplePresetApplyResult
             {
@@ -169,9 +183,12 @@ namespace MvcVisionSystem
             result = new DatasetSamplePresetApplyResult();
             error = string.Empty;
             string imageRoot = ResolveIndustrialObjectImageRoot();
-            if (!Directory.Exists(imageRoot))
+            if (!HasMatchingFiles(
+                    imageRoot,
+                    path => IsImageFile(path) && !IsMaskLabelFile(path),
+                    SearchOption.AllDirectories))
             {
-                error = "Kolektor \uC0B0\uC5C5 \uC774\uBBF8\uC9C0 \uD3F4\uB354\uB97C \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.";
+                error = "Kolektor 산업 이미지 파일을 찾지 못했습니다.";
                 return false;
             }
 
@@ -181,6 +198,11 @@ namespace MvcVisionSystem
                 targetImages,
                 path => IsImageFile(path) && !IsMaskLabelFile(path),
                 SearchOption.AllDirectories);
+            if (imageCount == 0)
+            {
+                error = "Kolektor 산업 이미지 파일을 복사하지 못했습니다.";
+                return false;
+            }
 
             result = new DatasetSamplePresetApplyResult
             {
@@ -196,9 +218,13 @@ namespace MvcVisionSystem
             result = new DatasetSamplePresetApplyResult();
             error = string.Empty;
             string sourceRoot = ResolveIndustrialDefectRoot();
-            if (!Directory.Exists(sourceRoot))
+            if (!HasMatchingFiles(
+                    sourceRoot,
+                    path => IsImageFile(path) && !IsMaskLabelFile(path),
+                    SearchOption.AllDirectories)
+                || !HasMatchingFiles(sourceRoot, IsMaskLabelFile, SearchOption.AllDirectories))
             {
-                error = "산업 결함 샘플 폴더를 찾지 못했습니다.";
+                error = "산업 결함 샘플에 원본 이미지와 마스크 파일이 필요합니다.";
                 return false;
             }
 
@@ -206,6 +232,11 @@ namespace MvcVisionSystem
             string targetMasks = Path.Combine(data.ProjectSettings.YoloDataset.OutputRootPath, "data", "train", "masks");
             int imageCount = CopyFiles(sourceRoot, targetImages, path => IsImageFile(path) && !IsMaskLabelFile(path), SearchOption.AllDirectories);
             int maskCount = CopyFiles(sourceRoot, targetMasks, IsMaskLabelFile, SearchOption.AllDirectories);
+            if (imageCount == 0 || maskCount == 0)
+            {
+                error = "산업 결함 샘플 이미지 또는 마스크를 복사하지 못했습니다.";
+                return false;
+            }
 
             result = new DatasetSamplePresetApplyResult
             {
@@ -281,6 +312,30 @@ namespace MvcVisionSystem
         private static bool IsMaskLabelFile(string path)
             => Path.GetFileNameWithoutExtension(path).EndsWith("_label", StringComparison.OrdinalIgnoreCase)
                 && IsImageFile(path);
+
+        private static bool HasMatchingFiles(
+            string root,
+            Func<string, bool> predicate,
+            SearchOption searchOption = SearchOption.TopDirectoryOnly)
+        {
+            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            {
+                return false;
+            }
+
+            try
+            {
+                return Directory.EnumerateFiles(root, "*.*", searchOption).Any(predicate);
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return false;
+            }
+        }
 
         private static void ResolveCoco128Source(out string imageRoot, out string labelRoot)
         {

@@ -1,14 +1,16 @@
 using Newtonsoft.Json;
+using OpenVisionLab;
 using System;
 using System.IO;
+using System.Linq;
 
 namespace MvcVisionSystem
 {
     public class RecipeDatasetVersionPresentation
     {
-        public string VersionText { get; init; } = "저장 후 생성";
+        public string VersionText { get; init; } = OpenVisionLanguageService.T("WpfDatasetVersion.Pending");
 
-        public string DetailText { get; init; } = "Recipe를 저장하면 이미지·라벨·클래스·분할의 SHA-256 버전을 기록합니다.";
+        public string DetailText { get; init; } = OpenVisionLanguageService.T("WpfDatasetVersion.PendingDetail");
     }
 
     public static class RecipeDatasetVersionPresentationService
@@ -30,8 +32,8 @@ namespace MvcVisionSystem
                 {
                     return new RecipeDatasetVersionPresentation
                     {
-                        VersionText = "이전 manifest",
-                        DetailText = "설정을 저장하면 Recipe Dataset Version v2로 갱신됩니다."
+                        VersionText = OpenVisionLanguageService.T("WpfDatasetVersion.Legacy"),
+                        DetailText = OpenVisionLanguageService.T("WpfDatasetVersion.LegacyDetail")
                     };
                 }
 
@@ -40,11 +42,9 @@ namespace MvcVisionSystem
                 return new RecipeDatasetVersionPresentation
                 {
                     VersionText = manifest.DatasetVersionId,
-                    DetailText =
-                        $"SHA-256 {Shorten(manifest.ContentIdentity.ContentSha256)} · "
-                        + $"이미지 {manifest.ContentIdentity.ImageFileCount:N0} · "
-                        + $"라벨 {manifest.ContentIdentity.AnnotationFileCount:N0} · "
-                        + $"불변 이력 {historyCount:N0}개"
+                    DetailText = string.Format(OpenVisionLanguageService.T("WpfDatasetVersion.Detail"),
+                        Shorten(manifest.ContentIdentity.ContentSha256), manifest.ContentIdentity.ImageFileCount,
+                        manifest.ContentIdentity.AnnotationFileCount, historyCount)
                 };
             }
             catch (IOException ex)
@@ -61,10 +61,26 @@ namespace MvcVisionSystem
             }
         }
 
+        public static RecipeDatasetVersionPresentation BuildCurrent(string manifestPath, LabelingProjectData data)
+        {
+            RecipeDatasetVersionPresentation recorded = Build(manifestPath);
+            if (data?.ProjectSettings?.AdditionalImageRootPaths?.Count is not > 0) return recorded;
+            bool hasRecordedVersion = recorded.VersionText.StartsWith("dsv2-", StringComparison.Ordinal);
+            bool unavailable = data.ProjectSettings.ResolveImageRootPaths().Any(root => !Directory.Exists(root));
+            string recordedVersion = hasRecordedVersion ? recorded.VersionText : OpenVisionLanguageService.T("WpfDatasetVersion.NoRecordedVersion");
+            return new RecipeDatasetVersionPresentation
+            {
+                VersionText = OpenVisionLanguageService.T(hasRecordedVersion ? "WpfDatasetVersion.LastRecorded" : "WpfDatasetVersion.NoRecordedVersion"),
+                DetailText = unavailable
+                    ? string.Format(OpenVisionLanguageService.T("WpfDatasetVersion.LastRecordedUnavailable"), recordedVersion)
+                    : string.Format(OpenVisionLanguageService.T("WpfDatasetVersion.LastRecordedDetail"), recordedVersion, hasRecordedVersion ? recorded.DetailText : string.Empty)
+            };
+        }
+
         private static RecipeDatasetVersionPresentation BuildReadFailure(string message)
             => new RecipeDatasetVersionPresentation
             {
-                VersionText = "버전 확인 실패",
+                VersionText = OpenVisionLanguageService.T("WpfDatasetVersion.ReadFailed"),
                 DetailText = message ?? string.Empty
             };
 

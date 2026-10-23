@@ -132,7 +132,12 @@ namespace MvcVisionSystem
 
             applyDisplayMode(WpfCanvasDisplayMode.InferenceOnly, true, false);
             canvasViewModel.ImageViewer.FitToRect(BuildCandidateFocusRectForShell(bounds));
-            setModelStatus($"후보 초점: {candidate.ClassName} {CandidateReviewPresenter.FormatConfidence(candidate, "P1")}  {CandidateReviewPresenter.FormatBoundsCompact(bounds)}");
+            setModelStatus(string.Format(
+                System.Globalization.CultureInfo.CurrentCulture,
+                OpenVisionLab.OpenVisionLanguageService.T("WpfCandidate.Viewer.FocusStatus"),
+                candidate.ClassName,
+                CandidateReviewPresenter.FormatConfidence(candidate, "P1"),
+                CandidateReviewPresenter.FormatBoundsCompact(bounds)));
             return true;
         }
 

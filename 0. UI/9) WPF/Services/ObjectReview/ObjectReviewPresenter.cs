@@ -1,18 +1,57 @@
 using MvcVisionSystem._1._Core;
 using System;
 using System.Drawing;
+using System.Text.RegularExpressions;
+using OpenVisionLab;
 
 namespace MvcVisionSystem
 {
     public static class ObjectReviewPresenter
     {
         public static string BuildSummary(int objectCount)
-            => objectCount == 0
-                ? "\uD604\uC7AC \uC774\uBBF8\uC9C0 \uAC1D\uCCB4 \uC5C6\uC74C"
-                : $"{objectCount}\uAC1C \uAC1D\uCCB4";
+            => string.Format(OpenVisionLanguageService.T("WpfObjectReview.Summary.Count"), objectCount);
+
+        public static string FormatMaskQualityThresholds(int smallArea, int holeArea)
+            => string.Format(OpenVisionLanguageService.T("WpfObjectReview.MaskQuality.Thresholds"), smallArea, holeArea);
+
+        public static string LocalizeIntelligentScissorsStatus(string text)
+        {
+            Match match = Regex.Match(text ?? string.Empty, @"^경계 미리보기: ([0-9]+)개 경로점 / ([0-9]+\.[0-9]) ms\. 캔버스를 확인한 후 미리보기 적용을 누르세요\.$");
+            if (match.Success)
+            {
+                return string.Format(OpenVisionLanguageService.T("WpfObjectReview.Segmentation.Scissors.PreviewSummary"), match.Groups[1].Value, match.Groups[2].Value);
+            }
+
+            return text == "폴리곤 모서리를 선택해 이미지 경계 경로를 미리보기합니다."
+                ? LocalizationTextRuntimeService.Translate(text)
+                : text ?? string.Empty;
+        }
+
+        public static string LocalizeRemoveUnderlyingStatus(string text)
+        {
+            const string legacyShapeName = "geometry";
+            Match match = Regex.Match(text ?? string.Empty, @"^영향 ([0-9]+)개\((#[0-9]+(?:, #[0-9]+)*)\) · 제거 ([0-9]+(?:,[0-9]{3})*)px · 완전 삭제 ([0-9]+)개\. '확인 후 제거'를 누르면 뒤쪽 (?:" + legacyShapeName + @"가|형상이) 변경됩니다\.$");
+            if (match.Success)
+            {
+                return string.Format(OpenVisionLanguageService.T("WpfObjectReview.Segmentation.Overlap.PreviewSummary"), match.Groups[1].Value, match.Groups[2].Value, match.Groups[3].Value, match.Groups[4].Value);
+            }
+
+            return text == $"위쪽 객체와 겹치는 뒤쪽 {legacyShapeName}를 분석한 후 확인해 제거합니다."
+                || text == "위쪽 객체와 겹치는 뒤쪽 형상을 분석한 후 확인해 제거합니다."
+                ? OpenVisionLanguageService.T("WpfObjectReview.Segmentation.Overlap.Hint")
+                : text ?? string.Empty;
+        }
+
+        public static string FormatMergeSelection(int count)
+            => string.Format(OpenVisionLanguageService.T("WpfObjectReview.Segmentation.Merge.Summary"), count);
+
+        public static string FormatSegmentOrder(int index, int count, bool canChangeOrder)
+            => canChangeOrder
+                ? string.Format(OpenVisionLanguageService.T("WpfObjectReview.Segmentation.Order.Summary"), index + 1, count)
+                : OpenVisionLanguageService.T("WpfObjectReview.Segmentation.Order.Hint");
 
         public static string EmptyText
-            => "\uB77C\uBCA8 \uB610\uB294 \uD655\uC815\uB41C AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
+            => OpenVisionLanguageService.T("WpfObjectReview.EmptyHint");
 
         public static WpfObjectReviewListItem BuildManualItem(
             int displayIndex,
@@ -30,7 +69,11 @@ namespace MvcVisionSystem
                 sourceKey,
                 sourceIndex,
                 payload,
-                isManualPolygon: isManualPolygon);
+                isManualPolygon: isManualPolygon,
+                className: FirstNonEmpty(className, "Defect"),
+                objectKindText: FirstNonEmpty(shapeName, "박스"),
+                displayIndex: displayIndex,
+                manualBounds: roi);
         }
 
         public static WpfObjectReviewListItem BuildConfirmedItem(
@@ -50,17 +93,21 @@ namespace MvcVisionSystem
                 confirmedDetail,
                 sourceKey,
                 sourceIndex,
-                payload);
+                payload,
+                className: FirstNonEmpty(candidate?.ClassName, "Defect"),
+                objectKindText: CandidateReviewPresenter.GetBoundaryPointCount(candidate) >= 3 ? "폴리곤" : "박스",
+                displayIndex: displayIndex);
         }
 
         public static string FormatManualSummary(int displayIndex, string className, Rectangle roi, string shapeName = "박스")
         {
-            return $"{displayIndex}. {FirstNonEmpty(className, "Defect")} / {FirstNonEmpty(shapeName, "박스")} / {FormatBoundsCompact(roi)}";
+            return $"{displayIndex}. {FirstNonEmpty(className, "Defect")} / {FormatShapeName(FirstNonEmpty(shapeName, "박스"))} / {FormatBoundsCompact(roi)}";
         }
 
         public static string FormatManualDetail(string className, Rectangle roi, string shapeName = "박스")
         {
-            return $"\uCD9C\uCC98: \uC218\uB3D9 {FirstNonEmpty(shapeName, "박스")} / \uD074\uB798\uC2A4: {FirstNonEmpty(className, "Defect")} / \uC704\uCE58: x={roi.X}, y={roi.Y} / \uD06C\uAE30: w={roi.Width}, h={roi.Height}";
+            return string.Format(OpenVisionLanguageService.T("WpfObjectReview.Manual.DetailFormat"),
+                FormatShapeName(FirstNonEmpty(shapeName, "박스")), FirstNonEmpty(className, "Defect"), roi.X, roi.Y, roi.Width, roi.Height);
         }
 
         public static string FormatConfirmedSummary(YoloWorkerSmokeCandidate candidate, int displayIndex, Rectangle bounds)
@@ -70,10 +117,17 @@ namespace MvcVisionSystem
 
         public static string FormatBoundsCompact(Rectangle bounds)
         {
-            return bounds.IsEmpty
-                ? "-"
-                : $"\uD06C\uAE30 {bounds.Width}x{bounds.Height} / \uC704\uCE58 x={bounds.X}, y={bounds.Y}";
+            return bounds.IsEmpty ? "-" : string.Format(OpenVisionLanguageService.T("WpfObjectReview.Bounds.CompactFormat"), bounds.Width, bounds.Height, bounds.X, bounds.Y);
         }
+
+        public static string FormatShapeName(string shapeName) => shapeName switch
+        {
+            "박스" => OpenVisionLanguageService.T("WpfAnnotationTool.Rectangle"),
+            "타원" => OpenVisionLanguageService.T("WpfObjectReview.Row.Ellipse"),
+            "폴리곤" => OpenVisionLanguageService.T("WpfAnnotationTool.Polygon"),
+            "마스크" => OpenVisionLanguageService.T("WpfObjectReview.Row.Mask"),
+            _ => shapeName ?? string.Empty
+        };
 
         private static string FirstNonEmpty(params string[] values)
         {

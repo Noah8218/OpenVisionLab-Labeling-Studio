@@ -30,6 +30,21 @@ namespace MvcVisionSystem
             return EnumerateImageFiles(imageRoot, CancellationToken.None);
         }
 
+        public List<string> EnumerateImageFiles(IEnumerable<string> imageRoots, CancellationToken cancellationToken = default)
+        {
+            var paths = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string root in imageRoots ?? Array.Empty<string>())
+            {
+                foreach (string path in EnumerateImageFiles(root, cancellationToken))
+                {
+                    string fullPath = Path.GetFullPath(path);
+                    if (seen.Add(fullPath)) paths.Add(fullPath);
+                }
+            }
+            return paths;
+        }
+
         public bool HasImageFiles(string imageRoot)
         {
             if (string.IsNullOrWhiteSpace(imageRoot) || !Directory.Exists(imageRoot))
@@ -39,6 +54,24 @@ namespace MvcVisionSystem
 
             return Directory.EnumerateFiles(imageRoot, "*", SearchOption.TopDirectoryOnly).Any(HasSupportedExtension)
                 || Directory.EnumerateFiles(imageRoot, "*", SearchOption.AllDirectories).Any(HasSupportedExtension);
+        }
+
+        public string FindFirstImageFile(string imageRoot)
+        {
+            if (string.IsNullOrWhiteSpace(imageRoot) || !Directory.Exists(imageRoot))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                return Directory.EnumerateFiles(imageRoot, "*", SearchOption.AllDirectories).FirstOrDefault(HasSupportedExtension)
+                    ?? string.Empty;
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException || ex is NotSupportedException)
+            {
+                return string.Empty;
+            }
         }
 
         public List<string> EnumerateImageFiles(string imageRoot, CancellationToken cancellationToken)
@@ -254,6 +287,20 @@ namespace MvcVisionSystem
             return targetIndex >= 0 && targetIndex < openableItems.Count
                 ? openableItems[targetIndex]
                 : null;
+        }
+
+        public WpfImageQueueItem FindNextReviewPendingItem(IEnumerable<WpfImageQueueItem> orderedItems, string currentImagePath, Func<WpfImageQueueItem, bool> canOpen = null)
+        {
+            List<WpfImageQueueItem> items = (orderedItems ?? Array.Empty<WpfImageQueueItem>()).Where(item => item != null).ToList();
+            int currentIndex = FindItemIndex(items, currentImagePath);
+            Func<WpfImageQueueItem, bool> openability = canOpen ?? CanOpen;
+            for (int offset = 1; offset <= items.Count; offset++)
+            {
+                WpfImageQueueItem item = items[(Math.Max(-1, currentIndex) + offset) % items.Count];
+                if (!string.Equals(item.ImagePath, currentImagePath, StringComparison.OrdinalIgnoreCase)
+                    && ImageQueueFilterService.IsReviewPendingQueueItem(item) && openability(item)) return item;
+            }
+            return null;
         }
 
         private static int FindItemIndex(IReadOnlyList<WpfImageQueueItem> items, string imagePath)

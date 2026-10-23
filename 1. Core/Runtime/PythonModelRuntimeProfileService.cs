@@ -60,36 +60,36 @@ namespace MvcVisionSystem._1._Core
                 PythonModelSettings.EngineYoloV8 => BuildDisconnectedProfile(
                     engine,
                     "\uC124\uCE58/\uC5F0\uACB0 \uB300\uAE30",
-                    "YOLOv5\uCC98\uB7FC local YOLOv8 worker \uD3F4\uB354\uB97C \uC5F0\uACB0\uD558\uB294 \uC2E4\uD589 \uD504\uB85C\uD544\uC785\uB2C8\uB2E4.",
-                    "YOLOv8 local worker \uD3F4\uB354 \uC5F0\uACB0",
+                    "YOLOv5\uc640 \uac19\uc774 \ub85c\uceec YOLOv8 \uc2e4\ud589 \ud658\uacbd \ud3f4\ub354\ub97c \uc5f0\uacb0\ud569\ub2c8\ub2e4.",
+                    "YOLOv8 \uc2e4\ud589 \ud658\uacbd \ud3f4\ub354 \uc5f0\uacb0",
                     "\uC5F0\uACB0"),
                 PythonModelSettings.EngineYolo11 => BuildDisconnectedProfile(
                     engine,
                     "\uC124\uCE58/\uC5F0\uACB0 \uB300\uAE30",
-                    "Ultralytics \uD328\uD0A4\uC9C0\uB97C \uC0AC\uC6A9\uD558\uB294 YOLO11 \uC2E4\uD589 \uD504\uB85C\uD544\uC785\uB2C8\uB2E4.",
-                    "Ultralytics \uC2E4\uD589\uAE30 \uC124\uCE58 \uB610\uB294 \uACBD\uB85C \uC5F0\uACB0",
+                    "Ultralytics \ud328\ud0a4\uc9c0\ub97c \uc0ac\uc6a9\ud558\ub294 YOLO11 \uc2e4\ud589 \ud658\uacbd\uc785\ub2c8\ub2e4.",
+                    "Ultralytics \uc2e4\ud589 \ud658\uacbd \uc124\uce58\u00b7\uacbd\ub85c \uc5f0\uacb0",
                     "\uC5F0\uACB0"),
                 PythonModelSettings.EngineUnet => BuildDisconnectedProfile(
                     engine,
-                    "U-Net \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uB300\uAE30",
-                    "\uC571\uC774 \uB0B4\uBCB4\ub0B4\ub294 segmentation mask export\ub97c \uc0ac\uc6a9\ud558\ub294 PyTorch U-Net \uc2e4\ud589 \ud504\ub85c\ud544\uc785\ub2c8\ub2e4.",
-                    "C:\\Git\\unet \uc2e4\ud589\uae30 \uc5f0\uacb0",
+                    "U-Net \uc2e4\ud589 \ud658\uacbd \uc5f0\uacb0 \ub300\uae30",
+                    "\uc571\uc5d0\uc11c \ub0b4\ubcf4\ub0b8 \uc138\uadf8\uba58\ud14c\uc774\uc158 \ub9c8\uc2a4\ud06c\ub97c \uc0ac\uc6a9\ud558\ub294 PyTorch U-Net \uc2e4\ud589 \ud658\uacbd\uc785\ub2c8\ub2e4.",
+                    "C:\\Git\\unet \uc2e4\ud589 \ud658\uacbd \uc5f0\uacb0",
                     "\uC5F0\uACB0"),
                 PythonModelSettings.EnginePatchCore => BuildDisconnectedProfile(
                     engine,
-                    "PatchCore 실행기 연결 대기",
-                    "정상 이미지만 학습하는 one-class 이상탐지 프로필입니다. 이미지 판정과 검토용 위치 후보를 함께 반환합니다.",
-                    "PyTorch 실행기와 bundled PatchCore worker 연결",
+                    "PatchCore 실행 환경 연결 대기",
+                    "정상 이미지만 학습하는 이상탐지 모델입니다. 이미지 판정과 확인용 위치 후보를 함께 보여줍니다.",
+                    "PyTorch 실행 환경·번들 PatchCore 프로그램 연결",
                     "연결"),
                 PythonModelSettings.EngineOnnx => BuildDisconnectedProfile(
                     engine,
                     "\uCD94\uB860 \uC5F0\uACB0 \uB300\uAE30",
-                    "ONNX \uBAA8\uB378\uC744 \uAC80\uC0AC \uC804\uC6A9\uC73C\uB85C \uC5F0\uACB0\uD558\uB294 \uD504\uB85C\uD544\uC785\uB2C8\uB2E4.",
-                    "ONNX \uCD94\uB860 adapter \uC5F0\uACB0"),
+                    "ONNX \ubaa8\ub378\uc744 \ucd94\ub860 \uc804\uc6a9\uc73c\ub85c \uc5f0\uacb0\ud569\ub2c8\ub2e4.",
+                    "ONNX \ucd94\ub860 \ud658\uacbd \uc5f0\uacb0"),
                 _ => BuildDisconnectedProfile(
                     engine,
                     "YOLOv5 \uD3F4\uB354 \uC5F0\uACB0 \uB300\uAE30",
-                    "YOLOv5 repo \uB610\uB294 \uAE30\uC874 \uC2E4\uD589 \uD3F4\uB354\uB97C \uC5F0\uACB0\uD558\uB294 \uD504\uB85C\uD544\uC785\uB2C8\uB2E4.",
+                    "YOLOv5 \uc800\uc7a5\uc18c \ub610\ub294 \uae30\uc874 \uc2e4\ud589 \ud658\uacbd \ud3f4\ub354\ub97c \uc5f0\uacb0\ud569\ub2c8\ub2e4.",
                     "YOLOv5 \uD3F4\uB354 \uC5F0\uACB0",
                     "\uC5F0\uACB0")
             };
@@ -124,9 +124,9 @@ namespace MvcVisionSystem._1._Core
 
             return state.State switch
             {
-                PythonModelRuntimeStateKind.Ready => "\uC120\uD0DD\uB428 / \uD559\uC2B5\u00B7\uAC80\uC0AC \uAC00\uB2A5",
+                PythonModelRuntimeStateKind.Ready => "\uc120\ud0dd\ub428 / \ud559\uc2b5\u00b7\ucd94\ub860 \uac00\ub2a5",
                 PythonModelRuntimeStateKind.Incomplete => FormatSelectedIncompleteStatus(state),
-                _ => "\uC120\uD0DD\uB428 / \uC2E4\uD589\uAE30 \uBBF8\uC124\uCE58"
+                _ => "\uc120\ud0dd\ub428 / \uc2e4\ud589 \ud658\uacbd \ubbf8\uc124\uce58"
             };
         }
 
@@ -141,7 +141,7 @@ namespace MvcVisionSystem._1._Core
         {
             if (state?.CanRunInference == true && state.CanRunTraining != true)
             {
-                return "\uC120\uD0DD\uB428 / \uD604\uC7AC \uAC80\uC0AC \uAC00\uB2A5\u00B7\uD559\uC2B5 \uBBF8\uC9C0\uC6D0";
+                return "\uc120\ud0dd\ub428 / \ud604\uc7ac \ucd94\ub860 \uac00\ub2a5\u00b7\ud559\uc2b5 \ubbf8\uc9c0\uc6d0";
             }
 
             if (state?.CanRunTraining == true)
@@ -156,12 +156,12 @@ namespace MvcVisionSystem._1._Core
         {
             if (canTrain && canInspect)
             {
-                return "\uC9C0\uC6D0 \uBC94\uC704: \uD559\uC2B5 + \uD604\uC7AC \uAC80\uC0AC";
+                return "\uc9c0\uc6d0 \ubc94\uc704: \ud559\uc2b5\u00b7\ud604\uc7ac \uc774\ubbf8\uc9c0 \ucd94\ub860";
             }
 
             if (canInspect)
             {
-                return "\uC9C0\uC6D0 \uBC94\uC704: \uD604\uC7AC \uAC80\uC0AC / \uD559\uC2B5 \uBBF8\uC9C0\uC6D0";
+                return "\uc9c0\uc6d0 \ubc94\uc704: \ud604\uc7ac \uc774\ubbf8\uc9c0 \ucd94\ub860 / \ud559\uc2b5 \ubbf8\uc9c0\uc6d0";
             }
 
             if (canTrain)
@@ -175,12 +175,12 @@ namespace MvcVisionSystem._1._Core
         private static string FormatProfileCapability(string engine)
             => PythonModelSettings.NormalizeModelEngine(engine) switch
             {
-                PythonModelSettings.EngineYoloV8 => "\uC9C0\uC6D0 \uBC94\uC704: local worker \uD604\uC7AC \uAC80\uC0AC / \uD559\uC2B5\uC740 TrainYolo \uC9C0\uC6D0 \uD544\uC694",
-                PythonModelSettings.EngineYolo11 => "\uC9C0\uC6D0 \uBC94\uC704: \uD604\uC7AC \uAC80\uC0AC \uC6B0\uC120 / \uD559\uC2B5\uC740 worker \uC5F0\uACB0 \uD544\uC694",
-                PythonModelSettings.EngineUnet => "\uC9C0\uC6D0 \uBC94\uC704: segmentation \uD559\uC2B5 + \uD604\uC7AC \uAC80\uC0AC",
-                PythonModelSettings.EnginePatchCore => "지원 범위: 정상-only 학습 + 이미지 판정 + 위치 후보",
+                PythonModelSettings.EngineYoloV8 => "\uc9c0\uc6d0 \ubc94\uc704: \ub85c\uceec \ud658\uacbd\uc758 \ud604\uc7ac \uc774\ubbf8\uc9c0 \ucd94\ub860 / \ud559\uc2b5\uc740 TrainYolo \uc9c0\uc6d0 \ud544\uc694",
+                PythonModelSettings.EngineYolo11 => "\uc9c0\uc6d0 \ubc94\uc704: \ud604\uc7ac \uc774\ubbf8\uc9c0 \ucd94\ub860 / \ud559\uc2b5\uc740 \uc2e4\ud589 \ud658\uacbd \uc5f0\uacb0 \ud544\uc694",
+                PythonModelSettings.EngineUnet => "\uc9c0\uc6d0 \ubc94\uc704: \uc138\uadf8\uba58\ud14c\uc774\uc158 \ud559\uc2b5\u00b7\ud604\uc7ac \uc774\ubbf8\uc9c0 \ucd94\ub860",
+                PythonModelSettings.EnginePatchCore => "지원 범위: 정상 이미지 학습·이미지 판정·위치 후보",
                 PythonModelSettings.EngineOnnx => "\uC9C0\uC6D0 \uBC94\uC704: \uCD94\uB860 \uC804\uC6A9",
-                _ => "\uC9C0\uC6D0 \uBC94\uC704: \uD559\uC2B5 + \uD604\uC7AC \uAC80\uC0AC"
+                _ => "\uc9c0\uc6d0 \ubc94\uc704: \ud559\uc2b5\u00b7\ud604\uc7ac \uc774\ubbf8\uc9c0 \ucd94\ub860"
             };
 
         private static string FormatDisplayName(string engine)

@@ -83,6 +83,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		private readonly List<RoiImageCanvasPolygonOverlay> _polygonOverlays = new List<RoiImageCanvasPolygonOverlay>();
 		private readonly List<RectangleF> _polygonOverlayBounds = new List<RectangleF>();
 		private readonly OverlayRenderSpatialIndex _polygonOverlayRenderIndex = new OverlayRenderSpatialIndex();
+		private int _hoveredPolygonOverlayIndex = -1;
+		private CanvasRect<float> _hoveredLabelRect;
 		private readonly List<RoiImageCanvasMaskOverlay> _maskOverlays = new List<RoiImageCanvasMaskOverlay>();
 		private readonly List<RectangleF> _maskOverlayBounds = new List<RectangleF>();
 		private readonly List<int> _selectedMaskOverlayIndices = new List<int>();
@@ -116,6 +118,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		{
 			get { return _imageViewer; }
 		}
+
+		public string ZoomPercentText => _imageSize.IsEmpty ? "—" : $"{1D / _imageViewer.ZoomScale:P0}";
 
 		public Predicate<CanvasRect<float>> ShouldDrawOverExistingRoi { get; set; }
 
@@ -237,8 +241,12 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 
 		public bool ShowGroupNames { get; set; } = true;
 		public bool ShowRoiItemNames { get; set; } = true;
+		public bool ShowRoiClassNames { get; set; }
+		public bool BoxCrosshairEnabled { get; set; }
 		public bool ReplaceExistingRoiOnDraw { get; set; }
 		public CanvasRoiShapeKind DrawingShapeKind { get; set; } = CanvasRoiShapeKind.Rectangle;
+		public System.Drawing.Color? LabelDrawingColor { get; set; }
+		public bool? RectangleGuideToolActive { get; set; }
 		public bool IsImagePointInputMode { get; set; }
 
 		public bool ShowGroupBounds
@@ -349,6 +357,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		public ICommand ShowPreviewCommand { get; set; }
 		public ICommand PreviewKeyDownCommand { get; private set; }
 		public ICommand KeyUpCommand { get; set; }
+		public ICommand ZoomInCommand { get; private set; }
+		public ICommand ZoomOutCommand { get; private set; }
 		#endregion
 		public RoiImageCanvasViewModel(string name)
 		{
@@ -385,6 +395,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		{
 			_inputAdapter = new RoiImageCanvasInputAdapter(_imageViewer);
 			_imageViewer.VisibleOverlayLodChanged += ImageViewer_VisibleOverlayLodChanged;
+			_imageViewer.ZoomChanged += ImageViewer_ZoomChanged;
 			_inputAdapter.Load += OnLoad;
 			_inputAdapter.Resized += OnResized;
 			_inputAdapter.MouseDoubleClicked += OnMouseDoubleClicked;
@@ -410,6 +421,12 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		{
 			OnPropertyChanged(nameof(IsOverlayDisplayLodActive));
 			OnPropertyChanged(nameof(OverlayDisplayStatusText));
+		}
+
+		private void ImageViewer_ZoomChanged(object sender, EventArgs e)
+		{
+			OnPropertyChanged(nameof(ZoomPercentText));
+			System.Windows.Input.CommandManager.InvalidateRequerySuggested();
 		}
 
 		public void MarkNextRenderDiagnostics(string reason)
@@ -558,6 +575,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 				: isFastDrawingPreviewFrame ? _drawingRect : null;
 
 			long phaseTicks = Stopwatch.GetTimestamp();
+			_imageViewer.BoxCrosshairEnabled = BoxCrosshairEnabled && (RectangleGuideToolActive ?? (IsTeachingMode && DrawingShapeKind == CanvasRoiShapeKind.Rectangle)) && !isFastPanFrame;
+			_imageViewer.BoxCrosshairOnPointInput = RectangleGuideToolActive == true && IsImagePointInputMode;
 			_imageViewer.DrawContent(drawOverlays: true, liveOverlay: liveOverlay);
 			contentMilliseconds = ElapsedMilliseconds(phaseTicks);
 			if (isFastPanFrame)
@@ -585,38 +604,44 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 				return;
 			}
 
-			phaseTicks = Stopwatch.GetTimestamp();
-			if (DrawMaskStrokePreviewLayer(gl))
+			OpenGlTextDrawOptions textOptions = _imageViewer.GetOpenGlTextDrawOptions();
+			textOptions.RoiLabelTextureKeys = new HashSet<string>(StringComparer.Ordinal);
+			try
 			{
-				usedMaskPreview = true;
+				phaseTicks = Stopwatch.GetTimestamp();
+				if (DrawMaskStrokePreviewLayer(gl))
+				{
+					usedMaskPreview = true;
+				}
+				else
+				{
+					DrawMaskOverlays(gl);
+				}
+				maskMilliseconds = ElapsedMilliseconds(phaseTicks);
+				phaseTicks = Stopwatch.GetTimestamp();
+				DrawDetectionOverlays(gl, textOptions);
+				detectionMilliseconds = ElapsedMilliseconds(phaseTicks);
+				phaseTicks = Stopwatch.GetTimestamp();
+				DrawPolygonOverlays(gl, textOptions);
+				polygonMilliseconds = ElapsedMilliseconds(phaseTicks);
+				phaseTicks = Stopwatch.GetTimestamp();
+				OpenGlDrawing.DrawRoiEditHandles(gl, GetOverlayRect(), _imageViewer.ZoomScale, System.Windows.Media.Brushes.DeepSkyBlue, _imageViewer.HandleSize);
+				if (!usedMaskPreview)
+				{
+					DrawMaskOverlayMarkers(gl, textOptions);
+				}
+				DrawBrushCursorPreview(gl);
+				if (ShowGroupNames)
+				{
+					OpenGlDrawing.DrawGroupName(gl, _imageViewer.GetCanvasOverlayManager(), _imageViewer.GetOpenGlTextDrawOptions());
+				}
+				if (ShowRoiItemNames || ShowRoiClassNames || _selectedRect?.IsLabelAnnotation == true && _selectedRect.IsEditing)
+				{
+					OpenGlDrawing.DrawRoiItemName(gl, _imageViewer.GetCanvasOverlayManager(), textOptions, ShowRoiClassNames, ShowRoiItemNames);
+				}
+				if (IsShowMeasure) { _imageViewer.DrawMeasurement(gl, _measurement, _measureFontOption); }
 			}
-			else
-			{
-				DrawMaskOverlays(gl);
-			}
-			maskMilliseconds = ElapsedMilliseconds(phaseTicks);
-			phaseTicks = Stopwatch.GetTimestamp();
-			DrawDetectionOverlays(gl);
-			detectionMilliseconds = ElapsedMilliseconds(phaseTicks);
-			phaseTicks = Stopwatch.GetTimestamp();
-			DrawPolygonOverlays(gl);
-			polygonMilliseconds = ElapsedMilliseconds(phaseTicks);
-			phaseTicks = Stopwatch.GetTimestamp();
-			OpenGlDrawing.DrawRoiEditHandles(gl, GetOverlayRect(), _imageViewer.ZoomScale, System.Windows.Media.Brushes.DeepSkyBlue, _imageViewer.HandleSize);
-			if (!usedMaskPreview)
-			{
-				DrawMaskOverlayMarkers(gl);
-			}
-			DrawBrushCursorPreview(gl);
-			if (ShowGroupNames)
-			{
-				OpenGlDrawing.DrawGroupName(gl, _imageViewer.GetCanvasOverlayManager(), _imageViewer.GetOpenGlTextDrawOptions());
-			}
-			if (ShowRoiItemNames)
-			{
-				OpenGlDrawing.DrawRoiItemName(gl, _imageViewer.GetCanvasOverlayManager(), _imageViewer.GetOpenGlTextDrawOptions());
-			}
-			if (IsShowMeasure) { _imageViewer.DrawMeasurement(gl, _measurement, _measureFontOption); }
+			finally { OpenGlDrawing.ReleaseRoiLabelTextures(gl, textOptions.RoiLabelTextures, textOptions.RoiLabelTextureKeys); }
 			miscMilliseconds += ElapsedMilliseconds(phaseTicks);
 			PublishRenderDiagnosticsIfNeeded(captureDiagnostics, diagnosticsReason, diagnosticsStartTicks, frameStartTicks, contentMilliseconds, maskMilliseconds, detectionMilliseconds, polygonMilliseconds, miscMilliseconds, usedMaskPreview, pendingPreviewCommandCount);
 		}
@@ -663,14 +688,13 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		private static double ElapsedMilliseconds(long startTicks, long endTicks)
 			=> (endTicks - startTicks) * 1000D / Stopwatch.Frequency;
 
-		private void DrawDetectionOverlays(OpenGL gl)
+		private void DrawDetectionOverlays(OpenGL gl, OpenGlTextDrawOptions textOptions)
 		{
 			if (_detectionOverlays.Count == 0 || _imageSize.IsEmpty)
 			{
 				return;
 			}
 
-			OpenGlTextDrawOptions textOptions = _imageViewer.GetOpenGlTextDrawOptions();
 			int[] viewport = new int[4];
 			gl.GetInteger(OpenGL.GL_VIEWPORT, viewport);
 			float screenWidth = viewport[2];
@@ -713,6 +737,12 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 					overlay.IsSelected,
 					drawBounds: !overlay.IsContourOnly,
 					contourPoints: screenContour));
+				screenOverlays[screenOverlays.Count - 1].IsLabelSuspicion = overlay.IsLabelSuspicion;
+				screenOverlays[screenOverlays.Count - 1].IsLabelingSuggestion = overlay.IsLabelingSuggestion;
+				screenOverlays[screenOverlays.Count - 1].IsInferencePrediction = overlay.IsInferencePrediction;
+				screenOverlays[screenOverlays.Count - 1].WorldToScreenScale = 1F / Math.Max(.0001F, _imageViewer.ZoomScale);
+				screenOverlays[screenOverlays.Count - 1].ImageTop = (overlay.ContourPoints?.Count ?? 0) >= 3 ? overlay.ContourPoints.Min(point => point.Y) : overlay.Bounds.Top;
+				screenOverlays[screenOverlays.Count - 1].DisplayLabel = overlay.DisplayLabel;
 			}
 
 			DrawDetectionScreenOverlays(gl, textOptions, screenOverlays);
@@ -902,7 +932,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			ReleaseStaleMaskOverlayTextures(gl, _activeMaskOverlayKeys);
 		}
 
-		private void DrawMaskOverlayMarkers(OpenGL gl)
+		private void DrawMaskOverlayMarkers(OpenGL gl, OpenGlTextDrawOptions textOptions)
 		{
 			if (_maskOverlays.Count == 0 || _imageSize.IsEmpty)
 			{
@@ -912,7 +942,6 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			int[] viewport = new int[4];
 			gl.GetInteger(OpenGL.GL_VIEWPORT, viewport);
 			List<int> visibleOverlayIndices = GetVisibleMaskOverlayIndicesForRendering(viewport[2], viewport[3]);
-			OpenGlTextDrawOptions textOptions = _imageViewer.GetOpenGlTextDrawOptions();
 			var screenOverlays = new List<DetectionScreenOverlay>();
 			foreach (int overlayIndex in visibleOverlayIndices)
 			{
@@ -941,6 +970,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 					overlay.Color,
 					overlay.IsSelected,
 					drawBounds: overlay.IsSelected));
+				screenOverlays[screenOverlays.Count - 1].ClassName = overlay.ClassName;
 			}
 
 			DrawDetectionScreenOverlays(gl, textOptions, screenOverlays);
@@ -975,7 +1005,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			IntPtr renderContext = gl.RenderContextProvider.RenderContextHandle;
 			byte opacity = (byte)Math.Max(1, Math.Min(255, (int)Math.Round(overlay.Opacity * 255F)));
 			int colorArgb = overlay.Color.ToArgb();
-			Rectangle dirtyBounds = Rectangle.Intersect(overlay.DirtyBounds, bounds);
+			Rectangle dirtyBounds = Rectangle.Intersect(overlay.DirtyBounds, new Rectangle(0, 0, overlay.MaskSize.Width, overlay.MaskSize.Height));
 			Rectangle textureBounds = ResolveMaskOverlayTextureBounds(overlay, bounds, dirtyBounds, cache, renderContext);
 			bool textureShapeChanged = cache.TextureId == 0
 				|| cache.RenderContext != renderContext
@@ -1680,11 +1710,29 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 						gl.Disable(OpenGL.GL_DEPTH_TEST);
 						gl.Enable(OpenGL.GL_BLEND);
 						gl.BlendFunc(OpenGL.GL_SRC_ALPHA, OpenGL.GL_ONE_MINUS_SRC_ALPHA);
-						DrawFilledScreenEllipse(gl, center, radiusX, radiusY, fill);
-						DrawScreenEllipse(gl, center, radiusX + 1.5F, radiusY + 1.5F, 4F, halo);
-						DrawScreenEllipse(gl, center, radiusX, radiusY, 2F, outline);
-						DrawHorizontalScreenStrip(gl, center.X - Math.Min(7F, radiusX), center.X + Math.Min(7F, radiusX), center.Y, 1F, outline);
-						DrawVerticalScreenStrip(gl, center.X, center.Y - Math.Min(7F, radiusY), center.Y + Math.Min(7F, radiusY), 1F, outline);
+						if (LabelDrawingColor.HasValue)
+						{
+							gl.Disable(OpenGL.GL_LINE_STIPPLE);
+							if (_brushCursorPreviewIsEraser)
+							{
+								var circle = new PointF[96];
+								for (int i = 0; i < circle.Length; i++)
+								{
+									double angle = Math.PI * 2D * i / circle.Length;
+									circle[i] = new PointF(center.X + (float)Math.Cos(angle) * radiusX, center.Y + (float)Math.Sin(angle) * radiusY);
+								}
+								DrawScreenPolyline(gl, circle, true, 1.5F, System.Drawing.Color.White, 4F, 3F);
+							}
+							else DrawScreenEllipse(gl, center, radiusX, radiusY, 1.5F, System.Drawing.Color.FromArgb(255, baseColor.R, baseColor.G, baseColor.B));
+						}
+						else
+						{
+							DrawFilledScreenEllipse(gl, center, radiusX, radiusY, fill);
+							DrawScreenEllipse(gl, center, radiusX + 1.5F, radiusY + 1.5F, 4F, halo);
+							DrawScreenEllipse(gl, center, radiusX, radiusY, 2F, outline);
+							DrawHorizontalScreenStrip(gl, center.X - Math.Min(7F, radiusX), center.X + Math.Min(7F, radiusX), center.Y, 1F, outline);
+							DrawVerticalScreenStrip(gl, center.X, center.Y - Math.Min(7F, radiusY), center.Y + Math.Min(7F, radiusY), 1F, outline);
+						}
 					}
 					finally
 					{
@@ -1705,7 +1753,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			}
 		}
 
-		private void DrawPolygonOverlays(OpenGL gl)
+		private void DrawPolygonOverlays(OpenGL gl, OpenGlTextDrawOptions textOptions)
 		{
 			if (_polygonOverlays.Count == 0 || _imageSize.IsEmpty)
 			{
@@ -1721,7 +1769,6 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 				return;
 			}
 
-			OpenGlTextDrawOptions textOptions = _imageViewer.GetOpenGlTextDrawOptions();
 			List<int> visibleOverlayIndices = GetVisiblePolygonOverlayIndicesForRendering(screenWidth, screenHeight);
 			if (visibleOverlayIndices.Count == 0)
 			{
@@ -1773,22 +1820,46 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 							System.Drawing.Color color = overlay.Color.IsEmpty
 								? System.Drawing.Color.FromArgb(80, 180, 255)
 								: overlay.Color;
+							if (overlay.IsBoxPointDraft)
+							{
+								foreach (PointF point in screenPoints) DrawFilledScreenCircle(gl, point, 5F, System.Drawing.Color.FromArgb(255, color.R, color.G, color.B));
+								continue;
+							}
 							bool isClosed = overlay.IsClosed && screenPoints.Count >= 3;
 							bool isDraft = overlay.IsDraft;
+							bool isManual = overlay.ClassName != null;
 
-							if (isClosed)
+							if (isClosed || (isManual && isDraft && screenPoints.Count >= 3))
 							{
-								DrawFilledScreenPolygon(gl, screenPoints, System.Drawing.Color.FromArgb(isDraft ? 26 : 38, color.R, color.G, color.B));
+								int alpha = isManual ? (int)Math.Round(Math.Max(0F, Math.Min(1F, isDraft ? .12F : overlay.Opacity)) * 255F) : isDraft ? 26 : 38;
+								DrawFilledScreenPolygon(gl, screenPoints, System.Drawing.Color.FromArgb(alpha, color.R, color.G, color.B), isManual);
 							}
 
-							if (screenPoints.Count >= 2)
-							{
-								DrawScreenPolyline(gl, screenPoints, isClosed, isDraft ? 5F : 6F, System.Drawing.Color.FromArgb(80, 0, 0, 0));
-								DrawScreenPolyline(gl, screenPoints, isClosed, isDraft ? 2F : 3F, System.Drawing.Color.FromArgb(isDraft ? 220 : 245, color.R, color.G, color.B));
-							}
+                            if (screenPoints.Count >= 2)
+                            {
+                                if (isManual)
+                                {
+                                    DrawScreenPolyline(gl, screenPoints, isClosed, isDraft ? 2F : overlay.IsSelected ? 3F : overlayIndex == _hoveredPolygonOverlayIndex ? 2.6F : 1.7F, System.Drawing.Color.FromArgb(255, color.R, color.G, color.B));
+                                }
+                                else if (isDraft)
+                                {
+                                    DrawScreenPolyline(gl, screenPoints, isClosed, 2F, System.Drawing.Color.FromArgb(230, color.R, color.G, color.B));
+                                }
+                                else
+                                {
+                                    DrawScreenPolyline(gl, screenPoints, isClosed, 6F, System.Drawing.Color.FromArgb(80, 0, 0, 0));
+                                    DrawScreenPolyline(gl, screenPoints, isClosed, 3F, System.Drawing.Color.FromArgb(245, color.R, color.G, color.B));
+                                }
+                            }
 
-							DrawPolygonPointMarkers(gl, screenPoints, color, isDraft, overlay.IsSelected, overlay.SelectedPointIndex);
-							if (!string.IsNullOrWhiteSpace(overlay.Label))
+							if (!isManual || isDraft || overlay.ShowEditHandles)
+								DrawPolygonPointMarkers(gl, screenPoints, color, isDraft, overlay.IsSelected, overlay.SelectedPointIndex, isManual);
+                            if (!isDraft && overlay.ClassName != null)
+                            {
+                                if (ShowRoiClassNames || overlay.IsSelected)
+                                    OpenGlDrawing.DrawRoiLabelAtScreen(gl, textOptions, overlay.ClassName, color, screenPoints.Min(point => point.X), screenPoints.Min(point => point.Y) - 18F);
+                            }
+                            else if (!isDraft && !string.IsNullOrWhiteSpace(overlay.Label))
 							{
 								DetectionScreenLabel label = DrawPolygonBadge(gl, screenPoints[0], overlay.Label, color, isDraft, screenWidth, screenHeight);
 								labels.Add(label);
@@ -1853,10 +1924,60 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 				&& !float.IsInfinity(point.Y);
 		}
 
-		private static void DrawFilledScreenPolygon(OpenGL gl, IReadOnlyList<PointF> points, System.Drawing.Color color)
+		private static void DrawFilledScreenPolygon(OpenGL gl, IReadOnlyList<PointF> points, System.Drawing.Color color, bool isManual = false)
 		{
 			if (points == null || points.Count < 3)
 			{
+				return;
+			}
+
+
+			if (isManual)
+			{
+				var vertices = Enumerable.Range(0, points.Count).ToList();
+				double area = 0;
+				for (int i = 0; i < points.Count; i++)
+				{
+					PointF a = points[i], b = points[(i + 1) % points.Count];
+					area += (double)a.X * b.Y - (double)b.X * a.Y;
+				}
+				double direction = area < 0 ? -1D : 1D;
+				var triangles = new List<int>((points.Count - 2) * 3);
+				while (vertices.Count > 3)
+				{
+					bool removed = false;
+					for (int i = 0; i < vertices.Count; i++)
+					{
+						int ai = vertices[(i + vertices.Count - 1) % vertices.Count], bi = vertices[i], ci = vertices[(i + 1) % vertices.Count];
+						PointF a = points[ai], b = points[bi], c = points[ci];
+						double cross = ((double)b.X - a.X) * (c.Y - a.Y) - ((double)b.Y - a.Y) * (c.X - a.X);
+						if (Math.Abs(cross) <= .00001D)
+						{
+							vertices.RemoveAt(i); removed = true; break;
+						}
+						if (cross * direction < 0D) continue;
+						bool containsVertex = false;
+						foreach (int index in vertices)
+						{
+							if (index == ai || index == bi || index == ci) continue;
+							PointF p = points[index];
+							double ab = ((double)b.X - a.X) * (p.Y - a.Y) - ((double)b.Y - a.Y) * (p.X - a.X);
+							double bc = ((double)c.X - b.X) * (p.Y - b.Y) - ((double)c.Y - b.Y) * (p.X - b.X);
+							double ca = ((double)a.X - c.X) * (p.Y - c.Y) - ((double)a.Y - c.Y) * (p.X - c.X);
+							if (ab * direction >= -.00001D && bc * direction >= -.00001D && ca * direction >= -.00001D) { containsVertex = true; break; }
+						}
+						if (containsVertex) continue;
+						triangles.Add(ai); triangles.Add(bi); triangles.Add(ci);
+						vertices.RemoveAt(i); removed = true; break;
+					}
+					if (!removed) return;
+				}
+				if (vertices.Count != 3) return;
+				triangles.AddRange(vertices);
+				SetGlColor(gl, color);
+				gl.Begin(OpenGL.GL_TRIANGLES);
+				foreach (int index in triangles) gl.Vertex(points[index].X, points[index].Y);
+				gl.End();
 				return;
 			}
 
@@ -1869,15 +1990,42 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			gl.End();
 		}
 
-		private static void DrawScreenPolyline(OpenGL gl, IReadOnlyList<PointF> points, bool closed, float lineWidth, System.Drawing.Color color)
+		private static void DrawScreenPolyline(OpenGL gl, IReadOnlyList<PointF> points, bool closed, float lineWidth, System.Drawing.Color color, float dashLength = 0F, float gapLength = 0F, float minimumLineWidth = 1F)
 		{
 			if (points == null || points.Count < 2)
 			{
 				return;
 			}
 
+
+			if (dashLength > 0F && gapLength >= 0F)
+			{
+				int[] viewport = new int[4]; gl.GetInteger(OpenGL.GL_VIEWPORT, viewport);
+				double period = dashLength + gapLength, accumulated = 0D;
+				SetGlColor(gl, color); gl.LineWidth(Math.Max(minimumLineWidth, lineWidth)); gl.Disable(OpenGL.GL_LINE_STIPPLE);
+				gl.Begin(OpenGL.GL_LINES);
+				for (int edge = 0; edge < (closed ? points.Count : points.Count - 1); edge++)
+				{
+					PointF a = points[edge], b = points[(edge + 1) % points.Count];
+					double dx = b.X - a.X, dy = b.Y - a.Y, length = Math.Sqrt(dx * dx + dy * dy), start = 0D, stop = 1D;
+					if (length < .001D) continue;
+					if (ClipAxis(a.X, dx, -lineWidth, viewport[2] + lineWidth, ref start, ref stop) && ClipAxis(a.Y, dy, -lineWidth, viewport[3] + lineWidth, ref start, ref stop))
+					{
+						double visibleLength = length * (stop - start), phase = (accumulated + length * start) % period;
+						for (double offset = phase < dashLength ? -phase : period - phase; offset < visibleLength; offset += period)
+						{
+							double from = start + Math.Max(0D, offset) / length, to = start + Math.Min(offset + dashLength, visibleLength) / length;
+							gl.Vertex(a.X + dx * from, a.Y + dy * from); gl.Vertex(a.X + dx * to, a.Y + dy * to);
+						}
+					}
+					accumulated += length;
+				}
+				gl.End();
+				return;
+			}
+
 			SetGlColor(gl, color);
-			gl.LineWidth(Math.Max(1F, lineWidth));
+			gl.LineWidth(Math.Max(minimumLineWidth, lineWidth));
 			gl.Begin(closed ? OpenGL.GL_LINE_LOOP : OpenGL.GL_LINE_STRIP);
 			foreach (PointF point in points)
 			{
@@ -1886,15 +2034,35 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			gl.End();
 		}
 
-		private static void DrawPolygonPointMarkers(OpenGL gl, IReadOnlyList<PointF> points, System.Drawing.Color color, bool isDraft, bool isSelected = false, int selectedPointIndex = -1)
-		{
-			for (int i = 0; i < points.Count; i++)
-			{
-				bool isSelectedPoint = isSelected && i == selectedPointIndex;
-				float size = isSelectedPoint ? 12F : (i == 0 ? 8F : 7F);
-				float half = size * 0.5F;
-				PointF point = points[i];
-				var halo = RectangleF.FromLTRB(
+        private static void DrawPolygonPointMarkers(OpenGL gl, IReadOnlyList<PointF> points, System.Drawing.Color color, bool isDraft, bool isSelected = false, int selectedPointIndex = -1, bool isManual = false)
+        {
+            if (isManual && !isDraft && !isSelected) return;
+            for (int i = 0; i < points.Count; i++)
+            {
+                if (isManual)
+                {
+                    float radius = isDraft ? (i == 0 ? 7F : 4F) : 5F;
+                    System.Drawing.Color fillColor = !isDraft || i == 0 ? System.Drawing.Color.White : System.Drawing.Color.FromArgb(255, color.R, color.G, color.B);
+                    DrawFilledScreenCircle(gl, points[i], radius, fillColor);
+                    DrawScreenCircle(gl, points[i], radius, 1F, System.Drawing.Color.FromArgb(11, 14, 18));
+                    continue;
+                }
+                bool isSelectedPoint = isSelected && i == selectedPointIndex;
+                // Draft vertices need to read as deliberate click targets at the
+                // compact canvas scale. Keep saved handles unchanged; only the
+                // in-progress polygon gets the larger circular treatment used by
+                // the reference workflow.
+                float size = isSelectedPoint ? 14F : (i == 0 ? 12F : 10F);
+                float half = size * 0.5F;
+                PointF point = points[i];
+                if (isDraft)
+                {
+                    DrawFilledScreenCircle(gl, point, half + 1.5F, System.Drawing.Color.FromArgb(140, 0, 0, 0));
+                    DrawFilledScreenCircle(gl, point, half - 0.5F, System.Drawing.Color.FromArgb(235, color.R, color.G, color.B));
+                    DrawScreenCircle(gl, point, half, 1.5F, System.Drawing.Color.FromArgb(245, 235, 255, 242));
+                    continue;
+                }
+                var halo = RectangleF.FromLTRB(
 					(float)Math.Round(point.X - half - 1F),
 					(float)Math.Round(point.Y - half - 1F),
 					(float)Math.Round(point.X + half + 1F),
@@ -1909,11 +2077,47 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 					? System.Drawing.Color.FromArgb(255, 255, 214, 10)
 					: System.Drawing.Color.FromArgb(isDraft ? 230 : 248, color.R, color.G, color.B));
 				if (isSelectedPoint)
-				{
+                {
 					DrawScreenRectangle(gl, fill, 1.5F, System.Drawing.Color.FromArgb(255, color.R, color.G, color.B));
-				}
-			}
-		}
+                }
+            }
+        }
+
+        private static void DrawFilledScreenCircle(OpenGL gl, PointF center, float radius, System.Drawing.Color color)
+        {
+            if (radius <= 0F)
+            {
+                return;
+            }
+
+            SetGlColor(gl, color);
+            gl.Begin(OpenGL.GL_TRIANGLE_FAN);
+            gl.Vertex(center.X, center.Y);
+            for (int i = 0; i <= 20; i++)
+            {
+                double angle = (Math.PI * 2D * i) / 20D;
+                gl.Vertex(center.X + (float)Math.Cos(angle) * radius, center.Y + (float)Math.Sin(angle) * radius);
+            }
+            gl.End();
+        }
+
+        private static void DrawScreenCircle(OpenGL gl, PointF center, float radius, float lineWidth, System.Drawing.Color color)
+        {
+            if (radius <= 0F)
+            {
+                return;
+            }
+
+            SetGlColor(gl, color);
+            gl.LineWidth(Math.Max(1F, lineWidth));
+            gl.Begin(OpenGL.GL_LINE_LOOP);
+            for (int i = 0; i < 20; i++)
+            {
+                double angle = (Math.PI * 2D * i) / 20D;
+                gl.Vertex(center.X + (float)Math.Cos(angle) * radius, center.Y + (float)Math.Sin(angle) * radius);
+            }
+            gl.End();
+        }
 
 		private static DetectionScreenLabel DrawPolygonBadge(
 			OpenGL gl,
@@ -1941,7 +2145,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			return new DetectionScreenLabel(displayText, new PointF(badge.Left + 9F, badge.Top + 14.2F), 11);
 		}
 
-		private static void DrawDetectionScreenOverlays(OpenGL gl, OpenGlTextDrawOptions textOptions, IReadOnlyList<DetectionScreenOverlay> overlays)
+		private void DrawDetectionScreenOverlays(OpenGL gl, OpenGlTextDrawOptions textOptions, IReadOnlyList<DetectionScreenOverlay> overlays)
 		{
 			if (overlays.Count == 0)
 			{
@@ -1988,11 +2192,59 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 								continue;
 							}
 
+							if (overlay.IsLabelSuspicion)
+							{
+								DetectionScreenLabel warning = DrawLabelSuspicionScreenMarker(gl, bounds, overlay, screenWidth, screenHeight);
+								OpenGlDrawing.DrawRoiLabelAtScreen(gl, textOptions, warning.Text, System.Drawing.Color.FromArgb(255, 210, 77), warning.TextPosition.X, warning.TextPosition.Y, 255, true);
+								continue;
+							}
+
+
+							if (overlay.IsInferencePrediction)
+							{
+								IReadOnlyList<PointF> points = overlay.ContourPoints.Count >= 3 ? overlay.ContourPoints : new[]
+								{
+									new PointF(bounds.Left, bounds.Top), new PointF(bounds.Right, bounds.Top), new PointF(bounds.Right, bounds.Bottom), new PointF(bounds.Left, bounds.Bottom)
+								};
+								var color = System.Drawing.Color.FromArgb(255, overlay.Color.R, overlay.Color.G, overlay.Color.B);
+								float scale = overlay.WorldToScreenScale, top = points.Min(point => point.Y);
+								if (overlay.ContourPoints.Count >= 3) DrawFilledScreenPolygon(gl, points, System.Drawing.Color.FromArgb(46, color), true);
+								gl.Disable(OpenGL.GL_LINE_STIPPLE);
+								DrawScreenPolyline(gl, points, true, 3F * scale, color, minimumLineWidth: .0001F);
+								OpenGlDrawing.DrawRoiLabelAtScreen(gl, textOptions, overlay.DisplayLabel, color, points.Min(point => point.X), top + (Math.Max(18F, overlay.ImageTop) - overlay.ImageTop - 20F) * scale, 255, true, true, scale);
+								continue;
+							}
+
+							if (overlay.IsLabelingSuggestion)
+							{
+								IReadOnlyList<PointF> points = overlay.ContourPoints.Count >= 3 ? overlay.ContourPoints : new[]
+								{
+									new PointF(bounds.Left, bounds.Top), new PointF(bounds.Right, bounds.Top), new PointF(bounds.Right, bounds.Bottom), new PointF(bounds.Left, bounds.Bottom)
+								};
+								System.Drawing.Color color = System.Drawing.Color.FromArgb(255, overlay.Color.R, overlay.Color.G, overlay.Color.B);
+								DrawFilledScreenPolygon(gl, points, System.Drawing.Color.FromArgb(20, color), true);
+								DrawScreenPolyline(gl, points, true, overlay.IsSelected ? 3F : 1.7F, color, 6F, 4F);
+								if (ShowRoiClassNames || overlay.IsSelected)
+									OpenGlDrawing.DrawRoiLabelAtScreen(gl, textOptions, overlay.DisplayLabel, color, points.Min(point => point.X), points.Min(point => point.Y) - 18F, 153);
+								continue;
+							}
+
 							if (overlay.ContourPoints.Count >= 3)
 							{
 								DrawDetectionScreenContour(gl, overlay.ContourPoints, overlay.Color, overlay.IsSelected);
 							}
 
+							if (overlay.ClassName != null)
+							{
+                                if (overlay.DrawBounds)
+                                {
+                                    var corners = new[] { new PointF(bounds.Left, bounds.Top), new PointF(bounds.Right, bounds.Top), new PointF(bounds.Right, bounds.Bottom), new PointF(bounds.Left, bounds.Bottom) };
+                                    DrawScreenPolyline(gl, corners, true, 1F, System.Drawing.Color.White, 4F, 3F);
+                                }
+								if (ShowRoiClassNames || overlay.IsSelected)
+									OpenGlDrawing.DrawRoiLabelAtScreen(gl, textOptions, overlay.ClassName, overlay.Color, bounds.Left, bounds.Top - 18F);
+								continue;
+							}
 							DetectionScreenLabel label = DrawDetectionScreenMarker(gl, bounds, overlay.Label, overlay.Color, overlay.IsSelected, overlay.DrawBounds, screenWidth, screenHeight, occupiedBadgeBounds);
 							labels.Add(label);
 						}
@@ -2024,7 +2276,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 					label.TextPosition.X,
 					label.TextPosition.Y,
 					label.FontSize,
-					System.Drawing.Color.White,
+					label.TextColor,
 					originTop: true);
 			}
 		}
@@ -2048,6 +2300,58 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 				color: System.Drawing.Color.FromArgb(isSelected ? 255 : 235, lineColor.R, lineColor.G, lineColor.B));
 		}
 
+		private static DetectionScreenLabel DrawLabelSuspicionScreenMarker(OpenGL gl, RectangleF bounds, DetectionScreenOverlay overlay, float screenWidth, float screenHeight)
+		{
+			System.Drawing.Color color = System.Drawing.Color.FromArgb(255, 210, 77);
+			IReadOnlyList<PointF> points = overlay.ContourPoints.Count >= 3 ? overlay.ContourPoints : new[]
+			{
+				new PointF(bounds.Left, bounds.Top), new PointF(bounds.Right, bounds.Top),
+				new PointF(bounds.Right, bounds.Bottom), new PointF(bounds.Left, bounds.Bottom)
+			};
+			gl.LineWidth(2.4F);
+			gl.Color(color.R / 255F, color.G / 255F, color.B / 255F, 1F);
+			var dashEnds = new List<PointF>();
+			gl.Begin(OpenGL.GL_LINES);
+			for (int edge = 0; edge < points.Count; edge++)
+			{
+				PointF first = points[edge], last = points[(edge + 1) % points.Count];
+				double dx = (double)last.X - first.X, dy = (double)last.Y - first.Y;
+				double length = Math.Sqrt(dx * dx + dy * dy), start = 0, stop = 1;
+				if (length < .001 || !ClipAxis(first.X, dx, -3, screenWidth + 3, ref start, ref stop)
+					|| !ClipAxis(first.Y, dy, -3, screenHeight + 3, ref start, ref stop)) continue;
+				// Clip before generating 2px/5px dashes so zoomed/off-screen geometry cannot grow this loop.
+				double visibleLength = length * (stop - start), phase = length * start % 7;
+				for (double offset = phase < 2 ? -phase : 7 - phase; offset < visibleLength; offset += 7)
+				{
+					double from = start + Math.Max(0, offset) / length, to = start + Math.Min(offset + 2, visibleLength) / length;
+					var a = new PointF((float)(first.X + dx * from), (float)(first.Y + dy * from));
+					var b = new PointF((float)(first.X + dx * to), (float)(first.Y + dy * to));
+					gl.Vertex(a.X, a.Y); gl.Vertex(b.X, b.Y);
+					dashEnds.Add(a); dashEnds.Add(b);
+				}
+			}
+			gl.End();
+			gl.PushAttrib(OpenGL.GL_POINT_BIT | OpenGL.GL_ENABLE_BIT);
+			try
+			{
+				gl.Enable(OpenGL.GL_POINT_SMOOTH);
+				gl.PointSize(2.4F);
+				gl.Begin(OpenGL.GL_POINTS);
+				foreach (PointF end in dashEnds) gl.Vertex(end.X, end.Y);
+				gl.End();
+			}
+			finally { gl.PopAttrib(); }
+			return new DetectionScreenLabel(overlay.Label, new PointF(bounds.Left, bounds.Bottom + 3F), 12, System.Drawing.Color.FromArgb(11, 14, 18));
+		}
+
+		private static bool ClipAxis(double origin, double delta, double min, double max, ref double start, ref double stop)
+		{
+			if (delta == 0) return origin >= min && origin <= max;
+			double a = (min - origin) / delta, b = (max - origin) / delta;
+			start = Math.Max(start, Math.Min(a, b)); stop = Math.Min(stop, Math.Max(a, b));
+			return start <= stop;
+		}
+
 		private static DetectionScreenLabel DrawDetectionScreenMarker(
 			OpenGL gl,
 			RectangleF bounds,
@@ -2057,7 +2361,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			bool drawBounds,
 			float screenWidth,
 			float screenHeight,
-			IList<RectangleF> occupiedBadgeBounds)
+			IList<RectangleF> occupiedBadgeBounds,
+			bool drawBadge = true)
 		{
 			bounds = SnapDetectionBounds(bounds);
 			if (drawBounds)
@@ -2073,6 +2378,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 				DrawScreenCorners(gl, bounds, corner, lineWidth, System.Drawing.Color.FromArgb(isSelected ? 248 : 225, color.R, color.G, color.B));
 			}
 
+			if (!drawBadge) return null;
 			string displayText = isSelected ? BuildSelectedDetectionLabel(label) : BuildCompactDetectionLabel(label);
 			float badgeHeight = isSelected ? 21F : 17F;
 			float badgeWidth = isSelected
@@ -2359,20 +2665,29 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			public bool IsSelected { get; }
 			public bool DrawBounds { get; }
 			public IReadOnlyList<PointF> ContourPoints { get; }
+			public bool IsLabelSuspicion { get; set; }
+			public bool IsLabelingSuggestion { get; set; }
+			public bool IsInferencePrediction { get; set; }
+			public float WorldToScreenScale { get; set; } = 1F;
+			public float ImageTop { get; set; }
+			public string DisplayLabel { get; set; } = string.Empty;
+			public string ClassName { get; set; }
 		}
 
 		private sealed class DetectionScreenLabel
 		{
-			public DetectionScreenLabel(string text, PointF textPosition, int fontSize)
+			public DetectionScreenLabel(string text, PointF textPosition, int fontSize, System.Drawing.Color? textColor = null)
 			{
 				Text = text;
 				TextPosition = textPosition;
 				FontSize = fontSize;
+				TextColor = textColor ?? System.Drawing.Color.White;
 			}
 
 			public string Text { get; }
 			public PointF TextPosition { get; }
 			public int FontSize { get; }
+			public System.Drawing.Color TextColor { get; }
 		}
 
 		private sealed class BrushPreviewStamp
@@ -2750,7 +3065,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 					}
 
 					RoiImageCanvasDetectionOverlay overlay = overlays[overlayIndex];
-					if (overlay?.Bounds.IsEmpty != false)
+					if (overlay?.Bounds.IsEmpty != false || overlay.IsLabelSuspicion)
 					{
 						continue;
 					}
@@ -2942,6 +3257,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 							{
 								_drawingRect.ShapeKind = DrawingShapeKind;
 								_drawingRect.IsEditing = true;
+								_drawingRect.IsLabelAnnotation = LabelDrawingColor.HasValue; _drawingRect.IsLabelDraft = LabelDrawingColor.HasValue; _drawingRect.LabelColor = LabelDrawingColor ?? System.Drawing.Color.Empty;
 							}
 							break;
 						case CanvasInteractionMode.Edit:
@@ -3018,7 +3334,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			_drawingRect = new CanvasRect<float>
 			{
 				ShapeKind = DrawingShapeKind,
-				IsEditing = true
+				IsEditing = true,
+				IsLabelAnnotation = LabelDrawingColor.HasValue, IsLabelDraft = LabelDrawingColor.HasValue, LabelColor = LabelDrawingColor ?? System.Drawing.Color.Empty
 			};
 			openGLControl.Cursor = System.Windows.Forms.Cursors.Cross;
 			return true;
@@ -3207,6 +3524,34 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		{
 			OpenGLControl openGLControl = (OpenGLControl)sender;
 			System.Drawing.PointF currentRobotyPos = _imageViewer.GetCurrentRobotPos(e.X, e.Y);
+			if (e.CanvasButton == CanvasPointerButton.None)
+			{
+				CanvasRect<float> hoveredLabel = _imageViewer.GetCanvasOverlayManager().GetVisibleOverlaysInBounds(new RectangleF(currentRobotyPos.X, currentRobotyPos.Y, 1F, 1F))
+					.AsEnumerable().Reverse().Where(item => !item.IsGroupRectangle && item.Shape is CanvasRect<float> rect && rect.IsLabelAnnotation && rect.Contain(currentRobotyPos.X, currentRobotyPos.Y)).Select(item => (CanvasRect<float>)item.Shape).FirstOrDefault();
+				if (!ReferenceEquals(_hoveredLabelRect, hoveredLabel))
+				{
+					if (_hoveredLabelRect != null) { _hoveredLabelRect.IsLabelHovered = false; MarkRoiDisplayChanged(_hoveredLabelRect); }
+					_hoveredLabelRect = hoveredLabel;
+					if (_hoveredLabelRect != null) { _hoveredLabelRect.IsLabelHovered = true; MarkRoiDisplayChanged(_hoveredLabelRect); }
+					_imageViewer.RefreshGL();
+				}
+
+				PointF imagePoint = ConvertCanvasPointToImagePoint(currentRobotyPos);
+				int hoveredIndex = -1;
+				foreach (int index in _polygonOverlayRenderIndex.QueryBounds(new RectangleF(imagePoint.X, imagePoint.Y, 1F, 1F)).OrderByDescending(index => index))
+				{
+					RoiImageCanvasPolygonOverlay polygon = _polygonOverlays[index];
+					if (polygon.ClassName == null || polygon.IsDraft || !polygon.IsClosed || polygon.ImagePoints.Count < 3) continue;
+					using var path = new System.Drawing.Drawing2D.GraphicsPath();
+					path.AddPolygon(polygon.ImagePoints.Select(point => new PointF(point.X, point.Y)).ToArray());
+					if (path.IsVisible(imagePoint)) { hoveredIndex = index; break; }
+				}
+				if (_hoveredPolygonOverlayIndex != hoveredIndex)
+				{
+					_hoveredPolygonOverlayIndex = hoveredIndex;
+					_imageViewer.RefreshGL();
+				}
+			}
 			if (IsImagePointInputMode)
 			{
 				_imageViewer.PostMousePos = currentRobotyPos;
@@ -3446,8 +3791,41 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			_imageViewer.ZoomAt(e.Location, e.Delta);
 		}
 
+		private bool CanZoom
+		{
+			get
+			{
+				var control = _imageViewer.GetOpenGLControl();
+				return !_imageSize.IsEmpty
+					&& control.IsHandleCreated
+					&& control.Width > 0
+					&& control.Height > 0;
+			}
+		}
+
+		private void ZoomAtCenter(int delta)
+		{
+			if (!CanZoom)
+			{
+				return;
+			}
+
+			var control = _imageViewer.GetOpenGLControl();
+			_imageViewer.ZoomAt(new System.Drawing.Point(control.Width / 2, control.Height / 2), delta);
+		}
+
 		private void OnMouseLeave(object sender, EventArgs e)
 		{
+			if (_hoveredLabelRect != null)
+			{
+				_hoveredLabelRect.IsLabelHovered = false; MarkRoiDisplayChanged(_hoveredLabelRect); _hoveredLabelRect = null;
+				_imageViewer.RefreshGL();
+			}
+			if (_hoveredPolygonOverlayIndex >= 0)
+			{
+				_hoveredPolygonOverlayIndex = -1;
+				_imageViewer.RefreshGL();
+			}
 			ClearBrushCursorPreview();
 		}
 
@@ -3788,6 +4166,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			//Ex. Load Image
 			//LoadImageRequested(this, mat);
 			CanvasImageLoader.UploadMatAsTexture(_imageViewer, mat, fileName, ref _imageSize, replaceExistingTextures: true);
+			OnPropertyChanged(nameof(ZoomPercentText));
+			System.Windows.Input.CommandManager.InvalidateRequerySuggested();
 		}
 
 		private bool IsRoiMoveLocked(CanvasRect<float> roiRect)
@@ -3819,12 +4199,15 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			}
 
 			_imageViewer.RefreshGL();
+			OnPropertyChanged(nameof(ZoomPercentText));
+			System.Windows.Input.CommandManager.InvalidateRequerySuggested();
 		}
 
 		public int LoadedTextureGroupCount => _imageViewer.TextureAreas.Count;
 
 		public void ClearRois()
 		{
+			_hoveredLabelRect = null;
 			ClearWindowRois();
 			_selectedRect = new CanvasRect<float>();
 			_drawingRect = new CanvasRect<float>();
@@ -4179,6 +4562,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 
 		private void ReplacePolygonOverlays(IEnumerable<RoiImageCanvasPolygonOverlay> overlays)
 		{
+			_hoveredPolygonOverlayIndex = -1;
 			_polygonOverlays.Clear();
 			_polygonOverlayBounds.Clear();
 			if (overlays != null)
@@ -4191,6 +4575,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 					}
 
 					RectangleF bounds = GetPolygonImageBounds(overlay.ImagePoints);
+					if (overlay.IsDraft && overlay.ClassName != null)
+						bounds = new RectangleF(bounds.X, bounds.Y, Math.Max(1F, bounds.Width), Math.Max(1F, bounds.Height));
 					if (bounds.Width <= 0F || bounds.Height <= 0F)
 					{
 						continue;
@@ -4203,7 +4589,11 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 						overlay.IsClosed,
 						overlay.IsDraft,
 						overlay.IsSelected,
-						overlay.SelectedPointIndex));
+						overlay.SelectedPointIndex,
+						overlay.ClassName,
+						overlay.Opacity,
+						overlay.ShowEditHandles,
+						overlay.IsBoxPointDraft));
 					_polygonOverlayBounds.Add(bounds);
 				}
 			}
@@ -4263,7 +4653,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 				}
 			}
 		}
-		public CanvasRect<float> AddInitialRoi(System.Drawing.Rectangle roi, CanvasRoiShapeKind shapeKind = CanvasRoiShapeKind.Rectangle, System.Drawing.Color? drawColor = null, string userTag = "")
+		public CanvasRect<float> AddInitialRoi(System.Drawing.Rectangle roi, CanvasRoiShapeKind shapeKind = CanvasRoiShapeKind.Rectangle, System.Drawing.Color? drawColor = null, string userTag = "", bool isLabelAnnotation = false, bool showLabelEditHandles = true)
 		{
 			if (roi.IsEmpty || roi.Width <= 0 || roi.Height <= 0) { return null; }
 
@@ -4278,7 +4668,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 				UniqueId = Guid.NewGuid().ToString(),
 				UserTag = userTag ?? string.Empty,
 				ShapeKind = shapeKind,
-				IsFill = shapeKind == CanvasRoiShapeKind.Ellipse
+				IsFill = shapeKind == CanvasRoiShapeKind.Ellipse,
+				IsLabelAnnotation = isLabelAnnotation, ShowLabelEditHandles = showLabelEditHandles, LabelColor = drawColor ?? System.Drawing.Color.DeepSkyBlue
 			};
 
 			_imageViewer.AddOverlay(parentOverlay.GroupType, parentOverlay.GroupType, rect, rect.UniqueId, parentOverlay.InspWindowType, EnumItemType.Window, drawColorOverride: drawColor);
@@ -4293,8 +4684,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			CanvasRect<float> rect = AddInitialRoi(
 				roi,
 				CanvasRoiShapeKind.Rectangle,
-				drawColor: null,
-				userTag);
+				drawColor: LabelDrawingColor,
+				userTag, isLabelAnnotation: LabelDrawingColor.HasValue);
 			if (rect == null) { return null; }
 
 			CanvasOverlayItem parentOverlay = _imageViewer.GetLastGroup();
@@ -4435,6 +4826,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 
 			_disposed = true;
 			_imageViewer.VisibleOverlayLodChanged -= ImageViewer_VisibleOverlayLodChanged;
+			_imageViewer.ZoomChanged -= ImageViewer_ZoomChanged;
 			_imageViewer.Draw -= OnDraw;
 			if (_inputAdapter != null)
 			{

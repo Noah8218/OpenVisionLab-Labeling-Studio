@@ -15,6 +15,12 @@ namespace MvcVisionSystem
                 return configuredRoot;
             }
 
+            if (data?.ProjectSettings?.AdditionalImageRootPaths?.Count > 0)
+            {
+                foreach (string sourceRoot in data.ProjectSettings.ResolveImageRootPaths())
+                    if (Directory.Exists(sourceRoot) && !IsImplicitDefaultImageRoot(sourceRoot)) return sourceRoot;
+            }
+
             foreach (string datasetImageRoot in EnumerateDatasetImageRoots(data))
             {
                 if (hasQueueImages?.Invoke(datasetImageRoot) == true)

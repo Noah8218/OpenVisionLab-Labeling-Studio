@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using OpenVisionLab;
@@ -47,6 +48,11 @@ namespace MvcVisionSystem
         {
             InitializeComponent();
             LocalizationTextRuntimeService.RegisterWindow(this);
+            LocalizationTextRuntimeService.RegisterRoot(ModelBenchmarkSummarySurface);
+            LocalizationTextRuntimeService.RegisterRoot(ModelBenchmarkMetricsSurface);
+            LocalizationTextRuntimeService.RegisterRoot(ModelBenchmarkClassErrorsSurface);
+            LocalizationTextRuntimeService.RegisterRoot(ModelBenchmarkConditionGrid);
+            LocalizationTextRuntimeService.RegisterRoot(ModelBenchmarkThresholdSurface);
             DataContext = viewModel ?? new WpfModelBenchmarkViewModel();
             Loaded += OnWindowLoaded;
             Unloaded += OnWindowUnloaded;
@@ -70,7 +76,7 @@ namespace MvcVisionSystem
             }
 
             ApplicationThemeManager.Apply(this);
-            if (TryFindResource("AppBackgroundBrush") is MediaBrush background)
+            if (TryFindResource("RecipePageBrush") is MediaBrush background)
             {
                 Background = background;
             }
@@ -143,14 +149,12 @@ namespace MvcVisionSystem
 
             if (ModelBenchmarkSummaryGrid.Columns.Count > 3)
             {
-                ModelBenchmarkSummaryGrid.Columns[3].Header =
-                    OpenVisionLanguageService.T("WpfModelBenchmark.Header.Runtime");
+                ModelBenchmarkSummaryGrid.Columns[3].SetCurrentValue(DataGridColumn.HeaderProperty, OpenVisionLanguageService.T("WpfModelBenchmark.Header.Runtime"));
             }
 
             if (ModelBenchmarkSummaryGrid.Columns.Count > 6)
             {
-                ModelBenchmarkSummaryGrid.Columns[6].Header =
-                    OpenVisionLanguageService.T("WpfModelBenchmark.Header.BaselineDelta");
+                ModelBenchmarkSummaryGrid.Columns[6].SetCurrentValue(DataGridColumn.HeaderProperty, OpenVisionLanguageService.T("WpfModelBenchmark.Header.BaselineDelta"));
             }
         }
 
@@ -215,9 +219,9 @@ namespace MvcVisionSystem
                 ModelBenchmarkQualityTaktCanvas,
                 ViewModel?.DashboardQualityTaktPoints,
                 ViewModel?.DashboardQualityTaktStatusText,
-                ResolveBrush("GridLineBrush", MediaColor.FromRgb(42, 42, 42)),
-                ResolveBrush("PrimaryTextBrush", MediaColor.FromRgb(247, 247, 247)),
-                ResolveBrush("SecondaryTextBrush", MediaColor.FromRgb(183, 183, 183)),
+                ResolveBrush("RecipeBorderBrush", MediaColor.FromRgb(45, 55, 69)),
+                ResolveBrush("RecipeTextBrush", MediaColor.FromRgb(232, 237, 245)),
+                ResolveBrush("RecipeMutedTextBrush", MediaColor.FromRgb(165, 176, 192)),
                 ResolveBrush("BaselineBrush", MediaColor.FromRgb(34, 197, 94)),
                 ResolveBrush("CandidateBrush", MediaColor.FromRgb(78, 161, 255)));
         }

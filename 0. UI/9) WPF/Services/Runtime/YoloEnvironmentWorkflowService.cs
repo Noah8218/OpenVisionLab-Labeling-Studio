@@ -53,7 +53,13 @@ namespace MvcVisionSystem
 
         public bool IsRunning { get; private set; }
 
-        public async Task CheckAsync(YoloEnvironmentCallbacks view)
+        public Task CheckAsync(YoloEnvironmentCallbacks view)
+            => CheckAsync(view, checkTrainingCapability: false);
+
+        public Task CheckTrainingAsync(YoloEnvironmentCallbacks view)
+            => CheckAsync(view, checkTrainingCapability: true);
+
+        private async Task CheckAsync(YoloEnvironmentCallbacks view, bool checkTrainingCapability)
         {
             if (!Begin(view, YoloEnvironmentCommandPresentationService.BuildEnvironmentCheckStartingStatus()))
             {
@@ -66,7 +72,7 @@ namespace MvcVisionSystem
                 PythonModelRuntimeState runtimeState = runtimeStateAccessor();
                 PythonModelValidationResult result = runtimeState.State == PythonModelRuntimeStateKind.NotInstalled
                     ? new PythonModelValidationResult(new[] { runtimeState.NextActionText }, Array.Empty<string>())
-                    : PythonModelSettingsValidator.Validate(settings, requireWeights: true);
+                    : PythonModelSettingsValidator.Validate(settings, requireWeights: !checkTrainingCapability);
                 view.RefreshStatus();
                 view.ShowModelCenter();
                 await view.RefreshSettingsAsync(result).ConfigureAwait(true);
@@ -77,6 +83,13 @@ namespace MvcVisionSystem
 
                 if (result.IsValid)
                 {
+                    if (checkTrainingCapability && (!runtimeStateAccessor().CanRunTraining || view.IsWorkerConnected?.Invoke() == false)
+                        && PythonModelRuntimeBundledWorkerService.IsUltralyticsWorkerScriptPath(settings.ClientScriptPath))
+                    {
+                        await ConnectWorkerAsync(view).ConfigureAwait(true);
+                        return;
+                    }
+
                     string readyStatus = YoloEnvironmentCommandPresentationService.BuildEnvironmentReadyStatus();
                     view.SetCommandStatus(readyStatus, false);
                     view.AppendLog(readyStatus);
@@ -297,6 +310,18 @@ namespace MvcVisionSystem
                 return;
             }
 
+            try
+            {
+                await ConnectWorkerAsync(view).ConfigureAwait(true);
+            }
+            finally
+            {
+                End(view);
+            }
+        }
+
+        private async Task ConnectWorkerAsync(YoloEnvironmentCallbacks view)
+        {
             CancellationTokenSource cancellation = new CancellationTokenSource();
             workerCancellation = cancellation;
             CancellationToken cancellationToken = cancellation.Token;
@@ -355,7 +380,6 @@ namespace MvcVisionSystem
                 }
 
                 cancellation.Dispose();
-                End(view);
             }
         }
 
@@ -447,6 +471,7 @@ namespace MvcVisionSystem
     public sealed class YoloEnvironmentCallbacks
     {
         public Func<bool> HasConflictingCommand { get; init; }
+        public Func<bool> IsWorkerConnected { get; init; }
         public Action ClearRecovery { get; init; }
         public Action<string, bool> SetCommandStatus { get; init; }
         public Action<bool> SetCommandBusy { get; init; }

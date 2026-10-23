@@ -48,11 +48,17 @@ namespace MvcVisionSystem
                         isAnomalyPurpose: true);
                     foreach (WpfImageQueueItem item in items)
                     {
-                        WpfImageQueuePresenter.ApplyAnomalyReviewStatusToItem(item, projection.GetStatus(item.ImagePath));
+                        WpfImageQueuePresenter.ApplyAnomalyReviewStatusToItem(item, projection.GetStatus(item.ImagePath), context.ImageQualityReviewWorkflowService.GetOrCreate(item.ImagePath));
                     }
                 }
 
+                for (int index = 0; index < items.Count; index++)
+                {
+                    items[index]?.SetQueuePosition(index + 1, items.Count);
+                }
+
                 context.ImageQueueItems.ReplaceAll(items);
+                context.AdoptDatasetWorkspace?.Invoke(request.Data);
                 RebuildImageQueueItemIndex(items);
                 context.RefreshImageQueueView?.Invoke();
                 context.SelectImageQueueItem?.Invoke(request.SelectedImagePath);
@@ -118,7 +124,8 @@ namespace MvcVisionSystem
             {
                 WpfImageQueuePresenter.ApplyAnomalyReviewStatusToItem(
                     item,
-                    context.AnomalyImageReviewSession.GetStatus(item.ImagePath, isAnomalyPurpose: true));
+                    context.AnomalyImageReviewSession.GetStatus(item.ImagePath, isAnomalyPurpose: true),
+                    context.ImageQualityReviewWorkflowService.GetOrCreate(item.ImagePath));
             }
 
             context.RefreshImageQueueView?.Invoke();
@@ -151,6 +158,7 @@ namespace MvcVisionSystem
     internal sealed class ImageQueueCatalogProjectionAdapterContext
     {
         internal Func<LabelingProjectData> DataProvider { get; init; }
+        internal Action<LabelingProjectData> AdoptDatasetWorkspace { get; init; }
         internal ImageQualityReviewWorkflowService ImageQualityReviewWorkflowService { get; init; }
         internal AnomalyImageReviewSession AnomalyImageReviewSession { get; init; }
         internal ImageQueueSelectionService ImageQueueSelectionService { get; init; }

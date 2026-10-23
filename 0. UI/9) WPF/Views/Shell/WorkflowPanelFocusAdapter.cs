@@ -20,10 +20,11 @@ namespace MvcVisionSystem
             context.ShowYoloModelCenterWorkflowView?.Invoke();
             if (context.YoloModelCenterTaskTabs != null)
             {
-                context.YoloModelCenterTaskTabs.SelectedItem = context.YoloModelCenterOverviewTaskTab;
+                context.YoloModelCenterTaskTabs.SelectedItem = context.YoloModelCenterDataTaskTab;
             }
 
             CollapseYoloAdvancedSettingsForOverview();
+            context.YoloDatasetReadinessQuickPanel?.SetCurrentValue(Expander.IsExpandedProperty, false);
             context.UpdateLayout?.Invoke();
             context.YoloSettingsScrollViewer?.ScrollToTop();
         }
@@ -31,12 +32,7 @@ namespace MvcVisionSystem
         internal void FocusYoloModelSettingsTab()
         {
             context.ShowYoloModelCenterWorkflowView?.Invoke();
-            if (context.YoloModelCenterTaskTabs != null)
-            {
-                context.YoloModelCenterTaskTabs.SelectedItem = context.YoloModelCenterRuntimeTaskTab;
-            }
-
-            CollapseYoloAdvancedSettingsForOverview();
+            context.SelectTrainingRuntimeTab?.Invoke();
             context.YoloModelSettingsExpander?.SetCurrentValue(Expander.IsExpandedProperty, true);
             context.UpdateLayout?.Invoke();
             context.YoloModelSettingsPanel?.BringIntoView();
@@ -47,7 +43,7 @@ namespace MvcVisionSystem
             context.ShowYoloModelCenterWorkflowView?.Invoke();
             if (context.YoloModelCenterTaskTabs != null)
             {
-                context.YoloModelCenterTaskTabs.SelectedItem = context.YoloModelCenterTrainingTaskTab;
+                context.YoloModelCenterTaskTabs.SelectedItem = context.YoloModelCenterDataTaskTab;
             }
 
             CollapseYoloAdvancedSettingsForOverview();
@@ -70,41 +66,27 @@ namespace MvcVisionSystem
             }
 
             context.YoloSettingsScrollViewer?.ScrollToTop();
-            if (context.YoloModelCenterOverviewTaskTab?.IsSelected == true)
+            context.TrainingSettingsExpander?.SetCurrentValue(Expander.IsExpandedProperty, context.YoloModelCenterDataTaskTab?.IsSelected != true);
+            if (context.YoloModelCenterDataTaskTab?.IsSelected == true)
             {
-                CollapseYoloAdvancedSettingsForOverview();
                 context.YoloDatasetReadinessQuickPanel?.SetCurrentValue(Expander.IsExpandedProperty, false);
             }
-            else if (context.YoloModelCenterDataTaskTab?.IsSelected == true)
+            else if (context.YoloModelCenterOverviewTaskTab?.IsSelected == true && !context.IsModelComparisonVisible())
             {
-                context.YoloDatasetReadinessQuickPanel?.SetCurrentValue(Expander.IsExpandedProperty, true);
-            }
-            else if (context.YoloModelCenterTrainingTaskTab?.IsSelected == true)
-            {
-                if (!context.IsModelComparisonVisible())
+                try
                 {
-                    try
-                    {
-                        context.UpdateTrainingComparisonViewModel?.Invoke(
-                            context.BuildCurrentTrainingWeightsComparison?.Invoke());
-                    }
-                    catch (Exception ex)
-                    {
-                        context.AppendLog?.Invoke($"모델 비교 요약 불러오기 실패: {ex.Message}");
-                    }
+                    context.UpdateTrainingComparisonViewModel?.Invoke(context.BuildCurrentTrainingWeightsComparison?.Invoke());
                 }
-
-                context.TrainingSettingsExpander?.SetCurrentValue(Expander.IsExpandedProperty, true);
-            }
-            else if (context.YoloModelCenterRuntimeTaskTab?.IsSelected == true)
-            {
-                context.YoloModelSettingsExpander?.SetCurrentValue(Expander.IsExpandedProperty, true);
+                catch (Exception ex)
+                {
+                    context.AppendLog?.Invoke($"모델 비교 요약 불러오기 실패: {ex.Message}");
+                }
             }
         }
 
         internal void CollapseYoloAdvancedSettingsForOverview()
         {
-            // The overview keeps the next operator action visible; specific routes expand one editor.
+            // Preparation keeps conditions visible in its summary; explicit settings routes expand the editor.
             context.YoloRuntimeDetailsExpander?.SetCurrentValue(Expander.IsExpandedProperty, false);
             context.ProjectConfigExpander?.SetCurrentValue(Expander.IsExpandedProperty, false);
             context.YoloModelSettingsExpander?.SetCurrentValue(Expander.IsExpandedProperty, false);
@@ -154,6 +136,28 @@ namespace MvcVisionSystem
                 return;
             }
 
+            // The labeling workbench keeps the operator's class palette, saved
+            // objects, and edit history visible while a tool is active. Tool
+            // options are already rendered in the canvas toolbar; switching the
+            // review dock to the learning guide on every P/B/E selection hides
+            // the very context needed to continue editing the same object.
+            if (!context.IsDatasetStageActive())
+            {
+                switch (tool)
+                {
+                    case WpfAnnotationTool.Rectangle:
+                    case WpfAnnotationTool.Ellipse:
+                    case WpfAnnotationTool.Polygon:
+                    case WpfAnnotationTool.Brush:
+                    case WpfAnnotationTool.Eraser:
+                    case WpfAnnotationTool.PanZoom:
+                    case WpfAnnotationTool.Select:
+                    case WpfAnnotationTool.Delete:
+                        context.ShowSavedLabelsWorkflowView?.Invoke();
+                        return;
+                }
+            }
+
             switch (tool)
             {
                 case WpfAnnotationTool.Rectangle:
@@ -183,6 +187,7 @@ namespace MvcVisionSystem
     internal sealed class WorkflowPanelFocusAdapterContext
     {
         internal Action ShowYoloModelCenterWorkflowView { get; init; }
+        internal Action SelectTrainingRuntimeTab { get; init; }
         internal Action<WpfShellWorkflowStage> ShowGuideToolsWorkflowView { get; init; }
         internal Action ShowSavedLabelsWorkflowView { get; init; }
         internal Action UpdateLayout { get; init; }
@@ -202,7 +207,7 @@ namespace MvcVisionSystem
         internal TabItem YoloModelCenterOverviewTaskTab { get; init; }
         internal TabItem YoloModelCenterDataTaskTab { get; init; }
         internal TabItem YoloModelCenterTrainingTaskTab { get; init; }
-        internal TabItem YoloModelCenterRuntimeTaskTab { get; init; }
+        internal Expander TrainingEnvironmentDetailsExpander { get; init; }
         internal ScrollViewer YoloSettingsScrollViewer { get; init; }
         internal Expander YoloDatasetReadinessQuickPanel { get; init; }
         internal Expander YoloRuntimeDetailsExpander { get; init; }

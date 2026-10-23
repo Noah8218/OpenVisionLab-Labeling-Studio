@@ -3,8 +3,11 @@ using MvcVisionSystem.Yolo;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace MvcVisionSystem
 {
@@ -263,6 +266,81 @@ namespace MvcVisionSystem
             return CaptureLabelStatusRefresh(data)(imagePath, imageSize);
         }
 
+        public LabelSuspicionGroundTruth ReadLabelSuspicionGroundTruth(string imagePath, Size imageSize, LabelingProjectData data)
+        {
+            LabelingProjectData snapshot;
+            lock (sessionLock)
+            {
+                if (!CanReviewCore(data) || !ContainsImage(imagePath))
+                    return new(Array.Empty<LabelSuspicionAnnotation>(), string.Empty, "SavedLabelsUnavailable");
+                snapshot = CaptureReviewData(data);
+            }
+            try
+            {
+                LabelingDatasetPurpose purpose = snapshot?.ProjectSettings?.DatasetPurpose ?? LabelingDatasetPurpose.ObjectDetection;
+                var labels = new List<LabelSuspicionAnnotation>();
+                string path = purpose == LabelingDatasetPurpose.AnomalyDetection ? AnomalyImageReviewStatusService.ResolveReviewStatusFilePath(snapshot)
+                    : purpose == LabelingDatasetPurpose.Segmentation ? YoloSegmentationAnnotationService.GetCandidateSegmentPaths(imagePath, snapshot).FirstOrDefault(File.Exists)
+                    : YoloAnnotationService.GetCandidateLabelPaths(imagePath, snapshot).FirstOrDefault(File.Exists);
+                if (string.IsNullOrEmpty(path) || !File.Exists(path)) return new(labels, string.Empty,
+                    purpose == LabelingDatasetPurpose.AnomalyDetection ? "SavedVerdictUnavailable" : "SavedLabelsUnavailable");
+                string beforeHash = HashFile(path);
+                DirectoryInfo segmentDirectory = purpose == LabelingDatasetPurpose.Segmentation ? Directory.GetParent(path) : null;
+                string maskPath = segmentDirectory?.Parent != null && string.Equals(segmentDirectory.Name, "segments", StringComparison.OrdinalIgnoreCase)
+                    ? Path.Combine(segmentDirectory.Parent.FullName, "masks", Path.GetFileNameWithoutExtension(path) + ".png") : string.Empty;
+                string beforeMaskHash = File.Exists(maskPath) ? HashFile(maskPath) : string.Empty;
+                string extraIdentity = string.Empty;
+                bool? verdict = null;
+                if (purpose == LabelingDatasetPurpose.AnomalyDetection)
+                {
+                    if (!AnomalyImageReviewStatusService.TryReadSavedVerdict(snapshot, imagePath, out verdict, out string error))
+                        return new(labels, string.Empty, string.IsNullOrEmpty(error) ? "SavedVerdictUnavailable" : "SavedLabelsMalformed", error);
+                    extraIdentity = verdict.Value ? "abnormal" : "normal";
+                }
+                else if (purpose == LabelingDatasetPurpose.Segmentation)
+                {
+                    var segments = YoloSegmentationAnnotationService.LoadSegmentationObjectsForImage(imagePath, snapshot.ClassNamedList, snapshot, imageSize);
+                    foreach (var group in segments)
+                        for (int index = 0; index < group.Value.Count; index++)
+                        {
+                            LabelingSegmentationObject segment = group.Value[index];
+                            Rectangle bounds = segment.Bounds;
+                            labels.Add(new("segment:" + group.Key + ":" + index, group.Key, bounds.X, bounds.Y, bounds.Width, bounds.Height, index, segment.ObjectId));
+                        }
+                    extraIdentity = File.Exists(maskPath) ? HashFile(maskPath) : string.Empty;
+                }
+                else
+                {
+                    YoloAnnotationLoadResult loaded = YoloAnnotationService.LoadAnnotationRectanglesForImageWithDiagnostics(imagePath, snapshot.ClassNamedList, snapshot, imageSize);
+                    if (!loaded.HasSourceFile) return new(labels, string.Empty, "SavedLabelsUnavailable");
+                    if (loaded.HasErrors) return new(labels, string.Empty, "SavedLabelsMalformed", loaded.ErrorSummary);
+                    path = loaded.LabelPath;
+                    foreach (var group in loaded.Annotations)
+                        for (int index = 0; index < group.Value.Count; index++)
+                        {
+                            Rectangle bounds = group.Value[index];
+                            labels.Add(new("box:" + group.Key + ":" + index, group.Key, bounds.X, bounds.Y, bounds.Width, bounds.Height, index));
+                        }
+                }
+                string afterHash = HashFile(path);
+                if (beforeHash != afterHash || purpose == LabelingDatasetPurpose.Segmentation && beforeMaskHash != extraIdentity)
+                    return new(labels, string.Empty, "SavedLabelsChanged");
+                string identity = afterHash + "|" + extraIdentity + "|" + imageSize.Width + "x" + imageSize.Height
+                    + "|" + string.Join("|", (snapshot.ClassNamedList ?? new List<LabelClass>()).Select(item => item?.Text ?? string.Empty));
+                return new(labels, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity))), AnomalyVerdict: verdict);
+            }
+            catch (Exception error) when (error is IOException || error is InvalidDataException || error is UnauthorizedAccessException || error is Newtonsoft.Json.JsonException || error is ArgumentException)
+            {
+                return new(Array.Empty<LabelSuspicionAnnotation>(), string.Empty, "SavedLabelsMalformed", error.Message);
+            }
+        }
+
+        private static string HashFile(string path)
+        {
+            using FileStream stream = File.OpenRead(path);
+            return Convert.ToHexString(SHA256.HashData(stream));
+        }
+
         public YoloImageReviewStatus RefreshLabelStatusAndReviewState(string imagePath, Size imageSize, LabelingProjectData data, bool hasActiveCandidates)
         {
             return CaptureLabelStatusRefresh(data, hasActiveCandidates)(imagePath, imageSize);
@@ -308,6 +386,9 @@ namespace MvcVisionSystem
                     && (request.IsSaveRequired || request.IsAnnotationDirty || !request.HasCompletedLabelWork))
                     return ImageQualityReviewResult.Rejected(current);
 
+                YoloImageQualityReviewState previousState = current.QualityReviewState;
+                string previousNote = current.QualityReviewNote;
+                DateTime previousUpdatedUtc = current.LastUpdatedUtc;
                 imageRevisions[request.ImagePath] = ++revision;
                 YoloImageReviewStatus status = request.State switch
                 {
@@ -315,8 +396,85 @@ namespace MvcVisionSystem
                     YoloImageQualityReviewState.Reviewed => reviewStatus.MarkQualityReviewed(request.ImagePath, request.ImageName),
                     _ => reviewStatus.ClearQualityReview(request.ImagePath, request.ImageName)
                 };
-                reviewStatus.SaveReviewStatus(CaptureReviewData(data));
-                return ImageQualityReviewResult.Accepted(status);
+                try
+                {
+                    reviewStatus.SaveReviewStatus(CaptureReviewData(data), throwOnError: true);
+                    return ImageQualityReviewResult.Accepted(status);
+                }
+                catch
+                {
+                    current.QualityReviewState = previousState;
+                    current.QualityReviewNote = previousNote;
+                    current.LastUpdatedUtc = previousUpdatedUtc;
+                    imageRevisions[request.ImagePath] = ++revision;
+                    throw;
+                }
+            }
+        }
+
+        // Passing an empty identity explicitly restores review. Saving a dismissal never changes label or approval state.
+        public YoloImageReviewStatus SaveLabelSuspicionDismissal(string imagePath, string evidenceIdentity, LabelingProjectData data)
+        {
+            lock (sessionLock)
+            {
+                if (!ContainsImage(imagePath) || !CanReviewCore(data)) throw new InvalidDataException("The current review catalog is unavailable.");
+                YoloImageReviewStatus status = reviewStatus.GetOrCreate(imagePath);
+                string previousIdentity = status.LabelSuspicionDismissalIdentity;
+                DateTime previousUpdatedUtc = status.LastUpdatedUtc;
+                reviewStatus.SetLabelSuspicionDismissal(imagePath, evidenceIdentity);
+                imageRevisions[imagePath] = ++revision;
+                try
+                {
+                    reviewStatus.SaveReviewStatus(CaptureReviewData(data), throwOnError: true);
+                    return status;
+                }
+                catch
+                {
+                    status.LabelSuspicionDismissalIdentity = previousIdentity;
+                    status.LastUpdatedUtc = previousUpdatedUtc;
+                    imageRevisions[imagePath] = ++revision;
+                    throw;
+                }
+            }
+        }
+
+        internal void SaveGroundTruthChanges(IEnumerable<string> imagePaths, LabelingProjectData data, Action saveGroundTruth)
+        {
+            ArgumentNullException.ThrowIfNull(saveGroundTruth);
+            lock (sessionLock)
+            {
+                string[] paths = (imagePaths ?? Array.Empty<string>()).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+                if (!CanReviewCore(data) || paths.Any(path => !ContainsImage(path)))
+                    throw new InvalidDataException("The current review catalog is unavailable.");
+                var previous = paths.Select(path => reviewStatus.GetOrCreate(path)).Select(status => new
+                {
+                    Status = status, State = status.QualityReviewState, Note = status.QualityReviewNote, UpdatedUtc = status.LastUpdatedUtc
+                }).ToArray();
+                try
+                {
+                    AnnotationFilePersistence.ExecuteTransaction(() =>
+                    {
+                        saveGroundTruth();
+                        foreach (var item in previous)
+                        {
+                            if (item.State == YoloImageQualityReviewState.Unreviewed && string.IsNullOrEmpty(item.Note)) continue;
+                            reviewStatus.ClearQualityReview(item.Status.ImagePath, item.Status.ImageName);
+                            imageRevisions[item.Status.ImagePath] = ++revision;
+                        }
+                        reviewStatus.SaveReviewStatus(CaptureReviewData(data), throwOnError: true);
+                    });
+                }
+                catch
+                {
+                    foreach (var item in previous)
+                    {
+                        item.Status.QualityReviewState = item.State;
+                        item.Status.QualityReviewNote = item.Note;
+                        item.Status.LastUpdatedUtc = item.UpdatedUtc;
+                        imageRevisions[item.Status.ImagePath] = ++revision;
+                    }
+                    throw;
+                }
             }
         }
 

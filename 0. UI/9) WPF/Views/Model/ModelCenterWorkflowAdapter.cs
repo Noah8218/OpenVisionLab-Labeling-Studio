@@ -334,14 +334,12 @@ namespace MvcVisionSystem
                         MetricsSummary = plan.MetricsSummary,
                         DecisionSummary = plan.DecisionSummary,
                         AdoptionPlan = plan,
+                        TrainingRunId = selected.TrainingRunId,
+                        TrainingRunName = selected.TrainingRunName,
                         SaveModelMetadata = SaveModelMetadataConfigFromPanel
                     });
 
-                if (result.ShouldRetainPendingCandidate)
-                {
-                    RestorePendingCandidateModelState(settings, result.CandidateWeightsPath, result.BaselineWeightsPath);
-                }
-                else if (result.IsCommitted)
+                if (result.IsCommitted)
                 {
                     adoptionCommitted = true;
                     HasPendingTrainingWeightsRecipeSave = false;
@@ -405,6 +403,69 @@ namespace MvcVisionSystem
             PendingTrainingBaselineWeightsPath = baselineWeightsPath;
         }
 
+        internal ModelCandidateLifecycleResult AdoptWorkspaceModel(WpfModelRegistryHistoryItem selected, string reason, WpfModelBenchmarkRun evaluation = null)
+        {
+            if (IsApplicationCloseApproved || selected == null || string.IsNullOrWhiteSpace(reason)) return ModelCandidateLifecycleResult.InvalidAdoptionPlan();
+            EnsureProjectSettings();
+            PythonModelSettings settings = projectData.ProjectSettings.PythonModel;
+            ModelHistoryAdoptionPlan plan = ModelHistoryAdoptionPlanningService.Build(new ModelHistoryAdoptionRequest
+            {
+                HasSelection = true,
+                CandidateWeightsPath = selected.WeightsPath,
+                CurrentWeightsPath = settings.WeightsPath,
+                FallbackBaselineWeightsPath = selected.BaselineWeightsPath,
+                MetricText = selected.MetricText,
+                DecisionText = reason,
+                DatasetVersionId = selected.DatasetVersionId,
+                DatasetContentSha256 = selected.DatasetContentSha256,
+                CandidateWeightsSha256 = selected.WeightsSha256,
+                CandidateArtifactPath = selected.ArtifactPath,
+                CandidateWeightsFileExists = File.Exists(selected.WeightsPath),
+                CandidateArtifactExists = File.Exists(selected.ArtifactPath),
+                CandidateArtifactHashMatches = ModelArtifactStoreService.Verify(selected.ArtifactPath, selected.WeightsSha256)
+            });
+            ModelCandidateLifecycleResult result = ModelCandidateLifecycleWorkflowService.Adopt(new ModelCandidateLifecycleRequest
+            {
+                Data = projectData,
+                CandidateWeightsPath = plan.CandidateWeightsPath,
+                BaselineWeightsPath = plan.BaselineWeightsPath,
+                MetricsSummary = plan.MetricsSummary,
+                DecisionSummary = reason,
+                AdoptionPlan = plan,
+                TrainingRunId = selected.TrainingRunId,
+                TrainingRunName = selected.TrainingRunName,
+                EvaluationDatasetVersionId = evaluation?.DatasetVersionId,
+                EvaluationDatasetContentSha256 = evaluation?.DatasetContentSha256,
+                EvaluationReportPath = evaluation?.SourcePath,
+                EvaluationReportSha256 = evaluation?.SourceSha256,
+                EvaluationConditions = evaluation?.EvaluationConditionKey,
+                EvaluationMetricsSummary = evaluation == null
+                    ? string.Empty
+                    : string.Join("; ", evaluation.Metrics.Select(metric => metric.Key + "=" + metric.Value.ToString("R", System.Globalization.CultureInfo.InvariantCulture)))
+                        + "; taktMs=" + evaluation.TaktMs?.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
+                SaveModelMetadata = SaveModelMetadataConfigFromPanel
+            });
+            if (result.IsCommitted)
+            {
+                HasPendingTrainingWeightsRecipeSave = false;
+                PendingTrainingBaselineWeightsPath = string.Empty;
+                LastAutoAppliedTrainingWeightsPath = result.CandidateWeightsPath;
+            }
+            try
+            {
+                PopulateYoloEditorFields();
+                RefreshYoloStatus();
+                UpdateYoloTrainingHistoryText();
+                RefreshModelCenterDashboard();
+                UpdateYoloCommandButtons();
+            }
+            catch (Exception ex) when (result.IsCommitted)
+            {
+                AppendLog(ModelCandidateDecisionPresentationService.BuildAdoptionRefreshFailureStatus(ex.Message));
+            }
+            return result;
+        }
+
         private void SetModelCenterHistoryApplyFailure(string titleText, string detailText)
         {
             ShellViewModel?.SetModelCenterRecoveryState(
@@ -415,6 +476,38 @@ namespace MvcVisionSystem
             AppendLog($"{titleText}: {detailText}");
             RefreshModelCenterDashboard();
         }
+
+        internal ModelCandidateLifecycleResult UndoWorkspaceAdoption(string adoptionId)
+        {
+            if (IsApplicationCloseApproved) return ModelCandidateLifecycleResult.UndoUnavailable(new InvalidOperationException("응용 프로그램을 닫고 있습니다."));
+            EnsureProjectSettings();
+            ModelCandidateLifecycleResult result = ModelCandidateLifecycleWorkflowService.UndoAdoption(new ModelAdoptionUndoRequest
+            {
+                Data = projectData,
+                AdoptionId = adoptionId,
+                SaveModelMetadata = SaveModelMetadataConfigFromPanel
+            });
+            if (result.IsCommitted)
+            {
+                HasPendingTrainingWeightsRecipeSave = false;
+                PendingTrainingBaselineWeightsPath = string.Empty;
+                LastAutoAppliedTrainingWeightsPath = result.CandidateWeightsPath;
+            }
+            try
+            {
+                PopulateYoloEditorFields();
+                RefreshYoloStatus();
+                UpdateYoloTrainingHistoryText();
+                RefreshModelCenterDashboard();
+                UpdateYoloCommandButtons();
+            }
+            catch (Exception ex) when (result.IsCommitted)
+            {
+                AppendLog(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfComparisonWorkspace.UndoRefreshFailed"), ex.Message));
+            }
+            return result;
+        }
+
         #endregion
 
         #region ModelCenterDashboard
@@ -428,6 +521,7 @@ namespace MvcVisionSystem
                 {
                     Data = projectData,
                     Comparison = comparison,
+                    RuntimeState = context.RuntimeStateProvider?.Invoke(),
                     ConfiguredWeightsPathOverride = configuredWeightsPathOverride,
                     PendingBaselineWeightsPath = PendingTrainingBaselineWeightsPath,
                     PendingManualWeightsSelection = pendingManualWeightsSelection,
@@ -436,6 +530,17 @@ namespace MvcVisionSystem
                 });
             comparison = workflowResult.Comparison;
             ModelCenterDashboardState dashboardState = workflowResult.DashboardState;
+            WpfModelRegistryHistoryItem selectedInferenceModel = ShellViewModel?.SelectedInferenceModelHistoryItem;
+            if (selectedInferenceModel != null && !dashboardState.RegistryPresentation.HistoryItems.Any(item =>
+                string.Equals(item.CandidateId, selectedInferenceModel.CandidateId, StringComparison.Ordinal)
+                && string.Equals(item.WeightsPath, selectedInferenceModel.WeightsPath, StringComparison.OrdinalIgnoreCase)))
+            {
+                WpfModelRegistryHistoryItem currentSelection = ModelRegistryHistoryPresentationService.BuildHistoryItems(projectData.ProjectSettings.ModelRegistry, int.MaxValue)
+                    .FirstOrDefault(item => string.Equals(item.CandidateId, selectedInferenceModel.CandidateId, StringComparison.Ordinal)
+                        && string.Equals(item.WeightsPath, selectedInferenceModel.WeightsPath, StringComparison.OrdinalIgnoreCase));
+                dashboardState.RegistryPresentation.HistoryItems = ModelRegistryHistoryPresentationService.IncludeInferenceSelection(dashboardState.RegistryPresentation.HistoryItems, currentSelection);
+            }
+
             ShellViewModel?.ApplyModelCenterModelState(dashboardState);
             LearningWorkflowViewModel?.SetTrainingModelLifecycleState(
                 dashboardState.CurrentModelText,
@@ -525,6 +630,7 @@ namespace MvcVisionSystem
     internal sealed class ModelCenterWorkflowAdapterContext
     {
         internal Func<LabelingProjectData> DataProvider { get; init; }
+        internal Func<PythonModelRuntimeState> RuntimeStateProvider { get; init; }
         internal ModelCandidateLifecycleWorkflowService ModelCandidateLifecycleWorkflowService { get; init; }
         internal ModelCenterDashboardWorkflowService ModelCenterDashboardWorkflowService { get; init; }
         internal AnomalyClassificationEvaluationWorkflowService AnomalyClassificationEvaluationWorkflowService { get; init; }

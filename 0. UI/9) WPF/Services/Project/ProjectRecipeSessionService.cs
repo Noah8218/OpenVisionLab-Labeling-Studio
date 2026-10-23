@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MvcVisionSystem._1._Core;
@@ -47,6 +48,68 @@ namespace MvcVisionSystem
                 : data.SaveConfig(recipeName, refreshDatasetVersion);
         }
 
+        public RecipeConfigurationSaveResult SaveRecipeMetadata(
+            string recipeRootPath,
+            string recipeName,
+            string productCode,
+            string recipeDescription,
+            RecipeImageSelectionMode previewImageMode,
+            string previewImageRelativePath)
+        {
+            string normalizedRecipeName = recipeName?.Trim() ?? string.Empty;
+            string normalizedProductCode = productCode?.Trim() ?? string.Empty;
+            string normalizedDescription = recipeDescription?.Trim() ?? string.Empty;
+            if (!ProjectRecipeService.IsValidRecipeName(normalizedRecipeName)
+                || normalizedProductCode.Length > LabelingProjectSettings.RecipeProductCodeMaxLength
+                || normalizedDescription.Length > LabelingProjectSettings.RecipeDescriptionMaxLength
+                || !Enum.IsDefined(typeof(RecipeImageSelectionMode), previewImageMode)
+                || (previewImageMode == RecipeImageSelectionMode.Selected
+                    && !IsValidRecipePreviewImageRelativePath(previewImageRelativePath)))
+            {
+                return new RecipeConfigurationSaveResult(
+                    string.Empty,
+                    failureKind: RecipeConfigurationFailureKind.ValidationFailed,
+                    errorMessage: "Recipe metadata is invalid.");
+            }
+
+            string path = ProjectRecipeService.BuildConfigPath(recipeRootPath, normalizedRecipeName);
+            var store = new RecipeConfigurationStore();
+            RecipeConfigurationLoadResult loadResult = store.Load(path);
+            if (!loadResult.IsSuccess)
+            {
+                return new RecipeConfigurationSaveResult(
+                    path,
+                    failureKind: loadResult.FailureKind,
+                    errorMessage: loadResult.ErrorMessage);
+            }
+
+            loadResult.Data.ProjectSettings ??= new LabelingProjectSettings();
+            loadResult.Data.ProjectSettings.ProductCode = normalizedProductCode;
+            loadResult.Data.ProjectSettings.RecipeDescription = normalizedDescription;
+            loadResult.Data.ProjectSettings.RecipeListPreviewImageMode = previewImageMode;
+            loadResult.Data.ProjectSettings.RecipeListPreviewImageRelativePath = previewImageMode == RecipeImageSelectionMode.Selected
+                ? previewImageRelativePath.Trim()
+                : string.Empty;
+            return store.Save(path, loadResult.Data);
+        }
+
+        private static bool IsValidRecipePreviewImageRelativePath(string path)
+        {
+            string normalizedPath = path?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(normalizedPath) || Path.IsPathRooted(normalizedPath))
+            {
+                return false;
+            }
+
+            string[] segments = normalizedPath
+                .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
+                .Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+            return segments.Length > 0
+                && segments.All(segment => !string.Equals(segment, ".", StringComparison.Ordinal)
+                    && !string.Equals(segment, "..", StringComparison.Ordinal)
+                    && !segment.Any(char.IsControl));
+        }
+
         public string Apply(LabelingApplicationState application, string recipeName)
         {
             ValidateApplyInputs(application, recipeName);
@@ -61,6 +124,13 @@ namespace MvcVisionSystem
             {
                 applyGate.Release();
             }
+        }
+
+        public void ClearActiveRecipe(LabelingApplicationState application)
+        {
+            ArgumentNullException.ThrowIfNull(application);
+            application.Data = new LabelingProjectData();
+            application.Recipe.CommitLoadedRecipe(string.Empty);
         }
 
         public async Task<string> ApplyAsync(

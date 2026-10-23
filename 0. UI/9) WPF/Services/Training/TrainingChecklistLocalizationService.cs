@@ -171,19 +171,24 @@ namespace MvcVisionSystem
                 return OpenVisionLanguageService.T("WpfLearningWorkflow.DatasetDashboard.Action.Warning.SplitGuide");
             }
 
+            if (DatasetDashboardLocalizationService.TryParseAnomalyClassImageWarning(normalized, out string anomalyClass, out int imageCount))
+            {
+                return string.Format(CultureInfo.InvariantCulture, OpenVisionLanguageService.T("WpfLearningWorkflow.DatasetDashboard.Issue.Warning.AnomalyClassImages"), anomalyClass, imageCount);
+            }
+
             if (OpenVisionLanguageService.CurrentLanguage == OpenVisionLanguage.English)
             {
                 return normalized;
             }
 
             return normalized
-                .Replace("train/valid/test", "학습/검증/최종 검증", StringComparison.OrdinalIgnoreCase)
+                .Replace("train/valid/test", "학습/검증/테스트", StringComparison.OrdinalIgnoreCase)
                 .Replace("training", "학습", StringComparison.OrdinalIgnoreCase)
                 .Replace("validation", "검증", StringComparison.OrdinalIgnoreCase)
-                .Replace("test split", "최종 검증", StringComparison.OrdinalIgnoreCase)
+                .Replace("test split", "테스트 분할", StringComparison.OrdinalIgnoreCase)
                 .Replace("train", "학습", StringComparison.OrdinalIgnoreCase)
                 .Replace("valid", "검증", StringComparison.OrdinalIgnoreCase)
-                .Replace("test", "최종", StringComparison.OrdinalIgnoreCase);
+                .Replace("test", "테스트", StringComparison.OrdinalIgnoreCase);
         }
 
         public static TrainingChecklistLocalizationSnapshot BuildReady(

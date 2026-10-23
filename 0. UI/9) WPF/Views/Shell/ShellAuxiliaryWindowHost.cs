@@ -15,6 +15,7 @@ namespace MvcVisionSystem
         private readonly RuntimeDiagnosticsService diagnosticsService;
         private readonly Func<PythonModelSettings> capturePythonSettings;
         private readonly Action openModelSettings;
+        private readonly Func<string> modelSettingsUnavailableReasonProvider;
         private readonly Func<string> preferredModelBenchmarkSourcePath;
         private WpfEnvironmentSetupCenterWindow environmentSetupCenterWindow;
         private WpfModelBenchmarkWindow modelBenchmarkWindow;
@@ -25,12 +26,14 @@ namespace MvcVisionSystem
             RuntimeDiagnosticsService diagnosticsService,
             Func<PythonModelSettings> capturePythonSettings,
             Action openModelSettings,
-            Func<string> preferredModelBenchmarkSourcePath)
+            Func<string> preferredModelBenchmarkSourcePath,
+            Func<string> modelSettingsUnavailableReasonProvider = null)
         {
             this.owner = owner ?? throw new ArgumentNullException(nameof(owner));
             this.diagnosticsService = diagnosticsService ?? throw new ArgumentNullException(nameof(diagnosticsService));
             this.capturePythonSettings = capturePythonSettings ?? throw new ArgumentNullException(nameof(capturePythonSettings));
             this.openModelSettings = openModelSettings ?? throw new ArgumentNullException(nameof(openModelSettings));
+            this.modelSettingsUnavailableReasonProvider = modelSettingsUnavailableReasonProvider;
             this.preferredModelBenchmarkSourcePath = preferredModelBenchmarkSourcePath ?? (() => string.Empty);
         }
 
@@ -50,7 +53,8 @@ namespace MvcVisionSystem
                     {
                         CloseEnvironmentSetupCenter();
                         openModelSettings();
-                    });
+                    },
+                    modelSettingsUnavailableReasonProvider);
                 environmentSetupCenterWindow = new WpfEnvironmentSetupCenterWindow(viewModel)
                 {
                     Owner = owner

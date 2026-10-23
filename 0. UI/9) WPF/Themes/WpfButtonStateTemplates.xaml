@@ -1,15 +1,19 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
                     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+    <FontFamily x:Key="UiFontFamily">Segoe UI, Malgun Gothic</FontFamily>
     <!-- Dark-only fallbacks. A consuming window can override any semantic brush. -->
-    <SolidColorBrush x:Key="ToolbarButtonHoverBrush" Color="#333333" />
+    <SolidColorBrush x:Key="ToolbarButtonHoverBrush" Color="#2A3341" />
     <SolidColorBrush x:Key="ToolbarButtonPressedBrush" Color="#1D1D1D" />
-    <SolidColorBrush x:Key="ToolbarButtonDisabledBrush" Color="#20242A" />
-    <SolidColorBrush x:Key="ToolbarButtonDisabledBorderBrush" Color="#2B3038" />
-    <SolidColorBrush x:Key="DisabledTextBrush" Color="#69707A" />
-    <SolidColorBrush x:Key="SelectedRowBrush" Color="#26384F" />
+    <SolidColorBrush x:Key="ToolbarButtonDisabledBrush" Color="#1B212A" />
+    <SolidColorBrush x:Key="ToolbarButtonDisabledBorderBrush" Color="#283040" />
+    <SolidColorBrush x:Key="DisabledTextBrush" Color="#6F7B8C" />
+    <SolidColorBrush x:Key="SelectedRowBrush" Color="#1A2738" />
     <SolidColorBrush x:Key="SelectedRowTextBrush" Color="#FFFFFF" />
-    <SolidColorBrush x:Key="AccentBrush" Color="#3B82F6" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#4C8DFF" />
+    <SolidColorBrush x:Key="SliderTrackBrush" Color="#3B3B3B" />
+    <SolidColorBrush x:Key="SliderTrackBorderBrush" Color="#858585" />
 
     <ControlTemplate x:Key="WpfUiDarkButtonTemplate" TargetType="{x:Type ui:Button}">
         <Border x:Name="ButtonChrome"
@@ -21,6 +25,7 @@
             <ContentPresenter Margin="{TemplateBinding Padding}"
                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                              TextElement.Foreground="{TemplateBinding Foreground}"
                               RecognizesAccessKey="True" />
         </Border>
         <ControlTemplate.Triggers>
@@ -55,6 +60,7 @@
             <ContentPresenter Margin="{TemplateBinding Padding}"
                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                              TextElement.Foreground="{TemplateBinding Foreground}"
                               RecognizesAccessKey="True" />
         </Border>
         <ControlTemplate.Triggers>
@@ -89,6 +95,7 @@
             <ContentPresenter Margin="{TemplateBinding Padding}"
                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                              TextElement.Foreground="{TemplateBinding Foreground}"
                               RecognizesAccessKey="True" />
         </Border>
         <ControlTemplate.Triggers>
@@ -116,4 +123,404 @@
             </Trigger>
         </ControlTemplate.Triggers>
     </ControlTemplate>
+
+    <!-- Dataset proposal roles; existing recipe and other workflow consumers retain their palette. -->
+    <SolidColorBrush x:Key="DatasetSurfaceBrush" Color="#161B22" />
+    <SolidColorBrush x:Key="DatasetHeaderBrush" Color="#1B212A" />
+    <SolidColorBrush x:Key="DatasetCardBrush" Color="#161B22" />
+    <SolidColorBrush x:Key="DatasetBorderBrush" Color="#364152" />
+    <SolidColorBrush x:Key="DatasetInputBrush" Color="#11161D" />
+    <SolidColorBrush x:Key="DatasetInputBorderBrush" Color="#364152" />
+    <SolidColorBrush x:Key="DatasetCanvasBrush" Color="#0E1116" />
+    <SolidColorBrush x:Key="DatasetSelectedBrush" Color="#1C2F4D" />
+    <SolidColorBrush x:Key="DatasetSelectedHoverBrush" Color="#263C59" />
+    <SolidColorBrush x:Key="DatasetSelectedBorderBrush" Color="#4C8DFF" />
+    <SolidColorBrush x:Key="DatasetThumbnailBorderBrush" Color="#4C5A6D" />
+    <SolidColorBrush x:Key="DatasetReadyBrush" Color="#16352A" />
+    <SolidColorBrush x:Key="DatasetReadyBorderBrush" Color="#2F6B52" />
+    <SolidColorBrush x:Key="DatasetReadyTextBrush" Color="#9BE8C4" />
+    <SolidColorBrush x:Key="DatasetNeededBrush" Color="#3A2E17" />
+    <SolidColorBrush x:Key="DatasetNeededBorderBrush" Color="#6B5426" />
+    <SolidColorBrush x:Key="DatasetNeededTextBrush" Color="#F6D18D" />
+    <SolidColorBrush x:Key="RecipePageBrush" Color="#0E1116" />
+    <SolidColorBrush x:Key="RecipeSurfaceBrush" Color="#161B22" />
+    <SolidColorBrush x:Key="RecipeBorderBrush" Color="#283040" />
+    <SolidColorBrush x:Key="RecipeTextBrush" Color="#E6EBF2" />
+    <SolidColorBrush x:Key="RecipeMutedTextBrush" Color="#9AA6B6" />
+    <SolidColorBrush x:Key="RecipeAccentBrush" Color="#8AB4FF" />
+    <SolidColorBrush x:Key="RecipeFocusBrush" Color="#8AB4FF" />
+    <SolidColorBrush x:Key="RecipeButtonBrush" Color="#222A35" />
+    <SolidColorBrush x:Key="RecipeButtonBorderBrush" Color="#364152" />
+    <SolidColorBrush x:Key="RecipeButtonHoverBrush" Color="#2A3341" />
+    <SolidColorBrush x:Key="RecipeButtonHoverBorderBrush" Color="#4A586D" />
+    <SolidColorBrush x:Key="RecipeButtonPressedBrush" Color="#1B2330" />
+    <SolidColorBrush x:Key="RecipePrimaryBrush" Color="#2F6FE0" />
+    <SolidColorBrush x:Key="RecipePrimaryBorderBrush" Color="#4C8DFF" />
+    <SolidColorBrush x:Key="RecipePrimaryHoverBrush" Color="#3A7CF0" />
+    <SolidColorBrush x:Key="RecipePrimaryHoverBorderBrush" Color="#4C8DFF" />
+    <SolidColorBrush x:Key="RecipePrimaryPressedBrush" Color="#204D99" />
+    <SolidColorBrush x:Key="RecipeQuietTextBrush" Color="#E6EBF2" />
+    <SolidColorBrush x:Key="RecipeQuietHoverBrush" Color="#222A35" />
+    <SolidColorBrush x:Key="RecipeQuietPressedBrush" Color="#1D293C" />
+    <SolidColorBrush x:Key="RecipeDisabledBrush" Color="#1B212A" />
+    <SolidColorBrush x:Key="RecipeDisabledBorderBrush" Color="#283040" />
+    <SolidColorBrush x:Key="RecipeDisabledTextBrush" Color="#6F7B8C" />
+    <SolidColorBrush x:Key="RecipeSelectedBrush" Color="#1C2F4D" />
+    <SolidColorBrush x:Key="RecipeSelectedBorderBrush" Color="#36507A" />
+    <SolidColorBrush x:Key="RecipeSelectedHoverBrush" Color="#263C59" />
+    <SolidColorBrush x:Key="RecipeRowHoverBrush" Color="#2A3341" />
+
+    <!-- Opt-in recipe controls: existing product toolbar templates remain unchanged. -->
+    <ControlTemplate x:Key="RecipeButtonTemplate" TargetType="{x:Type primitives:ButtonBase}">
+        <Grid>
+            <Border x:Name="ButtonChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" SnapsToDevicePixels="True">
+                <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}" TextElement.Foreground="{TemplateBinding Foreground}"
+                                  RecognizesAccessKey="True" />
+            </Border>
+            <Border x:Name="FocusCue" BorderBrush="Transparent" BorderThickness="2" CornerRadius="6" Margin="-3" IsHitTestVisible="False" />
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                <Setter TargetName="FocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="FocusCue" Property="BorderBrush" Value="Transparent" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+    <ControlTemplate x:Key="RecipeFilterButtonTemplate" TargetType="{x:Type primitives:ButtonBase}">
+        <Grid>
+            <Border x:Name="ButtonChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="12" SnapsToDevicePixels="True">
+                <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}" TextElement.Foreground="{TemplateBinding Foreground}"
+                                  RecognizesAccessKey="True" />
+            </Border>
+            <Border x:Name="FocusCue" BorderBrush="Transparent" BorderThickness="2" CornerRadius="12" Margin="-3" IsHitTestVisible="False" />
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                <Setter TargetName="FocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="FocusCue" Property="BorderBrush" Value="Transparent" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+    <Style x:Key="RecipeButtonBaseStyle" TargetType="{x:Type primitives:ButtonBase}">
+        <Setter Property="Template" Value="{StaticResource RecipeButtonTemplate}" />
+        <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+        <Setter Property="Background" Value="{DynamicResource RecipeButtonBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="MinHeight" Value="30" />
+        <Setter Property="Padding" Value="10,5" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{DynamicResource RecipeButtonPressedBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeAccentBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" />
+                <Setter Property="Cursor" Value="Arrow" />
+                <Setter Property="Opacity" Value="1" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    <Style x:Key="RecipeSecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource RecipeButtonBaseStyle}">
+        <Style.Triggers><Trigger Property="IsDefaulted" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger></Style.Triggers>
+    </Style>
+    <Style x:Key="RecipePrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource RecipeSecondaryButtonStyle}">
+        <Setter Property="Background" Value="{DynamicResource RecipePrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource RecipePrimaryBorderBrush}" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource RecipePrimaryHoverBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipePrimaryHoverBorderBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{DynamicResource RecipePrimaryPressedBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeAccentBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    <Style x:Key="RecipeQuietButtonStyle" TargetType="Button" BasedOn="{StaticResource RecipeSecondaryButtonStyle}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource RecipeQuietTextBrush}" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource RecipeQuietHoverBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{DynamicResource RecipeQuietPressedBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeAccentBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    <Style x:Key="RecipeFilterToggleStyle" TargetType="ToggleButton" BasedOn="{StaticResource RecipeButtonBaseStyle}">
+        <Setter Property="Template" Value="{StaticResource RecipeFilterButtonTemplate}" />
+        <Setter Property="MinHeight" Value="24" />
+        <Setter Property="Padding" Value="8,1" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Background" Value="Transparent" />
+        <Style.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+                <Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeSelectedBorderBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </Trigger>
+            <MultiTrigger>
+                <MultiTrigger.Conditions><Condition Property="IsChecked" Value="True" /><Condition Property="IsMouseOver" Value="True" /></MultiTrigger.Conditions>
+                <Setter Property="Background" Value="{DynamicResource RecipeSelectedHoverBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeAccentBrush}" />
+            </MultiTrigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{DynamicResource RecipeButtonPressedBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeAccentBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+            <ControlTemplate x:Key="RecipeInputTemplate" TargetType="TextBox">
+        <Grid>
+            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
+                <ScrollViewer x:Name="PART_ContentHost"/>
+            </Border>
+            <Border x:Name="InputFocusCue" BorderBrush="Transparent" BorderThickness="2" CornerRadius="9" Margin="-3" IsHitTestVisible="False"/>
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="InputFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger>
+            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="InputFocusCue" Property="BorderBrush" Value="Transparent" /></Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+    <Style x:Key="RecipeInputStyle" TargetType="TextBox">
+                <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+                <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="8,5" />
+                <Setter Property="MinHeight" Value="30" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="Template" Value="{StaticResource RecipeInputTemplate}" />
+                <Style.Triggers>
+                    <Trigger Property="IsReadOnly" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" /></Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /></Trigger>
+                    <Trigger Property="Validation.HasError" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource ErrorBrush}" /></Trigger>
+                </Style.Triggers>
+            </Style>
+            <ControlTemplate x:Key="RecipeComboBoxTemplate" TargetType="ComboBox">
+        <Grid>
+            <ToggleButton Focusable="False" ClickMode="Press" MinHeight="0" Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}">
+                <ToggleButton.Template>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="6">
+                            <ContentPresenter/>
+                        </Border>
+                    </ControlTemplate>
+                </ToggleButton.Template>
+                <Grid>
+                    <ContentPresenter Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" HorizontalAlignment="Left" TextElement.Foreground="{TemplateBinding Foreground}"/>
+                    <Path Data="M 0 0 L 4 4 L 8 0" Width="8" Height="4" Stretch="Fill" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.4" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                </Grid>
+            </ToggleButton>
+            <Popup Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" StaysOpen="False" AllowsTransparency="True" Focusable="False">
+                <Border MinWidth="{TemplateBinding ActualWidth}" MaxHeight="{TemplateBinding MaxDropDownHeight}" Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeButtonBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="4">
+                    <ScrollViewer CanContentScroll="True">
+                        <ItemsPresenter/>
+                    </ScrollViewer>
+                </Border>
+            </Popup>
+            <Border x:Name="ComboFocusCue" CornerRadius="6" BorderThickness="2" BorderBrush="Transparent" Margin="-3" IsHitTestVisible="False"/>
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                <Setter TargetName="ComboFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}"/>
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+    <Style x:Key="RecipeComboBoxItemStyle" TargetType="ComboBoxItem">
+        <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}"/>
+        <Setter Property="Padding" Value="10,7"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border Background="{TemplateBinding Background}" CornerRadius="4">
+                        <ContentPresenter Margin="{TemplateBinding Padding}"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsHighlighted" Value="True">
+                <Setter Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}"/>
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    <Style x:Key="RecipeComboBoxStyle" TargetType="ComboBox">
+        <Setter Property="Padding" Value="8,5,28,5" />
+                <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template" Value="{StaticResource RecipeComboBoxTemplate}" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="Height" Value="Auto" />
+                <Setter Property="MinHeight" Value="30" />
+                <Setter Property="MaxDropDownHeight" Value="240" />
+                <Setter Property="ItemContainerStyle" Value="{StaticResource RecipeComboBoxItemStyle}" />
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                    <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger>
+                </Style.Triggers>
+            </Style>
+
+    <Style x:Key="DatasetExpanderStyle" TargetType="Expander">
+        <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="AutomationProperties.Name" Value="{Binding Header, RelativeSource={RelativeSource Self}}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Expander">
+                    <StackPanel>
+                        <ToggleButton x:Name="DisclosureButton" IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" AutomationProperties.Name="{Binding Path=(AutomationProperties.Name), RelativeSource={RelativeSource TemplatedParent}}" Style="{StaticResource RecipeFilterToggleStyle}" Template="{StaticResource RecipeButtonTemplate}" HorizontalContentAlignment="Stretch" MinHeight="36" Padding="10,7" Margin="0" Background="Transparent" BorderBrush="Transparent">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="18"/>
+                                </Grid.ColumnDefinitions>
+                                <ContentPresenter ContentSource="Header" VerticalAlignment="Center" Margin="0,0,8,0">
+                                    <ContentPresenter.Resources>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="TextWrapping" Value="Wrap"/>
+                                        </Style>
+                                    </ContentPresenter.Resources>
+                                </ContentPresenter>
+                                <Path x:Name="DisclosureArrow" Grid.Column="1" Data="M 0 0 L 4 4 L 8 0" Width="8" Height="4" Stretch="Fill" Stroke="{DynamicResource RecipeMutedTextBrush}" StrokeThickness="1.5" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            </Grid>
+                        </ToggleButton>
+                        <ContentPresenter x:Name="DisclosureContent" ContentSource="Content" Visibility="Collapsed" Margin="0,6,0,0"/>
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsExpanded" Value="True">
+                            <Setter TargetName="DisclosureContent" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="DisclosureArrow" Property="Data" Value="M 0 4 L 4 0 L 8 4"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <ControlTemplate x:Key="DatasetSplitterTemplate" TargetType="GridSplitter">
+        <Grid Background="{DynamicResource RecipePageBrush}">
+            <Border x:Name="ResizeGrip" Width="2" Height="32" CornerRadius="1" Background="{DynamicResource DatasetBorderBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.45"/>
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="ResizeGrip" Property="Background" Value="{DynamicResource RecipeAccentBrush}"/>
+                <Setter TargetName="ResizeGrip" Property="Opacity" Value="1"/>
+            </Trigger>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                <Setter TargetName="ResizeGrip" Property="Background" Value="{DynamicResource RecipeFocusBrush}"/>
+                <Setter TargetName="ResizeGrip" Property="Opacity" Value="1"/>
+            </Trigger>
+            <Trigger Property="IsMouseCaptureWithin" Value="True">
+                <Setter TargetName="ResizeGrip" Property="Background" Value="{DynamicResource RecipeFocusBrush}"/>
+                <Setter TargetName="ResizeGrip" Property="Opacity" Value="1"/>
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+    <Style x:Key="RecipeProgressStyle" TargetType="ProgressBar">
+        <Setter Property="Height" Value="6" /><Setter Property="Background" Value="{DynamicResource ProgressTrackBrush}" />
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ProgressBar"><Grid>
+            <Border x:Name="PART_Track" CornerRadius="3" Background="{TemplateBinding Background}" />
+            <Border x:Name="PART_Indicator" CornerRadius="3" Background="{TemplateBinding Foreground}" HorizontalAlignment="Left" />
+        </Grid></ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style x:Key="RecipeSliderStyle" TargetType="Slider">
+        <Setter Property="Height" Value="30" /><Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="SmallChange" Value="0.05" /><Setter Property="LargeChange" Value="0.1" /><Setter Property="IsMoveToPointEnabled" Value="True" />
+        <Setter Property="Background" Value="{DynamicResource SliderTrackBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource SliderTrackBorderBrush}" /><Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Slider">
+            <Grid>
+                <primitives:Track x:Name="PART_Track" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
+                                  Value="{Binding Value, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                  IsDirectionReversed="{TemplateBinding IsDirectionReversed}" VerticalAlignment="Center">
+                    <primitives:Track.DecreaseRepeatButton><RepeatButton Command="{x:Static Slider.DecreaseLarge}" Focusable="False" MinHeight="0" MinWidth="0" Height="8" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Slider}}" BorderBrush="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Slider}}">
+                        <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border CornerRadius="3.5" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" /></ControlTemplate></RepeatButton.Template>
+                    </RepeatButton></primitives:Track.DecreaseRepeatButton>
+                    <primitives:Track.IncreaseRepeatButton><RepeatButton Command="{x:Static Slider.IncreaseLarge}" Focusable="False" MinHeight="0" MinWidth="0" Height="8" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="{Binding Background, RelativeSource={RelativeSource AncestorType=Slider}}" BorderBrush="{Binding BorderBrush, RelativeSource={RelativeSource AncestorType=Slider}}">
+                        <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border CornerRadius="3.5" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" /></ControlTemplate></RepeatButton.Template>
+                    </RepeatButton></primitives:Track.IncreaseRepeatButton>
+                    <primitives:Track.Thumb><Thumb Width="16" Height="16" Focusable="False">
+                        <Thumb.Template><ControlTemplate TargetType="Thumb"><Border x:Name="SliderThumbChrome" CornerRadius="999" Background="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Slider}}" /></ControlTemplate></Thumb.Template>
+                    </Thumb></primitives:Track.Thumb>
+                </primitives:Track>
+                <Border x:Name="SliderFocusCue" CornerRadius="6" BorderThickness="2" BorderBrush="Transparent" IsHitTestVisible="False" />
+            </Grid>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="SliderFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger>
+                <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /></Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style x:Key="RecipeCheckBoxStyle" TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" /><Setter Property="FontSize" Value="13" />
+        <Setter Property="MinHeight" Value="30" /><Setter Property="Cursor" Value="Hand" /><Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
+            <Grid Background="Transparent"><Grid.ColumnDefinitions><ColumnDefinition Width="15" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                <Border x:Name="CheckChrome" Width="15" Height="15" CornerRadius="3" VerticalAlignment="Center" Background="{DynamicResource RecipePageBrush}" BorderBrush="{DynamicResource RecipeButtonBorderBrush}" BorderThickness="1">
+                    <Path x:Name="CheckMark" Data="M 3,7 L 6,10 L 11,4" Stroke="{DynamicResource RecipeTextBrush}" StrokeThickness="1.8" Visibility="Collapsed" />
+                </Border>
+                <ContentPresenter Grid.Column="1" ContentSource="Content" Margin="8,0,0,0" VerticalAlignment="Center" />
+                <Border x:Name="CheckFocusCue" Grid.ColumnSpan="2" CornerRadius="6" BorderThickness="2" BorderBrush="Transparent" IsHitTestVisible="False" />
+            </Grid>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}" /><Setter TargetName="CheckChrome" Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                <Trigger Property="IsChecked" Value="True"><Setter TargetName="CheckMark" Property="Visibility" Value="Visible" /><Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource RecipePrimaryBrush}" /><Setter TargetName="CheckChrome" Property="BorderBrush" Value="{DynamicResource RecipeAccentBrush}" /></Trigger>
+                <Trigger Property="IsPressed" Value="True"><Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource RecipeButtonPressedBrush}" /></Trigger>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="CheckFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger>
+                <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /><Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource RecipeDisabledBrush}" /><Setter TargetName="CheckMark" Property="Stroke" Value="{DynamicResource RecipeDisabledTextBrush}" /><Setter Property="Cursor" Value="Arrow" /></Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value></Setter>
+    </Style>
 </ResourceDictionary>

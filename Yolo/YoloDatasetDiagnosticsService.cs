@@ -103,9 +103,10 @@ namespace MvcVisionSystem.Yolo
                 AppendSegmentationCoverageWarnings(lines, statistics);
             }
 
+            string classCountUnit = purpose == LabelingDatasetPurpose.AnomalyDetection ? "image(s)" : "object(s)";
             foreach (KeyValuePair<string, int> item in classCounts.Where(item => item.Value < RecommendedMinimumObjectsPerClass))
             {
-                lines.Add($"YOLO dataset warning: class '{item.Key}' has only {item.Value} object(s). Add more labeled examples before trusting training.");
+                lines.Add($"YOLO dataset warning: class '{item.Key}' has only {item.Value} {classCountUnit}. Add more labeled examples before trusting training.");
             }
 
             List<KeyValuePair<string, int>> positiveClassCounts = classCounts
@@ -130,9 +131,9 @@ namespace MvcVisionSystem.Yolo
 
         private static void AppendSegmentationCoverageWarnings(List<string> lines, YoloDatasetStatistics statistics)
         {
-            AppendSegmentationSplitWarnings(lines, "train", Math.Max(statistics.TrainSegmentFileCount, statistics.TrainMaskFileCount), statistics.TrainEmptyLabelFileCount);
-            AppendSegmentationSplitWarnings(lines, "valid", Math.Max(statistics.ValidSegmentFileCount, statistics.ValidMaskFileCount), statistics.ValidEmptyLabelFileCount);
-            AppendSegmentationTestSplitWarnings(lines, Math.Max(statistics.TestSegmentFileCount, statistics.TestMaskFileCount), statistics.TestEmptyLabelFileCount, statistics.TestImageCount);
+            AppendSegmentationSplitWarnings(lines, "train", Math.Max(statistics.TrainSegmentFileCount, statistics.TrainMaskFileCount), statistics.TrainSegmentationBackgroundImageCount);
+            AppendSegmentationSplitWarnings(lines, "valid", Math.Max(statistics.ValidSegmentFileCount, statistics.ValidMaskFileCount), statistics.ValidSegmentationBackgroundImageCount);
+            AppendSegmentationTestSplitWarnings(lines, Math.Max(statistics.TestSegmentFileCount, statistics.TestMaskFileCount), statistics.TestSegmentationBackgroundImageCount, statistics.TestImageCount);
         }
 
         private static void AppendSegmentationSplitWarnings(List<string> lines, string split, int positiveImageCount, int emptyBackgroundCount)

@@ -1,7 +1,9 @@
 using OpenVisionLab.Mvvm;
+using MvcVisionSystem._1._Core;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
@@ -9,19 +11,61 @@ using System.Windows.Media;
 
 namespace MvcVisionSystem
 {
+    public sealed record LabelSuspicionListItem(LabelSuspicionItem Item)
+    {
+        public string DisplayText => OpenVisionLab.OpenVisionLanguageService.T("WpfLabelSuspicion.Kind." + Item.Kind)
+            + (Item.Label == null ? string.Empty : " · " + Item.Label.ClassName)
+            + (Item.Prediction == null || Item.Prediction.ImageLevel ? string.Empty : " → " + Item.Prediction.ClassName + " " + Item.Prediction.Confidence.ToString("P0", CultureInfo.CurrentCulture));
+        public string FixText => Item.Kind == LabelSuspicionKind.Class
+            ? string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfLabelSuspicion.Fix.Class"), Item.Prediction?.ClassName)
+            : OpenVisionLab.OpenVisionLanguageService.T("WpfLabelSuspicion.Fix." + Item.Kind);
+    }
+
     public sealed class WpfCandidateReviewPanelViewModel : WpfObservableViewModel
     {
-        private const string DefaultModelComparisonSourceText = "\uBE44\uAD50 \uB300\uC0C1: \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378 / \uD559\uC2B5 \uD6C4\uBCF4 \uD655\uC778 \uD544\uC694";
+        private static string DefaultModelComparisonSourceText => OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.SourceDefault");
         private static readonly Action NoOpCommand = () => { };
         private static readonly Action<double> NoOpValueCommand = _ => { };
         private static readonly Action<object> NoOpSelectionCommand = _ => { };
         private static readonly Action<KeyInputCommandArgs> NoOpKeyCommand = _ => { };
         private static readonly Action<WpfModelComparisonReviewExample> NoOpModelComparisonExampleCommand = _ => { };
-        private string panelModeTitleText = "\uAC80\uD1A0\uD560 AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4";
+        private WpfModelComparisonReviewExample selectedComparisonExample;
+        private LabelSuspicionReport suspicionReport;
+        private bool suspicionVisible;
+        private bool suspicionOverlayVisible = true;
+        private Action<bool> suspicionOverlayChanged;
+        private ICommand fixLabelSuspicionCommand = new RelayCommand(NoOpCommand, () => false);
+        private ICommand dismissLabelSuspicionCommand = new RelayCommand(NoOpCommand, () => false);
+        private ICommand undoLabelSuspicionDismissalCommand = new RelayCommand(NoOpCommand, () => false);
+        private Func<bool> canEditSuspicion;
+        private bool suspicionDismissed;
+        private bool suspicionIsPreview;
+        private bool suspicionActionRunning;
+
+        private WpfModelComparisonReviewReport currentComparisonReport;
+        private WpfModelComparisonReviewReport returnComparisonReport;
+        private WpfModelComparisonReviewExample returnComparisonExample;
+        private WpfModelComparisonHistoryItem returnComparisonHistory;
+        private string returnComparisonSource;
+        private bool returnComparisonHistorical;
+        private bool isModelErrorReviewActive;
+        private ImageSource baselineComparisonPreviewImage;
+        private ImageSource candidateComparisonPreviewImage;
+        private string comparisonPreviewErrorText = string.Empty;
+        private Func<bool, bool> beginModelErrorReview;
+        private Func<WpfModelComparisonReviewExample, bool> returnToModelComparison;
+        private Func<bool> canNavigateModelReview;
+        private ICommand modelErrorLabelReviewCommand = new RelayCommand(NoOpCommand);
+        private ICommand modelErrorQualityReviewCommand = new RelayCommand(NoOpCommand);
+        private ICommand returnToModelComparisonCommand = new RelayCommand(NoOpCommand);
+        private string panelModeTitleText = OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfCandidateReviewPanelViewModel.NoSuggestions");
         private string panelModeBadgeText = "\uC120\uD0DD \uB2E8\uACC4";
-        private string panelModeScopeText = "AI \uC790\uB3D9 \uB77C\uBCA8\uC744 \uC0AC\uC6A9\uD560 \uB54C\uB9CC \uC704\uC758 \uD604\uC7AC \uAC80\uC0AC\uB97C \uC2E4\uD589\uD558\uC138\uC694. \uC9C1\uC811 \uB77C\uBCA8\uB9C1\uC744 \uB9C8\uCCE4\uB2E4\uBA74 4 \uD559\uC2B5/\uBAA8\uB378\uB85C \uC774\uB3D9\uD558\uC138\uC694. \uC800\uC7A5\uD55C \uB77C\uBCA8\uC740 \uADF8\uB300\uB85C \uC720\uC9C0\uB429\uB2C8\uB2E4.";
+        private string panelModeScopeText = OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Assistance.Panel.Empty");
         private Visibility candidateInteractionVisibility = Visibility.Collapsed;
         private string confidenceText = "0%";
+        private double displayConfidence;
+        private string inferenceRecipeIdentity;
+        private Action<double> displayConfidenceChanged;
         private string detailText = "AI \uD6C4\uBCF4 \uC5C6\uC74C";
         private string candidateCountSummaryText = "AI \uD6C4\uBCF4 0\uAC1C";
         private string selectedCandidateSummaryText = "\uC120\uD0DD: AI \uD6C4\uBCF4 \uC5C6\uC74C";
@@ -34,15 +78,15 @@ namespace MvcVisionSystem
         private bool isFocusCandidateEnabled;
         private bool isFocusCurrentLabelEnabled;
         private bool isCompleteImageAndNextEnabled;
-        private string completionTitleText = "\uAC80\uD1A0 \uB300\uAE30";
-        private string completionDetailText = "\uC774\uBBF8\uC9C0\uB97C \uC5F4\uAC70\uB098 \uD604\uC7AC \uC774\uBBF8\uC9C0\uB97C \uAC80\uC0AC\uD558\uBA74 \uD6C4\uBCF4 \uAC80\uD1A0 \uC0C1\uD0DC\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
+        private string completionTitleText = OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfCandidateReviewPanelViewModel.Waiting");
+        private string completionDetailText = OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfCandidateReviewPanelViewModel.OpenOrInfer");
         private string completionNextActionText = "\uB2E4\uC74C: \uC774\uBBF8\uC9C0 \uC120\uD0DD \uB610\uB294 \uAC80\uC0AC";
         private string completeImageAndNextActionText = "\uC774\uBBF8\uC9C0 \uC644\uB8CC";
         private string confirmSelectedToolTip = "\uD655\uC815\uD560 AI \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
         private string confirmAllToolTip = "\uD655\uC815 \uAC00\uB2A5\uD55C \uD45C\uC2DC \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
-        private string skipSelectedToolTip = "\uC2A4\uD0B5\uD560 AI \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
+        private string skipSelectedToolTip = "\uAC74\uB108\uB6F8 AI \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
         private string focusCurrentLabelToolTip = "\uACB9\uCE58\uB294 \uAE30\uC874 \uB77C\uBCA8\uC744 \uB77C\uBCA8 \uBAA9\uB85D\uACFC \uD654\uBA74\uC5D0\uC11C \uC120\uD0DD\uD569\uB2C8\uB2E4.";
-        private string completeImageAndNextToolTip = "\uD604\uC7AC \uC774\uBBF8\uC9C0\uB97C \uC644\uB8CC\uD558\uACE0 \uB2E4\uC74C \uBBF8\uAC80\uD1A0 \uC774\uBBF8\uC9C0\uB85C \uC774\uB3D9\uD569\uB2C8\uB2E4.";
+        private string completeImageAndNextToolTip = OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfCandidateReviewPanelViewModel.NextUnworked");
         private Visibility comparisonVisibility = Visibility.Collapsed;
         private string comparisonCandidateText = "-";
         private string comparisonCurrentText = "-";
@@ -51,33 +95,34 @@ namespace MvcVisionSystem
         private string postActionPolicyText = string.Empty;
         private Visibility reviewHistoryVisibility = Visibility.Collapsed;
         private bool isReviewHistoryExpanded;
-        private string reviewHistoryHeaderText = "\uAC80\uD1A0 \uC774\uB825 0\uAC74";
+        private string reviewHistoryHeaderText = OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfCandidateReviewPanelViewModel.NoHistory");
         private string reviewHistorySummaryText = "\uD655\uC815/\uC228\uAE40 \uC791\uC5C5\uC774 \uC788\uC73C\uBA74 \uC5EC\uAE30\uC5D0 \uC694\uC57D\uB429\uB2C8\uB2E4.";
         private Visibility modelComparisonVisibility = Visibility.Collapsed;
         private Visibility modelComparisonExampleListVisibility = Visibility.Collapsed;
         private bool isModelComparisonExamplesExpanded;
-        private string modelComparisonExampleHeaderText = "\uAC80\uC99D \uC608\uC2DC 0\uAC74";
-        private string modelComparisonExampleSummaryText = "\uC608\uC2DC\uAC00 \uC788\uC73C\uBA74 \uD3BC\uCCD0\uC11C \uC774\uBBF8\uC9C0\uBCC4 \uCC28\uC774 \uC704\uCE58\uB97C \uD655\uC778\uD569\uB2C8\uB2E4.";
-        private string modelComparisonStatusText = "\uBAA8\uB378 \uBE44\uAD50: \uB300\uAE30";
-        private string modelComparisonDecisionText = "\uAD50\uCCB4 \uD310\uB2E8: \uB300\uAE30";
+        private string modelComparisonExampleHeaderText = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.NoExamples");
+        private string modelComparisonExampleSummaryText = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.ExamplesEmptyHelp");
+        private string modelComparisonStatusText = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.Waiting");
+        private string modelComparisonDecisionText = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.DecisionWaiting");
         private string modelComparisonPromotionDecision = string.Empty;
         private string modelComparisonSourceText = DefaultModelComparisonSourceText;
-        private string modelComparisonDetailText = "\uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378 \uD6C4\uBCF4\uB97C \uAC80\uC99D\uD558\uBA74 \uC774\uACF3\uC5D0 \uAE30\uC874 \uBAA8\uB378\uACFC \uC0C8 \uBAA8\uB378\uC758 \uCC28\uC774\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
+        private string modelComparisonDetailText = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.DetailWaiting");
         private string modelComparisonBenchmarkText = string.Empty;
         private Visibility modelComparisonBenchmarkVisibility = Visibility.Collapsed;
         private Visibility modelComparisonHistoryVisibility = Visibility.Collapsed;
         private WpfModelComparisonHistoryItem selectedModelComparisonHistoryItem;
         private bool isHistoricalModelComparisonSelection;
-        private string modelComparisonActionText = "\uB2E4\uC74C: \uD6C4\uBCF4\uAC00 \uC788\uC73C\uBA74 \uD559\uC2B5/\uBAA8\uB378 \uC13C\uD130\uC758 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB204\uB974\uACE0, \uAC80\uD1A0 \uD6C4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694.";
-        private string modelCandidateDecisionStatusText = "\uD6C4\uBCF4 \uACB0\uC815: \uB300\uAE30";
-        private string modelCandidateDecisionDetailText = "\uBE44\uAD50 \uD6C4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uAC70\uB098 \uD6C4\uBCF4\uB97C \uAC70\uC808\uD574 \uD604\uC7AC \uBAA8\uB378\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4.";
-        private string saveModelCandidateToolTip = "\uC800\uC7A5\uD560 \uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
-        private string rejectModelCandidateToolTip = "\uAC70\uC808\uD560 \uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
+        private string modelComparisonActionText = OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.WpfCandidateReviewPanelViewModel.TrainingNext");
+        private string modelCandidateDecisionStatusText = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.CandidateWaiting");
+        private string modelCandidateDecisionDetailText = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.CandidateDetail");
+        private string saveModelCandidateToolTip = OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.WpfCandidateReviewPanelViewModel.TrainingSaveEmpty");
+        private string rejectModelCandidateToolTip = OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.WpfCandidateReviewPanelViewModel.TrainingRejectEmpty");
         private bool isSaveModelCandidateEnabled;
         private bool isRejectModelCandidateEnabled;
         private Visibility modelCandidateDecisionVisibility = Visibility.Collapsed;
         private bool isComparisonHighOverlap;
         private ICommand confidenceChangedCommand = new RelayCommand<double>(NoOpValueCommand);
+        private ICommand candidateClassFilterChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private ICommand confirmSelectedCommand = new RelayCommand(NoOpCommand);
         private ICommand confirmAllCommand = new RelayCommand(NoOpCommand);
         private ICommand skipSelectedCommand = new RelayCommand(NoOpCommand);
@@ -93,6 +138,9 @@ namespace MvcVisionSystem
         private ICommand candidateSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private ICommand candidatePreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(NoOpKeyCommand);
         private Action<WpfCandidateReviewListItem> candidateSelectionChangedAction = _ => { };
+        private Action<string> candidateClassFilterChangedAction = _ => { };
+        private bool isRefreshingCandidateClassFilters;
+        private string selectedCandidateClassFilter = "모든 클래스";
         private Action<WpfModelComparisonHistoryItem> modelComparisonHistorySelectionChangedAction = _ => { };
         private ICommand togglePatchCoreHeatmapCommand = new RelayCommand(NoOpCommand);
         private Visibility patchCoreHeatmapVisibility = Visibility.Collapsed;
@@ -104,6 +152,14 @@ namespace MvcVisionSystem
         private string patchCoreHeatmapActionText = "히트맵 보기";
         private bool isPatchCoreHeatmapActionEnabled;
         private bool isPatchCoreHeatmapOpen;
+
+        public bool IsModelComparisonEvidence { get; private set; }
+        public bool IsModelErrorReviewActive { get => isModelErrorReviewActive; private set => SetProperty(ref isModelErrorReviewActive, value); }
+        public bool HasModelComparisonPreview => BaselineComparisonPreviewImage != null && CandidateComparisonPreviewImage != null;
+        public ImageSource BaselineComparisonPreviewImage { get => baselineComparisonPreviewImage; private set => SetProperty(ref baselineComparisonPreviewImage, value); }
+        public ImageSource CandidateComparisonPreviewImage { get => candidateComparisonPreviewImage; private set => SetProperty(ref candidateComparisonPreviewImage, value); }
+        public string ComparisonPreviewErrorText { get => comparisonPreviewErrorText; private set => SetProperty(ref comparisonPreviewErrorText, value ?? string.Empty); }
+        public string ComparisonPreviewSourceText => selectedComparisonExample?.ComparisonConditionsText ?? string.Empty;
 
         public string ViewName => nameof(WpfCandidateReviewPanel);
 
@@ -125,27 +181,112 @@ namespace MvcVisionSystem
             private set => SetProperty(ref panelModeScopeText, value ?? string.Empty);
         }
 
-        public string PanelModeDetailText => "\uC774 \uD328\uB110\uC740 \uD604\uC7AC \uC774\uBBF8\uC9C0\uC758 AI \uD6C4\uBCF4\uB97C \uD655\uC778\uD569\uB2C8\uB2E4. \uD655\uC815\uD558\uBA74 \uC800\uC7A5 \uB77C\uBCA8\uC774 \uB418\uACE0, \uC2A4\uD0B5\uD558\uBA74 \uD6C4\uBCF4 \uD45C\uC2DC\uB9CC \uC228\uAE41\uB2C8\uB2E4.";
+        public string PanelModeDetailText => OpenVisionLab.OpenVisionLanguageService.T("WpfCandidate.Draft.PanelDetail");
 
-        public string ReviewActionGuideText => "\uD604\uC7AC \uC774\uBBF8\uC9C0\uC758 AI \uD6C4\uBCF4\uB97C \uBA3C\uC800 \uD655\uC815\uD558\uAC70\uB098 \uC2A4\uD0B5\uD558\uC138\uC694. \uD655\uC815=\uC800\uC7A5 \uB77C\uBCA8 \uCD94\uAC00, \uC2A4\uD0B5=\uD6C4\uBCF4\uB9CC \uC228\uAE40, \uBAA8\uB378 \uAC80\uC99D\uC740 \uC544\uB798 \uCE74\uB4DC\uC5D0\uC11C \uB530\uB85C \uD310\uB2E8\uD569\uB2C8\uB2E4.";
+        public string ReviewActionGuideText => OpenVisionLab.OpenVisionLanguageService.T("WpfCandidate.Action.Guide");
 
-        public string ModelComparisonSectionTitleText => "\uD559\uC2B5 \uBAA8\uB378 \uAC80\uC99D";
+        public string ModelComparisonSectionTitleText => OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.SectionTitle");
 
-        public string ModelComparisonSectionDetailText => "\uD559\uC2B5\uC774 \uB05D\uB09C \uBAA8\uB378 \uD6C4\uBCF4\uB97C \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uACFC \uBE44\uAD50\uD558\uACE0 \uCC44\uD0DD \uC5EC\uBD80\uB97C \uD310\uB2E8\uD569\uB2C8\uB2E4.";
+        public string ModelComparisonSectionDetailText => OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.SectionDetail");
 
         public string CurrentImageReviewRoleTitleText => "\uD604\uC7AC \uC774\uBBF8\uC9C0 AI \uD6C4\uBCF4";
 
-        public string CurrentImageReviewRoleDetailText => "\uD655\uC815/\uC2A4\uD0B5\uC740 \uC9C0\uAE08 \uBCF4\uB294 \uC774\uBBF8\uC9C0\uC5D0\uB9CC \uC801\uC6A9";
+        public string CurrentImageReviewRoleDetailText => "\uD655\uC815/\uAC74\uB108\uB6F0\uAE30\uB294 \uC9C0\uAE08 \uBCF4\uB294 \uC774\uBBF8\uC9C0\uC5D0\uB9CC \uC801\uC6A9";
 
-        public string CurrentImageReviewRoleResultText => "\uACB0\uACFC: \uD655\uC815=\uC800\uC7A5 \uB77C\uBCA8 \uCD94\uAC00 / \uC2A4\uD0B5=\uD6C4\uBCF4\uB9CC \uC228\uAE40";
+        public string CurrentImageReviewRoleResultText => OpenVisionLab.OpenVisionLanguageService.T("WpfCandidate.Draft.RoleResult");
 
-        public string ModelValidationRoleTitleText => "\uD559\uC2B5 \uBAA8\uB378 \uAC80\uC99D";
+        public string ModelValidationRoleTitleText => OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.SectionTitle");
 
         public string ModelValidationRoleDetailText => "\uD559\uC2B5 \uACB0\uACFC \uD6C4\uBCF4\uB97C \uAE30\uC874 \uAC80\uC0AC \uBAA8\uB378\uACFC \uBE44\uAD50";
 
-        public string ModelValidationRoleResultText => "\uACB0\uACFC: \uBAA8\uB378\uC13C\uD130\uC5D0\uC11C \uCC44\uD0DD/\uC720\uC9C0 \uD655\uC815";
+        public string ModelValidationRoleResultText => OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.RoleResult");
 
+        public ObservableCollection<LabelSuspicionListItem> LabelSuspicions { get; } = new();
+        public Visibility LabelSuspicionVisibility => suspicionVisible ? Visibility.Visible : Visibility.Collapsed;
+        public string LabelSuspicionTitle => suspicionReport?.CanEvaluate == true
+            ? OpenVisionLab.OpenVisionLanguageService.T("WpfLabelSuspicion.Title") + " " + LabelSuspicions.Count.ToString(CultureInfo.CurrentCulture)
+            : OpenVisionLab.OpenVisionLanguageService.T("WpfLabelSuspicion.Title");
+        public string LabelSuspicionFixText => OpenVisionLab.OpenVisionLanguageService.T("WpfLabelSuspicion.Fix");
+        public string LabelSuspicionDismissText => OpenVisionLab.OpenVisionLanguageService.T("WpfLabelSuspicion.Dismiss");
+        public string LabelSuspicionUndoText => OpenVisionLab.OpenVisionLanguageService.T("WpfLabelSuspicion.Undo");
+        public string LabelSuspicionOverlayText => OpenVisionLab.OpenVisionLanguageService.T("WpfLabelSuspicion.Overlay");
+        public string LabelSuspicionWarningText => suspicionReport == null ? string.Empty : string.Join("\n", new[]
+        {
+            !suspicionReport.CanEvaluate ? OpenVisionLab.OpenVisionLanguageService.T("WpfLabelSuspicion.Unavailable." + suspicionReport.UnavailableReason) : string.Empty,
+            suspicionReport.HasTrainingImageWarning ? OpenVisionLab.OpenVisionLanguageService.T("WpfLabelSuspicion.TrainingWarning") : string.Empty,
+            suspicionReport.HasUnknownTrainingWarning ? OpenVisionLab.OpenVisionLanguageService.T("WpfLabelSuspicion.UnknownTrainingWarning") : string.Empty,
+            suspicionReport.HasSingleModelWarning ? OpenVisionLab.OpenVisionLanguageService.T("WpfLabelSuspicion.SingleModelWarning") : string.Empty
+        }.Where(text => !string.IsNullOrEmpty(text)));
+        public string LabelSuspicionDiagnostic => suspicionReport?.Diagnostic ?? string.Empty;
+        public string LabelSuspicionStateText => suspicionReport?.CanEvaluate != true ? string.Empty : OpenVisionLab.OpenVisionLanguageService.T(
+            suspicionDismissed ? "WpfLabelSuspicion.Dismissed" : suspicionIsPreview ? "WpfLabelSuspicion.Preview" : LabelSuspicions.Count == 0 ? "WpfLabelSuspicion.Clean" : "WpfLabelSuspicion.SavedBasis");
+        public string LabelSuspicionCriterionText => OpenVisionLab.OpenVisionLanguageService.T("WpfLabelSuspicion.InitialCriterion");
+        public string LabelSuspicionEvidenceIdentity => suspicionReport?.EvidenceIdentity ?? string.Empty;
+        public ICommand FixLabelSuspicionCommand => fixLabelSuspicionCommand;
+        public ICommand DismissLabelSuspicionCommand => dismissLabelSuspicionCommand;
+        public ICommand UndoLabelSuspicionDismissalCommand => undoLabelSuspicionDismissalCommand;
+        public bool IsSuspicionOverlayVisible
+        {
+            get => suspicionOverlayVisible;
+            set { if (SetProperty(ref suspicionOverlayVisible, value)) suspicionOverlayChanged?.Invoke(value); }
+        }
+
+        public void ConfigureLabelSuspicionReview(Action<LabelSuspicionItem> fix, Action dismiss, Action undoDismissal, Func<bool> canEdit, Func<bool> canUndo, Action<bool> overlayChanged)
+        {
+            canEditSuspicion = canEdit;
+            suspicionOverlayChanged = overlayChanged;
+            fixLabelSuspicionCommand = new RelayCommand<object>(item => { if (item is LabelSuspicionListItem row && LabelSuspicions.Contains(row) && canEditSuspicion?.Invoke() == true) RunSuspicionAction(() => fix?.Invoke(row.Item)); },
+                item => !suspicionActionRunning && suspicionReport?.CanEvaluate == true && item is LabelSuspicionListItem row && LabelSuspicions.Contains(row) && canEditSuspicion?.Invoke() == true);
+            dismissLabelSuspicionCommand = new RelayCommand(() => { if (CanDismissSuspicion()) RunSuspicionAction(dismiss ?? NoOpCommand); }, CanDismissSuspicion);
+            undoLabelSuspicionDismissalCommand = new RelayCommand(() => { if (canUndo?.Invoke() == true && canEditSuspicion?.Invoke() == true) RunSuspicionAction(undoDismissal ?? NoOpCommand); },
+                () => !suspicionActionRunning && canUndo?.Invoke() == true && canEditSuspicion?.Invoke() == true);
+            OnPropertyChanged(nameof(FixLabelSuspicionCommand)); OnPropertyChanged(nameof(DismissLabelSuspicionCommand)); OnPropertyChanged(nameof(UndoLabelSuspicionDismissalCommand));
+        }
+
+        private bool CanDismissSuspicion() => !suspicionActionRunning && suspicionReport?.CanEvaluate == true && !suspicionIsPreview
+            && !string.IsNullOrEmpty(suspicionReport.EvidenceIdentity) && LabelSuspicions.Count > 0 && canEditSuspicion?.Invoke() == true;
+
+        private void RunSuspicionAction(Action action)
+        {
+            if (suspicionActionRunning) return;
+            suspicionActionRunning = true;
+            try { action(); }
+            finally { suspicionActionRunning = false; RefreshLabelSuspicionCommands(); }
+        }
+
+        public void SetLabelSuspicionReview(LabelSuspicionReport report, bool dismissed = false, bool isPreview = false)
+        {
+            suspicionReport = report;
+            suspicionDismissed = dismissed;
+            suspicionIsPreview = isPreview;
+            LabelSuspicions.Clear();
+            if (!dismissed) foreach (LabelSuspicionItem item in report?.Items ?? Array.Empty<LabelSuspicionItem>()) LabelSuspicions.Add(new(item));
+            suspicionVisible = report != null;
+            OnPropertyChanged(nameof(LabelSuspicionVisibility)); OnPropertyChanged(nameof(LabelSuspicionWarningText));
+            OnPropertyChanged(nameof(LabelSuspicionTitle)); OnPropertyChanged(nameof(LabelSuspicionDiagnostic)); OnPropertyChanged(nameof(LabelSuspicionStateText));
+            OnPropertyChanged(nameof(LabelSuspicionCriterionText));
+            RefreshLabelSuspicionCommands();
+        }
+
+        public void RefreshLabelSuspicionLocalization()
+        {
+            SetLabelSuspicionReview(suspicionReport, suspicionDismissed, suspicionIsPreview);
+            OnPropertyChanged(nameof(LabelSuspicionFixText)); OnPropertyChanged(nameof(LabelSuspicionDismissText));
+            OnPropertyChanged(nameof(LabelSuspicionUndoText)); OnPropertyChanged(nameof(LabelSuspicionOverlayText));
+        }
+
+        public void RefreshLabelSuspicionCommands()
+        {
+            if (fixLabelSuspicionCommand is RelayCommand<object> fix) fix.RaiseCanExecuteChanged();
+            if (dismissLabelSuspicionCommand is RelayCommand dismiss) dismiss.RaiseCanExecuteChanged();
+            if (undoLabelSuspicionDismissalCommand is RelayCommand undo) undo.RaiseCanExecuteChanged();
+        }
         public BulkObservableCollection<WpfCandidateReviewListItem> Candidates { get; } = new BulkObservableCollection<WpfCandidateReviewListItem>();
+
+        public ObservableCollection<string> CandidateClassFilters { get; } = new ObservableCollection<string>
+        {
+            "모든 클래스"
+        };
 
         public ObservableCollection<string> ReviewHistory { get; } = new ObservableCollection<string>();
 
@@ -155,7 +296,9 @@ namespace MvcVisionSystem
 
         public WpfCandidateReviewPanelViewModel()
         {
-            PostActionPolicyText = "\uD655\uC815/\uC2A4\uD0B5 \uD6C4\uC5D0\uB294 \uB2E4\uC74C \uD6C4\uBCF4\uB85C \uC774\uB3D9";
+            PostActionPolicyText = "\uD655\uC815/\uAC74\uB108\uB6F0\uAE30 \uD6C4\uC5D0\uB294 \uB2E4\uC74C \uD6C4\uBCF4\uB85C \uC774\uB3D9";
+            ConfirmRowCommand = new RelayCommand<WpfCandidateReviewListItem>(row => ExecuteRowAction(row, ConfirmSelectedCommand, confirm: true), row => row != null && Candidates.Contains(row) && row.IsInlineConfirmEnabled);
+            SkipRowCommand = new RelayCommand<WpfCandidateReviewListItem>(row => ExecuteRowAction(row, SkipSelectedCommand, confirm: false), row => row != null && Candidates.Contains(row) && row.IsInlineSkipEnabled);
         }
 
         public ICommand ConfidenceChangedCommand
@@ -164,11 +307,39 @@ namespace MvcVisionSystem
             private set => SetProperty(ref confidenceChangedCommand, value);
         }
 
+        public ICommand CandidateClassFilterChangedCommand
+        {
+            get => candidateClassFilterChangedCommand;
+            private set => SetProperty(ref candidateClassFilterChangedCommand, value);
+        }
+
+        public string SelectedCandidateClassFilter
+        {
+            get => selectedCandidateClassFilter;
+            set
+            {
+                string normalized = string.IsNullOrWhiteSpace(value) ? "모든 클래스" : value;
+                if (SetProperty(ref selectedCandidateClassFilter, normalized)
+                    && !isRefreshingCandidateClassFilters)
+                {
+                    candidateClassFilterChangedAction(normalized);
+                }
+            }
+        }
+
+        public string CandidateClassFilterSummaryText
+            => SelectedCandidateClassFilter == "모든 클래스"
+                ? "클래스: 전체"
+                : $"클래스: {SelectedCandidateClassFilter}";
+
         public ICommand ConfirmSelectedCommand
         {
             get => confirmSelectedCommand;
             private set => SetProperty(ref confirmSelectedCommand, value);
         }
+
+        public ICommand ConfirmRowCommand { get; }
+        public ICommand SkipRowCommand { get; }
 
         public ICommand ConfirmAllCommand
         {
@@ -211,6 +382,10 @@ namespace MvcVisionSystem
             get => completeImageAndNextCommand;
             private set => SetProperty(ref completeImageAndNextCommand, value);
         }
+
+        public ICommand ModelErrorLabelReviewCommand { get => modelErrorLabelReviewCommand; private set => SetProperty(ref modelErrorLabelReviewCommand, value); }
+        public ICommand ModelErrorQualityReviewCommand { get => modelErrorQualityReviewCommand; private set => SetProperty(ref modelErrorQualityReviewCommand, value); }
+        public ICommand ReturnToModelComparisonCommand { get => returnToModelComparisonCommand; private set => SetProperty(ref returnToModelComparisonCommand, value); }
 
         public ICommand ModelComparisonExampleCommand
         {
@@ -312,6 +487,27 @@ namespace MvcVisionSystem
         {
             get => confidenceText;
             set => SetProperty(ref confidenceText, value ?? string.Empty);
+        }
+
+        public double DisplayConfidence
+        {
+            get => displayConfidence;
+            set
+            {
+                double next = double.IsFinite(value) ? Math.Clamp(value, 0D, 1D) : displayConfidence;
+                if (!SetProperty(ref displayConfidence, next)) return;
+                OnPropertyChanged(nameof(DisplayConfidenceText));
+                displayConfidenceChanged?.Invoke(next);
+            }
+        }
+
+        public string DisplayConfidenceText => displayConfidence.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+
+        public void BeginInferenceRecipe(string recipeIdentity)
+        {
+            if (string.Equals(inferenceRecipeIdentity, recipeIdentity, StringComparison.OrdinalIgnoreCase)) return;
+            inferenceRecipeIdentity = recipeIdentity;
+            DisplayConfidence = .25D;
         }
 
         public string DetailText
@@ -692,7 +888,8 @@ namespace MvcVisionSystem
             Action togglePatchCoreHeatmap = null)
         {
             // Candidate review stays virtualized; commands keep the view declarative while shell owns workflow state.
-            ConfidenceChangedCommand = new RelayCommand<double>(confidenceChanged ?? NoOpValueCommand);
+            displayConfidenceChanged = confidenceChanged;
+            ConfidenceChangedCommand = new RelayCommand<double>(value => DisplayConfidence = value);
             ConfirmSelectedCommand = new RelayCommand(confirmSelected ?? NoOpCommand);
             ConfirmAllCommand = new RelayCommand(confirmAll ?? NoOpCommand);
             SkipSelectedCommand = new RelayCommand(skipSelected ?? NoOpCommand);
@@ -721,6 +918,46 @@ namespace MvcVisionSystem
             CandidateSelectionChangedCommand = new RelayCommand<object>(ExecuteCandidateSelectionChanged);
         }
 
+        public void ConfigureCandidateClassFilterWorkflow(Action<string> applyFilterAction)
+        {
+            candidateClassFilterChangedAction = applyFilterAction ?? (_ => { });
+            CandidateClassFilterChangedCommand = new RelayCommand<object>(
+                value => SelectedCandidateClassFilter = value as string);
+        }
+
+        public void SetCandidateClassFilters(IEnumerable<string> classNames, string preferredFilter = null)
+        {
+            List<string> filters = (classNames ?? Array.Empty<string>())
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Select(name => name.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+            isRefreshingCandidateClassFilters = true;
+            try
+            {
+                CandidateClassFilters.Clear();
+                CandidateClassFilters.Add("모든 클래스");
+                foreach (string name in filters)
+                {
+                    CandidateClassFilters.Add(name);
+                }
+
+                string next = !string.IsNullOrWhiteSpace(preferredFilter)
+                    && CandidateClassFilters.Any(item => string.Equals(item, preferredFilter, StringComparison.OrdinalIgnoreCase))
+                        ? CandidateClassFilters.First(item => string.Equals(item, preferredFilter, StringComparison.OrdinalIgnoreCase))
+                        : "모든 클래스";
+                SelectedCandidateClassFilter = next;
+            }
+            finally
+            {
+                isRefreshingCandidateClassFilters = false;
+            }
+
+            OnPropertyChanged(nameof(CandidateClassFilters));
+            OnPropertyChanged(nameof(CandidateClassFilterSummaryText));
+        }
+
         public void ConfigureModelComparisonHistorySelectionWorkflow(Action<WpfModelComparisonHistoryItem> applySelectionAction)
         {
             modelComparisonHistorySelectionChangedAction = applySelectionAction ?? (_ => { });
@@ -734,9 +971,20 @@ namespace MvcVisionSystem
                 return;
             }
 
+            if (args.IsRepeat
+                && (args.Key == Key.Enter
+                    || args.Key == Key.Delete
+                    || args.Key == Key.Back
+                    || (args.Key == Key.A && (args.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)))
+            {
+                args.Handled = true;
+                return;
+            }
+
             if (args.Key == Key.Enter)
             {
-                ConfirmSelectedCommand.Execute(null);
+                if ((args.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift) ConfirmAllCommand.Execute(null);
+                else ConfirmSelectedCommand.Execute(null);
                 args.Handled = true;
                 return;
             }
@@ -805,6 +1053,19 @@ namespace MvcVisionSystem
             modelComparisonHistorySelectionChangedAction?.Invoke(selectedHistoryItem);
         }
 
+        private void ExecuteRowAction(WpfCandidateReviewListItem row, ICommand command, bool confirm)
+        {
+            if (row == null || !Candidates.Contains(row) || (confirm ? !row.IsInlineConfirmEnabled : !row.IsInlineSkipEnabled)) return;
+            ExecuteCandidateSelectionChanged(row);
+            if (ReferenceEquals(SelectedCandidate, row) && Candidates.Contains(row) && command.CanExecute(null)) command.Execute(null);
+        }
+
+        internal void RefreshInlineCommands()
+        {
+            ((RelayCommand<WpfCandidateReviewListItem>)ConfirmRowCommand).RaiseCanExecuteChanged();
+            ((RelayCommand<WpfCandidateReviewListItem>)SkipRowCommand).RaiseCanExecuteChanged();
+        }
+
         public void SetCandidates(
             IEnumerable<WpfCandidateReviewListItem> candidates,
             string detail,
@@ -813,6 +1074,7 @@ namespace MvcVisionSystem
         {
             SelectedCandidate = null;
             ClearPatchCoreHeatmapReview();
+            IsModelComparisonEvidence = false;
             List<WpfCandidateReviewListItem> rows = (candidates ?? Array.Empty<WpfCandidateReviewListItem>()).ToList();
             Candidates.ReplaceAll(rows);
 
@@ -869,8 +1131,8 @@ namespace MvcVisionSystem
             if (presentation == null)
             {
                 SetCompletionState(false, "\uC644\uB8CC\uD560 \uC774\uBBF8\uC9C0\uB97C \uBA3C\uC800 \uC5F4\uC5B4\uC8FC\uC138\uC694.");
-                CompletionTitleText = "\uAC80\uD1A0 \uB300\uAE30";
-                CompletionDetailText = "\uC774\uBBF8\uC9C0\uB97C \uC5F4\uAC70\uB098 \uD604\uC7AC \uC774\uBBF8\uC9C0\uB97C \uAC80\uC0AC\uD558\uBA74 \uD6C4\uBCF4 \uAC80\uD1A0 \uC0C1\uD0DC\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
+                CompletionTitleText = OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfCandidateReviewPanelViewModel.Waiting");
+                CompletionDetailText = OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfCandidateReviewPanelViewModel.OpenOrInfer");
                 CompletionNextActionText = "\uB2E4\uC74C: \uC774\uBBF8\uC9C0 \uC120\uD0DD \uB610\uB294 \uAC80\uC0AC";
                 return;
             }
@@ -892,7 +1154,7 @@ namespace MvcVisionSystem
             ComparisonCurrentText = "-";
             ComparisonOverlapText = "\uACB9\uCE68\n0%";
             ComparisonDecisionText = string.Empty;
-            SelectedCandidateSummaryText = "\uC120\uD0DD: AI \uD6C4\uBCF4 \uC5C6\uC74C";
+            SelectedCandidateSummaryText = OpenVisionLab.OpenVisionLanguageService.T("WpfCandidate.Selection.None");
             IsComparisonHighOverlap = false;
         }
 
@@ -905,7 +1167,7 @@ namespace MvcVisionSystem
             ComparisonOverlapText = presentation.OverlapText;
             ComparisonDecisionText = presentation.DecisionText;
             SelectedCandidateSummaryText = string.IsNullOrWhiteSpace(presentation.SelectionSummaryText)
-                ? SelectedCandidate?.Title ?? "\uC120\uD0DD: AI \uD6C4\uBCF4 \uC5C6\uC74C"
+                ? SelectedCandidate?.Title ?? OpenVisionLab.OpenVisionLanguageService.T("WpfCandidate.Selection.None")
                 : presentation.SelectionSummaryText;
             IsComparisonHighOverlap = presentation.IsHighOverlap;
         }
@@ -920,6 +1182,7 @@ namespace MvcVisionSystem
             else
             {
                 ClearComparison();
+                SelectedCandidateSummaryText = SelectedCandidate?.Title ?? OpenVisionLab.OpenVisionLanguageService.T("WpfCandidate.Selection.None");
             }
         }
 
@@ -986,6 +1249,12 @@ namespace MvcVisionSystem
 
         public void ClearModelComparisonReview()
         {
+            currentComparisonReport = null;
+            returnComparisonReport = null;
+            selectedComparisonExample = null;
+            IsModelErrorReviewActive = false;
+            SetModelComparisonPreview(new(null, null, string.Empty));
+            IsModelComparisonEvidence = false;
             ModelComparisonExamples.Clear();
             ModelComparisonHistoryItems.Clear();
             SelectedModelComparisonHistoryItem = null;
@@ -993,13 +1262,13 @@ namespace MvcVisionSystem
             IsHistoricalModelComparisonSelection = false;
             IsModelComparisonExamplesExpanded = false;
             UpdateModelComparisonExampleDisclosure();
-            ModelComparisonStatusText = "\uBAA8\uB378 \uBE44\uAD50: \uB300\uAE30";
-            ModelComparisonDecisionText = "\uAD50\uCCB4 \uD310\uB2E8: \uB300\uAE30";
+            ModelComparisonStatusText = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.Waiting");
+            ModelComparisonDecisionText = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.DecisionWaiting");
             ModelComparisonPromotionDecision = string.Empty;
             ModelComparisonSourceText = DefaultModelComparisonSourceText;
-            ModelComparisonDetailText = "\uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378 \uD6C4\uBCF4\uB97C \uAC80\uC99D\uD558\uBA74 \uC774\uACF3\uC5D0 \uAE30\uC874 \uBAA8\uB378\uACFC \uC0C8 \uBAA8\uB378\uC758 \uCC28\uC774\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
+            ModelComparisonDetailText = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.DetailWaiting");
             ModelComparisonBenchmarkText = string.Empty;
-            ModelComparisonActionText = "\uB2E4\uC74C: \uD6C4\uBCF4\uAC00 \uC788\uC73C\uBA74 \uD559\uC2B5/\uBAA8\uB378 \uC13C\uD130\uC758 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB204\uB974\uACE0, \uAC80\uD1A0 \uD6C4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694.";
+            ModelComparisonActionText = OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.WpfCandidateReviewPanelViewModel.TrainingNext");
             ModelComparisonVisibility = Visibility.Collapsed;
             SetModelCandidateDecisionState(false, false, null, null, null, null);
         }
@@ -1039,18 +1308,22 @@ namespace MvcVisionSystem
             WpfModelComparisonReviewReport report,
             bool isHistoricalSelection = false)
         {
+            currentComparisonReport = report;
+            selectedComparisonExample = null;
+            SetModelComparisonPreview(new(null, null, string.Empty));
             ModelComparisonExamples.Clear();
             IsHistoricalModelComparisonSelection = report?.HasComparison == true && isHistoricalSelection;
+            IsModelComparisonEvidence = false;
             if (report?.HasComparison != true)
             {
                 IsModelComparisonExamplesExpanded = false;
                 UpdateModelComparisonExampleDisclosure();
-                ModelComparisonStatusText = "\uBAA8\uB378 \uBE44\uAD50: \uC544\uC9C1 \uC2E4\uD589 \uC548 \uB428";
-                ModelComparisonDecisionText = "\uAD50\uCCB4 \uD310\uB2E8: \uBE44\uAD50 \uD544\uC694";
+                ModelComparisonStatusText = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.NotRun");
+                ModelComparisonDecisionText = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.CompareNeeded");
                 ModelComparisonPromotionDecision = string.Empty;
                 ModelComparisonBenchmarkText = string.Empty;
-                ModelComparisonDetailText = "\uBE44\uAD50 \uACB0\uACFC \uD30C\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. \uD559\uC2B5/\uBAA8\uB378 \uC13C\uD130\uC5D0\uC11C \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB204\uB974\uAC70\uB098 Guide\uC5D0\uC11C \uBAA8\uB378 \uBE44\uAD50\uB97C \uC2E4\uD589\uD558\uC138\uC694.";
-                ModelComparisonActionText = "\uBAA8\uB378 \uD6C4\uBCF4\uB97C \uC801\uC6A9\uD558\uB824\uBA74 \uBE44\uAD50 \uACB0\uACFC\uB97C \uD655\uC778\uD55C \uB4A4 \uBAA8\uB378\uC13C\uD130\uC758 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5 \uBC84\uD2BC\uC744 \uB204\uB974\uC138\uC694.";
+                ModelComparisonDetailText = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.NoReport");
+                ModelComparisonActionText = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.SetInstruction");
                 ModelComparisonVisibility = Visibility.Collapsed;
                 return;
             }
@@ -1059,22 +1332,22 @@ namespace MvcVisionSystem
             ModelComparisonPromotionDecision = report.PromotionDecision;
             ModelComparisonBenchmarkText = report.BenchmarkText;
             ModelComparisonDecisionText = IsHistoricalModelComparisonSelection
-                ? "\uACFC\uAC70 \uC2E4\uD589 \uBCF4\uAE30: \uCC38\uACE0\uC6A9 - \uBAA8\uB378 \uCC44\uD0DD \uD310\uB2E8 \uC544\uB2D8"
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.HistoricalDecision")
                 : string.IsNullOrWhiteSpace(report.RecommendationText)
-                    ? "\uAD50\uCCB4 \uD310\uB2E8: \uC608\uC2DC \uAC80\uD1A0"
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.ExampleDecision")
                     : report.RecommendationText;
             ModelComparisonDetailText = string.IsNullOrWhiteSpace(report.SourcePath)
                 ? report.DetailText
                 : $"{report.DetailText} / {System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(report.SourcePath) ?? report.SourcePath)}";
             ModelComparisonActionText = IsHistoricalModelComparisonSelection
-                ? "\uB2E4\uC74C: \uACFC\uAC70 \uACB0\uACFC\uB294 \uBE44\uAD50 \uCC38\uACE0\uC6A9\uC785\uB2C8\uB2E4. \uBAA8\uB378 \uCC44\uD0DD\uC740 \uCD5C\uC2E0 \uC2E4\uD589\uC73C\uB85C \uB3CC\uC544\uAC00 \uD310\uB2E8\uD558\uC138\uC694."
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.HistoricalNext")
                 : report.IsEngineComparison
-                    ? "\uB2E4\uC74C: \uC774\uBBF8\uC9C0\uBCC4 \uCC28\uC774\uC640 Takt\uB97C \uD655\uC778\uD558\uC138\uC694. \uC5D4\uC9C4 \uCC44\uD0DD\uC740 \uAC00\uC911\uCE58\uB9CC \uBC14\uAFB8\uC9C0 \uB9D0\uACE0 Python/\uB7F0\uD0C0\uC784 \uC124\uC815\uAE4C\uC9C0 \uD568\uAED8 \uC801\uC6A9\uD574\uC57C \uD569\uB2C8\uB2E4."
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.EngineNext")
                 : string.Equals(report.PromotionDecision, "hold", StringComparison.OrdinalIgnoreCase)
-                    ? "\uB2E4\uC74C: \uB2E4\uC591\uD55C \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uBCF4\uAC15\uD558\uAC70\uB098 \uBAA8\uB378\uC744 \uC870\uC815\uD55C \uB4A4 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694."
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.HoldNext")
                     : (report.Examples?.Count ?? 0) > 0
-                        ? "\uB2E4\uC74C: \uC544\uB798 \uC608\uC2DC\uB97C \uD074\uB9AD\uD574 \uC774\uBBF8\uC9C0 \uC704\uCE58\uB97C \uD655\uC778\uD55C \uB4A4 Guide\uC758 \uAD50\uCCB4 \uD310\uB2E8\uC744 \uBCF4\uACE0, \uBAA8\uB378\uC13C\uD130\uC5D0\uC11C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694."
-                        : "\uB2E4\uC74C: \uBAA8\uB378 \uCC28\uC774 \uC608\uC2DC\uAC00 \uC5C6\uC73C\uBA74 \uAC80\uC99D \uB370\uC774\uD130 \uC218\uC640 \uC9C0\uD45C\uB97C \uD655\uC778\uD55C \uB4A4 \uBAA8\uB378\uC13C\uD130\uC5D0\uC11C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uAC70\uB098 \uD604\uC7AC \uBAA8\uB378\uC744 \uC720\uC9C0\uD558\uC138\uC694.";
+                        ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.ExamplesNext")
+                        : OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.NoExamplesNext");
 
             foreach (WpfModelComparisonReviewExample example in report.Examples ?? Array.Empty<WpfModelComparisonReviewExample>())
             {
@@ -1103,17 +1376,76 @@ namespace MvcVisionSystem
                 ? Visibility.Visible
                 : Visibility.Collapsed;
             ModelCandidateDecisionStatusText = string.IsNullOrWhiteSpace(statusText)
-                ? "\uD6C4\uBCF4 \uACB0\uC815: \uB300\uAE30"
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.CandidateWaiting")
                 : statusText;
             ModelCandidateDecisionDetailText = string.IsNullOrWhiteSpace(detailText)
-                ? "\uBE44\uAD50 \uD6C4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uAC70\uB098 \uD6C4\uBCF4\uB97C \uAC70\uC808\uD574 \uD604\uC7AC \uBAA8\uB378\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4."
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.CandidateDetail")
                 : detailText;
             SaveModelCandidateToolTip = string.IsNullOrWhiteSpace(saveToolTip)
-                ? "\uC800\uC7A5\uD560 \uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4."
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.WpfCandidateReviewPanelViewModel.TrainingSaveEmpty")
                 : saveToolTip;
             RejectModelCandidateToolTip = string.IsNullOrWhiteSpace(rejectToolTip)
-                ? "\uAC70\uC808\uD560 \uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4."
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.WpfCandidateReviewPanelViewModel.TrainingRejectEmpty")
                 : rejectToolTip;
+        }
+
+        internal void ConfigureModelErrorReview(Func<bool, bool> beginReview, Func<WpfModelComparisonReviewExample, bool> returnReview, Func<bool> canNavigate)
+        {
+            beginModelErrorReview = beginReview;
+            returnToModelComparison = returnReview;
+            canNavigateModelReview = canNavigate;
+            ModelErrorLabelReviewCommand = new RelayCommand(() => BeginModelErrorReview(false), CanBeginModelErrorReview);
+            ModelErrorQualityReviewCommand = new RelayCommand(() => BeginModelErrorReview(true), CanBeginModelErrorReview);
+            ReturnToModelComparisonCommand = new RelayCommand(ReturnToComparison, () => IsModelErrorReviewActive && canNavigateModelReview?.Invoke() == true);
+        }
+
+        private bool CanBeginModelErrorReview() => selectedComparisonExample != null && HasModelComparisonPreview && !IsModelErrorReviewActive && canNavigateModelReview?.Invoke() == true;
+
+        private void BeginModelErrorReview(bool quality)
+        {
+            if (!CanBeginModelErrorReview()) return;
+            WpfModelComparisonReviewExample example = selectedComparisonExample;
+            WpfModelComparisonReviewReport report = currentComparisonReport;
+            WpfModelComparisonHistoryItem history = SelectedModelComparisonHistoryItem;
+            string source = ModelComparisonSourceText;
+            bool historical = IsHistoricalModelComparisonSelection;
+            if (beginModelErrorReview?.Invoke(quality) != true) return;
+            returnComparisonReport = report;
+            returnComparisonExample = example;
+            returnComparisonHistory = history;
+            returnComparisonSource = source;
+            returnComparisonHistorical = historical;
+            IsModelErrorReviewActive = true;
+            RefreshModelErrorReviewCommands();
+        }
+
+        private void ReturnToComparison()
+        {
+            if (!IsModelErrorReviewActive || canNavigateModelReview?.Invoke() != true) return;
+            WpfModelComparisonReviewExample example = returnComparisonExample;
+            if (returnToModelComparison?.Invoke(example) != true) return;
+            SetModelComparisonReview(returnComparisonReport, returnComparisonHistorical);
+            SelectedModelComparisonHistoryItem = returnComparisonHistory;
+            SetModelComparisonSourceText(returnComparisonSource);
+            SetModelComparisonFocus(example, example.LocationText);
+            SetModelComparisonPreview(ModelComparisonPreviewPresentationService.Build(example));
+            IsModelErrorReviewActive = false;
+            RefreshModelErrorReviewCommands();
+        }
+
+        internal void RefreshModelErrorReviewCommands()
+        {
+            foreach (ICommand command in new[] { ModelErrorLabelReviewCommand, ModelErrorQualityReviewCommand, ReturnToModelComparisonCommand }) if (command is RelayCommand relay) relay.RaiseCanExecuteChanged();
+        }
+
+        public void SetModelComparisonPreview(ModelComparisonPreviewPresentation presentation)
+        {
+            BaselineComparisonPreviewImage = presentation?.Baseline;
+            CandidateComparisonPreviewImage = presentation?.Candidate;
+            ComparisonPreviewErrorText = presentation?.Error;
+            OnPropertyChanged(nameof(HasModelComparisonPreview));
+            OnPropertyChanged(nameof(ComparisonPreviewSourceText));
+            RefreshModelErrorReviewCommands();
         }
 
         public void SetModelComparisonFocus(WpfModelComparisonReviewExample example, string locationText)
@@ -1123,17 +1455,21 @@ namespace MvcVisionSystem
                 return;
             }
 
+            IsModelComparisonEvidence = true;
+            selectedComparisonExample = example;
+            OnPropertyChanged(nameof(ComparisonPreviewSourceText));
+            RefreshModelErrorReviewCommands();
             string location = string.IsNullOrWhiteSpace(locationText)
                 ? example.LocationText
                 : locationText.Trim();
             string action = example.ActionText ?? string.Empty;
-            ModelComparisonStatusText = $"\uAC80\uD1A0 \uC608\uC2DC \uC5F4\uB9BC: {example.Title}";
+            ModelComparisonStatusText = string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.ExampleOpened"), example.Title);
             ModelComparisonDetailText = string.IsNullOrWhiteSpace(location)
                 ? action
                 : string.IsNullOrWhiteSpace(action)
                     ? location
                     : $"{location} / {action}";
-            ModelComparisonActionText = "\uD655\uC778 \uD6C4: \uC774 \uC608\uC2DC\uAC00 \uC0C8 \uBAA8\uB378\uC5D0 \uC720\uB9AC\uD55C\uC9C0 \uD310\uB2E8\uD558\uACE0, Guide\uC758 \uAD50\uCCB4 \uD310\uB2E8\uC744 \uBCF8 \uB4A4 \uBAA8\uB378\uC13C\uD130\uC5D0\uC11C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694.";
+            ModelComparisonActionText = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.ExampleNext");
             UpdateModelComparisonExampleDisclosure();
             ModelComparisonVisibility = Visibility.Visible;
         }
@@ -1159,11 +1495,11 @@ namespace MvcVisionSystem
             int count = ModelComparisonExamples.Count;
             ModelComparisonExampleListVisibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
             ModelComparisonExampleHeaderText = count <= 0
-                ? "\uAC80\uC99D \uC608\uC2DC 0\uAC74"
-                : $"\uAC80\uC99D \uC608\uC2DC {count}\uAC74";
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.NoExamples")
+                : string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.ExamplesCount"), count);
             ModelComparisonExampleSummaryText = count <= 0
-                ? "\uC608\uC2DC\uAC00 \uC788\uC73C\uBA74 \uD3BC\uCCD0\uC11C \uC774\uBBF8\uC9C0\uBCC4 \uCC28\uC774 \uC704\uCE58\uB97C \uD655\uC778\uD569\uB2C8\uB2E4."
-                : "\uAE30\uBCF8\uC740 \uC811\uC5B4 \uB450\uACE0, \uD544\uC694\uD560 \uB54C\uB9CC \uD3BC\uCCD0\uC11C \uC774\uBBF8\uC9C0\uBCC4 \uCC28\uC774\uB97C \uD655\uC778\uD569\uB2C8\uB2E4.";
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.ExamplesEmptyHelp")
+                : OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfCandidateReviewPanelViewModel.ExamplesHelp");
             if (count <= 0)
             {
                 IsModelComparisonExamplesExpanded = false;
@@ -1175,45 +1511,55 @@ namespace MvcVisionSystem
             int count = ReviewHistory.Count;
             ReviewHistoryVisibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
             ReviewHistoryHeaderText = count <= 0
-                ? "\uAC80\uD1A0 \uC774\uB825 0\uAC74"
-                : $"\uAC80\uD1A0 \uC774\uB825 {count}\uAC74";
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfCandidateReviewPanelViewModel.NoHistory")
+                : string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfCandidateReviewPanelViewModel.HistoryCount"), count);
             ReviewHistorySummaryText = count <= 0
                 ? "\uD655\uC815/\uC228\uAE40 \uC791\uC5C5\uC774 \uC788\uC73C\uBA74 \uC5EC\uAE30\uC5D0 \uC694\uC57D\uB429\uB2C8\uB2E4."
-                : "\uCD5C\uADFC \uAC80\uD1A0 \uC791\uC5C5\uB9CC \uC694\uC57D\uD558\uACE0, \uC0C1\uC138 \uC774\uB825\uC740 \uD3BC\uCCD0\uC11C \uD655\uC778\uD569\uB2C8\uB2E4.";
+                : OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfCandidateReviewPanelViewModel.HistoryHelp");
             if (count <= 0)
             {
                 IsReviewHistoryExpanded = false;
             }
         }
 
-        private void UpdateCandidateAvailabilityPresentation(int visibleCandidateCount, int pendingCandidateCount)
+        public void UpdateCandidateAvailabilityPresentation(int visibleCandidateCount, int pendingCandidateCount, bool inspectionOnly = false, bool hasInferenceResult = false)
         {
             CandidateInteractionVisibility = pendingCandidateCount > 0
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
+            if (inspectionOnly)
+            {
+                PanelModeTitleText = OpenVisionLab.OpenVisionLanguageService.T("WpfInference.ResultOnly.Panel.Title");
+                PanelModeBadgeText = OpenVisionLab.OpenVisionLanguageService.T("WpfInference.ResultOnly.Panel.Badge");
+                PanelModeScopeText = OpenVisionLab.OpenVisionLanguageService.T(pendingCandidateCount > 0
+                    ? "WpfInference.ResultOnly.Panel.Detail"
+                    : hasInferenceResult ? "WpfInference.ResultOnly.Panel.CompletedEmpty" : "WpfInference.ResultOnly.Panel.Empty");
+                return;
+            }
+
             if (visibleCandidateCount > 0)
             {
-                PanelModeTitleText = "\uD604\uC7AC \uC774\uBBF8\uC9C0 AI \uD6C4\uBCF4 \uD655\uC778";
-                PanelModeBadgeText = "AI \uD6C4\uBCF4 \uAC80\uD1A0";
-                PanelModeScopeText = "\uB9DE\uB294 \uD6C4\uBCF4\uB9CC \uD655\uC815\uD558\uBA74 \uC800\uC7A5 \uB77C\uBCA8\uB85C \uCD94\uAC00\uB429\uB2C8\uB2E4. \uD6C4\uBCF4 \uC228\uAE40\uC740 \uC800\uC7A5 \uB77C\uBCA8\uC744 \uBC14\uAFB8\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
+                PanelModeTitleText = OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfCandidateReviewPanelViewModel.CurrentSuggestions");
+                PanelModeBadgeText = OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfCandidateReviewPanelViewModel.CheckSuggestions");
+                PanelModeScopeText = string.Empty;
                 return;
             }
 
             if (pendingCandidateCount > 0)
             {
-                PanelModeTitleText = "\uD604\uC7AC \uC2E0\uB8B0\uB3C4 \uAE30\uC900\uC5D0 \uD45C\uC2DC\uB418\uB294 AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4";
-                PanelModeBadgeText = "AI \uD6C4\uBCF4 \uAC80\uD1A0";
-                PanelModeScopeText = "\uD6C4\uBCF4\uAC00 \uC2E0\uB8B0\uB3C4 \uAE30\uC900 \uC544\uB798\uC5D0 \uC788\uC2B5\uB2C8\uB2E4. \uC2E0\uB8B0\uB3C4\uB97C \uB0AE\uCD94\uBA74 \uB2E4\uC2DC \uD45C\uC2DC\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
+                PanelModeTitleText = OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfCandidateReviewPanelViewModel.BelowThreshold");
+                PanelModeBadgeText = OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfCandidateReviewPanelViewModel.CheckSuggestions");
+                PanelModeScopeText = OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfCandidateReviewPanelViewModel.LowerThreshold");
                 return;
             }
 
-            PanelModeTitleText = "\uAC80\uD1A0\uD560 AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4";
+            PanelModeTitleText = OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.WpfCandidateReviewPanelViewModel.NoSuggestions");
             PanelModeBadgeText = "\uC120\uD0DD \uB2E8\uACC4";
-            PanelModeScopeText = "AI \uC790\uB3D9 \uB77C\uBCA8\uC744 \uC0AC\uC6A9\uD560 \uB54C\uB9CC \uC704\uC758 \uD604\uC7AC \uAC80\uC0AC\uB97C \uC2E4\uD589\uD558\uC138\uC694. \uC9C1\uC811 \uB77C\uBCA8\uB9C1\uC744 \uB9C8\uCCE4\uB2E4\uBA74 4 \uD559\uC2B5/\uBAA8\uB378\uB85C \uC774\uB3D9\uD558\uC138\uC694. \uC800\uC7A5\uD55C \uB77C\uBCA8\uC740 \uADF8\uB300\uB85C \uC720\uC9C0\uB429\uB2C8\uB2E4.";
+            PanelModeScopeText = OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Assistance.Panel.Empty");
         }
 
         private static string FormatCandidateCount(int count)
-            => count <= 0 ? "AI \uD6C4\uBCF4 0\uAC1C" : $"AI \uD6C4\uBCF4 {count}\uAC1C";
+            => string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfCandidate.Inline.Count"), Math.Max(0, count));
     }
 }

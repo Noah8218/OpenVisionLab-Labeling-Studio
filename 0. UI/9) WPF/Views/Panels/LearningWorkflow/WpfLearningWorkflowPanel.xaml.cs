@@ -195,6 +195,13 @@ namespace MvcVisionSystem
             }
 
             LearningWorkflowScrollViewer.ScrollToTop();
+            if (DatasetHomeOverviewPanel.IsVisible)
+            {
+                DatasetConnectImageFolderButton.BringIntoView();
+                DatasetConnectImageFolderButton.Focus();
+                return;
+            }
+
             DatasetSetupActionPanel.BringIntoView();
             DatasetSetupStartButton.Focus();
         }

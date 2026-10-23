@@ -25,8 +25,6 @@ namespace MvcVisionSystem
         public TextBlock ClassSectionLabelTextBlock => ClassSectionLabelText;
         public TextBox ClassNameTextBox => ClassNameBox;
         public WpfUiButton AddClass => AddClassButton;
-        public WpfUiButton RenameClass => RenameClassButton;
-        public WpfUiButton RemoveClass => RemoveClassButton;
         public ListBox ClassColor => ClassColorBox;
         public Expander ClassColorAdvanced => ClassColorAdvancedPanel;
         public WpfUiButton ApplyClassColor => ApplyClassColorButton;

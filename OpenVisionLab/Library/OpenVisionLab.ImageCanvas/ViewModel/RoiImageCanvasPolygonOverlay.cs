@@ -13,10 +13,18 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			bool isClosed,
 			bool isDraft = false,
 			bool isSelected = false,
-			int selectedPointIndex = -1)
+			int selectedPointIndex = -1,
+			string className = null,
+			float opacity = 38F / 255F,
+			bool showEditHandles = true,
+			bool isBoxPointDraft = false)
 		{
 			ImagePoints = imagePoints?.ToList() ?? new List<Point>();
 			Label = label ?? string.Empty;
+			ClassName = className;
+			Opacity = opacity;
+			ShowEditHandles = showEditHandles;
+			IsBoxPointDraft = isBoxPointDraft;
 			Color = color;
 			IsClosed = isClosed;
 			IsDraft = isDraft;
@@ -28,7 +36,15 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 
 		public string Label { get; }
 
+		public string ClassName { get; }
+
 		public Color Color { get; }
+
+		public float Opacity { get; }
+
+		public bool ShowEditHandles { get; }
+
+		public bool IsBoxPointDraft { get; }
 
 		public bool IsClosed { get; }
 

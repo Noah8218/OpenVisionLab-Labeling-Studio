@@ -39,7 +39,8 @@ namespace MvcVisionSystem
 
             if (e.Reason != DetectionCandidateUpdateReason.ResultCompleted
                 && e.Reason != DetectionCandidateUpdateReason.StaleResultIgnored
-                && e.Reason != DetectionCandidateUpdateReason.RequestTimedOut)
+                && e.Reason != DetectionCandidateUpdateReason.RequestTimedOut
+                && e.Reason != DetectionCandidateUpdateReason.RequestFailed)
             {
                 return false;
             }

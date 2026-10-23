@@ -30,6 +30,18 @@ namespace MvcVisionSystem
         public WpfAnnotationHistorySnapshot PeekRedo()
             => redoSnapshots.Count == 0 ? null : redoSnapshots[redoSnapshots.Count - 1];
 
+        public IReadOnlyList<string> GetRecentUndoActionNames(int maximumCount)
+        {
+            int count = Math.Max(0, Math.Min(maximumCount, undoSnapshots.Count));
+            var result = new List<string>(count);
+            for (int index = undoSnapshots.Count - 1; index >= undoSnapshots.Count - count; index--)
+            {
+                result.Add(undoSnapshots[index]?.ActionName ?? string.Empty);
+            }
+
+            return result;
+        }
+
         public void Push(WpfAnnotationHistorySnapshot snapshot)
         {
             if (snapshot == null)

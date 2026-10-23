@@ -22,14 +22,14 @@ namespace MvcVisionSystem._1._Core
             bool clientScriptExists = !string.IsNullOrWhiteSpace(clientScriptPath) && File.Exists(clientScriptPath);
             if (!projectRootExists || !clientScriptExists)
             {
-                string detail = "\uB77C\uBCA8\uB9C1\uC740 \uACC4\uC18D\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uD559\uC2B5/\uD604\uC7AC \uAC80\uC0AC\uB97C \uC0AC\uC6A9\uD558\uB824\uBA74 \uBAA8\uB378 \uC2E4\uD589\uAE30\uB97C \uC124\uCE58\uD558\uAC70\uB098 \uAE30\uC874 \uACBD\uB85C\uB97C \uC5F0\uACB0\uD558\uC138\uC694.";
+                string detail = "\ub77c\ubca8\ub9c1\uc740 \uacc4\uc18d\ud560 \uc218 \uc788\uc2b5\ub2c8\ub2e4. \ud559\uc2b5\u00b7\ud604\uc7ac \uc774\ubbf8\uc9c0 \ucd94\ub860\uc5d0 \uc0ac\uc6a9\ud560 \uc2e4\ud589 \ud658\uacbd\uc744 \uc124\uce58\ud558\uac70\ub098 \uae30\uc874 \uacbd\ub85c\ub97c \uc5f0\uacb0\ud558\uc138\uc694.";
                 return new PythonModelRuntimeState(
                     PythonModelRuntimeStateKind.NotInstalled,
                     canRunTraining: false,
                     canRunInference: false,
-                    "\uB77C\uBCA8\uB9C1 \uAC00\uB2A5 / \uBAA8\uB378 \uC2E4\uD589\uAE30 \uBBF8\uC124\uCE58",
+                    "\ub77c\ubca8\ub9c1 \uac00\ub2a5 / \uc2e4\ud589 \ud658\uacbd \ubbf8\uc124\uce58",
                     detail,
-                    "\uBAA8\uB378 \uC2E4\uD589\uAE30 \uC124\uCE58 \uB610\uB294 \uACBD\uB85C \uC5F0\uACB0 \uD544\uC694");
+                    "\uc2e4\ud589 \ud658\uacbd \uc124\uce58\u00b7\uacbd\ub85c \uc5f0\uacb0 \ud544\uc694");
             }
 
             PythonModelRuntimeAdapterSupport adapterSupport = PythonModelRuntimeAdapterSupportService.Build(
@@ -58,9 +58,9 @@ namespace MvcVisionSystem._1._Core
                     PythonModelRuntimeStateKind.Ready,
                     canRunTraining: true,
                     canRunInference: true,
-                    "\uB77C\uBCA8\uB9C1 \uAC00\uB2A5 / \uBAA8\uB378 \uAE30\uB2A5 \uC900\uBE44 \uC644\uB8CC",
-                    "\uD559\uC2B5/\uD604\uC7AC \uAC80\uC0AC \uC0AC\uC6A9 \uAC00\uB2A5",
-                    "\uD559\uC2B5/\uD604\uC7AC \uAC80\uC0AC \uC0AC\uC6A9 \uAC00\uB2A5");
+                    "\ub77c\ubca8\ub9c1 \uac00\ub2a5 / \ubaa8\ub378 \uae30\ub2a5 \uc900\ube44\ub428",
+                    "\ud559\uc2b5\u00b7\ud604\uc7ac \ucd94\ub860 \uac00\ub2a5",
+                    "\ud559\uc2b5\u00b7\ud604\uc7ac \ucd94\ub860 \uac00\ub2a5");
             }
 
             if (!canRunTraining && canRunInference)
@@ -69,12 +69,12 @@ namespace MvcVisionSystem._1._Core
                     PythonModelRuntimeStateKind.Incomplete,
                     canRunTraining: false,
                     canRunInference: true,
-                    "\uB77C\uBCA8\uB9C1 \uAC00\uB2A5 / \uD604\uC7AC \uAC80\uC0AC \uAC00\uB2A5",
+                    "\ub77c\ubca8\ub9c1 \uac00\ub2a5 / \ud604\uc7ac \ucd94\ub860 \uac00\ub2a5",
                     string.IsNullOrWhiteSpace(adapterSupport.DetailText)
-                        ? "\uD604\uC7AC \uAC80\uC0AC\uB294 \uAC00\uB2A5\uD558\uC9C0\uB9CC \uD559\uC2B5 \uC2E4\uD589\uC740 \uB530\uB85C \uC5F0\uACB0\uC774 \uD544\uC694\uD569\uB2C8\uB2E4."
+                        ? "\ud604\uc7ac \uc774\ubbf8\uc9c0 \ucd94\ub860\uc740 \uac00\ub2a5\ud558\uba70 \ud559\uc2b5\uc740 \ubcc4\ub3c4 \uc5f0\uacb0\uc774 \ud544\uc694\ud569\ub2c8\ub2e4."
                         : adapterSupport.DetailText,
                     string.IsNullOrWhiteSpace(adapterSupport.NextActionText)
-                        ? "\uD559\uC2B5\uC774 \uD544\uC694\uD558\uBA74 \uD559\uC2B5 \uC9C0\uC6D0 \uC2E4\uD589\uAE30\uB97C \uC5F0\uACB0\uD558\uC138\uC694."
+                        ? "\ud559\uc2b5\ud558\ub824\uba74 \ud559\uc2b5 \uc9c0\uc6d0 \uc2e4\ud589 \ud658\uacbd\uc744 \uc5f0\uacb0\ud558\uc138\uc694."
                         : adapterSupport.NextActionText);
             }
 
@@ -84,7 +84,7 @@ namespace MvcVisionSystem._1._Core
                 ?? trainingValidation.Warnings.FirstOrDefault()
                 ?? "\uBAA8\uB378 \uC124\uC815\uC744 \uD655\uC778\uD558\uC138\uC694";
             string action = canRunTraining && !canRunInference
-                ? "\uBAA8\uB378 \uC2E4\uD589\uAE30\uB294 \uC788\uC9C0\uB9CC \uAC80\uC0AC \uBAA8\uB378 \uD30C\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. \uD559\uC2B5\uC744 \uBA3C\uC800 \uC2E4\uD589\uD558\uAC70\uB098 \uBAA8\uB378 \uD30C\uC77C\uC744 \uC120\uD0DD\uD558\uC138\uC694."
+                ? "학습은 가능하지만 현재 이미지 추론 준비는 완료되지 않았습니다. 모델 설정과 실행 환경의 추론 지원을 확인하세요."
                 : "\uBAA8\uB378 \uC124\uC815\uC744 \uD655\uC778\uD558\uC138\uC694";
             return new PythonModelRuntimeState(
                 PythonModelRuntimeStateKind.Incomplete,
@@ -144,7 +144,7 @@ namespace MvcVisionSystem._1._Core
 
             if (configuredDetectionTimeoutSeconds < 1 || configuredDetectionTimeoutSeconds > 600)
             {
-                errors.Add($"검사 시간 제한은 1초부터 600초 사이여야 합니다: {configuredDetectionTimeoutSeconds}");
+                errors.Add($"추론 응답 제한 시간은 1초부터 600초 사이여야 합니다: {configuredDetectionTimeoutSeconds}");
             }
 
             if (configuredMaximumCandidates < 1 || configuredMaximumCandidates > 200)

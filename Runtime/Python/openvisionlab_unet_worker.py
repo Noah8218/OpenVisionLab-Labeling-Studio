@@ -556,7 +556,9 @@ class UnetDetector:
             probability = torch.softmax(self.model(image_tensor.to(device)), dim=1)
             probability = functional.interpolate(probability, size=(height, width), mode="bilinear", align_corners=False)[0].cpu().numpy()
         labels = probability.argmax(axis=0)
-        threshold = self.confidence if confidence is None else max(0.0, min(1.0, confidence))
+        if not np.isfinite(probability).all():
+            raise ValueError("Segmentation probabilities contain non-finite values.")
+        threshold = 0.0 if getattr(self, "decision_evaluation", False) else self.confidence if confidence is None else max(0.0, min(1.0, confidence))
         candidates: list[dict[str, Any]] = []
         for class_index, class_name in enumerate(self.classes, start=1):
             for component in connected_components(labels == class_index):
@@ -567,6 +569,7 @@ class UnetDetector:
                 left, right = int(xs.min()), int(xs.max())
                 top, bottom = int(ys.min()), int(ys.max())
                 candidates.append({
+                    "classId": class_index - 1,
                     "className": class_name,
                     "confidence": score,
                     "x": float(left),
@@ -584,7 +587,9 @@ class UnetDetector:
                     ],
                 })
         candidates.sort(key=lambda item: item["confidence"], reverse=True)
-        return candidates, {"path": str(image_path.resolve()), "width": width, "height": height}
+        return candidates, {"path": str(image_path.resolve()), "width": width, "height": height,
+                            "captureConfidenceFloor": threshold, "hasCompletePredictions": True,
+                            "captureCandidateLimit": None}
 
 
 def connected_components(mask):
@@ -729,6 +734,10 @@ class UnetWorker:
         def report(epoch: int, total: int, train_loss: float, validation_loss: float) -> None:
             progress = int(round((epoch / max(total, 1)) * 100))
             status = self.training_status_message(request_id, "running", f"U-Net epoch {epoch}/{total} (train loss {train_loss:.4f}, val loss {validation_loss:.4f})", progress, epoch, total)
+            status["trainLoss"] = train_loss
+            valid_root = data_root / "images" / "valid"
+            if valid_root.is_dir() and any(valid_root.rglob("*")):
+                status["validationLoss"] = validation_loss
             if run_id:
                 status["runId"] = run_id
                 status["runName"] = display_run_name
@@ -763,6 +772,10 @@ class UnetWorker:
             writer.send(self.training_status)
         except Exception as exc:
             self.training_status = self.training_status_message(request_id, "failed", "U-Net segmentation training failed.", None, None, epochs, error=make_error("TrainingFailed", exc, self.debug))
+            if run_id:
+                self.training_status["runId"] = run_id
+                self.training_status["runName"] = display_run_name
+                self.training_status["outputRunName"] = run_name
             try:
                 writer.send(self.training_status)
             except OSError:
@@ -882,7 +895,9 @@ def find_json_end(buffer: bytearray, start: int) -> int:
 
 
 def build_detector(args: argparse.Namespace) -> UnetDetector:
-    return UnetDetector(Path(args.weights).expanduser().resolve(), Path(args.model_root).expanduser().resolve(), Path(args.image_root).expanduser().resolve(), args.img_size, args.conf, args.device)
+    detector = UnetDetector(Path(args.weights).expanduser().resolve(), Path(args.model_root).expanduser().resolve(), Path(args.image_root).expanduser().resolve(), args.img_size, args.conf, args.device)
+    detector.decision_evaluation = getattr(args, "decision_evaluation", False)
+    return detector
 
 
 def run_client(args: argparse.Namespace) -> int:
@@ -967,6 +982,35 @@ def run_self_test() -> int:
     assert is_better_foreground_candidate(True, 0.1, 2.0, False, 0.9, 1.0)
     assert is_better_foreground_candidate(False, 0.6, 2.0, False, 0.5, 1.0)
     assert not is_better_foreground_candidate(False, 0.4, 0.1, False, 0.5, 1.0)
+    from tempfile import TemporaryDirectory
+    from unittest.mock import patch
+
+    class StatusWriter:
+        def __init__(self):
+            self.messages: list[dict[str, Any]] = []
+
+        def send(self, status):
+            self.messages.append(dict(status))
+
+    with TemporaryDirectory(prefix="ovl-unet-failed-run-") as temporary_root:
+        root = Path(temporary_root)
+        worker = UnetWorker(UnetDetector(root / "best.pt", root, root, 32, 0.25, "cpu"), False)
+        writer = StatusWriter()
+        payload = {"dataYaml": str(root), "epoch": 1, "runId": "failed-run", "runName": "failure-check"}
+        with patch(__name__ + ".train_dataset", side_effect=RuntimeError("induced training failure")):
+            worker.train_job("failed-request", payload, writer)
+        failed = writer.messages[-1]
+        assert failed["state"] == "failed" and failed["requestId"] == "failed-request"
+        assert failed["runId"] == "failed-run" and failed["runName"] == "failure-check"
+        assert failed["outputRunName"] == "failure-check-failed-run"
+        assert failed["error"]["code"] == "TrainingFailed"
+        assert worker.training_status == failed
+        payload.update(runId="retry-run", runName="retry-check")
+        with patch(__name__ + ".train_dataset", return_value={"runPath": str(root), "weightsPath": str(root / "best.pt")}):
+            worker.train_job("retry-request", payload, writer)
+        recovered = writer.messages[-1]
+        assert recovered["state"] == "completed" and recovered["runId"] == "retry-run"
+        assert recovered["requestId"] == "retry-request" and "error" not in recovered
     print(compact_json({"type": "UnetSelfTestResult", "ok": True, "worker": "openvisionlab-unet-worker"}).decode("utf-8"), flush=True)
     return 0
 
@@ -995,6 +1039,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--run-name", default="")
     parser.add_argument("--foreground-quality-selection", action="store_true")
     parser.add_argument("--smoke-test", action="store_true")
+    parser.add_argument("--decision-evaluation", action="store_true")
     parser.add_argument("--detect-file", default="")
     parser.add_argument("--image", default="")
     return parser.parse_args(argv)

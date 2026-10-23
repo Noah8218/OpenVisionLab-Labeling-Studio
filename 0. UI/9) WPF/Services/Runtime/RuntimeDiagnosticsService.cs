@@ -23,6 +23,7 @@ namespace MvcVisionSystem
         public const long MaximumSupportBundleBytes = 250L * 1024L * 1024L;
         public const long MaximumIncludedLogBytes = 5L * 1024L * 1024L;
         public const string ViewerGraphicsCheckName = "viewerGraphics";
+        public const string ReleaseManifestFileName = "release-manifest.json";
 
         private const int MaximumIncludedLogFiles = 20;
         private const int MaximumLogCharactersPerFile = 500000;
@@ -78,7 +79,7 @@ namespace MvcVisionSystem
                 return new RuntimeSelfTestCheck(
                     ViewerGraphicsCheckName,
                     "warning",
-                    "이미지 뷰어 그래픽 점검이 현재 실행 표면에 연결되지 않았습니다.");
+                    "이미지 뷰어의 그래픽 상태를 점검할 수 없습니다.");
             }
 
             try
@@ -87,7 +88,7 @@ namespace MvcVisionSystem
                 return check ?? new RuntimeSelfTestCheck(
                     ViewerGraphicsCheckName,
                     "fail",
-                    "이미지 뷰어 그래픽 점검 결과가 없습니다.");
+                    "이미지 뷰어의 그래픽 점검 결과가 없습니다.");
             }
             catch (Exception ex)
             {
@@ -151,7 +152,7 @@ namespace MvcVisionSystem
             string productVersion = GetProductVersion(productAssembly);
             string productDllPath = productAssembly.Location;
             string executablePath = Path.Combine(paths.ApplicationRoot, "OpenVisionLab.LabelingStudio.exe");
-            string manifestPath = Path.Combine(paths.ApplicationRoot, "release-manifest.json");
+            string manifestPath = Path.Combine(paths.ApplicationRoot, ReleaseManifestFileName);
 
             checks.Add(new RuntimeSelfTestCheck(
                 "productIdentity",
@@ -161,13 +162,13 @@ namespace MvcVisionSystem
             checks.Add(new RuntimeSelfTestCheck(
                 "productBinary",
                 File.Exists(productDllPath) ? "pass" : "fail",
-                File.Exists(productDllPath) ? "제품 DLL 확인" : "제품 DLL 없음"));
+                File.Exists(productDllPath) ? "앱 파일이 있습니다." : "앱 파일을 찾지 못했습니다."));
 
             bool hasExecutable = File.Exists(executablePath);
             checks.Add(new RuntimeSelfTestCheck(
                 "applicationExecutable",
                 hasExecutable ? "pass" : "warning",
-                hasExecutable ? "배포 실행 파일 확인" : "개발/테스트 호스트: 배포 EXE 없음"));
+                hasExecutable ? "앱 실행 파일이 있습니다." : "앱 실행 파일을 찾지 못했습니다. 개발·테스트 실행에서는 없을 수 있습니다."));
 
             if (File.Exists(manifestPath))
             {
@@ -178,7 +179,7 @@ namespace MvcVisionSystem
                 checks.Add(new RuntimeSelfTestCheck(
                     "releaseManifest",
                     "warning",
-                    "개발/테스트 실행: release-manifest.json 없음"));
+                    $"{ReleaseManifestFileName}을 찾지 못했습니다. 개발·테스트 실행에서는 없을 수 있습니다."));
             }
 
             checks.Add(probeWritableDirectories
@@ -193,8 +194,8 @@ namespace MvcVisionSystem
                 "logIsolation",
                 logOutsideApplication ? "pass" : "fail",
                 logOutsideApplication
-                    ? "로그가 사용자 쓰기 경로에 분리됨"
-                    : "로그 경로가 설치/실행 폴더 내부임"));
+                    ? "로그 저장 경로가 앱 실행 폴더 밖에 있습니다."
+                    : "로그 저장 경로가 앱 실행 폴더 안에 있습니다."));
             checks.Add(RunGraphicsCapabilityCheck());
 
             var result = new RuntimeSelfTestResult(
@@ -240,12 +241,12 @@ namespace MvcVisionSystem
                     AddJsonEntry(archive, "self-test.json", selfTest, includedEntries);
                     AddJsonEntry(archive, "config-summary.json", BuildSafeConfigSummary(), includedEntries);
 
-                    string releaseManifestPath = Path.Combine(paths.ApplicationRoot, "release-manifest.json");
+                    string releaseManifestPath = Path.Combine(paths.ApplicationRoot, ReleaseManifestFileName);
                     if (File.Exists(releaseManifestPath))
                     {
                         AddTextEntry(
                             archive,
-                            "release-manifest.json",
+                            ReleaseManifestFileName,
                             File.ReadAllText(releaseManifestPath, Encoding.UTF8),
                             includedEntries);
                     }
@@ -371,7 +372,7 @@ namespace MvcVisionSystem
                 package = new
                 {
                     applicationRoot = paths.ApplicationRoot,
-                    releaseManifestPresent = File.Exists(Path.Combine(paths.ApplicationRoot, "release-manifest.json"))
+                    releaseManifestPresent = File.Exists(Path.Combine(paths.ApplicationRoot, ReleaseManifestFileName))
                 },
                 writablePaths = new
                 {
@@ -426,15 +427,15 @@ namespace MvcVisionSystem
                     "releaseManifest",
                     valid ? "pass" : "fail",
                     valid
-                        ? $"배포 manifest 제품/버전 일치 ({manifestVersion})"
-                        : $"배포 manifest 불일치 (product={manifestProduct}, version={manifestVersion})");
+                        ? $"제품·버전 정보가 일치합니다 ({manifestVersion})"
+                        : $"제품·버전 정보가 다릅니다 (product={manifestProduct}, version={manifestVersion})");
             }
             catch (Exception ex)
             {
                 return new RuntimeSelfTestCheck(
                     "releaseManifest",
                     "fail",
-                    "배포 manifest 읽기 실패: " + ex.GetType().Name);
+                    "설치 정보를 읽지 못했습니다: " + ex.GetType().Name);
             }
         }
 
@@ -474,8 +475,8 @@ namespace MvcVisionSystem
                 name,
                 exists ? "pass" : "warning",
                 exists
-                    ? "경로 존재 확인 · 읽기 전용 CLI에서는 쓰기 프로브 생략"
-                    : "경로 없음 · 읽기 전용 CLI에서는 생성하지 않음");
+                    ? "경로가 있습니다. 쓰기 권한은 점검하지 않았습니다."
+                    : "경로를 찾지 못했습니다. 점검 중 폴더를 만들지 않았습니다.");
         }
 
         private void AddSanitizedLogs(

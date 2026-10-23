@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -17,7 +18,7 @@ namespace MvcVisionSystem
         private static readonly HashSet<string> ImageExtensions = new HashSet<string>(
             new[] { ".bmp", ".jpg", ".jpeg", ".png", ".tif", ".tiff" },
             StringComparer.OrdinalIgnoreCase);
-        private static readonly string[] Splits = { "train", "valid", "test" };
+        private static readonly IReadOnlyList<string> Splits = YoloDatasetSplitService.AnnotationModes;
 
         [ThreadStatic]
         private static Action<string> testSnapshotFileObserver;
@@ -101,6 +102,53 @@ namespace MvcVisionSystem
             throw new IOException("Dataset snapshot could not be created.", lastFailure);
         }
 
+        public static string CreateDecisionReviewEvidenceSha256(LabelingProjectData data)
+        {
+            // Only saved GT/review eligibility belongs to criterion identity.
+            // Candidate, inference, dismissal and timestamp metadata is not GT.
+            string quality = ReadReviewContract(YoloImageReviewStatusService.ResolveReviewStatusFilePath(data), "QualityReviewState", typeof(YoloImageQualityReviewState));
+            string anomaly = ReadReviewContract(AnomalyImageReviewStatusService.ResolveReviewStatusFilePath(data), "ReviewState", typeof(AnomalyImageReviewState));
+            return HashingService.ComputeUtf8TextSha256("decision-review-gt-v2\nquality\n" + quality + "\nanomaly\n" + anomaly, lowerCase: true);
+
+            static string ReadReviewContract(string path, string stateProperty, Type stateType)
+            {
+                if (!File.Exists(path)) return string.Empty;
+                JToken document;
+                try { document = JToken.Parse(File.ReadAllText(path)); }
+                catch (JsonException error) { throw new InvalidDataException("Saved review evidence is malformed.", error); }
+                JArray items = document as JArray ?? (document is JObject wrapper ? wrapper["Items"] as JArray ?? wrapper["items"] as JArray : null);
+                if (items == null || items.Any(item => item is not JObject)) throw new InvalidDataException("Saved review records are malformed.");
+                var identities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var rows = new List<string>();
+                foreach (JObject item in items.OfType<JObject>())
+                {
+                    string name = item["ImageName"]?.Value<string>();
+                    if (string.IsNullOrWhiteSpace(name)) name = Path.GetFileNameWithoutExtension(item["ImagePath"]?.Value<string>() ?? string.Empty);
+                    if (string.IsNullOrWhiteSpace(name) || !identities.Add(name)) throw new InvalidDataException("Saved review identities are missing or duplicated.");
+                    string stateName = item[stateProperty + "Name"]?.Value<string>();
+                    object state;
+                    if (!string.IsNullOrWhiteSpace(stateName) || item[stateProperty]?.Type == JTokenType.String)
+                    {
+                        if (!Enum.TryParse(stateType, string.IsNullOrWhiteSpace(stateName) ? item[stateProperty].Value<string>() : stateName, ignoreCase: true, out state)
+                            || !Enum.IsDefined(stateType, state)) throw new InvalidDataException("Saved review state is unsupported.");
+                    }
+                    else
+                    {
+                        JToken value = item[stateProperty];
+                        if (value != null && value.Type != JTokenType.Integer) throw new InvalidDataException("Saved review state is malformed.");
+                        int numberValue = 0;
+                        if (value != null && !int.TryParse(value.ToString(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out numberValue))
+                            throw new InvalidDataException("Saved review state is malformed.");
+                        state = Enum.ToObject(stateType, numberValue);
+                        if (!Enum.IsDefined(stateType, state)) throw new InvalidDataException("Saved review state is unsupported.");
+                    }
+                    int number = Convert.ToInt32(state);
+                    if (number != 0) rows.Add(JsonConvert.SerializeObject(new[] { name.ToUpperInvariant(), number.ToString(System.Globalization.CultureInfo.InvariantCulture) }));
+                }
+                return string.Join("\n", rows.OrderBy(row => row, StringComparer.Ordinal));
+            }
+        }
+
         private static RecipeDatasetVersionSnapshot CreateSnapshotAttempt(LabelingProjectData data)
         {
             List<DatasetFileCandidate> beforeCandidates = EnumerateDatasetFiles(data);
@@ -157,36 +205,26 @@ namespace MvcVisionSystem
             string historyDirectory = Path.Combine(recipeDirectory, HistoryDirectoryName);
             Directory.CreateDirectory(historyDirectory);
             string snapshotPath = Path.Combine(historyDirectory, snapshot.DatasetVersionId + ".json");
-            if (File.Exists(snapshotPath))
+            RecipeDatasetVersionSnapshot stored = null;
+            AnnotationFilePersistence.ExecuteTransaction(() =>
             {
-                return LoadAndValidateSnapshot(snapshotPath, snapshot);
-            }
-
-            string temporaryPath = snapshotPath + ".tmp-" + Guid.NewGuid().ToString("N");
-            try
-            {
-                File.WriteAllText(temporaryPath, JsonConvert.SerializeObject(snapshot, Formatting.Indented));
-                using (var stream = new FileStream(temporaryPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                if (File.Exists(snapshotPath))
                 {
-                    stream.Flush(flushToDisk: true);
+                    stored = LoadAndValidateSnapshot(snapshotPath, snapshot);
+                    return;
                 }
                 try
                 {
-                    File.Move(temporaryPath, snapshotPath);
-                    return snapshot;
+                    AnnotationFilePersistence.WriteAtomically(snapshotPath,
+                        temporary => File.WriteAllText(temporary, JsonConvert.SerializeObject(snapshot, Formatting.Indented)), overwriteExisting: false);
+                    stored = snapshot;
                 }
-                catch (IOException) when (File.Exists(snapshotPath))
+                catch (IOException error) when ((error.HResult == unchecked((int)0x80070050) || error.HResult == unchecked((int)0x800700B7)) && File.Exists(snapshotPath))
                 {
-                    return LoadAndValidateSnapshot(snapshotPath, snapshot);
+                    stored = LoadAndValidateSnapshot(snapshotPath, snapshot);
                 }
-            }
-            finally
-            {
-                if (File.Exists(temporaryPath))
-                {
-                    File.Delete(temporaryPath);
-                }
-            }
+            });
+            return stored;
         }
 
         public static IReadOnlyList<RecipeDatasetVersionSnapshot> LoadHistory(string recipeDirectory)
@@ -310,6 +348,16 @@ namespace MvcVisionSystem
         private static List<DatasetFileCandidate> EnumerateDatasetFiles(LabelingProjectData data)
         {
             var candidates = new List<DatasetFileCandidate>();
+            if (data.ProjectSettings.AdditionalImageRootPaths?.Count > 0)
+            {
+                IReadOnlyList<string> roots = data.ProjectSettings.ResolveImageRootPaths();
+                foreach (string root in roots.Where(root => !Directory.Exists(root)))
+                    throw new IOException(string.Format(OpenVisionLab.OpenVisionLanguageService.T("DatasetSourceFolders.Unavailable"), root));
+                if (roots.SelectMany(root => Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)).Where(IsImageFile)
+                    .Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase).GroupBy(Path.GetFileNameWithoutExtension, StringComparer.OrdinalIgnoreCase)
+                    .Any(group => group.Count() > 1))
+                    throw new InvalidDataException(OpenVisionLab.OpenVisionLanguageService.T("WpfDatasetWorkspace.AddFolder.StoredNameConflict"));
+            }
             foreach (string split in Splits)
             {
                 string splitRoot = Path.Combine(data.OutputRootPath, "data", split);
@@ -335,8 +383,12 @@ namespace MvcVisionSystem
 
             if (!candidates.Any(item => string.Equals(item.Kind, "image", StringComparison.Ordinal)))
             {
-                string imageRootPath = data.ProjectSettings.ResolveImageRootPath();
-                AddFileCandidates(candidates, imageRootPath, "image", "source", imageRootPath, IsImageFile);
+                IEnumerable<string> sourceRoots = data.ProjectSettings.AdditionalImageRootPaths?.Count > 0
+                    ? data.ProjectSettings.ResolveImageRootPaths() : new[] { data.ProjectSettings.ResolveImageRootPath() };
+                foreach (string imageRootPath in sourceRoots)
+                {
+                    AddFileCandidates(candidates, imageRootPath, "image", "source", imageRootPath, IsImageFile);
+                }
             }
 
             string anomalyReviewPath = Path.Combine(data.OutputRootPath, AnomalyImageReviewStatusService.FileName);
@@ -349,6 +401,12 @@ namespace MvcVisionSystem
                     AnomalyImageReviewStatusService.FileName));
             }
 
+            string splitContractPath = Path.Combine(data.OutputRootPath, DatasetSplitAssignmentService.ContractFileName);
+            if (File.Exists(splitContractPath))
+                candidates.Add(CreateFileCandidate(splitContractPath, "split-assignment", "source", DatasetSplitAssignmentService.ContractFileName));
+
+            if (data.ProjectSettings.AdditionalImageRootPaths?.Count > 0)
+                candidates = candidates.DistinctBy(item => item.Key, StringComparer.OrdinalIgnoreCase).ToList();
             return candidates
                 .OrderBy(item => item.Key, StringComparer.Ordinal)
                 .ToList();

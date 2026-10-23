@@ -155,6 +155,7 @@ namespace MvcVisionSystem
 
         internal void CompleteSelectedSegmentEdit()
         {
+            bool hadActiveSegmentEdit = activeSegmentDragIndex >= 0;
             bool changed = activeSegmentDragChanged;
             bool movedPoint = activePolygonPointDragIndex >= 0;
             if (activeSegmentDragSnapshot != null && activeSegmentDragChanged)
@@ -170,7 +171,10 @@ namespace MvcVisionSystem
             lastSegmentDragPoint = null;
             activeSegmentDragSnapshot = null;
             activeSegmentDragChanged = false;
-            context.RefreshPolygonOverlays?.Invoke();
+            if (hadActiveSegmentEdit)
+            {
+                context.RefreshPolygonOverlays?.Invoke();
+            }
             if (changed)
             {
                 context.MarkAnnotationsDirty?.Invoke(movedPoint

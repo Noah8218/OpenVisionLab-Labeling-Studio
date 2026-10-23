@@ -6,6 +6,29 @@
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:mvvm="clr-namespace:OpenVisionLab.Mvvm.Behaviors;assembly=OpenVisionLab.Mvvm">
     <UserControl.Resources>
+        <Style x:Key="QueueRowTextStyle" TargetType="TextBlock">
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                    <Setter Property="TextTrimming" Value="None" />
+                    <Setter Property="TextWrapping" Value="Wrap" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="QueueEditingVisibilityStyle" TargetType="FrameworkElement">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="QueueInferenceVisibilityStyle" TargetType="FrameworkElement" BasedOn="{StaticResource QueueEditingVisibilityStyle}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
         <Style x:Key="QueueIconStyle" TargetType="{x:Type iconPacks:PackIconMaterial}">
             <Setter Property="Width" Value="15" />
             <Setter Property="Height" Value="15" />
@@ -59,6 +82,117 @@
                     <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
                     <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
                     <Setter Property="Opacity" Value="0.55" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="SelectedQueueImagePathToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Margin" Value="0,0,2,0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Focusable" Value="True" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding DataContext.LanguageViewModel[WpfImageQueue.Path.Details], RelativeSource={RelativeSource AncestorType=Window}}" />
+            <Setter Property="ToolTip" Value="{Binding DataContext.LanguageViewModel[WpfImageQueue.Path.Details], RelativeSource={RelativeSource AncestorType=Window}}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="PathToggleChrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="PathToggleChrome" Property="Background" Value="{DynamicResource ToolbarButtonHoverBrush}" />
+                                <Setter TargetName="PathToggleChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="PathToggleChrome" Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+                                <Setter TargetName="PathToggleChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="PathToggleChrome" Property="BorderBrush" Value="{DynamicResource PrimaryTextBrush}" />
+                                <Setter TargetName="PathToggleChrome" Property="BorderThickness" Value="2" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding RelativeSource={RelativeSource AncestorType=DataGridRow}, Path=IsSelected}" Value="True" />
+                        <Condition Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="False" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Visibility" Value="Visible" />
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="QueueFilterChipItemStyle" TargetType="ListBoxItem">
+            <Setter Property="MinHeight" Value="24" />
+            <Setter Property="Padding" Value="8,1" />
+            <Setter Property="Margin" Value="0,0,4,4" />
+            <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding Text}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid>
+                            <Border x:Name="QueueFilterChipChrome" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="12" SnapsToDevicePixels="True">
+                                <ContentPresenter x:Name="QueueFilterChipCaption" Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                  TextElement.Foreground="{TemplateBinding Foreground}" />
+                            </Border>
+                            <Border x:Name="QueueFilterChipFocusCue" BorderBrush="Transparent" BorderThickness="2"
+                                    CornerRadius="12" IsHitTestVisible="False" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="QueueFilterChipFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="QueueFilterChipFocusCue" Property="BorderBrush" Value="Transparent" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource RecipeSelectedBorderBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" />
+                    <Setter Property="Cursor" Value="Arrow" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -150,17 +284,26 @@
             <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource GridLineBrush}" />
             <Setter Property="BorderThickness" Value="0,0,1,1" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Padding" Value="5,4" />
         </Style>
 
+        <ControlTemplate x:Key="DatasetQueueRowTemplate" TargetType="DataGridRow">
+                <Border x:Name="DatasetQueueRowChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" SnapsToDevicePixels="True">
+                    <DataGridCellsPresenter />
+                </Border>
+        </ControlTemplate>
         <Style x:Key="ImageQueueRowStyle" TargetType="DataGridRow">
+            <Setter Property="mvvm:EventCommandBehavior.EventName" Value="MouseLeftButtonUp" />
+            <Setter Property="mvvm:EventCommandBehavior.Command" Value="{Binding DataContext.QueueExplicitOpenCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" />
+            <Setter Property="mvvm:EventCommandBehavior.CommandParameter" Value="{Binding}" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource GridLineBrush}" />
-            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="3,0,0,0" />
             <Setter Property="MinHeight" Value="34" />
             <Setter Property="SnapsToDevicePixels" Value="True" />
             <Style.Triggers>
@@ -171,9 +314,29 @@
                     <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
                     <Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" />
                     <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                    <Setter Property="BorderThickness" Value="3,0,0,1" />
+                    <Setter Property="BorderThickness" Value="3,0,0,0" />
                 </Trigger>
-            </Style.Triggers>
+            <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                <Setter Property="MinHeight" Value="78" />
+                <Setter Property="Margin" Value="8,0,8,6" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+                <Setter Property="Template" Value="{StaticResource DatasetQueueRowTemplate}" />
+            </DataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /><Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True" /></MultiDataTrigger.Conditions>
+                <Setter Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" />
+            </MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /><Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Self}}" Value="True" /></MultiDataTrigger.Conditions>
+                <Setter Property="Background" Value="{DynamicResource DatasetSelectedBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource DatasetSelectedBorderBrush}" />
+                <Setter Property="BorderThickness" Value="3,1,1,1" />
+            </MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /><Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Self}}" Value="True" /><Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True" /></MultiDataTrigger.Conditions>
+                <Setter Property="Background" Value="{DynamicResource DatasetSelectedHoverBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeAccentBrush}" />
+            </MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /><Condition Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource Self}}" Value="True" /></MultiDataTrigger.Conditions>
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" />
+            </MultiDataTrigger></Style.Triggers>
         </Style>
 
         <Style x:Key="ImageQueueCellStyle" TargetType="DataGridCell">
@@ -182,28 +345,13 @@
             <Setter Property="BorderBrush" Value="{DynamicResource GridLineBrush}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Style.Triggers>
                 <Trigger Property="IsSelected" Value="True">
                     <Setter Property="Background" Value="Transparent" />
                     <Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" />
                 </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="QueueStatusBadgeStyle" TargetType="Border">
-            <Setter Property="MinWidth" Value="42" />
-            <Setter Property="Height" Value="18" />
-            <Setter Property="Padding" Value="7,0" />
-            <Setter Property="Margin" Value="6,0,0,0" />
-            <Setter Property="CornerRadius" Value="3" />
-            <Setter Property="Background" Value="{Binding QueueBadgeBackgroundBrush}" />
-            <Setter Property="BorderBrush" Value="{Binding QueueIconBrush}" />
-            <Setter Property="BorderThickness" Value="1.25" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding QueueBadgeText}" Value="">
-                    <Setter Property="Visibility" Value="Collapsed" />
-                </DataTrigger>
             </Style.Triggers>
         </Style>
 
@@ -216,12 +364,69 @@
 
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
 
+        <DataTemplate x:Key="SelectedQueueImagePathDetailsTemplate">
+            <Border Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType={x:Type ScrollViewer}}}"
+                    HorizontalAlignment="Left"
+                    Padding="6,0,6,5">
+                <TextBox x:Name="SelectedQueueImagePathBox"
+                         Text="{Binding ImagePath, Mode=OneWay}"
+                         AutomationProperties.Name="{Binding FileName}"
+                         IsReadOnly="True"
+                         IsReadOnlyCaretVisible="True"
+                         TextWrapping="Wrap"
+                         HorizontalScrollBarVisibility="Disabled"
+                         VerticalScrollBarVisibility="Auto"
+                         MaxHeight="96"
+                         Padding="6,4"
+                         FontFamily="{DynamicResource UiFontFamily}"
+                         FontSize="11"
+                         Background="{DynamicResource InputBrush}"
+                         Foreground="{DynamicResource PrimaryTextBrush}"
+                         BorderBrush="{DynamicResource InputBorderBrush}"
+                         SelectionBrush="{DynamicResource SelectedRowBrush}"
+                         SelectionTextBrush="{DynamicResource SelectedRowTextBrush}" />
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="SelectedQueueImagePathOnDemandDetailsTemplate">
+            <Border Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType={x:Type ScrollViewer}}}"
+                    HorizontalAlignment="Left"
+                    Padding="6,0,6,5"
+                    Visibility="{Binding DataContext.IsSelectedImagePathVisible, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Expander x:Name="SelectedQueueImagePathExpander"
+                          Header="{Binding DataContext.LanguageViewModel[WpfImageQueue.Path.Details], RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                          IsExpanded="{Binding DataContext.IsSelectedImagePathVisible, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}, Mode=TwoWay}"
+                          Foreground="{DynamicResource PrimaryTextBrush}"
+                          FontFamily="{DynamicResource UiFontFamily}"
+                          FontSize="11"
+                          AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfImageQueue.Path.Details], RelativeSource={RelativeSource AncestorType={x:Type Window}}}">
+                    <TextBox x:Name="SelectedQueueImagePathBox"
+                             Text="{Binding ImagePath, Mode=OneWay}"
+                             AutomationProperties.Name="{Binding FileName}"
+                             IsReadOnly="True"
+                             IsReadOnlyCaretVisible="True"
+                             TextWrapping="Wrap"
+                             HorizontalScrollBarVisibility="Disabled"
+                             VerticalScrollBarVisibility="Auto"
+                             MaxHeight="96"
+                             Padding="6,4"
+                             FontFamily="{DynamicResource UiFontFamily}"
+                             FontSize="11"
+                             Background="{DynamicResource InputBrush}"
+                             Foreground="{DynamicResource PrimaryTextBrush}"
+                             BorderBrush="{DynamicResource InputBorderBrush}"
+                             SelectionBrush="{DynamicResource SelectedRowBrush}"
+                             SelectionTextBrush="{DynamicResource SelectedRowTextBrush}" />
+                </Expander>
+            </Border>
+        </DataTemplate>
+
         <Style x:Key="ImageQueueFilterComboBoxStyle" TargetType="ComboBox">
             <Setter Property="Height" Value="24" />
             <Setter Property="Background" Value="{DynamicResource InputBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Padding" Value="7,0,24,0" />
             <Setter Property="ItemTemplate">
@@ -229,7 +434,7 @@
                     <DataTemplate>
                         <TextBlock Text="{Binding Text}"
                                    Foreground="{DynamicResource PrimaryTextBrush}"
-                                   FontFamily="Segoe UI"
+                                   FontFamily="{DynamicResource UiFontFamily}"
                                    FontSize="12"
                                    VerticalAlignment="Center"
                                    TextTrimming="CharacterEllipsis" />
@@ -268,10 +473,12 @@
                                        FontSize="{TemplateBinding FontSize}"
                                        Margin="{TemplateBinding Padding}"
                                        VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"
+                                       TextWrapping="Wrap"
                                        IsHitTestVisible="False" />
                             <ToggleButton Focusable="False"
                                           ClickMode="Press"
+                                          HorizontalAlignment="Stretch"
+                                          VerticalAlignment="Stretch"
                                           IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
                                           Background="Transparent"
                                           BorderThickness="0">
@@ -313,69 +520,154 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="QueueRowFileNameStyle" TargetType="TextBlock" BasedOn="{StaticResource QueueRowTextStyle}">
+            <Setter Property="FontSize" Value="12" /><Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="LineHeight" Value="17.4" /><Setter Property="LineStackingStrategy" Value="BlockLineHeight" /></DataTrigger><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+            </DataTrigger></Style.Triggers>
+        </Style>
+        <Style x:Key="QueueRowStatusStyle" TargetType="TextBlock" BasedOn="{StaticResource QueueRowTextStyle}">
+            <Setter Property="FontSize" Value="11" /><Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+            <Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" />
+            </DataTrigger></Style.Triggers>
+        </Style>
     </UserControl.Resources>
 
-    <Border Background="{DynamicResource PanelBrush}"
-            BorderBrush="{DynamicResource BorderBrushDark}"
-            BorderThickness="1"
-            CornerRadius="6">
+    <Border x:Name="ImageQueueSurface">
+        <Border.Style>
+            <Style TargetType="Border">
+                <Setter Property="Background" Value="{DynamicResource PanelBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="BorderThickness" Value="0,0,1,0" /><Setter Property="CornerRadius" Value="0" /><Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}" /></DataTrigger><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsInferenceStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="BorderThickness" Value="0,0,1,0" /><Setter Property="CornerRadius" Value="0" /><Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}" /></DataTrigger>
+                    <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource DatasetSurfaceBrush}"/>
+                        <Setter Property="BorderBrush" Value="{DynamicResource DatasetBorderBrush}"/>
+                        <Setter Property="CornerRadius" Value="10"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Border.Style>
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="34" />
+                <RowDefinition><RowDefinition.Style><Style TargetType="RowDefinition"><Setter Property="Height" Value="34" /><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Height" Value="43" /></DataTrigger><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsInferenceStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Height" Value="43" /></DataTrigger><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                <Setter Property="Height" Value="58" />
+            </DataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /><Condition Binding="{Binding DataContext.ShellViewModel.IsCompactDatasetLayout, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /></MultiDataTrigger.Conditions>
+                <Setter Property="Height" Value="48" />
+            </MultiDataTrigger></Style.Triggers></Style></RowDefinition.Style></RowDefinition>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <Border Background="{DynamicResource PanelHeaderBrush}"
-                    CornerRadius="6,6,0,0"
-                    BorderBrush="{DynamicResource BorderBrushDark}"
-                    BorderThickness="0,0,0,1">
-                <TextBlock x:Name="ImageQueuePanelTitleText"
-                           Text="{Binding PanelTitleText}"
-                           Foreground="{DynamicResource PrimaryTextBrush}"
-                           FontFamily="Segoe UI"
-                           FontSize="12"
-                           FontWeight="SemiBold"
-                           Margin="12,0"
-                           VerticalAlignment="Center" />
+            <Border x:Name="ImageQueueHeader" BorderThickness="0,0,0,1">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="{DynamicResource PanelHeaderBrush}"/>
+                        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}"/>
+                        <Setter Property="CornerRadius" Value="6,6,0,0"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}" /><Setter Property="CornerRadius" Value="0" /></DataTrigger><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsInferenceStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}" /><Setter Property="CornerRadius" Value="0" /></DataTrigger>
+                            <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource DatasetHeaderBrush}"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource DatasetBorderBrush}"/>
+                                <Setter Property="CornerRadius" Value="10,10,0,0"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition><ColumnDefinition.Style><Style TargetType="ColumnDefinition"><Setter Property="Width" Value="*" /><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Width" Value="Auto" /></DataTrigger><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsInferenceStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Width" Value="Auto" /></DataTrigger></Style.Triggers></Style></ColumnDefinition.Style></ColumnDefinition>
+                        <ColumnDefinition><ColumnDefinition.Style><Style TargetType="ColumnDefinition"><Setter Property="Width" Value="Auto" /><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Width" Value="*" /></DataTrigger><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsInferenceStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Width" Value="*" /></DataTrigger></Style.Triggers></Style></ColumnDefinition.Style></ColumnDefinition>
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="ImageQueuePanelTitleText"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" >
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="FontSize" Value="12"/>
+                                <Setter Property="Text" Value="{Binding PanelTitleText}"/>
+                                <Setter Property="Margin" Value="12,0,4,0"/>
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+                                <Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="FontSize" Value="15" /><Setter Property="LineHeight" Value="21.75" /><Setter Property="LineStackingStrategy" Value="BlockLineHeight" /><Setter Property="Text" Value="{Binding DataContext.LanguageViewModel[WpfInference.Workspace.Images], RelativeSource={RelativeSource AncestorType=Window}}" /><Setter Property="Margin" Value="12,0,8,0" /><Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" /></DataTrigger>
+                                    <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsInferenceStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Text" Value="{Binding DataContext.LanguageViewModel[WpfInference.Workspace.Images], RelativeSource={RelativeSource AncestorType=Window}}" /><Setter Property="FontSize" Value="15" /><Setter Property="Margin" Value="12,0,8,0" /><Setter Property="LineHeight" Value="21.75" /><Setter Property="LineStackingStrategy" Value="BlockLineHeight" /><Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" /></DataTrigger>
+                                    <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                        <Setter Property="FontSize" Value="16"/>
+                                        <Setter Property="Margin" Value="18,0,4,0"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+            </TextBlock>
+                    <StackPanel x:Name="ImageQueueVisibleCountText" Grid.Column="1" Orientation="Horizontal"
+                                Margin="0,0,12,0" VerticalAlignment="Center">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="TextElement.FontSize" Value="10"/>
+                                <Setter Property="TextElement.Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+                                <Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="TextElement.FontSize" Value="12" /><Setter Property="TextElement.Foreground" Value="{DynamicResource RecipeMutedTextBrush}" /></DataTrigger>
+                                    <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsInferenceStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="TextElement.FontSize" Value="12" /><Setter Property="TextElement.Foreground" Value="{DynamicResource RecipeMutedTextBrush}" /></DataTrigger>
+                                    <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                        <Setter Property="TextElement.FontSize" Value="12"/>
+                                        <Setter Property="TextElement.Foreground" Value="{DynamicResource RecipeMutedTextBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock x:Name="ImageQueueVisibleCountValueText" Text="{Binding Items.Count, ElementName=ImageQueueGrid, Mode=OneWay}" />
+                        <TextBlock><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value=" / " /><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Text" Value="/" /></DataTrigger><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsInferenceStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Text" Value="/" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                        <TextBlock x:Name="ImageQueueTotalCountValueText" Text="{Binding DatasetImageCount, Mode=OneWay}" />
+                        <TextBlock Text="{Binding DataContext.LanguageViewModel[WpfImageQueue.Panel.ImageUnit], RelativeSource={RelativeSource AncestorType=Window}}"><TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsInferenceStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                    </StackPanel>
+                    <Grid Grid.Column="2">
+                        <Grid.Style><Style TargetType="Grid">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding IsAnomalyImageReviewMode}" Value="True" />
+                                <Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" />
+                            </MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible" /></MultiDataTrigger></Style.Triggers>
+                        </Style></Grid.Style>
+                        <Button x:Name="ToggleAnomalyGridButton" Margin="0,0,8,0" Style="{DynamicResource RecipeSecondaryButtonStyle}"
+                                Height="24" MinHeight="24" FontSize="12" Padding="8,2"
+                                Command="{Binding ToggleAnomalyGridCommand}" Content="{Binding AnomalyGridToggleText}"
+                                AutomationProperties.AutomationId="ToggleAnomalyGridButton" />
+                    </Grid>
+                </Grid>
             </Border>
 
-            <Grid x:Name="ImageQueueControlPanel" Grid.Row="1" Margin="8,7,8,6">
+            <Grid x:Name="ImageQueueControlPanel" Grid.Row="1">
+                <Grid.Style><Style TargetType="Grid">
+                <Setter Property="Margin" Value="8,7,8,6" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Margin" Value="0" /></DataTrigger>
+<DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                <Setter Property="Margin" Value="14,16,14,12" />
+            </DataTrigger>
+                    <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsInferenceStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers>
+                </Style></Grid.Style>
                 <Grid.RowDefinitions>
-                    <RowDefinition x:Name="ImageQueuePrimaryActionsRow" Height="Auto" MinHeight="36" />
+                    <RowDefinition x:Name="ImageQueuePrimaryActionsRow" Height="Auto" />
                     <RowDefinition Height="Auto" />
-                    <RowDefinition x:Name="ImageQueueCurrentTaskRow" Height="Auto" MinHeight="54" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
+                    <RowDefinition x:Name="ImageQueueCurrentTaskRow" Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
-                    <RowDefinition x:Name="ImageQueueBatchProgressRow" Height="Auto" MinHeight="16" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition x:Name="ImageQueueBatchProgressRow" Height="Auto" />
                 </Grid.RowDefinitions>
-
-                <WrapPanel x:Name="ImageQueuePrimaryActionsPanel"
-                           MinHeight="36"
-                           Margin="0,0,0,3"
-                           VerticalAlignment="Center">
-                    <ui:Button Style="{StaticResource QueueIconButtonStyle}" ToolTip="{Binding LoadConfiguredImageRootToolTipText}" AutomationProperties.AutomationId="LoadConfiguredImageRootButton" AutomationProperties.Name="{Binding LoadConfiguredImageRootNameText}" Command="{Binding LoadImageRootCommand}">
-                        <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="FolderImage" />
-                    </ui:Button>
-                    <ui:Button Style="{StaticResource QueueIconButtonStyle}" ToolTip="{Binding BrowseImageFolderToolTipText}" AutomationProperties.Name="{Binding BrowseImageFolderNameText}" Command="{Binding BrowseImageFolderCommand}">
-                        <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="FolderOpen" />
-                    </ui:Button>
-                    <ui:Button Style="{StaticResource QueueIconButtonStyle}" ToolTip="{Binding RefreshImageQueueToolTipText}" AutomationProperties.Name="{Binding RefreshImageQueueNameText}" Command="{Binding RefreshImageQueueCommand}">
-                        <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="Refresh" />
-                    </ui:Button>
-                    <ui:Button x:Name="NextUnlabeledPrimaryButton" Style="{StaticResource QueuePrimaryActionButtonStyle}" MinWidth="104" ToolTip="{Binding NextUnlabeledToolTip}" AutomationProperties.AutomationId="NextUnlabeledPrimaryButton" AutomationProperties.Name="{Binding NextUnlabeledActionText}" AutomationProperties.HelpText="{Binding NextUnlabeledToolTip}" Command="{Binding NextUnlabeledCommand}">
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ArrowRightCircleOutline" />
-                            <TextBlock x:Name="NextUnlabeledPrimaryButtonText" Text="{Binding NextUnlabeledActionText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </ui:Button>
-                    <ui:Button x:Name="OpenSelectedQueueImageButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="{Binding OpenSelectedQueueImageToolTipText}" AutomationProperties.Name="{Binding OpenSelectedQueueImageNameText}" IsEnabled="{Binding IsOpenSelectedImageEnabled}" Command="{Binding OpenSelectedQueueImageCommand}">
-                        <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="ImageOutline" />
-                    </ui:Button>
-                </WrapPanel>
 
                 <Grid Grid.Row="1" Margin="0,3,0,3" Visibility="Collapsed">
                     <Grid.ColumnDefinitions>
@@ -406,7 +698,7 @@
                                        Text="{Binding CurrentImageFolderDisplayText}"
                                        ToolTip="{Binding CurrentImageFolderPath}"
                                        Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="11"
                                        VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" />
@@ -428,199 +720,196 @@
                     </ui:Button>
                 </Grid>
 
-                <Border x:Name="CurrentImageTaskCard"
-                        Grid.Row="2"
-                        Style="{StaticResource ImageQueueCurrentTaskCardStyle}"
-                        Tag="{Binding CurrentImageTaskKey}"
-                        ToolTip="{Binding CurrentImageTaskToolTip}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="18" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <iconPacks:PackIconMaterial Grid.Column="0"
-                                                    Width="14"
-                                                    Height="14"
-                                                    Kind="ClipboardTextOutline"
-                                                    Foreground="{DynamicResource SecondaryTextBrush}"
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center" />
-                        <StackPanel Grid.Column="1"
-                                    Margin="5,0,6,0"
-                                    VerticalAlignment="Center">
-                            <TextBlock x:Name="CurrentImageTaskTitleText"
-                                       Text="{Binding CurrentImageTaskTitleText}"
+                <Grid Grid.Row="3" Style="{StaticResource QueueEditingVisibilityStyle}">
+                    <Border x:Name="AnomalyImageReviewCard"
+                            Grid.Row="3"
+                            Background="{DynamicResource CanvasBrush}"
+                            BorderBrush="{DynamicResource AccentBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="7,6"
+                            Margin="0,0,0,5"
+                             AutomationProperties.Name="{Binding AnomalyCardAutomationNameText}">
+                        <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="{Binding AnomalyImageReviewVisibility}" />
+                            <Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers>
+                        </Style></Border.Style>
+                        <StackPanel>
+                            <TextBlock Text="{Binding AnomalyCardTitleText}"
                                        Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="11"
-                                       FontWeight="SemiBold"
-                                       TextTrimming="CharacterEllipsis" />
-                            <TextBlock x:Name="CurrentImageTaskDetailText"
-                                       Text="{Binding CurrentImageTaskDetailText}"
+                                       FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding AnomalyCardDetailText}"
                                        Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
+                                       FontFamily="{DynamicResource UiFontFamily}"
                                        FontSize="9.5"
                                        LineHeight="12"
-                                       MaxHeight="24"
+                                       Margin="0,2,0,6"
                                        TextWrapping="Wrap" />
-                        </StackPanel>
-                        <Border x:Name="CurrentImageTaskBadge"
-                                Grid.Column="2"
-                                Style="{StaticResource ImageQueueCurrentTaskBadgeStyle}"
-                                Tag="{Binding CurrentImageTaskKey}"
-                                VerticalAlignment="Center">
-                            <TextBlock x:Name="CurrentImageTaskBadgeText"
-                                       Text="{Binding CurrentImageTaskBadgeText}"
-                                       Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10"
-                                       FontWeight="SemiBold"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis" />
-                        </Border>
-                    </Grid>
-                </Border>
-
-                <Border x:Name="AnomalyImageReviewCard"
-                        Grid.Row="3"
-                        Background="{DynamicResource CanvasBrush}"
-                        BorderBrush="{DynamicResource AccentBrush}"
-                        BorderThickness="1"
-                        CornerRadius="4"
-                        Padding="7,6"
-                        Margin="0,0,0,5"
-                        Visibility="{Binding AnomalyImageReviewVisibility}"
-                         AutomationProperties.Name="{Binding AnomalyCardAutomationNameText}">
-                    <StackPanel>
-                        <TextBlock Text="{Binding AnomalyCardTitleText}"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="11"
-                                   FontWeight="SemiBold" />
-                        <TextBlock Text="{Binding AnomalyCardDetailText}"
-                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="9.5"
-                                   LineHeight="12"
-                                   Margin="0,2,0,6"
-                                   TextWrapping="Wrap" />
-                        <UniformGrid Columns="2">
-                            <ui:Button x:Name="MarkAnomalyNormalButton"
-                                       Style="{StaticResource QueuePrimaryActionButtonStyle}"
-                                       Height="34"
-                                       Margin="0,0,3,0"
-                                       AutomationProperties.AutomationId="MarkAnomalyNormalButton"
-                                        AutomationProperties.Name="{Binding AnomalyNormalNameText}"
-                                        ToolTip="{Binding AnomalyNormalToolTipText}"
-                                       Command="{Binding MarkAnomalyNormalCommand}">
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="CheckboxMarkedCircleOutline" />
-                                    <TextBlock Text="{Binding AnomalyNormalButtonText}" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </ui:Button>
-                            <ui:Button x:Name="MarkAnomalyAbnormalButton"
-                                       Style="{StaticResource QueuePrimaryActionButtonStyle}"
-                                       Height="34"
-                                       Margin="3,0,0,0"
-                                       AutomationProperties.AutomationId="MarkAnomalyAbnormalButton"
-                                        AutomationProperties.Name="{Binding AnomalyAbnormalNameText}"
-                                        ToolTip="{Binding AnomalyAbnormalToolTipText}"
-                                       Command="{Binding MarkAnomalyAbnormalCommand}">
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="AlertCircleOutline" />
-                                    <TextBlock Text="{Binding AnomalyAbnormalButtonText}" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </ui:Button>
-                        </UniformGrid>
-                        <ui:Button x:Name="ClearAnomalyReviewButton"
-                                   Style="{StaticResource QueueQuickFilterButtonStyle}"
-                                   Height="24"
-                                   Margin="0,5,0,0"
-                                   HorizontalAlignment="Stretch"
-                                   AutomationProperties.AutomationId="ClearAnomalyReviewButton"
-                                    AutomationProperties.Name="{Binding ClearAnomalyReviewNameText}"
-                                    ToolTip="{Binding ClearAnomalyReviewToolTipText}"
-                                   Command="{Binding ClearAnomalyReviewCommand}">
-                            <TextBlock Text="{Binding ClearAnomalyReviewButtonText}" FontSize="10" HorizontalAlignment="Center" />
-                        </ui:Button>
-                    </StackPanel>
-                </Border>
-
-                <Border x:Name="AnomalyFolderStateSuggestionCard"
-                        Grid.Row="4"
-                        Background="{DynamicResource CanvasBrush}"
-                        BorderBrush="{DynamicResource AccentBrush}"
-                        BorderThickness="1"
-                        CornerRadius="4"
-                        Padding="7,5"
-                        Margin="0,0,0,5"
-                        Visibility="{Binding IsAnomalyFolderStateSuggestionVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="18" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <iconPacks:PackIconMaterial Grid.Column="0"
-                                                    Width="14"
-                                                    Height="14"
-                                                    Kind="FolderQuestionOutline"
-                                                    Foreground="{DynamicResource AccentBrush}"
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Top"
-                                                    Margin="0,2,0,0" />
-                        <StackPanel Grid.Column="1" Margin="5,0,6,0">
-                            <TextBlock Text="{Binding AnomalyFolderStateSuggestionTitleText}"
-                                       Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10.5"
-                                       FontWeight="SemiBold" />
-                            <TextBlock Text="{Binding AnomalyFolderStateSuggestionText}"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="9"
-                                       LineHeight="11"
-                                       TextWrapping="Wrap"
-                                       MaxHeight="33" />
-                        </StackPanel>
-                        <WrapPanel Grid.Column="2" VerticalAlignment="Center">
-                            <ui:Button x:Name="ApplyAnomalyFolderStateSuggestionButton"
-                                       Style="{StaticResource QueuePrimaryActionButtonStyle}"
-                                       MinWidth="82"
-                                       Height="26"
-                                       Margin="0,0,4,0"
-                                        AutomationProperties.Name="{Binding ApplyAnomalySuggestionNameText}"
-                                        ToolTip="{Binding ApplyAnomalySuggestionToolTipText}"
-                                       Command="{Binding ApplyAnomalyFolderStateSuggestionCommand}">
-                                <TextBlock Text="{Binding AnomalyFolderStateSuggestionApplyText}" FontSize="10" VerticalAlignment="Center" />
-                            </ui:Button>
-                            <ui:Button x:Name="DismissAnomalyFolderStateSuggestionButton"
+                            <UniformGrid Columns="2">
+                                <ui:Button x:Name="MarkAnomalyNormalButton"
+                                           Style="{StaticResource QueuePrimaryActionButtonStyle}"
+                                           Height="34"
+                                           Margin="0,0,3,0"
+                                           AutomationProperties.AutomationId="MarkAnomalyNormalButton"
+                                            AutomationProperties.Name="{Binding AnomalyNormalNameText}"
+                                            ToolTip="{Binding AnomalyNormalToolTipText}"
+                                           Command="{Binding MarkAnomalyNormalCommand}">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="CheckboxMarkedCircleOutline" />
+                                        <TextBlock Text="{Binding AnomalyNormalButtonText}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </ui:Button>
+                                <ui:Button x:Name="MarkAnomalyAbnormalButton"
+                                           Style="{StaticResource QueuePrimaryActionButtonStyle}"
+                                           Height="34"
+                                           Margin="3,0,0,0"
+                                           AutomationProperties.AutomationId="MarkAnomalyAbnormalButton"
+                                            AutomationProperties.Name="{Binding AnomalyAbnormalNameText}"
+                                            ToolTip="{Binding AnomalyAbnormalToolTipText}"
+                                           Command="{Binding MarkAnomalyAbnormalCommand}">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="AlertCircleOutline" />
+                                        <TextBlock Text="{Binding AnomalyAbnormalButtonText}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </ui:Button>
+                            </UniformGrid>
+                            <ui:Button x:Name="ClearAnomalyReviewButton"
                                        Style="{StaticResource QueueQuickFilterButtonStyle}"
-                                       MinWidth="66"
-                                       Height="26"
-                                       Margin="0"
-                                        AutomationProperties.Name="{Binding DismissAnomalySuggestionNameText}"
-                                        ToolTip="{Binding DismissAnomalySuggestionToolTipText}"
-                                       Command="{Binding DismissAnomalyFolderStateSuggestionCommand}">
-                                <TextBlock Text="{Binding DismissAnomalySuggestionButtonText}" FontSize="10" VerticalAlignment="Center" />
+                                       Height="24"
+                                       Margin="0,5,0,0"
+                                       HorizontalAlignment="Stretch"
+                                       AutomationProperties.AutomationId="ClearAnomalyReviewButton"
+                                        AutomationProperties.Name="{Binding ClearAnomalyReviewNameText}"
+                                        ToolTip="{Binding ClearAnomalyReviewToolTipText}"
+                                       Command="{Binding ClearAnomalyReviewCommand}">
+                                <TextBlock Text="{Binding ClearAnomalyReviewButtonText}" FontSize="10" HorizontalAlignment="Center" />
                             </ui:Button>
-                        </WrapPanel>
-                    </Grid>
-                </Border>
+                        </StackPanel>
+                    </Border>
 
-                <Grid Grid.Row="5">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="112" />
-                        <ColumnDefinition Width="8" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <ComboBox x:Name="ImageQueueFilterBox"
-                              Style="{StaticResource ImageQueueFilterComboBoxStyle}"
-                               ToolTip="{Binding FilterToolTipText}"
-                              mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding FilterSelectionChangedCommand}" />
-                    <Grid Grid.Column="2">
+                </Grid>
+                <Grid Grid.Row="4" Style="{StaticResource QueueEditingVisibilityStyle}">
+                    <Border x:Name="AnomalyFolderStateSuggestionCard"
+                            Grid.Row="4"
+                            Background="{DynamicResource CanvasBrush}"
+                            BorderBrush="{DynamicResource AccentBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="7,5"
+                            Margin="0,0,0,5"
+                            Visibility="{Binding IsAnomalyFolderStateSuggestionVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <iconPacks:PackIconMaterial Grid.Column="0"
+                                                        Width="14"
+                                                        Height="14"
+                                                        Kind="FolderQuestionOutline"
+                                                        Foreground="{DynamicResource AccentBrush}"
+                                                        HorizontalAlignment="Center"
+                                                        VerticalAlignment="Top"
+                                                        Margin="0,2,0,0" />
+                            <StackPanel Grid.Column="1" Margin="5,0,6,0">
+                                <TextBlock Text="{Binding AnomalyFolderStateSuggestionTitleText}"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           FontFamily="{DynamicResource UiFontFamily}"
+                                           FontSize="10.5"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding AnomalyFolderStateSuggestionText}"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           FontFamily="{DynamicResource UiFontFamily}"
+                                           FontSize="9"
+                                           LineHeight="11"
+                                           TextWrapping="Wrap"
+                                           MaxHeight="33" />
+                            </StackPanel>
+                            <WrapPanel Grid.Column="2" VerticalAlignment="Center">
+                                <ui:Button x:Name="ApplyAnomalyFolderStateSuggestionButton"
+                                           Style="{StaticResource QueuePrimaryActionButtonStyle}"
+                                           MinWidth="82"
+                                           Height="26"
+                                           Margin="0,0,4,0"
+                                            AutomationProperties.Name="{Binding ApplyAnomalySuggestionNameText}"
+                                            ToolTip="{Binding ApplyAnomalySuggestionToolTipText}"
+                                           Command="{Binding ApplyAnomalyFolderStateSuggestionCommand}">
+                                    <TextBlock Text="{Binding AnomalyFolderStateSuggestionApplyText}" FontSize="10" VerticalAlignment="Center" />
+                                </ui:Button>
+                                <ui:Button x:Name="DismissAnomalyFolderStateSuggestionButton"
+                                           Style="{StaticResource QueueQuickFilterButtonStyle}"
+                                           MinWidth="66"
+                                           Height="26"
+                                           Margin="0"
+                                            AutomationProperties.Name="{Binding DismissAnomalySuggestionNameText}"
+                                            ToolTip="{Binding DismissAnomalySuggestionToolTipText}"
+                                           Command="{Binding DismissAnomalyFolderStateSuggestionCommand}">
+                                    <TextBlock Text="{Binding DismissAnomalySuggestionButtonText}" FontSize="10" VerticalAlignment="Center" />
+                                </ui:Button>
+                            </WrapPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+                <Border Grid.Row="5" BorderBrush="{DynamicResource BorderBrushDark}">
+                    <Border.Style><Style TargetType="Border"><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="BorderThickness" Value="0,0,0,1" /></DataTrigger></Style.Triggers></Style></Border.Style>
+                <WrapPanel x:Name="ImageQueueFilterToolbar" Orientation="Horizontal">
+                    <WrapPanel.Style><Style TargetType="WrapPanel"><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Margin" Value="12,8" /></DataTrigger></Style.Triggers></Style></WrapPanel.Style>
+                    <Grid x:Name="ImageQueueSearchField">
+                        <Grid.Style>
+                            <Style TargetType="Grid">
+                                <Setter Property="Width" Value="156"/>
+                                <Setter Property="Margin" Value="0,0,4,0"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Width" Value="{Binding ActualWidth, ElementName=ImageQueueFilterToolbar}" /><Setter Property="Margin" Value="0" /></DataTrigger>
+                                    <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                        <Setter Property="Width" Value="{Binding ActualWidth, ElementName=ImageQueueFilterToolbar}"/>
+                                        <Setter Property="Margin" Value="0,0,0,10"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Style>
+                        <TextBox x:Name="ImageQueueSearchBox"
+                                 AutomationProperties.AutomationId="ImageQueueSearchBox"
+                                  AutomationProperties.Name="{Binding SearchAutomationNameText}"
+                                 Text="{Binding SearchText, Mode=OneWay}"
+                                 FontFamily="{DynamicResource UiFontFamily}"
+                                  ToolTip="{Binding SearchToolTipText}"
+                                 mvvm:InputCommandBehaviors.TextInputCommand="{Binding SearchTextChangedCommand}">
+                            <TextBox.Style>
+                                <Style TargetType="TextBox">
+                                    <Setter Property="Height" Value="30"/>
+                                    <Setter Property="Background" Value="{DynamicResource InputBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+                                    <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>
+                                    <Setter Property="FontSize" Value="12"/>
+                                    <Setter Property="Padding" Value="24,2,44,2"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Template" Value="{DynamicResource RecipeInputTemplate}" /><Setter Property="FontSize" Value="13" /><Setter Property="Padding" Value="8,5" /></DataTrigger>
+                                        <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                            <Setter Property="Height" Value="42"/>
+                                            <Setter Property="Template" Value="{DynamicResource RecipeInputTemplate}"/>
+                                            <Setter Property="Background" Value="{DynamicResource DatasetInputBrush}"/>
+                                            <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}"/>
+                                            <Setter Property="BorderBrush" Value="{DynamicResource DatasetInputBorderBrush}"/>
+                                            <Setter Property="FontSize" Value="13"/>
+                                            <Setter Property="Padding" Value="34,8,44,8"/>
+                                        </DataTrigger>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/>
+                                                <Condition Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource Self}}" Value="True"/>
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}"/>
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBox.Style>
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Escape" Command="{Binding ClearSearchCommand}" />
+                            </TextBox.InputBindings>
+                        </TextBox>
                         <iconPacks:PackIconMaterial Width="14"
                                                     Height="14"
                                                     Kind="Magnify"
@@ -628,71 +917,166 @@
                                                     Margin="7,0,0,0"
                                                     VerticalAlignment="Center"
                                                     HorizontalAlignment="Left"
-                                                    IsHitTestVisible="False" />
-                        <TextBox x:Name="ImageQueueSearchBox"
-                                 AutomationProperties.AutomationId="ImageQueueSearchBox"
-                                  AutomationProperties.Name="{Binding SearchAutomationNameText}"
-                                 Height="24"
-                                 Background="{DynamicResource InputBrush}"
-                                 Foreground="{DynamicResource PrimaryTextBrush}"
-                                 BorderBrush="{DynamicResource InputBorderBrush}"
-                                 FontFamily="Segoe UI"
-                                 FontSize="12"
-                                 Padding="24,2,6,2"
-                                  ToolTip="{Binding SearchToolTipText}"
-                                 mvvm:InputCommandBehaviors.TextInputCommand="{Binding SearchTextChangedCommand}" />
+                                                    IsHitTestVisible="False">
+                            <iconPacks:PackIconMaterial.Style><Style TargetType="iconPacks:PackIconMaterial"><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></iconPacks:PackIconMaterial.Style>
+                        </iconPacks:PackIconMaterial>
+                        <TextBlock x:Name="ImageQueueSearchPlaceholderText"
+                                   Text="{Binding SearchToolTipText}" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="NoWrap"
+                                   VerticalAlignment="Center"
+                                   IsHitTestVisible="False" TextTrimming="CharacterEllipsis">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Setter Property="FontSize" Value="12" /><Setter Property="Margin" Value="34,0,44,0" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="FontSize" Value="13" /><Setter Property="Margin" Value="8,0" /></DataTrigger>
+                                        <DataTrigger Binding="{Binding SearchText}" Value="">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <ui:Button x:Name="ClearImageQueueSearchButton"
+                                   Width="Auto" MinWidth="0" Height="24" Margin="0" Padding="5,0"
+                                   HorizontalAlignment="Right"
+                                   AutomationProperties.AutomationId="ClearImageQueueSearchButton"
+                                   AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfImageQueue.Search.Clear.Button], RelativeSource={RelativeSource AncestorType=Window}}"
+                                   ToolTip="{Binding ClearSearchToolTipText}"
+                                   Command="{Binding ClearSearchCommand}">
+                            <ui:Button.Style>
+                                <Style TargetType="ui:Button" BasedOn="{StaticResource QueueIconButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                                        <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                            <Setter Property="Template" Value="{DynamicResource RecipeButtonTemplate}"/>
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Setter Property="BorderBrush" Value="Transparent"/>
+                                            <Setter Property="Foreground" Value="{DynamicResource RecipeQuietTextBrush}"/>
+                                            <Setter Property="Cursor" Value="Hand"/>
+                                        </DataTrigger>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/>
+                                                <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True"/>
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Background" Value="{DynamicResource RecipeQuietHoverBrush}"/>
+                                            <Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}"/>
+                                        </MultiDataTrigger>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/>
+                                                <Condition Binding="{Binding IsPressed, RelativeSource={RelativeSource Self}}" Value="True"/>
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Background" Value="{DynamicResource RecipeQuietPressedBrush}"/>
+                                            <Setter Property="BorderBrush" Value="{DynamicResource RecipeAccentBrush}"/>
+                                        </MultiDataTrigger>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/>
+                                                <Condition Binding="{Binding IsEnabled, RelativeSource={RelativeSource Self}}" Value="False"/>
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}"/>
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Setter Property="BorderBrush" Value="Transparent"/>
+                                            <Setter Property="Opacity" Value="1"/>
+                                            <Setter Property="Cursor" Value="Arrow"/>
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ui:Button.Style>
+                            <TextBlock Text="{Binding DataContext.LanguageViewModel[WpfImageQueue.Search.Clear.Button], RelativeSource={RelativeSource AncestorType=Window}}" FontSize="10" />
+                        </ui:Button>
                     </Grid>
-                </Grid>
+                    <ComboBox x:Name="ImageQueueFilterBox"
+                              ItemsSource="{Binding QueueFilterOptions}" SelectedItem="{Binding SelectedFilterOption, Mode=TwoWay}"
+                              AutomationProperties.Name="{Binding FilterToolTipText}"
+                              ToolTip="{Binding FilterToolTipText}"
+                              mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding FilterSelectionChangedCommand}">
+                        <ComboBox.Style>
+                            <Style TargetType="ComboBox" BasedOn="{StaticResource ImageQueueFilterComboBoxStyle}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Setter Property="Height" Value="30" /><Setter Property="Width" Value="120" /><Setter Property="Margin" Value="0,0,4,0" /><Setter Property="ItemTemplate"><Setter.Value><DataTemplate><TextBlock Text="{Binding Text}" /></DataTemplate></Setter.Value></Setter><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                <Setter Property="Visibility" Value="Visible" />
+                <Setter Property="Height" Value="40" />
+                <Setter Property="Padding" Value="8,4,28,4" />
+                <Setter Property="ItemTemplate"><Setter.Value><DataTemplate><TextBlock Text="{Binding Text}" FontSize="12" TextWrapping="Wrap" /></DataTemplate></Setter.Value></Setter>
+                <Setter Property="Template" Value="{DynamicResource RecipeComboBoxTemplate}" />
+                <Setter Property="ItemContainerStyle" Value="{DynamicResource RecipeComboBoxItemStyle}" />
+                <Setter Property="Background" Value="{DynamicResource DatasetInputBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource DatasetInputBorderBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+                <Setter Property="Width" Value="170" />
+                <Setter Property="Margin" Value="0,0,6,0" />
 
-                <ui:Button x:Name="QueueFilterUnfinishedButton"
-                           Grid.Row="6"
-                           Style="{StaticResource QueueQuickFilterButtonStyle}"
-                           Height="50"
-                           Margin="0,5,0,3"
-                           Padding="8,4"
-                           HorizontalContentAlignment="Stretch"
-                           Tag="{Binding IsQueueFilterUnfinishedActive}"
-                           AutomationProperties.AutomationId="QueueWorklistButton"
-                           AutomationProperties.Name="{Binding QueueWorklistAutomationName}"
-                            ToolTip="{Binding QueueWorklistToolTipText}"
-                           Command="{Binding QueueFilterUnfinishedCommand}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="24" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <iconPacks:PackIconMaterial Width="17"
-                                                    Height="17"
-                                                    Kind="PlaylistPlay"
-                                                    VerticalAlignment="Center" />
-                        <StackPanel Grid.Column="1" Margin="3,0,7,0" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding QueueWorklistTitleText}"
-                                       FontWeight="SemiBold"
-                                       TextTrimming="CharacterEllipsis" />
-                            <TextBlock Text="{Binding QueueWorklistSummaryText}"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontSize="9"
-                                       TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                        <Border Grid.Column="2"
-                                MinWidth="54"
-                                Height="22"
-                                Padding="6,0"
-                                Background="{DynamicResource InputBrush}"
-                                BorderBrush="{DynamicResource AccentBrush}"
-                                BorderThickness="1"
-                                CornerRadius="3"
-                                VerticalAlignment="Center">
-                            <TextBlock x:Name="QueueFilterUnfinishedText"
-                                       Text="{Binding QueueFilterUnfinishedText}"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       FontSize="10"
-                                       FontWeight="SemiBold" />
-                        </Border>
-                    </Grid>
-                </ui:Button>
+            </DataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /><Condition Binding="{Binding DataContext.ShellViewModel.IsCompactDatasetLayout, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /></MultiDataTrigger.Conditions>
+                <Setter Property="Width" Value="98" />
+                <Setter Property="Margin" Value="0,0,3,0" />
+            </MultiDataTrigger></Style.Triggers>
+                            </Style>
+                        </ComboBox.Style>
+                    </ComboBox>
+                    <Button x:Name="ClearImageQueueFiltersButton" Width="54" Style="{DynamicResource RecipeQuietButtonStyle}"
+                               Height="Auto" MinHeight="40" MinWidth="0" Margin="0,0,3,0" Padding="4,6"
+                               Visibility="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"
+                               Command="{Binding ResetQueueFiltersCommand}"
+                               AutomationProperties.Name="{Binding ResetQueueFiltersText}">
+                        <TextBlock Text="{Binding DataContext.LanguageViewModel[WpfDatasetHome.ResetFilter], RelativeSource={RelativeSource AncestorType=Window}}" TextWrapping="Wrap" TextAlignment="Center" />
+                    </Button>
+                    <Button x:Name="RefreshImageQueueButton" Style="{DynamicResource RecipeQuietButtonStyle}"
+                               Width="30" MinWidth="30" Height="40" Margin="0" Padding="0"
+                               Visibility="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"
+                               AutomationProperties.Name="{Binding RefreshImageQueueNameText}"
+                               ToolTip="{Binding RefreshImageQueueToolTipText}" Command="{Binding RefreshImageQueueCommand}" MinHeight="40">
+                        <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="Refresh" />
+                    </Button>
+                </WrapPanel>
+                </Border>
+
+                <Border Grid.Row="6" BorderBrush="{DynamicResource BorderBrushDark}">
+                    <Border.Style><Style TargetType="Border"><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Padding" Value="12,8,12,4" /><Setter Property="BorderThickness" Value="0,0,0,1" /></DataTrigger></Style.Triggers></Style></Border.Style>
+                    <DockPanel>
+                <ListBox x:Name="ImageQueueFilterChips" Padding="0"
+                         Background="Transparent" BorderThickness="0" SelectionMode="Single"
+                         IsEnabled="{Binding IsEnabled, ElementName=ImageQueueFilterBox}"
+                         IsSynchronizedWithCurrentItem="False" ItemContainerStyle="{StaticResource QueueFilterChipItemStyle}"
+                         AutomationProperties.Name="{Binding FilterToolTipText}"
+                         AutomationProperties.AutomationId="ImageQueueFilterChips"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                    <ListBox.Style>
+                        <Style TargetType="ListBox">
+                            <Setter Property="ItemsSource" Value="{Binding ItemsSource, ElementName=ImageQueueFilterBox}" /><Setter Property="SelectedItem" Value="{Binding SelectedItem, ElementName=ImageQueueFilterBox, Mode=TwoWay}" /><Setter Property="Margin" Value="0,8,0,0" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="ItemsSource" Value="{Binding LabelingFilterOptions}" /><Setter Property="SelectedItem" Value="{Binding SelectedLabelingFilterOption, Mode=TwoWay}" /><Setter Property="Margin" Value="0" /></DataTrigger>
+                                <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ListBox.Style>
+                    <ListBox.ContextMenu>
+                        <ContextMenu x:Name="LabelingLegacyQueueFilters" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" ItemsSource="{Binding QueueFilterOptions}"
+                                     FontFamily="{DynamicResource UiFontFamily}" FontSize="12" Background="{DynamicResource RecipeSurfaceBrush}" Foreground="{DynamicResource RecipeTextBrush}" BorderBrush="{DynamicResource RecipeButtonBorderBrush}"
+                                     IsEnabled="{Binding PlacementTarget.IsEnabled, RelativeSource={RelativeSource Self}}" AutomationProperties.Name="{Binding FilterToolTipText}">
+                            <ContextMenu.ItemContainerStyle><Style TargetType="MenuItem"><Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" /><Setter Property="FontSize" Value="12" /><Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" /><Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}" />
+                                <Setter Property="Header" Value="{Binding Text}" />
+                                <Setter Property="Command" Value="{Binding DataContext.FilterSelectionChangedCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                <Setter Property="CommandParameter" Value="{Binding}" />
+                            </Style></ContextMenu.ItemContainerStyle>
+                        </ContextMenu>
+                    </ListBox.ContextMenu>
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <TextBlock x:Name="QueueFilterCaption" TextWrapping="Wrap"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="{Binding Text}" /><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Text" Value="{Binding LabelingText}" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                            <TextBlock x:Name="QueueLabelingFilterCount" Grid.Column="1" Text="{Binding Count}" Margin="4,0,0,0" Foreground="{DynamicResource SecondaryTextBrush}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                        </Grid></DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                    </DockPanel>
+                </Border>
 
                 <UniformGrid Grid.Row="6" Columns="3" VerticalAlignment="Center" Visibility="Collapsed">
                     <ui:Button x:Name="QueueFilterAllButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterAllActive}" AutomationProperties.Name="{Binding QueueFilterAllText}" ToolTip="{Binding QueueFilterAllText}" Command="{Binding QueueFilterAllCommand}">
@@ -733,28 +1117,67 @@
                     </ui:Button>
                 </UniformGrid>
 
-                <WrapPanel Grid.Row="7" VerticalAlignment="Center" Visibility="{Binding StandardQueueWorkflowVisibility}">
-                    <ui:Button x:Name="DetectSelectedQueueButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="{Binding DetectSelectedToolTipText}" AutomationProperties.Name="{Binding DetectSelectedNameText}" IsEnabled="{Binding IsDetectSelectedEnabled}" Command="{Binding DetectSelectedQueueCommand}">
-                        <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="ImageSearch" />
-                    </ui:Button>
-                    <ui:Button x:Name="BatchDetectQueueButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="{Binding BatchDetectToolTipText}" AutomationProperties.Name="{Binding BatchDetectNameText}" IsEnabled="{Binding IsBatchDetectEnabled}" Command="{Binding BatchDetectQueueCommand}">
-                        <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="PlaylistPlay" />
-                    </ui:Button>
-                    <ui:Button x:Name="TemplateBatchQueueButton" Style="{StaticResource QueuePrimaryActionButtonStyle}" MinWidth="104" ToolTip="{Binding TemplateBatchToolTipText}" AutomationProperties.AutomationId="TemplateBatchQueueButton" AutomationProperties.Name="{Binding TemplateBatchNameText}" IsEnabled="{Binding IsTemplateBatchEnabled}" Command="{Binding TemplateBatchQueueCommand}">
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="SelectionSearch" />
-                            <TextBlock x:Name="TemplateBatchQueueText" Text="{Binding TemplateBatchButtonText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <Grid Grid.Row="7" Style="{StaticResource QueueEditingVisibilityStyle}">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <StackPanel Grid.Row="1" Visibility="{Binding CandidateWorkflowVisibility}">
+                        <Border Padding="12,6" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource BorderBrushDark}">
+                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <ComboBox ItemsSource="{Binding CandidateSortOptions, Mode=OneWay}" SelectedItem="{Binding SelectedCandidateSort, Mode=TwoWay}" Style="{DynamicResource RecipeComboBoxStyle}" Height="Auto" MinHeight="30" VerticalAlignment="Center" FontSize="12" Padding="6,2,28,2" AutomationProperties.AutomationId="CandidateQueueSort">
+                                    <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Text}" TextWrapping="Wrap" TextTrimming="None" /></DataTemplate></ComboBox.ItemTemplate>
+                                    <ComboBox.ToolTip><StackPanel><TextBlock Text="{Binding SelectedCandidateSort.Text}" /><TextBlock Text="{Binding CandidateSortUnavailableText}" TextWrapping="Wrap" /></StackPanel></ComboBox.ToolTip>
+                                    <ComboBox.ItemContainerStyle><Style TargetType="ComboBoxItem"><Setter Property="IsEnabled" Value="{Binding IsEnabled}"/><Setter Property="ToolTip" Value="{Binding Reason}"/><Setter Property="ToolTipService.ShowOnDisabled" Value="True" /></Style></ComboBox.ItemContainerStyle>
+                                </ComboBox>
+                                <ui:Button Grid.Column="1" Content="{Binding GenerateCandidatesText}" Command="{Binding GenerateCandidatesCommand}" Height="Auto" MinHeight="30" MaxWidth="120" VerticalAlignment="Center" FontSize="12" Padding="8,2" Margin="6,0,0,0" ToolTip="{Binding GenerateCandidatesText}" AutomationProperties.AutomationId="GenerateCandidateBatch">
+                                    <ui:Button.ContentTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" TextTrimming="None" TextAlignment="Center" /></DataTemplate></ui:Button.ContentTemplate>
+                                </ui:Button>
+                            </Grid>
+                        </Border>
+                        <StackPanel Visibility="{Binding CandidateBatchRunningVisibility}" Margin="0,4,0,0">
+                            <ProgressBar Minimum="0" Maximum="{Binding BatchProgressMaximum, Mode=OneWay}" Value="{Binding BatchProgressValue, Mode=OneWay}" Height="6" />
+                            <TextBlock Text="{Binding BatchStatusText}" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4,0,0" />
+                            <ui:Button Content="{Binding StopBatchNameText}" Command="{Binding StopBatchQueueCommand}" MinHeight="30" Margin="0,4,0,0" AutomationProperties.AutomationId="StopCandidateBatch" />
                         </StackPanel>
-                    </ui:Button>
-                    <ui:Button x:Name="RetryFailedQueueButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="{Binding RetryFailedToolTipText}" AutomationProperties.Name="{Binding RetryFailedNameText}" IsEnabled="{Binding IsRetryFailedEnabled}" Command="{Binding RetryFailedQueueCommand}">
-                        <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="Reload" />
-                    </ui:Button>
-                    <ui:Button x:Name="StopBatchQueueButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="{Binding StopBatchToolTipText}" AutomationProperties.Name="{Binding StopBatchNameText}" IsEnabled="{Binding IsStopBatchEnabled}" Command="{Binding StopBatchQueueCommand}">
-                        <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="StopCircleOutline" />
-                    </ui:Button>
-                </WrapPanel>
-
-                <Grid Grid.Row="8">
+                        <TextBlock Text="{Binding CandidateBatchSummaryText}" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                    <Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed" /></Trigger></Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                    <Grid Style="{StaticResource QueueInferenceVisibilityStyle}">
+                    <WrapPanel VerticalAlignment="Center" Visibility="{Binding StandardQueueWorkflowVisibility}">
+                        <ui:Button x:Name="DetectSelectedQueueButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="{Binding DetectSelectedToolTipText}" AutomationProperties.Name="{Binding DetectSelectedNameText}" IsEnabled="{Binding IsDetectSelectedEnabled}" Command="{Binding DetectSelectedQueueCommand}">
+                            <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="ImageSearch" />
+                        </ui:Button>
+                        <ui:Button x:Name="BatchDetectQueueButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="{Binding BatchDetectToolTipText}" AutomationProperties.Name="{Binding BatchDetectNameText}" IsEnabled="{Binding IsBatchDetectEnabled}" Command="{Binding BatchDetectQueueCommand}">
+                            <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="PlaylistPlay" />
+                        </ui:Button>
+                        <ui:Button x:Name="TemplateBatchQueueButton" MinWidth="104" ToolTip="{Binding TemplateBatchToolTipText}" AutomationProperties.AutomationId="TemplateBatchQueueButton" AutomationProperties.Name="{Binding TemplateBatchNameText}" IsEnabled="{Binding IsTemplateBatchEnabled}" Command="{Binding TemplateBatchQueueCommand}">
+                            <ui:Button.Style>
+                                <Style TargetType="ui:Button" BasedOn="{StaticResource QueuePrimaryActionButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsInferenceStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ui:Button.Style>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="SelectionSearch" />
+                                <TextBlock x:Name="TemplateBatchQueueText" Text="{Binding TemplateBatchButtonText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </ui:Button>
+                        <ui:Button x:Name="RetryFailedQueueButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="{Binding RetryFailedToolTipText}" AutomationProperties.Name="{Binding RetryFailedNameText}" IsEnabled="{Binding IsRetryFailedEnabled}" Command="{Binding RetryFailedQueueCommand}">
+                            <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="Reload" />
+                        </ui:Button>
+                        <ui:Button x:Name="StopBatchQueueButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="{Binding StopBatchToolTipText}" AutomationProperties.Name="{Binding StopBatchNameText}" IsEnabled="{Binding IsStopBatchEnabled}" Command="{Binding StopBatchQueueCommand}">
+                            <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="StopCircleOutline" />
+                        </ui:Button>
+                    </WrapPanel>
+                    </Grid>
+                </Grid>
+                <Grid Grid.Row="8" MinHeight="16" Style="{StaticResource QueueInferenceVisibilityStyle}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="78" />
                         <ColumnDefinition Width="*" />
@@ -762,7 +1185,7 @@
                     <TextBlock x:Name="BatchStatusText"
                                Text="{Binding BatchStatusText, Mode=OneWay}"
                                Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
+                               FontFamily="{DynamicResource UiFontFamily}"
                                FontSize="11"
                                VerticalAlignment="Center" />
                     <ProgressBar x:Name="BatchProgressBar"
@@ -774,6 +1197,17 @@
                                  VerticalAlignment="Center" />
                 </Grid>
             </Grid>
+                <ListBox x:Name="InferenceQueueFilters" Grid.Row="1" Margin="12,8" Padding="0" BorderThickness="0" Background="Transparent"
+                         SelectedIndex="{Binding InferenceFilterIndex, Mode=TwoWay}"
+                         Visibility="{Binding IsInferencePresentation, Converter={StaticResource BooleanToVisibilityConverter}}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                    <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem" BasedOn="{StaticResource QueueFilterChipItemStyle}"><Setter Property="Margin" Value="0,0,4,0" /><Setter Property="AutomationProperties.Name" Value="{Binding Content, RelativeSource={RelativeSource Self}}" /></Style></ListBox.ItemContainerStyle>
+                    <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" FontSize="12" /></DataTemplate></ListBox.ItemTemplate>
+                    <ListBoxItem Content="{Binding InferenceFilterAllText}" /><ListBoxItem Content="{Binding InferenceFilterUnexecutedText}" />
+                    <ListBoxItem Content="{Binding InferenceFilterNgText}" /><ListBoxItem Content="{Binding InferenceFilterOkText}" />
+                </ListBox>
+
 
             <DataGrid x:Name="ImageQueueGrid"
                       Grid.Row="2"
@@ -789,21 +1223,46 @@
                       ScrollViewer.CanContentScroll="True"
                       VirtualizingPanel.IsVirtualizing="True"
                       VirtualizingPanel.VirtualizationMode="Recycling"
-                      HeadersVisibility="Column"
                       IsReadOnly="True"
+                      IsTabStop="{Binding HasItems, RelativeSource={RelativeSource Self}}"
                       RowHeaderWidth="0"
                       SelectionMode="Single"
                       SelectionUnit="FullRow"
+                      AreRowDetailsFrozen="True"
                       Background="Transparent"
                       BorderThickness="0"
-                      GridLinesVisibility="Horizontal"
+
                       HorizontalGridLinesBrush="{DynamicResource GridLineBrush}"
                       Foreground="{DynamicResource SecondaryTextBrush}"
-                      FontFamily="Segoe UI"
+                      FontFamily="{DynamicResource UiFontFamily}"
                       FontSize="12"
                       SelectedItem="{Binding SelectedQueueItem, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                       mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding QueueSelectionChangedCommand}"
+                      Loaded="ImageQueueGrid_Loaded"
+                      SizeChanged="ImageQueueGrid_SizeChanged"
                       mvvm:InputCommandBehaviors.MouseDoubleClickInputCommand="{Binding QueueMouseDoubleClickCommand}">
+                <DataGrid.Style>
+                    <Style TargetType="DataGrid">
+                        <Setter Property="HeadersVisibility" Value="None" /><Setter Property="GridLinesVisibility" Value="None" />
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+                        <Setter Property="RowDetailsVisibilityMode" Value="Collapsed" />
+                        <Setter Property="RowDetailsTemplate" Value="{StaticResource SelectedQueueImagePathOnDemandDetailsTemplate}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsSelectedImagePathVisible}" Value="True">
+                                <Setter Property="RowDetailsVisibilityMode" Value="VisibleWhenSelected" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" Value="True">
+                                <Setter Property="RowDetailsTemplate" Value="{StaticResource SelectedQueueImagePathOnDemandDetailsTemplate}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                <Setter Property="HeadersVisibility" Value="None" /><Setter Property="GridLinesVisibility" Value="None" /><Setter Property="Margin" Value="0,0,0,0" />
+                                <Setter Property="RowDetailsVisibilityMode" Value="Collapsed" />
+                                <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.Style>
                 <DataGrid.Columns>
                     <DataGridTemplateColumn Header="파일" Width="*" MinWidth="116">
                         <DataGridTemplateColumn.HeaderTemplate>
@@ -812,80 +1271,215 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.HeaderTemplate>
                         <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <Grid Margin="4,2"
+                            <DataTemplate><Grid><Grid><Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsInferenceStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Grid.Style>
+                                <Grid x:Name="QueueRowContent"
                                       ToolTip="{Binding LocalizedQueueRowToolTip}"
                                       AutomationProperties.Name="{Binding LocalizedQueueRowAccessibleName}">
+                                    <Grid.Style>
+                                        <Style TargetType="Grid">
+                                            <Setter Property="Margin" Value="3,1"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Margin" Value="10,1"/></DataTrigger>
+                                                <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                    <Setter Property="Margin" Value="8,12"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Grid.Style>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="3" />
-                                        <ColumnDefinition Width="36" />
-                                        <ColumnDefinition Width="18" />
+                                        <ColumnDefinition><ColumnDefinition.Style><Style TargetType="ColumnDefinition"><Setter Property="Width" Value="56" /><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                <Setter Property="Width" Value="52" />
+            </DataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /><Condition Binding="{Binding DataContext.ShellViewModel.IsCompactDatasetLayout, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /></MultiDataTrigger.Conditions>
+                <Setter Property="Width" Value="42" />
+            </MultiDataTrigger></Style.Triggers></Style></ColumnDefinition.Style></ColumnDefinition>
                                         <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <Border Grid.Column="0"
-                                            Width="3"
-                                            MinHeight="30"
-                                            CornerRadius="2"
-                                            Background="{Binding QueueRowAccentBrush}" />
-                                    <Border Grid.Column="1"
-                                            Width="32"
-                                            Height="28"
-                                            Margin="4,0,0,0"
-                                            Background="#151A20"
-                                            BorderBrush="{DynamicResource GridLineBrush}"
+                                    <Border x:Name="QueueRowThumbnailBorder"
+                                            Grid.Column="0"
                                             BorderThickness="1"
-                                            CornerRadius="2"
                                             ClipToBounds="True">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Width" Value="56"/>
+                                                <Setter Property="Height" Value="38"/>
+                                                <Setter Property="Margin" Value="0,4"/>
+                                                <Setter Property="Background" Value="{DynamicResource InputBrush}"/>
+                                                <Setter Property="BorderBrush" Value="{DynamicResource GridLineBrush}"/>
+                                                <Setter Property="CornerRadius" Value="4"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                        <Setter Property="Width" Value="52"/>
+                                                        <Setter Property="Height" Value="46"/>
+                                                        <Setter Property="Margin" Value="0"/>
+                                                        <Setter Property="Background" Value="{DynamicResource DatasetInputBrush}"/>
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource DatasetThumbnailBorderBrush}"/>
+                                                        <Setter Property="CornerRadius" Value="7"/>
+                                                    </DataTrigger>
+                                                    <MultiDataTrigger>
+                                                        <MultiDataTrigger.Conditions>
+                                                            <Condition Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/>
+                                                            <Condition Binding="{Binding DataContext.ShellViewModel.IsCompactDatasetLayout, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/>
+                                                        </MultiDataTrigger.Conditions>
+                                                        <Setter Property="Width" Value="42"/>
+                                                        <Setter Property="Height" Value="38"/>
+                                                    </MultiDataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
                                         <Image Source="{Binding ThumbnailSource, IsAsync=True}"
-                                               Stretch="UniformToFill"
+                                               Stretch="Uniform"
                                                Opacity="0.92"
                                                RenderOptions.BitmapScalingMode="LowQuality" />
                                     </Border>
-                                    <iconPacks:PackIconMaterial Grid.Column="2"
-                                                                Width="14"
-                                                                Height="14"
-                                                                VerticalAlignment="Center"
-                                                                HorizontalAlignment="Center"
-                                                                Kind="{Binding QueueIconKind}"
-                                                                Foreground="{Binding QueueIconBrush}" />
-                                    <StackPanel Grid.Column="3" Margin="5,0,0,0">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0"
-                                                       Text="{Binding DisplayFileName}"
-                                                       ToolTip="{Binding FileName}"
-                                                       AutomationProperties.Name="{Binding FileName}"
-                                                       Foreground="{DynamicResource PrimaryTextBrush}"
-                                                       FontSize="12"
-                                                       TextTrimming="CharacterEllipsis" />
-                                            <Border Grid.Column="1" Style="{StaticResource QueueStatusBadgeStyle}">
-                                                <TextBlock Text="{Binding LocalizedQueueBadgeText}" Foreground="{Binding QueueIconBrush}" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" TextAlignment="Center" />
-                                            </Border>
-                                        </Grid>
-                                        <TextBlock Text="{Binding LocalizedQueueStatusSummary}" Foreground="{DynamicResource DisabledTextBrush}" FontSize="10" TextTrimming="CharacterEllipsis" />
+                                    <Grid Grid.Column="1" Margin="8,0,0,0">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="CandidateReviewBadgeText" Text="{Binding CandidateReviewBadgeText}" Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" FontSize="11">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Grid.Row" Value="0" />
+                                                    <Setter Property="Grid.Column" Value="1" />
+                                                    <Setter Property="Margin" Value="6,0,0,0" />
+                                                    <Style.Triggers>
+                                                        <Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed" /></Trigger>
+                                                        <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                            <Setter Property="Grid.Column" Value="0" />
+                                                            <Setter Property="Grid.ColumnSpan" Value="2" />
+                                                            <Setter Property="Margin" Value="0" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock x:Name="LabelSuspicionUnavailableText" Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding LabelSuspicionUnavailableText}" ToolTip="{Binding LabelSuspicionUnavailableToolTip}" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" FontSize="11">
+                                            <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed" /></Trigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /><Condition Binding="{Binding LabelSuspicionUnavailableReason}" Value="TrainedModelUnavailable" /></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Collapsed" /></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /><Condition Binding="{Binding HasSavedLabelFile}" Value="False" /><Condition Binding="{Binding LabelSuspicionUnavailableReason}" Value="SavedLabelsUnavailable" /></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Collapsed" /></MultiDataTrigger></Style.Triggers></Style></TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Text="{Binding FileName}"
+                                                   ToolTip="{Binding FileName}"
+                                                   AutomationProperties.Name="{Binding FileName}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock" BasedOn="{StaticResource QueueRowFileNameStyle}">
+                                                    <Setter Property="Grid.Row" Value="0" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                            <Setter Property="Grid.Row" Value="2" />
+                                                            <Setter Property="Grid.ColumnSpan" Value="2" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Text="{Binding LocalizedQueueStatusSummary}" Margin="0">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock" BasedOn="{StaticResource QueueRowStatusStyle}">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock x:Name="ImageQueueReviewStatusText"
+                                                   Grid.ColumnSpan="2"
+                                                   AutomationProperties.AutomationId="ImageQueueReviewStatusText"
+                                                   Text="{Binding LocalizedImageReviewStatusText}"
+                                                   Margin="0">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock" BasedOn="{StaticResource QueueRowTextStyle}">
+                                                    <Setter Property="Grid.Row" Value="2" />
+                                                    <Setter Property="FontSize" Value="11" />
+                                                    <Setter Property="Foreground" Value="{Binding ImageReviewStatusBrush}" />
+                                                    <Setter Property="TextTrimming" Value="None" />
+                                                    <Setter Property="TextWrapping" Value="Wrap" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="FontSize" Value="12" /><Setter Property="LineHeight" Value="17.4" /><Setter Property="LineStackingStrategy" Value="BlockLineHeight" /></DataTrigger>
+                                                        <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                            <Setter Property="Grid.Row" Value="4" />
+                                                            <Setter Property="FontSize" Value="12" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+                                    <TextBlock Grid.Column="2" Text="✓" Foreground="{DynamicResource RecipeAccentBrush}" FontSize="12" Margin="3,0,0,0" VerticalAlignment="Top" IsHitTestVisible="False"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /><Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True" /></MultiDataTrigger.Conditions>
+                <Setter Property="Visibility" Value="Visible" />
+            </MultiDataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                                    <StackPanel Grid.Column="2" Margin="8,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding AnnotationCountText}" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Right">
+                                            <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding AnnotationCountText}" Value=""><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                                        </TextBlock>
+                                        <Border x:Name="QueueRowAnomalyVerdictBadge" Padding="6,0" CornerRadius="9.2" BorderThickness="1">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding AnomalyReviewState}" Value="Normal">
+                                                            <Setter Property="Visibility" Value="Visible" /><Setter Property="Background" Value="#16352A" /><Setter Property="BorderBrush" Value="#2F6B52" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding AnomalyReviewState}" Value="Abnormal">
+                                                            <Setter Property="Visibility" Value="Visible" /><Setter Property="Background" Value="#3D1E22" /><Setter Property="BorderBrush" Value="#73343A" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <TextBlock Text="{Binding LocalizedAnomalyVerdictText}" FontSize="12" FontWeight="Normal" LineHeight="17.4" LineStackingStrategy="BlockLineHeight">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="#9BE8C4" />
+                                                        <Style.Triggers><DataTrigger Binding="{Binding AnomalyReviewState}" Value="Abnormal"><Setter Property="Foreground" Value="#FFB3B3" /></DataTrigger></Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Border>
+                                    <ToggleButton x:Name="SelectedQueueImagePathToggle"
+                                                  Style="{StaticResource SelectedQueueImagePathToggleStyle}"
+                                                  IsChecked="{Binding DataContext.IsSelectedImagePathVisible, RelativeSource={RelativeSource AncestorType=DataGrid}, Mode=TwoWay}">
+                                        <iconPacks:PackIconMaterial Width="13" Height="13" Kind="FileSearchOutline" />
+                                    </ToggleButton>
                                     </StackPanel>
                                 </Grid>
-                            </DataTemplate>
+                            </Grid>
+                                <Grid Height="48" Visibility="{Binding DataContext.ShellViewModel.IsInferenceStageActive, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Border BorderThickness="3,0,0,0" Padding="7,5,10,5">
+                                        <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent" /><Style.Triggers><DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" /><Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" /></DataTrigger></Style.Triggers></Style></Border.Style>
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="56" /><ColumnDefinition Width="8" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                            <Border Width="56" Height="38" CornerRadius="4" ClipToBounds="True"><Image Source="{Binding ThumbnailSource}" Stretch="UniformToFill" /></Border>
+                                            <StackPanel Grid.Column="2" VerticalAlignment="Center"><TextBlock Text="{Binding FileName}" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip="{Binding FileName}" /><TextBlock Text="{Binding InferenceStateText, StringFormat='● {0}'}" Foreground="{Binding InferenceStateBrush}" FontSize="12" TextTrimming="CharacterEllipsis" /></StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+</Grid></DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="작업" Binding="{Binding LocalizedLabelStatus}" Width="60" ElementStyle="{StaticResource ImageQueueTextStyle}">
+                    <DataGridTextColumn Header="작업" Binding="{Binding LocalizedLabelStatus}" Width="60" ElementStyle="{StaticResource ImageQueueTextStyle}" Visibility="Collapsed">
                         <DataGridTextColumn.HeaderTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding DataContext.QueueDecisionColumnHeaderText, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}" />
                             </DataTemplate>
                         </DataGridTextColumn.HeaderTemplate>
                     </DataGridTextColumn>
-                    <DataGridTextColumn Header="상태" Binding="{Binding LocalizedDetectStatus}" Width="64" ElementStyle="{StaticResource ImageQueueTextStyle}">
+                    <DataGridTextColumn Header="상태" Binding="{Binding LocalizedDetectStatus}" Width="64" ElementStyle="{StaticResource ImageQueueTextStyle}" Visibility="Collapsed">
                         <DataGridTextColumn.HeaderTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding DataContext.QueueSecondaryColumnHeaderText, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}" />
                             </DataTemplate>
                         </DataGridTextColumn.HeaderTemplate>
                     </DataGridTextColumn>
-                    <DataGridTextColumn Header="크기" Binding="{Binding Dimensions}" Width="54" ElementStyle="{StaticResource ImageQueueTextStyle}">
+                    <DataGridTextColumn Header="크기" Binding="{Binding Dimensions}" Width="54" ElementStyle="{StaticResource ImageQueueTextStyle}" Visibility="Collapsed">
                         <DataGridTextColumn.HeaderTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding DataContext.QueueDimensionsColumnHeaderText, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}" />
@@ -894,6 +1488,120 @@
                     </DataGridTextColumn>
                 </DataGrid.Columns>
             </DataGrid>
+            <ScrollViewer x:Name="ImageQueueNoMatchPanel"
+                          Grid.Row="2"
+                          Margin="8"
+
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          AutomationProperties.AutomationId="ImageQueueNoMatchPanel">
+                <ScrollViewer.Style>
+                    <Style TargetType="ScrollViewer">
+                        <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsDatasetStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                <Setter Property="Background" Value="{DynamicResource DatasetSurfaceBrush}" />
+            </DataTrigger>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding HasItems, ElementName=ImageQueueGrid}" Value="False" />
+                                    <Condition Binding="{Binding HasQueueFilter}" Value="True" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible" />
+                            </MultiDataTrigger>
+                        <DataTrigger Binding="{Binding DataContext.ShellViewModel.IsInferenceStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers>
+                    </Style>
+                </ScrollViewer.Style>
+                <StackPanel Margin="8,12">
+                    <TextBlock Text="{Binding NoMatchingImagesTitleText}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontWeight="SemiBold" FontSize="12"
+                               TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding NoMatchingImagesDetailText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               Margin="0,8,0,12" FontSize="12"
+                               TextWrapping="Wrap" />
+                    <ui:Button x:Name="ResetImageQueueFiltersButton" Style="{DynamicResource RecipeSecondaryButtonStyle}"
+                               Height="Auto" MinHeight="32" MinWidth="0" Margin="0" Padding="8,6"
+                               HorizontalContentAlignment="Center"
+                               AutomationProperties.AutomationId="ResetImageQueueFiltersButton"
+                               AutomationProperties.Name="{Binding ResetQueueFiltersText}"
+                               ToolTip="{Binding ResetQueueFiltersToolTipText}"
+                               Command="{Binding ResetQueueFiltersCommand}">
+                        <TextBlock Text="{Binding ResetQueueFiltersText}" TextWrapping="Wrap" TextAlignment="Center" />
+                    </ui:Button>
+                </StackPanel>
+            </ScrollViewer>
+            <Border Grid.Row="3" BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="0,1,0,0" Padding="10,8"><Border.Style><Style TargetType="Border"><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsInferenceStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Border.Style>
+                <StackPanel>
+                    <Expander x:Name="ImageQueuePrimaryActionsPanel"
+                              Style="{StaticResource QueueInferenceVisibilityStyle}"
+                              IsExpanded="False"
+                              Margin="0,0,0,4"
+                              Header="{Binding DataContext.LanguageViewModel[WpfCanvas.Static.MoreActions], RelativeSource={RelativeSource AncestorType=Window}}"
+                              ToolTip="{Binding DataContext.LanguageViewModel[WpfCanvas.Static.MoreActions.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
+                              AutomationProperties.AutomationId="ImageQueuePrimaryActionsPanel"
+                              AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfCanvas.Static.MoreActions], RelativeSource={RelativeSource AncestorType=Window}}"
+                              Foreground="{DynamicResource PrimaryTextBrush}">
+                        <WrapPanel x:Name="ImageQueuePrimaryActionsItemsPanel" MinHeight="36" Margin="0,2,0,2" VerticalAlignment="Center">
+                            <ui:Button Style="{StaticResource QueueIconButtonStyle}" ToolTip="{Binding LoadConfiguredImageRootToolTipText}" AutomationProperties.AutomationId="LoadConfiguredImageRootButton" AutomationProperties.Name="{Binding LoadConfiguredImageRootNameText}" Command="{Binding LoadImageRootCommand}">
+                                <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="FolderImage" />
+                            </ui:Button>
+                            <ui:Button Style="{StaticResource QueueIconButtonStyle}" ToolTip="{Binding BrowseImageFolderToolTipText}" AutomationProperties.Name="{Binding BrowseImageFolderNameText}" Command="{Binding BrowseImageFolderCommand}">
+                                <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="FolderOpen" />
+                            </ui:Button>
+                            <ui:Button Style="{StaticResource QueueIconButtonStyle}" ToolTip="{Binding RefreshImageQueueToolTipText}" AutomationProperties.Name="{Binding RefreshImageQueueNameText}" Command="{Binding RefreshImageQueueCommand}">
+                                <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="Refresh" />
+                            </ui:Button>
+                            <ui:Button x:Name="QuickLoadSampleButton"
+                                       Style="{StaticResource QueuePrimaryActionButtonStyle}"
+                                       MinWidth="104"
+                                       AutomationProperties.AutomationId="QuickLoadSampleButton"
+                                       AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfImageQueue.Sample.Load.Name], RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                       AutomationProperties.HelpText="{Binding DataContext.LanguageViewModel[WpfImageQueue.Sample.Load.ToolTip], RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                       ToolTip="{Binding DataContext.LanguageViewModel[WpfImageQueue.Sample.Load.ToolTip], RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                       Command="{Binding DataContext.ShellViewModel.LoadSampleCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ImageSearch" />
+                                    <TextBlock Text="{Binding DataContext.LanguageViewModel[WpfImageQueue.Sample.Load.Text], RelativeSource={RelativeSource AncestorType={x:Type Window}}}" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </ui:Button>
+                            <ui:Button x:Name="NextUnlabeledPrimaryButton" Style="{StaticResource QueuePrimaryActionButtonStyle}" MinWidth="104" ToolTip="{Binding NextUnlabeledToolTip}" AutomationProperties.AutomationId="NextUnlabeledPrimaryButton" AutomationProperties.Name="{Binding NextUnlabeledActionText}" AutomationProperties.HelpText="{Binding NextUnlabeledToolTip}" Command="{Binding NextUnlabeledCommand}">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ArrowRightCircleOutline" />
+                                    <TextBlock x:Name="NextUnlabeledPrimaryButtonText" Text="{Binding NextUnlabeledActionText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </ui:Button>
+                            <ui:Button x:Name="OpenSelectedQueueImageButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="{Binding OpenSelectedQueueImageToolTipText}" AutomationProperties.Name="{Binding OpenSelectedQueueImageNameText}" IsEnabled="{Binding IsOpenSelectedImageEnabled}" Command="{Binding OpenSelectedQueueImageCommand}">
+                                <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="ImageOutline" />
+                            </ui:Button>
+                        </WrapPanel>
+                    </Expander>
+                    <StackPanel x:Name="ImageQueueReviewedCountText" Orientation="Horizontal" TextElement.Foreground="{DynamicResource SecondaryTextBrush}" TextElement.FontSize="11">
+                        <TextBlock x:Name="ImageQueueReviewedCountCaption" Text="{Binding DataContext.LanguageViewModel[WpfImageQueue.Current.QualityReviewed.Badge], RelativeSource={RelativeSource AncestorType=Window}}" Margin="0,0,4,0" />
+                        <TextBlock x:Name="ImageQueueReviewedCountValueText" Text="{Binding DatasetReviewedImageCount, Mode=OneWay}" />
+                        <TextBlock Text=" / " />
+                        <TextBlock Text="{Binding DatasetImageCount, Mode=OneWay}" />
+                        <TextBlock Text="{Binding DataContext.LanguageViewModel[WpfImageQueue.Panel.ImageUnit], RelativeSource={RelativeSource AncestorType=Window}}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            <Border x:Name="LabelingQueueProgressFooter" Grid.Row="3" Padding="12,8" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource BorderBrushDark}">
+                <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Border.Style>
+                <StackPanel>
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <TextBlock x:Name="LabelingQueueCompletionText" Text="{Binding LabelingCompletionProgressText}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Foreground="{DynamicResource RecipeMutedTextBrush}" />
+                        <TextBlock x:Name="LabelingQueueReviewText" Grid.Column="1" Text="{Binding LabelingReviewProgressText}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Foreground="{DynamicResource RecipeMutedTextBrush}" />
+                    </Grid>
+                    <Border Height="6" Margin="0,5,0,0" Background="{DynamicResource ProgressTrackBrush}" CornerRadius="3" ClipToBounds="True">
+                        <Grid x:Name="LabelingQueueProgressBar"><Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="{Binding LabelingReviewedProgressWidth}" /><ColumnDefinition Width="{Binding LabelingCompletedProgressWidth}" /><ColumnDefinition Width="{Binding LabelingRemainingProgressWidth}" />
+                        </Grid.ColumnDefinitions><Border Grid.Column="0" Background="{DynamicResource SuccessBrush}" /><Border Grid.Column="1" Background="{DynamicResource AccentBrush}" /></Grid>
+                    </Border>
+                </StackPanel>
+            </Border>
+            <Border Grid.Row="3" Padding="12,8" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource BorderBrushDark}" Visibility="{Binding IsInferencePresentation, Converter={StaticResource BooleanToVisibilityConverter}}"><TextBlock Text="{Binding InferenceQueueSummaryText}" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" /></Border>
         </Grid>
     </Border>
 </UserControl>

@@ -38,10 +38,10 @@ namespace MvcVisionSystem
 
             ApplyRectangleDrawingInputMode();
             string methodName = normalized == LabelingBoxDrawingMethod.FourPointExtreme
-                ? "4점 극점"
-                : "2점 드래그";
-            context.SetYoloCommandStatus?.Invoke($"박스 입력: {methodName}", false);
-            context.AppendLog?.Invoke($"박스 입력 방법: {methodName}");
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.AnnotationToolSettingsAdapter.FourPoint")
+                : OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.AnnotationToolSettingsAdapter.TwoPoint");
+            context.SetYoloCommandStatus?.Invoke(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.AnnotationToolSettingsAdapter.BoxStatus"), methodName), false);
+            context.AppendLog?.Invoke(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.AnnotationToolSettingsAdapter.BoxLog"), methodName));
         }
 
         internal void RestoreBoxDrawingMethodFromProject()
@@ -90,16 +90,16 @@ namespace MvcVisionSystem
             {
                 context.SelectAnnotationTool?.Invoke(WpfAnnotationTool.Rectangle);
                 context.RefreshSmartMaskCommandState?.Invoke(
-                    "자동 윤곽 켜짐 · 새 사각형을 완성하면 MobileSAM 후보를 바로 만듭니다.");
+                    "자동 윤곽 켜짐 · 새 박스를 완성하면 스마트 마스크 후보를 만듭니다.");
                 context.SetYoloCommandStatus?.Invoke("라벨링 옵션: 자동 윤곽 켜짐", false);
-                context.AppendLog?.Invoke("자동 윤곽 켜짐: 새 사각형마다 검토용 윤곽 후보를 자동 생성합니다.");
+                context.AppendLog?.Invoke("자동 윤곽 켜짐: 새 박스마다 AI 후보를 만듭니다.");
                 return;
             }
 
             context.RefreshSmartMaskCommandState?.Invoke(
-                "자동 윤곽 꺼짐 · 사각형은 일반 박스 라벨로 유지됩니다.");
+                "자동 윤곽 꺼짐 · 박스는 일반 박스 라벨로 유지됩니다.");
             context.SetYoloCommandStatus?.Invoke("라벨링 옵션: 일반 박스", false);
-            context.AppendLog?.Invoke("자동 윤곽 꺼짐: 새 사각형을 일반 박스 라벨로 유지합니다.");
+            context.AppendLog?.Invoke("자동 윤곽 꺼짐: 새 박스를 일반 박스 라벨로 유지합니다.");
         }
 
         private void PersistCurrentRecipe(string errorPrefix)

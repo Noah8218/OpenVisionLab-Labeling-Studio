@@ -22,6 +22,12 @@ namespace MvcVisionSystem
         private readonly YoloRuntimeStatusAdapterContext context;
         private readonly Stopwatch inferenceStatusPulseStopwatch = new Stopwatch();
         private readonly YoloSettingsPanelRefreshCoordinator settingsRefreshCoordinator;
+        private string lastPresentedInferenceStatus;
+        private string lastPresentedInferenceModelEngine;
+        private string lastPresentedInferenceWeightsPath;
+        private bool lastPresentedInferenceModelPending;
+        private bool lastPresentedInferenceSettingsNull;
+        private bool hasPresentedInferenceStatus;
         private bool disposed;
 
         #region YoloRuntimeStatus
@@ -44,6 +50,7 @@ namespace MvcVisionSystem
             PythonModelSettings settings = GetPythonModelSettings();
             context.RefreshModelCenterDashboard?.Invoke();
             PythonModelRuntimeState runtimeState = GetPythonModelRuntimeState();
+            context.LearningWorkflowViewModelProvider?.Invoke()?.SetTrainingRuntimeEvidence(runtimeState);
             if (runtimeState.State == PythonModelRuntimeStateKind.NotInstalled)
             {
                 ModelRuntimeUnavailablePresentation presentation =
@@ -109,7 +116,7 @@ namespace MvcVisionSystem
             }
 
             ShowModelRuntimeUnavailable(
-                "학습 시작 대기: 모델 실행기 설치 또는 경로 연결 필요",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloRuntimeStatusAdapter.113"),
                 runtimeState);
             return false;
         }
@@ -123,7 +130,7 @@ namespace MvcVisionSystem
             }
 
             ShowModelRuntimeUnavailable(
-                "현재 검사 대기: 검사 모델 파일 필요",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloRuntimeStatusAdapter.127"),
                 runtimeState);
             return false;
         }
@@ -163,8 +170,14 @@ namespace MvcVisionSystem
             }
 
             bool hasPendingTrainingWeightsRecipeSave = context.HasPendingTrainingWeightsRecipeSaveProvider?.Invoke() == true;
-            string statusText = string.IsNullOrWhiteSpace(text) ? "대기" : text;
+            string statusText = string.IsNullOrWhiteSpace(text) ? OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Status.Waiting") : text;
             PythonModelSettings settings = context.DataProvider()?.ProjectSettings?.PythonModel;
+            lastPresentedInferenceStatus = text;
+            lastPresentedInferenceModelEngine = settings?.ModelEngine;
+            lastPresentedInferenceWeightsPath = settings?.WeightsPath;
+            lastPresentedInferenceModelPending = hasPendingTrainingWeightsRecipeSave;
+            lastPresentedInferenceSettingsNull = settings == null;
+            hasPresentedInferenceStatus = true;
             statusTextControl.Text = InferenceStatusPresentationService.BuildStatusText(
                 statusText,
                 settings,
@@ -206,6 +219,21 @@ namespace MvcVisionSystem
             statusBorder.SetResourceReference(
                 Border.BorderBrushProperty,
                 isBusy || isWarning ? "AccentBrush" : "BorderBrushDark");
+        }
+
+        internal void RefreshLocalizedInferenceStatus()
+        {
+            if (!hasPresentedInferenceStatus) return;
+            TextBlock statusTextControl = context.InferenceStatusTextProvider?.Invoke();
+            Border statusBorder = context.InferenceStatusBorderProvider?.Invoke();
+            if (statusTextControl == null || statusBorder == null) return;
+
+            PythonModelSettings settings = lastPresentedInferenceSettingsNull ? null
+                : new PythonModelSettings { ModelEngine = lastPresentedInferenceModelEngine, WeightsPath = lastPresentedInferenceWeightsPath };
+            string statusText = string.IsNullOrWhiteSpace(lastPresentedInferenceStatus)
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Status.Waiting") : lastPresentedInferenceStatus;
+            statusTextControl.Text = InferenceStatusPresentationService.BuildStatusText(statusText, settings, lastPresentedInferenceModelPending);
+            statusBorder.ToolTip = InferenceStatusPresentationService.BuildToolTip(statusText, settings, lastPresentedInferenceModelPending);
         }
 
         internal void StartInferenceStatusPulse()
@@ -304,9 +332,9 @@ namespace MvcVisionSystem
             context.TrainingSettingsViewModelProvider?.Invoke()?.ApplyModelEngineSelection(result.Settings.ModelEngine);
             context.SaveProjectConfigFromPanel?.Invoke();
             context.SetYoloCommandStatus?.Invoke(
-                "이상탐지 분류 학습에 맞는 YOLOv8 실행기를 자동 연결했습니다.",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloRuntimeStatusAdapter.308"),
                 false);
-            context.AppendLog?.Invoke($"이상탐지 학습 실행기 자동 연결: {result.Settings.ProjectRootPath}");
+            context.AppendLog?.Invoke(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloRuntimeStatusAdapter.310"), result.Settings.ProjectRootPath));
             return true;
         }
 
@@ -323,7 +351,8 @@ namespace MvcVisionSystem
                 TrainingProgressPresentationService.BuildIdleProgressText(),
                 string.Empty,
                 0D,
-                false);
+                false,
+                "WpfTraining.Remaining.TrainingProgressPresentationService.Idle");
             context.LearningWorkflowViewModelProvider?.Invoke()?.SetTrainingModelLifecycleState(
                 presentation.CurrentModelText,
                 presentation.CandidateModelText,
@@ -355,7 +384,7 @@ namespace MvcVisionSystem
         private void SetTrainingReadinessStatus(string text)
             => context.TrainingSettingsViewModelProvider?.Invoke()?.SetTrainingReadinessText(text ?? string.Empty);
 
-        private void SetTrainingProgressStatus(string progressText, string epochText, double progressValue, bool isIndeterminate)
+        private void SetTrainingProgressStatus(string progressText, string epochText, double progressValue, bool isIndeterminate, string progressKey = null)
         {
             string normalizedProgress = progressText ?? string.Empty;
             string normalizedEpoch = epochText ?? string.Empty;
@@ -364,11 +393,13 @@ namespace MvcVisionSystem
                 string.IsNullOrWhiteSpace(normalizedEpoch)
                     ? context.TrainingSettingsViewModelProvider?.Invoke()?.TrainingReadinessText ?? string.Empty
                     : normalizedEpoch);
-            context.TrainingSettingsViewModelProvider?.Invoke()?.SetTrainingProgress(
-                normalizedProgress,
-                normalizedEpoch,
-                progressValue,
-                isIndeterminate);
+            WpfTrainingSettingsPanelViewModel viewModel = context.TrainingSettingsViewModelProvider?.Invoke();
+            if (string.IsNullOrEmpty(progressKey))
+                viewModel?.SetTrainingProgress(normalizedProgress, normalizedEpoch, progressValue, isIndeterminate);
+            else
+                viewModel?.SetTrainingProgressFromKeys(progressKey, null, progressValue, isIndeterminate);
+            WpfLabelingShellViewModel shellViewModel = context.ShellViewModelProvider?.Invoke();
+            if (shellViewModel != null) viewModel?.RecordShellTrainingProjection(shellViewModel.ModelCenterTrainingStatusText, shellViewModel.ModelCenterTrainingDetailText);
         }
 
         private void ApplyYoloSettingsPanelRefresh(YoloSettingsPanelRefreshResult result)

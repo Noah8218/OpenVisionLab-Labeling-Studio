@@ -92,6 +92,11 @@ namespace MvcVisionSystem
 
         private void SynchronizeDatasetPurposeToCurrentProject(LabelingDatasetPurpose purpose)
         {
+            if (context.GetCurrentDatasetPurpose?.Invoke() != purpose)
+            {
+                context.ResetSmartMaskPromptSession?.Invoke();
+            }
+
             context.CancelFourPointBoxDraft?.Invoke();
             context.EnsureProjectSettings?.Invoke();
             LabelingProjectData data = context.DataProvider?.Invoke();
@@ -119,7 +124,10 @@ namespace MvcVisionSystem
         private void RefreshPresentation()
         {
             context.RefreshCanvasAnnotationToolScope?.Invoke();
-            context.ApplyAnnotationToolSelection?.Invoke(context.LearningWorkflowViewModel?.SelectedTool);
+            if (context.IsLabelingStageActive?.Invoke() == true)
+            {
+                context.ApplyAnnotationToolSelection?.Invoke(context.LearningWorkflowViewModel?.SelectedTool);
+            }
             context.RefreshCanvasWorkflowContext?.Invoke();
             context.RefreshAnnotationVisibilityForDatasetPurpose?.Invoke();
         }
@@ -138,12 +146,14 @@ namespace MvcVisionSystem
         internal Action EnsureProjectSettings { get; init; }
         internal Action RestoreBoxDrawingMethodFromProject { get; init; }
         internal Action CancelFourPointBoxDraft { get; init; }
+        internal Action ResetSmartMaskPromptSession { get; init; }
         internal Action RefreshCanvasAnnotationToolScope { get; init; }
         internal Action<WpfAnnotationToolItem> ApplyAnnotationToolSelection { get; init; }
         internal Action RefreshCanvasWorkflowContext { get; init; }
         internal Action RefreshAnnotationVisibilityForDatasetPurpose { get; init; }
         internal Action RefreshYoloTrainingStepCompletion { get; init; }
         internal Action RefreshShellDatasetContext { get; init; }
+        internal Func<bool> IsLabelingStageActive { get; init; }
         internal Func<LabelingDatasetPurpose> GetCurrentDatasetPurpose { get; init; }
         internal Func<bool> IsApplicationCloseApproved { get; init; }
         internal Action<string> AppendLog { get; init; }

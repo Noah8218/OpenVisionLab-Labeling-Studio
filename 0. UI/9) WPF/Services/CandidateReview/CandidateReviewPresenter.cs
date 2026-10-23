@@ -1,4 +1,5 @@
 using MahApps.Metro.IconPacks;
+using OpenVisionLab;
 using MvcVisionSystem._1._Core;
 using System;
 using System.Drawing;
@@ -91,8 +92,14 @@ namespace MvcVisionSystem
             int displayIndex,
             Rectangle bounds,
             WpfCandidateOverlapInfo overlap,
-            float minimumConfidence)
+            float minimumConfidence,
+            bool resultOnly = false)
         {
+            if (resultOnly)
+            {
+                string detail = FormatCandidate(candidate, bounds) + Environment.NewLine + OpenVisionLanguageService.T("WpfInference.ResultOnly.Panel.Detail");
+                return new WpfCandidateReviewListItem($"{displayIndex}. {GetClassName(candidate)}  {FormatConfidence(candidate, "P1")}", BuildSecondaryText(candidate, bounds, overlap, minimumConfidence, true), detail, candidate, PackIconMaterialKind.EyeOutline, MediaBrushes.DeepSkyBlue);
+            }
             return new WpfCandidateReviewListItem(
                 $"{displayIndex}. {GetClassName(candidate)}  {FormatConfidence(candidate, "P1")}",
                 BuildSecondaryText(candidate, bounds, overlap, minimumConfidence),
@@ -100,6 +107,16 @@ namespace MvcVisionSystem
                 candidate,
                 GetIconKind(candidate, bounds, overlap, minimumConfidence),
                 GetStateBrush(candidate, bounds, overlap, minimumConfidence));
+        }
+
+        public static string BuildSelectedCandidateStatus(YoloWorkerSmokeCandidate candidate, Rectangle bounds)
+        {
+            string confidence = FormatConfidence(candidate, "P1");
+            return candidate.ImageLevel
+                ? string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.StatusBar.ImageLevel"), candidate.ClassName, confidence)
+                : bounds.IsEmpty
+                ? string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.StatusBar.OutsideImage"), candidate.ClassName, confidence)
+                : string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.StatusBar.Bounds"), candidate.ClassName, confidence, FormatBoundsCompact(bounds));
         }
 
         public static string BuildDetectionOverlayLabel(YoloWorkerSmokeCandidate candidate, int fallbackIndex)
@@ -120,14 +137,14 @@ namespace MvcVisionSystem
             {
                 if (IsPatchCore(candidate) && !bounds.IsEmpty)
                 {
-                    return $"{GetClassName(candidate)}  {FormatConfidence(candidate, "P1")}  위치 후보 {FormatBoundsCompact(bounds)}";
+                    return string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfInference.Text.CandidateReviewPresenter.LocationHint"), GetClassName(candidate), FormatConfidence(candidate, "P1"), FormatBoundsCompact(bounds));
                 }
 
-                return $"{GetClassName(candidate)}  {FormatConfidence(candidate, "P1")}  이미지 전체 판정";
+                return string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfInference.Text.CandidateReviewPresenter.WholeImageDecision"), GetClassName(candidate), FormatConfidence(candidate, "P1"));
             }
 
             return bounds.IsEmpty
-                ? $"{GetClassName(candidate)}  {FormatConfidence(candidate, "P1")}  \uC774\uBBF8\uC9C0 \uBC16"
+                ? string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfInference.Text.CandidateReviewPresenter.OutsideImage"), GetClassName(candidate), FormatConfidence(candidate, "P1"))
                 : $"{GetClassName(candidate)}  {FormatConfidence(candidate, "P1")}  {FormatBoundsCompact(bounds)}";
         }
 
@@ -139,7 +156,7 @@ namespace MvcVisionSystem
         {
             if (candidate == null)
             {
-                return "\uC120\uD0DD\uB41C AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
+                return OpenVisionLanguageService.T("WpfCandidate.Detail.NoSelection");
             }
 
             string confidence = FormatConfidence(candidate, "P2");
@@ -150,30 +167,30 @@ namespace MvcVisionSystem
                 {
                     string score = candidate.AnomalyScore?.ToString("0.####", CultureInfo.CurrentCulture) ?? "-";
                     string anomalyThreshold = candidate.AnomalyThreshold?.ToString("0.####", CultureInfo.CurrentCulture) ?? "-";
-                    string location = bounds.IsEmpty ? "정상 판정 / 위치 후보 없음" : FormatBoundsCompact(bounds);
-                    string heatmap = string.IsNullOrWhiteSpace(candidate.HeatmapPath) ? "없음" : candidate.HeatmapPath;
-                    return $"{GetClassName(candidate)} / 판정 신뢰도 {confidence}\nPatchCore 점수 {score} / 임계값 {anomalyThreshold}\n위치 후보: {location}\nHeatmap: {heatmap}\n상태: 미확정 검토 결과";
+                    string location = bounds.IsEmpty ? OpenVisionLanguageService.T("WpfCandidate.Detail.NoLocation") : FormatBoundsCompact(bounds);
+                    string heatmap = string.IsNullOrWhiteSpace(candidate.HeatmapPath) ? OpenVisionLanguageService.T("WpfCandidate.Detail.NoHeatmap") : candidate.HeatmapPath;
+                    return string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.Detail.PatchCore"), GetClassName(candidate), confidence, score, anomalyThreshold, location, heatmap);
                 }
 
-                return $"{GetClassName(candidate)} / 신뢰도 {confidence} / 기준 {threshold}\n범위: 이미지 전체 판정\n상태: OK/NG 판정 확인\n위치·겹침: 해당 없음";
+                return string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.Detail.ImageLevel"), GetClassName(candidate), confidence, threshold);
             }
 
             string boundsText = bounds.IsEmpty
-                ? "\uC774\uBBF8\uC9C0 \uBC16"
+                ? OpenVisionLanguageService.T("WpfCandidate.Detail.OutsideImage")
                 : FormatBoundsCompact(bounds);
             string status = IsConfirmable(candidate, bounds, overlap, minimumConfidence)
-                ? "\uD655\uC815 \uAC00\uB2A5"
+                ? OpenVisionLanguageService.T("WpfCandidate.Status.ReadyToAccept")
                 : IsHighOverlap(overlap)
-                    ? "\uC911\uBCF5 \uAC00\uB2A5 - \uD655\uC815 \uC81C\uC678"
-                    : "\uAC80\uD1A0 \uD544\uC694";
+                    ? OpenVisionLanguageService.T("WpfCandidate.Status.DuplicateExcluded")
+                    : OpenVisionLanguageService.T("WpfCandidate.Status.NeedsCheck");
 
             string scoreText = IsSmartMask(candidate)
-                ? $"\uC0DD\uC131 \uBC29\uC2DD {confidence} / \uC2E0\uB8B0\uB3C4 \uC810\uC218 \uC5C6\uC74C"
-                : $"\uC2E0\uB8B0\uB3C4 {confidence} / \uAE30\uC900 {threshold}";
+                ? string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.Detail.SmartMaskMethod"), confidence)
+                : string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.Detail.ConfidenceThreshold"), confidence, threshold);
             string boundaryText = IsSmartMask(candidate)
-                ? $"\n\uC790\uB3D9 \uACBD\uACC4: {GetBoundaryPointCount(candidate)}\uC810"
+                ? string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.Detail.BoundaryPoints"), GetBoundaryPointCount(candidate))
                 : string.Empty;
-            return $"{GetClassName(candidate)} / {scoreText}\n\uC88C\uD45C: {boundsText}{boundaryText}\n\uC0C1\uD0DC: {status}\n{BuildCurrentObjectComparison(bounds, overlap)}";
+            return string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.Detail.Object"), GetClassName(candidate), scoreText, boundsText, boundaryText, status, BuildCurrentObjectComparison(bounds, overlap));
         }
 
         public static WpfCandidateComparisonPresentation BuildComparison(
@@ -187,9 +204,9 @@ namespace MvcVisionSystem
                     "-",
                     "-",
                     "\uACB9\uCE68\n0%",
-                    "\uD6C4\uBCF4 \uC5C6\uC74C: \uAC80\uD1A0\uD560 AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
+                    OpenVisionLanguageService.T("WpfCandidate.Comparison.NoCandidate"),
                     false,
-                    "\uC120\uD0DD: AI \uD6C4\uBCF4 \uC5C6\uC74C");
+                    BuildSelectionSummary(null, bounds, overlap, false));
             }
 
             string confidence = FormatConfidence(candidate, "P1");
@@ -201,7 +218,7 @@ namespace MvcVisionSystem
                     "위치·겹침\n해당 없음",
                     "이미지 전체 분류 후보입니다. 오른쪽 OK/NG 판정과 신뢰도를 확인하세요.",
                     false,
-                    $"선택: {BuildCandidateSummaryName(candidate)} / 범위: 이미지 전체 / 조치: OK/NG 판정 확인");
+                    BuildSelectionSummary(candidate, bounds, overlap, false));
             }
 
             string candidateText = bounds.IsEmpty
@@ -228,41 +245,41 @@ namespace MvcVisionSystem
         {
             if (candidate == null)
             {
-                return "\uC120\uD0DD: AI \uD6C4\uBCF4 \uC5C6\uC74C";
+                return OpenVisionLanguageService.T("WpfCandidate.Selection.None");
             }
 
             string candidateText = BuildCandidateSummaryName(candidate);
             if (IsImageLevel(candidate))
             {
-                return $"선택: {candidateText} / 범위: 이미지 전체 / 조치: OK/NG 판정 확인";
+                return string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.Selection.ImageLevel"), candidateText);
             }
 
             if (bounds.IsEmpty)
             {
-                return $"\uC120\uD0DD: {candidateText} / \uC774\uBBF8\uC9C0 \uBC16 / \uC870\uCE58: \uC2A4\uD0B5";
+                return string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.Selection.OutsideImage"), candidateText);
             }
 
             if (string.IsNullOrWhiteSpace(overlap.Label))
             {
-                return $"\uC120\uD0DD: {candidateText} / \uD604\uC7AC \uB77C\uBCA8: \uACB9\uCE68 \uC5C6\uC74C / \uC870\uCE58: \uB9DE\uC73C\uBA74 \uD655\uC815";
+                return string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.Selection.NoOverlap"), candidateText);
             }
 
             string overlapText = overlap.Iou.ToString("P0", CultureInfo.CurrentCulture);
-            return highOverlap
-                ? $"\uC120\uD0DD: {candidateText} / \uD604\uC7AC \uB77C\uBCA8: {overlap.Label} \uACB9\uCE68 {overlapText} / \uC870\uCE58: \uAE30\uC874 \uB77C\uBCA8 \uD655\uC778 \uD6C4 \uAC19\uC73C\uBA74 \uC2A4\uD0B5"
-                : $"\uC120\uD0DD: {candidateText} / \uD604\uC7AC \uB77C\uBCA8: {overlap.Label} \uACB9\uCE68 {overlapText} / \uC870\uCE58: \uC0C8 \uAC1D\uCCB4\uBA74 \uD655\uC815";
+            return string.Format(CultureInfo.CurrentCulture,
+                OpenVisionLanguageService.T(highOverlap ? "WpfCandidate.Selection.Duplicate" : "WpfCandidate.Selection.NewObject"),
+                candidateText, overlap.Label, overlapText);
         }
 
         private static string BuildComparisonDecision(Rectangle bounds, WpfCandidateOverlapInfo overlap, bool highOverlap)
         {
             if (bounds.IsEmpty)
             {
-                return "\uC774\uBBF8\uC9C0 \uBC16 \uD6C4\uBCF4: \uD655\uC815\uD558\uC9C0 \uB9D0\uACE0 \uC2A4\uD0B5\uD558\uC138\uC694.";
+                return "\uC774\uBBF8\uC9C0 \uBC16 \uD6C4\uBCF4: \uD655\uC815\uD558\uC9C0 \uB9D0\uACE0 \uAC74\uB108\uB6F0\uC138\uC694.";
             }
 
             if (highOverlap)
             {
-                return "\uC911\uBCF5 \uAC00\uB2A5: \uAE30\uC874 \uB77C\uBCA8 \uBC84\uD2BC\uC73C\uB85C \uACB9\uCE58\uB294 \uB77C\uBCA8\uC744 \uD655\uC778\uD558\uACE0, \uAC19\uC740 \uAC1D\uCCB4\uBA74 \uC2A4\uD0B5\uD558\uC138\uC694.";
+                return "\uC911\uBCF5 \uAC00\uB2A5: \uAE30\uC874 \uB77C\uBCA8 \uBC84\uD2BC\uC73C\uB85C \uACB9\uCE58\uB294 \uB77C\uBCA8\uC744 \uD655\uC778\uD558\uACE0, \uAC19\uC740 \uAC1D\uCCB4\uBA74 \uAC74\uB108\uB6F0\uC138\uC694.";
             }
 
             if (!string.IsNullOrWhiteSpace(overlap.Label))
@@ -270,45 +287,47 @@ namespace MvcVisionSystem
                 return "\uBD80\uBD84 \uACB9\uCE68: AI \uD6C4\uBCF4\uC640 \uAE30\uC874 \uB77C\uBCA8\uC744 \uBE44\uAD50\uD55C \uB4A4, \uC0C8 \uAC1D\uCCB4\uBA74 \uD655\uC815\uD558\uC138\uC694.";
             }
 
-            return "\uC0C8 \uD6C4\uBCF4: \uACB9\uCE58\uB294 \uAE30\uC874 \uB77C\uBCA8\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. \uB9DE\uC73C\uBA74 \uD655\uC815, \uC544\uB2C8\uBA74 \uC2A4\uD0B5\uD558\uC138\uC694.";
+            return "\uC0C8 \uD6C4\uBCF4: \uACB9\uCE58\uB294 \uAE30\uC874 \uB77C\uBCA8\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. \uB9DE\uC73C\uBA74 \uD655\uC815, \uC544\uB2C8\uBA74 \uAC74\uB108\uB6F0\uC138\uC694.";
         }
 
         public static string BuildSecondaryText(
             YoloWorkerSmokeCandidate candidate,
             Rectangle bounds,
             WpfCandidateOverlapInfo overlap,
-            float minimumConfidence)
+            float minimumConfidence,
+            bool resultOnly = false)
         {
+            if (resultOnly) return FormatCandidate(candidate, bounds) + " / " + OpenVisionLanguageService.T("WpfInference.Purpose.ResultOnly");
             if (candidate == null)
             {
-                return "\uAC80\uD1A0 \uD544\uC694";
+                return OpenVisionLanguageService.T("WpfCandidate.Status.NeedsCheck");
             }
 
             if (IsImageLevel(candidate))
             {
                 if (IsPatchCore(candidate) && !bounds.IsEmpty)
                 {
-                    return $"PatchCore 위치 후보 / {FormatBoundsCompact(bounds)}";
+                    return string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.Secondary.PatchCoreLocation"), FormatBoundsCompact(bounds));
                 }
 
-                return "이미지 전체 판정 / OK/NG 확인";
+                return OpenVisionLanguageService.T("WpfCandidate.Secondary.ImageLevel");
             }
 
             string status = IsConfirmable(candidate, bounds, overlap, minimumConfidence)
-                ? "\uD655\uC815 \uAC00\uB2A5"
+                ? OpenVisionLanguageService.T("WpfCandidate.Status.ReadyToAccept")
                 : IsHighOverlap(overlap)
-                    ? "\uC911\uBCF5 \uAC00\uB2A5"
-                    : "\uAC80\uD1A0 \uD544\uC694";
+                    ? OpenVisionLanguageService.T("WpfCandidate.Status.PossibleDuplicate")
+                    : OpenVisionLanguageService.T("WpfCandidate.Status.NeedsCheck");
 
             string geometry = IsSmartMask(candidate)
-                ? $"\uC790\uB3D9 \uACBD\uACC4 {GetBoundaryPointCount(candidate)}\uC810"
+                ? string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.Secondary.BoundaryPoints"), GetBoundaryPointCount(candidate))
                 : FormatBoundsCompact(bounds);
             return bounds.IsEmpty
-                ? $"\uC774\uBBF8\uC9C0 \uBC16 / {status}"
+                ? string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.Secondary.OutsideImage"), status)
                 : $"{geometry} / {status}";
         }
 
-        private static int GetBoundaryPointCount(YoloWorkerSmokeCandidate candidate)
+        internal static int GetBoundaryPointCount(YoloWorkerSmokeCandidate candidate)
             => candidate?.PolygonPoints?.Count >= 3
                 ? candidate.PolygonPoints.Count
                 : candidate?.NormalizedPolygonPoints?.Count ?? 0;
@@ -317,12 +336,12 @@ namespace MvcVisionSystem
         {
             if (bounds.IsEmpty)
             {
-                return "\uD604\uC7AC \uB77C\uBCA8: \uBE44\uAD50 \uBD88\uAC00";
+                return OpenVisionLanguageService.T("WpfCandidate.Detail.CurrentLabelUnavailable");
             }
 
             return string.IsNullOrWhiteSpace(overlap.Label)
-                ? "\uD604\uC7AC \uB77C\uBCA8: \uACB9\uCE68 \uC5C6\uC74C"
-                : $"\uD604\uC7AC \uB77C\uBCA8: {overlap.Label} / \uACB9\uCE68 {overlap.Iou.ToString("P0", CultureInfo.CurrentCulture)}";
+                ? OpenVisionLanguageService.T("WpfCandidate.Detail.CurrentLabelNoOverlap")
+                : string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.Detail.CurrentLabelOverlap"), overlap.Label, overlap.Iou.ToString("P0", CultureInfo.CurrentCulture));
         }
 
         public static string BuildConfirmDisabledHint(
@@ -347,7 +366,7 @@ namespace MvcVisionSystem
 
             if (IsHighOverlap(overlap))
             {
-                return "\uD604\uC7AC \uB77C\uBCA8\uACFC 50% \uC774\uC0C1 \uACB9\uCCD0 \uC911\uBCF5 \uD655\uC815\uC5D0\uC11C \uC81C\uC678\uD569\uB2C8\uB2E4. \uAE30\uC874 \uB77C\uBCA8\uC744 \uD655\uC778\uD558\uAC70\uB098 \uD6C4\uBCF4\uB97C \uC2A4\uD0B5\uD558\uC138\uC694.";
+                return "\uD604\uC7AC \uB77C\uBCA8\uACFC 50% \uC774\uC0C1 \uACB9\uCCD0 \uC911\uBCF5 \uD655\uC815\uC5D0\uC11C \uC81C\uC678\uD569\uB2C8\uB2E4. \uAE30\uC874 \uB77C\uBCA8\uC744 \uD655\uC778\uD558\uAC70\uB098 \uD6C4\uBCF4\uB97C \uAC74\uB108\uB6F0\uC138\uC694.";
             }
 
             return "\uC2E0\uB8B0\uB3C4 \uAE30\uC900\uBCF4\uB2E4 \uB0AE\uC544 \uD655\uC815\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.";
@@ -431,10 +450,10 @@ namespace MvcVisionSystem
 
         public static string FormatConfidence(YoloWorkerSmokeCandidate candidate, string format)
             => IsSmartMask(candidate)
-                ? "Smart Mask \uD504\uB86C\uD504\uD2B8"
+                ? OpenVisionLanguageService.T("WpfCandidate.Confidence.SmartMaskLocation")
                 : (candidate?.Confidence ?? 0D).ToString(format, CultureInfo.CurrentCulture);
 
-        private static bool IsSmartMask(YoloWorkerSmokeCandidate candidate)
+        internal static bool IsSmartMask(YoloWorkerSmokeCandidate candidate)
             => string.Equals(candidate?.CandidateType, "smart-mask", StringComparison.OrdinalIgnoreCase);
 
         private static bool IsImageLevel(YoloWorkerSmokeCandidate candidate)
@@ -444,7 +463,7 @@ namespace MvcVisionSystem
             => string.Equals(candidate?.PredictionType, "patchcore", StringComparison.OrdinalIgnoreCase);
 
         public static string FormatBoundsCompact(Rectangle bounds)
-            => bounds.IsEmpty ? "-" : $"\uD06C\uAE30 {bounds.Width}x{bounds.Height} / \uC704\uCE58 x={bounds.X}, y={bounds.Y}";
+            => bounds.IsEmpty ? "-" : string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfObjectReview.Bounds.CompactFormat"), bounds.Width, bounds.Height, bounds.X, bounds.Y);
 
         public static double CalculateIntersectionOverUnion(Rectangle first, Rectangle second)
         {

@@ -7,6 +7,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using static OpenVisionLab.OpenVisionLanguageService;
 
 namespace MvcVisionSystem
 {
@@ -14,6 +15,53 @@ namespace MvcVisionSystem
     {
         public static string FormatPercent(double? value)
             => value?.ToString("P1", CultureInfo.CurrentCulture) ?? "-";
+
+        public static string FormatTaskText(string value) => value switch
+        {
+            "전체" => T("WpfModelBenchmark.Task.All"),
+            "객체 탐지" => T("WpfModelBenchmark.Task.Detection"),
+            "세그멘테이션" => T("WpfModelBenchmark.Task.Segmentation"),
+            "이상 분류" => T("WpfModelBenchmark.Task.Anomaly"),
+            "분류" => T("WpfModelBenchmark.Task.Classification"),
+            "기타" => T("WpfModelBenchmark.Task.Other"),
+            _ => value
+        };
+
+        public static string FormatDecisionText(string value)
+        {
+            if (string.Equals(value, GetPreviousKoreanDefaults("WpfModelBenchmark.Decision.Adopt")[0], StringComparison.Ordinal))
+                return T("WpfModelBenchmark.Decision.Adopt");
+            if (string.Equals(value, GetPreviousKoreanDefaults("WpfModelBenchmark.Decision.Review")[0], StringComparison.Ordinal))
+                return T("WpfModelBenchmark.Decision.Review");
+            return value switch
+            {
+                "교체 추천" => T("WpfModelBenchmark.Decision.Promote"),
+                "보류" => T("WpfModelBenchmark.Decision.Hold"),
+                "성능 분석" => T("WpfModelBenchmark.Decision.Benchmark"),
+                "판정 없음" => T("WpfModelBenchmark.Dashboard.Decision.None"),
+                _ => value
+            };
+        }
+
+        public static string FormatSourceTypeText(string value) => value switch
+        {
+            "모델 비교" => T("WpfModelBenchmark.Source.Comparison"),
+            "이상탐지 평가" => T("WpfModelBenchmark.Source.Anomaly"),
+            _ => value
+        };
+
+        public static string FormatEvidenceText(WpfModelBenchmarkRun run)
+            => string.Format(CultureInfo.CurrentCulture, T("WpfModelBenchmark.Run.Evidence"), run.Split, run.EvidenceCount);
+    }
+
+    public sealed class ModelBenchmarkTaskFilterOption : WpfObservableViewModel
+    {
+        public ModelBenchmarkTaskFilterOption(string key) => Key = key;
+
+        public string Key { get; }
+        public string Value => ModelBenchmarkValueFormatter.FormatTaskText(Key);
+
+        internal void RefreshLocalizedPresentation() => OnPropertyChanged(nameof(Value));
     }
 
     public sealed class WpfModelBenchmarkDashboardPointViewModel
@@ -45,7 +93,7 @@ namespace MvcVisionSystem
             ? QualityValue.ToString("P1", CultureInfo.CurrentCulture)
             : QualityValue.ToString("0.##", CultureInfo.CurrentCulture);
         public string TaktText => TaktMs.ToString("0.00", CultureInfo.CurrentCulture) + " ms";
-        public string LegendText => (IsBaseline ? "\uAE30\uC900 \u00B7 " : string.Empty) + DisplayName;
+        public string LegendText => (IsBaseline ? (T("WpfModelBenchmark.Run.Baseline") + " · ") : string.Empty) + DisplayName;
         public string ToolTipText => $"{DisplayName}\n{MetricName}: {QualityText}\nTakt: {TaktText}";
     }
 
@@ -137,12 +185,25 @@ namespace MvcVisionSystem
         }
 
         public string DisplayName => Run.DisplayName;
-        public string TaskText => Run.TaskText;
+        public string TaskText => ModelBenchmarkValueFormatter.FormatTaskText(Run.TaskText);
         public string RuntimeName => Run.RuntimeName;
-        public string SourceTypeText => Run.SourceTypeText;
+        public string SourceTypeText => ModelBenchmarkValueFormatter.FormatSourceTypeText(Run.SourceTypeText);
         public string DateText => Run.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture);
-        public string EvidenceText => $"{Run.Split} \u00B7 {Run.EvidenceCount}\uC7A5";
-        public string SearchText => string.Join(" ", Run.DisplayName, Run.ModelName, Run.RuntimeName, Run.TaskText, Run.SourcePath);
+        public string EvidenceText => ModelBenchmarkValueFormatter.FormatEvidenceText(Run);
+        public string BaselineText => OpenVisionLab.OpenVisionLanguageService.T("WpfModelBenchmark.Run.Baseline");
+        public string SelectionToolTipText => OpenVisionLab.OpenVisionLanguageService.T("비교 선택");
+        public string BaselineToolTipText => OpenVisionLab.OpenVisionLanguageService.T("기준 실행으로 설정");
+        public string SearchText => string.Join(" ", Run.DisplayName, Run.ModelName, Run.RuntimeName, Run.TaskText, Run.TaskKey.Replace('-', ' '), TaskText, Run.SourcePath);
+
+        internal void RefreshLocalizedPresentation()
+        {
+            OnPropertyChanged(nameof(TaskText));
+            OnPropertyChanged(nameof(SourceTypeText));
+            OnPropertyChanged(nameof(EvidenceText));
+            OnPropertyChanged(nameof(BaselineText));
+            OnPropertyChanged(nameof(SelectionToolTipText));
+            OnPropertyChanged(nameof(BaselineToolTipText));
+        }
 
         internal void SetSelected(bool selected)
         {
@@ -164,7 +225,7 @@ namespace MvcVisionSystem
         {
             Run = run ?? throw new ArgumentNullException(nameof(run));
             IsBaseline = isBaseline;
-            BaselineText = isBaseline ? "\uAE30\uC900" : string.Empty;
+            BaselineText = isBaseline ? T("WpfModelBenchmark.Run.Baseline") : string.Empty;
             DeltaText = BuildDeltaText(run, baseline, isBaseline);
         }
 
@@ -174,13 +235,13 @@ namespace MvcVisionSystem
         public string DisplayName => Run.DisplayName;
         public string ModelName => Run.ModelName;
         public string RuntimeName => Run.RuntimeName;
-        public string TaskText => Run.TaskText;
-        public string DecisionText => Run.DecisionText;
+        public string TaskText => ModelBenchmarkValueFormatter.FormatTaskText(Run.TaskText);
+        public string DecisionText => ModelBenchmarkValueFormatter.FormatDecisionText(Run.DecisionText);
         public string QualityText => BuildQualityText(Run);
         public string TaktText => BuildTaktText(Run);
-        public string EvidenceText => $"{Run.Split} \u00B7 {Run.EvidenceCount}\uC7A5";
+        public string EvidenceText => ModelBenchmarkValueFormatter.FormatEvidenceText(Run);
         public string DeltaText { get; }
-        public string SourceTypeText => Run.SourceTypeText;
+        public string SourceTypeText => ModelBenchmarkValueFormatter.FormatSourceTypeText(Run.SourceTypeText);
         public string DateText => Run.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture);
         public string WeightsPath => Run.WeightsPath;
         public string WeightsSha256 => Run.WeightsSha256;
@@ -195,13 +256,13 @@ namespace MvcVisionSystem
         public string BatchSizeText => Run.BatchSize > 0 ? Run.BatchSize.ToString(CultureInfo.CurrentCulture) : "-";
         public string ConfidenceText => Run.Confidence.HasValue ? Run.Confidence.Value.ToString("P0", CultureInfo.CurrentCulture) : "-";
         public string TimingProtocolText => string.IsNullOrWhiteSpace(Run.TimingSource)
-            ? "\uCE21\uC815 \uC5C6\uC74C"
+            ? T("WpfModelBenchmark.Run.Unmeasured")
             : Run.TimingSource + (Run.TimingRepeatCount > 0 ? $" \u00B7 n={Run.TimingRepeatCount}" : string.Empty);
 
         private static string FormatSha256(string value)
         {
             return string.IsNullOrWhiteSpace(value)
-                ? "\uAE30\uB85D \uC5C6\uC74C"
+                ? T("WpfModelBenchmark.Run.Unrecorded")
                 : value.Substring(0, Math.Min(12, value.Length));
         }
 
@@ -224,7 +285,7 @@ namespace MvcVisionSystem
         {
             if (!run.TaktMs.HasValue)
             {
-                return "\uCE21\uC815 \uC5C6\uC74C";
+                return T("WpfModelBenchmark.Run.Unmeasured");
             }
 
             string text = run.TaktMs.Value.ToString("0.00", CultureInfo.CurrentCulture) + " ms";
@@ -245,17 +306,17 @@ namespace MvcVisionSystem
         {
             if (isBaseline)
             {
-                return "\uAE30\uC900 \uC2E4\uD589";
+                return T("WpfModelBenchmark.Run.BaselineRun");
             }
 
             if (baseline == null || !string.Equals(run.TaskKey, baseline.TaskKey, StringComparison.OrdinalIgnoreCase))
             {
-                return "\uC791\uC5C5 \uB2E4\uB984";
+                return T("WpfModelBenchmark.Run.TaskMismatch");
             }
 
             if (!WpfModelBenchmarkViewModel.AreQualityComparable(run, baseline))
             {
-                return "\uD3C9\uAC00 \uC870\uAC74 \uB2E4\uB984";
+                return T("WpfModelBenchmark.Run.EvidenceMismatch");
             }
 
             var parts = new List<string>();
@@ -284,7 +345,7 @@ namespace MvcVisionSystem
                     run.TaktMs.Value - baseline.TaktMs.Value));
             }
 
-            return parts.Count > 0 ? string.Join(" / ", parts) : "\uACF5\uD1B5 \uC9C0\uD45C \uC5C6\uC74C";
+            return parts.Count > 0 ? string.Join(" / ", parts) : T("WpfModelBenchmark.Run.NoCommonMetric");
         }
     }
 
@@ -400,15 +461,15 @@ namespace MvcVisionSystem
                 ? example.ImageName
                 : Path.GetFileName(ImagePath);
             ErrorTypeText = string.Equals(example?.ErrorType, "false-negative", StringComparison.OrdinalIgnoreCase)
-                ? "\uBBF8\uAC80\uCD9C(FN)"
+                ? T("WpfModelBenchmark.Error.FalseNegative")
                 : string.Equals(example?.ErrorType, "false-positive", StringComparison.OrdinalIgnoreCase)
-                    ? "\uC624\uAC80\uCD9C(FP)"
+                    ? T("WpfModelBenchmark.Error.FalsePositive")
                     : string.Equals(example?.ErrorType, "correct", StringComparison.OrdinalIgnoreCase)
-                        ? "\uC815\uB2F5"
+                        ? T("WpfModelBenchmark.Error.Correct")
                         : string.Equals(example?.ErrorType, "low-confidence", StringComparison.OrdinalIgnoreCase)
-                            ? "\uC784\uACC4\uAC12 \uBBF8\uB2EC"
+                            ? T("WpfModelBenchmark.Error.LowConfidence")
                         : string.Equals(example?.ErrorType, "incorrect", StringComparison.OrdinalIgnoreCase)
-                            ? "\uC624\uB958"
+                            ? T("WpfModelBenchmark.Error.Incorrect")
                             : example?.ErrorType ?? string.Empty;
             ClassName = example?.ClassName ?? string.Empty;
             ConfidenceText = example?.Confidence?.ToString("P1", CultureInfo.CurrentCulture) ?? "-";

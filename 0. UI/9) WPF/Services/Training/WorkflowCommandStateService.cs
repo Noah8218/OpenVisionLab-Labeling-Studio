@@ -24,7 +24,9 @@
             bool hasCurrentRecipeName,
             bool canRunModelTraining = true,
             bool canRunModelInference = true,
-            string modelRuntimeUnavailableHint = "")
+            string modelRuntimeUnavailableHint = "",
+            bool canRunTrialModelInference = false,
+            bool canRunInferenceTargetFromLabelingAssist = false)
         {
             bool nonTrainingBusy = isYoloEnvironmentCommandRunning || isDetecting || isBatchDetectionRunning;
             bool trainingBusy = isTrainingCommandRunning || isTrainingStopAvailable;
@@ -32,6 +34,9 @@
             bool canRunGeneralCommands = !anyBusy;
             bool canRunTraining = canRunGeneralCommands && canRunModelTraining;
             bool canRunInference = isInferenceMode && !anyBusy && canRunModelInference;
+            bool inferenceTargetMode = isInferenceMode || canRunInferenceTargetFromLabelingAssist;
+            bool canRunInferenceTarget = inferenceTargetMode && !anyBusy
+                && (canRunModelInference || canRunTrialModelInference);
             string saveProjectConfigUnavailableHint = string.Empty;
             if (trainingBusy)
             {
@@ -49,7 +54,7 @@
                 ? OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Command.Unavailable.Busy")
                 : OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Command.Unavailable.InferenceMode");
 
-            if (isInferenceMode
+            if (inferenceTargetMode
                 && !canRunModelInference
                 && !string.IsNullOrWhiteSpace(modelRuntimeUnavailableHint))
             {
@@ -77,10 +82,11 @@
                 CurrentImageDetectionToolTip = canRunInference
                     ? OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Header.Inspect.ToolTip")
                     : unavailableHint,
-                SelectedQueueDetectionToolTip = canRunInference ? "\uC120\uD0DD \uC774\uBBF8\uC9C0 \uAC80\uC0AC" : unavailableHint,
-                BatchDetectionToolTip = canRunInference ? "\uD45C\uC2DC\uB41C \uD589 \uC77C\uAD04 \uAC80\uC0AC" : unavailableHint,
-                RetryFailedToolTip = canRunInference ? "\uC2E4\uD328 \uD589 \uC7AC\uC2DC\uB3C4" : unavailableHint,
-                StopBatchToolTip = isBatchDetectionRunning ? "\uC77C\uAD04 \uAC80\uC0AC \uC911\uC9C0" : "\uC77C\uAD04 \uAC80\uC0AC \uC911\uC5D0\uB9CC \uC0AC\uC6A9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4."
+                CanRunInferenceTarget = canRunInferenceTarget,
+                SelectedQueueDetectionToolTip = canRunInferenceTarget ? OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.WorkflowCommandStateService.SelectedImage") : unavailableHint,
+                BatchDetectionToolTip = canRunInferenceTarget ? OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.WorkflowCommandStateService.VisibleRows") : unavailableHint,
+                RetryFailedToolTip = canRunInferenceTarget ? OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.WorkflowCommandStateService.RetryFailed") : unavailableHint,
+                StopBatchToolTip = isBatchDetectionRunning ? OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.WorkflowCommandStateService.StopBatch") : OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.WorkflowCommandStateService.StopBatchUnavailable")
             };
         }
     }
@@ -101,7 +107,8 @@
             bool hasCurrentRecipeName,
             bool canRunModelTraining = true,
             bool canRunModelInference = true,
-            string modelRuntimeUnavailableHint = "")
+            string modelRuntimeUnavailableHint = "",
+            bool canRunTrialModelInference = false)
             => new WpfWorkflowCommandState(WorkflowCommandStateService.Build(
                 isInferenceMode,
                 isYoloEnvironmentCommandRunning,
@@ -112,7 +119,8 @@
                 hasCurrentRecipeName,
                 canRunModelTraining,
                 canRunModelInference,
-                modelRuntimeUnavailableHint));
+                modelRuntimeUnavailableHint,
+                canRunTrialModelInference));
     }
 
     public class WorkflowCommandState
@@ -134,6 +142,8 @@
         public string StartTrainingToolTip { get; set; } = string.Empty;
 
         public bool CanRunInference { get; set; }
+
+        public bool CanRunInferenceTarget { get; set; }
 
         public bool CanStopBatchDetection { get; set; }
 
@@ -171,6 +181,7 @@
             CanStartTraining = source.CanStartTraining;
             StartTrainingToolTip = source.StartTrainingToolTip;
             CanRunInference = source.CanRunInference;
+            CanRunInferenceTarget = source.CanRunInferenceTarget;
             CanStopBatchDetection = source.CanStopBatchDetection;
             CurrentImageDetectionToolTip = source.CurrentImageDetectionToolTip;
             SelectedQueueDetectionToolTip = source.SelectedQueueDetectionToolTip;

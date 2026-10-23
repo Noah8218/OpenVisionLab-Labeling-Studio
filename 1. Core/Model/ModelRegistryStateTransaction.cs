@@ -138,7 +138,11 @@ namespace MvcVisionSystem
                     BaselineWeightsPath = source.BaselineWeightsPath,
                     MetricsSummary = source.MetricsSummary,
                     DatasetVersionId = source.DatasetVersionId,
-                    DatasetContentSha256 = source.DatasetContentSha256
+                    DatasetContentSha256 = source.DatasetContentSha256,
+                    Parameters = source.Parameters?.Copy(),
+                    DecisionRule = source.DecisionRule?.Copy(),
+                    PreviousDecisionRule = source.PreviousDecisionRule?.Copy(),
+                    DecisionRuleUndoAvailable = source.DecisionRuleUndoAvailable
                 };
         }
 
@@ -201,6 +205,17 @@ namespace MvcVisionSystem
                     WeightsSha256 = source.WeightsSha256,
                     ArtifactPath = source.ArtifactPath,
                     PreviousWeightsPath = source.PreviousWeightsPath,
+                    AppliedWeightsPath = source.AppliedWeightsPath,
+                    PreviousWeightsSha256 = source.PreviousWeightsSha256,
+                    PreviousCandidateId = source.PreviousCandidateId,
+                    UndoneUtc = source.UndoneUtc,
+                    UndoReason = source.UndoReason,
+                    EvaluationDatasetVersionId = source.EvaluationDatasetVersionId,
+                    EvaluationDatasetContentSha256 = source.EvaluationDatasetContentSha256,
+                    EvaluationReportPath = source.EvaluationReportPath,
+                    EvaluationReportSha256 = source.EvaluationReportSha256,
+                    EvaluationConditions = source.EvaluationConditions,
+                    EvaluationMetricsSummary = source.EvaluationMetricsSummary,
                     AdoptedUtc = source.AdoptedUtc,
                     SavedToRecipe = source.SavedToRecipe,
                     DecisionSummary = source.DecisionSummary

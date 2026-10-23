@@ -21,15 +21,18 @@ namespace MvcVisionSystem
             WpfAnnotationTool? selectedTool,
             string selectedToolText,
             WpfAnnotationTool activeAnnotationTool,
-            LabelingBoxDrawingMethod? selectedBoxDrawingMethod)
+            LabelingBoxDrawingMethod? selectedBoxDrawingMethod,
+            MaskEraserScope eraserScope = MaskEraserScope.VisibleEditable,
+            bool hasSelectedMaskObject = false,
+            bool isSmartMaskCandidateEditActive = false)
         {
             if (isAnomalyDatasetPurpose)
             {
                 return new CanvasWorkflowContext(
                     WpfLearningStep.Label,
-                    "이미지 판정",
+                    OpenVisionLanguageService.T("WpfAnomalyGrid.SingleTitle"),
                     "OK/NG",
-                    "이미지 전체를 확인한 뒤 오른쪽에서 정상(OK) 또는 이상(NG)을 선택하세요.");
+                    OpenVisionLanguageService.T("WpfCanvas.Workflow.ImageDecisionAction"));
             }
 
             WpfLearningStep effectiveStep = ResolveEffectiveStep(
@@ -42,14 +45,21 @@ namespace MvcVisionSystem
                 selectedTool,
                 activeAnnotationTool);
             string stepText = BuildStepText(effectiveStep, selectedStep, selectedStepText);
-            string toolText = BuildToolText(effectiveStep, selectedToolText);
+            string toolText = BuildToolText(
+                effectiveStep,
+                selectedTool,
+                activeAnnotationTool,
+                selectedToolText);
             string actionText = BuildActionText(
                 effectiveStep,
                 hasActiveImage,
                 hasUnsavedAnnotations,
                 hasCanvasLabelObjects,
                 selectedTool,
-                selectedBoxDrawingMethod);
+                selectedBoxDrawingMethod,
+                eraserScope,
+                hasSelectedMaskObject,
+                isSmartMaskCandidateEditActive);
             return new CanvasWorkflowContext(effectiveStep, stepText, toolText, actionText);
         }
 
@@ -112,22 +122,64 @@ namespace MvcVisionSystem
 
             return effectiveStep switch
             {
-                WpfLearningStep.Label => "라벨",
-                WpfLearningStep.Infer => "추론",
-                WpfLearningStep.Review => "검토",
-                WpfLearningStep.Save => "저장",
-                _ => "샘플"
+                WpfLearningStep.Label => OpenVisionLanguageService.T("WpfShell.Right.Labels.Text"),
+                WpfLearningStep.Infer => OpenVisionLanguageService.T("WpfShell.Stage.Inference.Text"),
+                WpfLearningStep.Review => OpenVisionLanguageService.T("WpfCanvas.Workflow.Step.Review"),
+                WpfLearningStep.Save => OpenVisionLanguageService.T("Localization.Save"),
+                _ => OpenVisionLanguageService.T("WpfCanvas.Workflow.Step.Sample")
             };
         }
 
-        private static string BuildToolText(WpfLearningStep effectiveStep, string selectedToolText)
+        private static string BuildToolText(
+            WpfLearningStep effectiveStep,
+            WpfAnnotationTool? selectedTool,
+            WpfAnnotationTool activeAnnotationTool,
+            string selectedToolText)
         {
-            return effectiveStep switch
+            if (activeAnnotationTool != WpfAnnotationTool.Select)
             {
-                WpfLearningStep.Sample => "이미지 큐",
-                WpfLearningStep.Infer => "현재 검사",
-                WpfLearningStep.Review => "AI 후보 검토",
-                _ => selectedToolText
+                return FormatAnnotationToolText(activeAnnotationTool, selectedToolText);
+            }
+
+            if (selectedTool.HasValue && selectedTool.Value != WpfAnnotationTool.Select)
+            {
+                return FormatAnnotationToolText(selectedTool.Value, selectedToolText);
+            }
+
+            string workflowToolText = effectiveStep switch
+            {
+                WpfLearningStep.Sample => OpenVisionLanguageService.T("WpfCanvas.Workflow.ImageQueue"),
+                WpfLearningStep.Infer => OpenVisionLanguageService.T("WpfShell.Right.Inspect.Text"),
+                WpfLearningStep.Review => OpenVisionLanguageService.T("WpfCanvas.WorkflowMode.Inference.Text"),
+                _ => string.Empty
+            };
+
+            if (!string.IsNullOrWhiteSpace(workflowToolText))
+            {
+                return workflowToolText;
+            }
+
+            return selectedTool.HasValue
+                ? FormatAnnotationToolText(selectedTool.Value, selectedToolText)
+                : selectedToolText;
+        }
+
+        private static string FormatAnnotationToolText(WpfAnnotationTool tool, string fallbackText)
+        {
+            return tool switch
+            {
+                WpfAnnotationTool.Select => OpenVisionLanguageService.T("WpfAnnotationTool.Select"),
+                WpfAnnotationTool.Rectangle => OpenVisionLanguageService.T("WpfAnnotationTool.Rectangle"),
+                WpfAnnotationTool.Ellipse => OpenVisionLanguageService.T("WpfAnnotationTool.Ellipse"),
+                WpfAnnotationTool.Polygon => OpenVisionLanguageService.T("WpfAnnotationTool.Polygon"),
+                WpfAnnotationTool.SmartMask => OpenVisionLanguageService.T("WpfAnnotationTool.SmartMask"),
+                WpfAnnotationTool.Brush => OpenVisionLanguageService.T("WpfAnnotationTool.Brush"),
+                WpfAnnotationTool.Eraser => OpenVisionLanguageService.T("WpfAnnotationTool.Eraser"),
+                WpfAnnotationTool.PanZoom => OpenVisionLanguageService.T("WpfAnnotationTool.PanZoom"),
+                WpfAnnotationTool.Undo => OpenVisionLanguageService.T("WpfAnnotationTool.Undo"),
+                WpfAnnotationTool.Redo => OpenVisionLanguageService.T("WpfAnnotationTool.Redo"),
+                WpfAnnotationTool.Delete => OpenVisionLanguageService.T("WpfAnnotationTool.Delete"),
+                _ => fallbackText
             };
         }
 
@@ -137,7 +189,10 @@ namespace MvcVisionSystem
             bool hasUnsavedAnnotations,
             bool hasCanvasLabelObjects,
             WpfAnnotationTool? selectedTool,
-            LabelingBoxDrawingMethod? selectedBoxDrawingMethod)
+            LabelingBoxDrawingMethod? selectedBoxDrawingMethod,
+            MaskEraserScope eraserScope,
+            bool hasSelectedMaskObject,
+            bool isSmartMaskCandidateEditActive)
         {
             if (!hasActiveImage)
             {
@@ -149,31 +204,57 @@ namespace MvcVisionSystem
                 if (selectedTool == WpfAnnotationTool.Rectangle
                     && selectedBoxDrawingMethod == LabelingBoxDrawingMethod.FourPointExtreme)
                 {
-                    return "박스 라벨링: 객체의 위 → 아래 → 왼쪽 → 오른쪽 극점을 순서대로 누르세요. Backspace는 이전 점, Esc는 초안 취소입니다.";
+                    return OpenVisionLanguageService.T("WpfCanvas.ToolContext.FourPointBox");
                 }
 
                 return selectedTool switch
                 {
-                    WpfAnnotationTool.Rectangle => "박스 라벨링: 캔버스에서 드래그하고 클래스가 맞는지 확인한 뒤 라벨 저장을 누르세요.",
-                    WpfAnnotationTool.Ellipse => "원형 라벨링: 드래그해 영역을 만들고 클래스와 위치를 확인한 뒤 라벨 저장을 누르세요.",
-                    WpfAnnotationTool.Polygon => "폴리곤 라벨링: 꼭짓점을 찍고 마지막 점에서 마무리하세요.",
-                    WpfAnnotationTool.Brush => "마스크 칠하기: 드래그하고 놓은 뒤 결과를 확인한 다음 라벨 저장을 누르세요.",
-                    WpfAnnotationTool.Eraser => "마스크 편집: 마스크 위를 드래그해 지울 영역을 정리하세요.",
-                    WpfAnnotationTool.PanZoom => "화면 이동: 이미지를 끌어 위치를 맞춘 뒤 라벨 도구로 돌아가세요.",
-                    _ when hasUnsavedAnnotations => "저장 필요: 라벨 저장 버튼을 눌러 현재 이미지의 라벨을 저장하세요.",
-                    _ when hasCanvasLabelObjects => "객체 검토: 라벨 위치와 클래스를 확인한 뒤 라벨 저장을 누르세요.",
-                    _ => "라벨링 시작: 빠른 도구에서 박스나 브러시를 선택하고 캔버스에 그리세요."
+                    WpfAnnotationTool.Rectangle => OpenVisionLanguageService.T("WpfCanvas.ToolContext.Box"),
+                    WpfAnnotationTool.Ellipse => OpenVisionLanguageService.T("WpfCanvas.ToolContext.Ellipse"),
+                    WpfAnnotationTool.Polygon => OpenVisionLanguageService.T("WpfCanvas.ToolContext.Polygon"),
+                    WpfAnnotationTool.SmartMask => OpenVisionLanguageService.T("WpfCanvas.ToolContext.SmartMask"),
+                    WpfAnnotationTool.Brush => isSmartMaskCandidateEditActive
+                        ? OpenVisionLanguageService.T("WpfCanvas.ToolContext.CandidateBrush")
+                        : OpenVisionLanguageService.T("WpfCanvas.ToolContext.Brush"),
+                    WpfAnnotationTool.Eraser => BuildEraserActionText(
+                        eraserScope,
+                        hasSelectedMaskObject,
+                        isSmartMaskCandidateEditActive),
+                    WpfAnnotationTool.PanZoom => OpenVisionLanguageService.T("WpfCanvas.ToolContext.Pan"),
+                    _ when hasUnsavedAnnotations => OpenVisionLanguageService.T("WpfCanvas.Workflow.SaveRequiredAction"),
+                    _ when hasCanvasLabelObjects => OpenVisionLanguageService.T("WpfCanvas.Workflow.CheckObjectsAction"),
+                    _ => OpenVisionLanguageService.T("WpfCanvas.ToolContext.Select")
                 };
             }
 
             return effectiveStep switch
             {
-                WpfLearningStep.Sample => "이미지 선택: 이미지 큐에서 작업할 이미지를 여세요.",
-                WpfLearningStep.Infer => "추론 실행: 현재 검사로 AI 후보를 만들고 검토 탭에서 확인하세요.",
-                WpfLearningStep.Review => "AI 후보 검토: 확정, 전체 확정, 또는 스킵하세요.",
-                WpfLearningStep.Save when hasUnsavedAnnotations => "저장 필요: 라벨 저장 버튼으로 현재 라벨을 파일에 반영하세요.",
-                WpfLearningStep.Save => "저장 완료: 이미지 큐의 다음 버튼으로 이어서 작업하세요.",
-                _ => "다음 작업을 선택하세요."
+                WpfLearningStep.Sample => OpenVisionLanguageService.T("WpfCanvas.Workflow.SelectImageAction"),
+                WpfLearningStep.Infer => OpenVisionLanguageService.T("WpfCanvas.Workflow.InferAction"),
+                WpfLearningStep.Review => OpenVisionLanguageService.T("WpfCanvas.Workflow.ReviewAction"),
+                WpfLearningStep.Save when hasUnsavedAnnotations => OpenVisionLanguageService.T("WpfCanvas.Workflow.SaveRequiredAction"),
+                WpfLearningStep.Save => OpenVisionLanguageService.T("WpfCanvas.Workflow.SavedAction"),
+                _ => OpenVisionLanguageService.T("WpfCanvas.Workflow.NextAction")
+            };
+        }
+
+        private static string BuildEraserActionText(
+            MaskEraserScope eraserScope,
+            bool hasSelectedMaskObject,
+            bool isSmartMaskCandidateEditActive)
+        {
+            if (isSmartMaskCandidateEditActive)
+            {
+                return OpenVisionLanguageService.T("WpfCanvas.ToolContext.CandidateEraser");
+            }
+
+            return eraserScope switch
+            {
+                MaskEraserScope.CurrentClass => OpenVisionLanguageService.T("WpfCanvas.ToolContext.EraserCurrentClass"),
+                MaskEraserScope.SelectedObject => hasSelectedMaskObject
+                    ? OpenVisionLanguageService.T("WpfCanvas.ToolContext.EraserSelected")
+                    : OpenVisionLanguageService.T("WpfCanvas.ToolContext.EraserSelectFirst"),
+                _ => OpenVisionLanguageService.T("WpfCanvas.ToolContext.EraserVisible")
             };
         }
 
@@ -202,7 +283,10 @@ namespace MvcVisionSystem
             WpfAnnotationTool? selectedTool,
             string selectedToolText,
             WpfAnnotationTool activeAnnotationTool,
-            LabelingBoxDrawingMethod? selectedBoxDrawingMethod)
+            LabelingBoxDrawingMethod? selectedBoxDrawingMethod,
+            MaskEraserScope eraserScope = MaskEraserScope.VisibleEditable,
+            bool hasSelectedMaskObject = false,
+            bool isSmartMaskCandidateEditActive = false)
             => new WpfCanvasWorkflowContext(CanvasWorkflowContextPresentationService.Build(
                 isInferenceMode,
                 isAnomalyDatasetPurpose,
@@ -214,8 +298,11 @@ namespace MvcVisionSystem
                 selectedStepText,
                 selectedTool,
                 selectedToolText,
-                activeAnnotationTool,
-                selectedBoxDrawingMethod));
+                 activeAnnotationTool,
+                 selectedBoxDrawingMethod,
+                 eraserScope,
+                 hasSelectedMaskObject,
+                 isSmartMaskCandidateEditActive));
 
         public static string FormatDisplayMode(WpfCanvasDisplayMode mode)
             => CanvasWorkflowContextPresentationService.FormatDisplayMode(mode);

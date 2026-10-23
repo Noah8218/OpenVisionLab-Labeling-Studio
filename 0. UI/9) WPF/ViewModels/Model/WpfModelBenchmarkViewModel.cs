@@ -22,6 +22,7 @@ namespace MvcVisionSystem
         private readonly ModelBenchmarkCatalogService catalogService;
         private readonly string repositoryRoot;
         private readonly ICollectionView filteredRuns;
+        private IReadOnlyList<string> unreadableCatalogPaths = Array.Empty<string>();
         private string preferredSourcePath = string.Empty;
         private string searchText = string.Empty;
         private string selectedTaskFilter = "\uC804\uCCB4";
@@ -66,6 +67,7 @@ namespace MvcVisionSystem
             filteredRuns.Filter = MatchesFilter;
             RefreshCommand = new RelayCommand(() => Refresh(), () => !disposed);
             ClearSelectionCommand = new RelayCommand(ClearSelection, () => !disposed);
+            ResetCatalogFiltersCommand = new RelayCommand(ResetCatalogFilters, () => !disposed && HasCatalogFilter);
             SetBaselineCommand = new RelayCommand<WpfModelBenchmarkRunItemViewModel>(SetBaseline, _ => !disposed);
             Refresh(preferredSourcePath);
         }
@@ -73,6 +75,8 @@ namespace MvcVisionSystem
         public ObservableCollection<WpfModelBenchmarkRunItemViewModel> CatalogRuns { get; } = new();
 
         public ObservableCollection<string> TaskFilters { get; } = new();
+
+        public ObservableCollection<ModelBenchmarkTaskFilterOption> TaskFilterOptions { get; } = new();
 
         public ObservableCollection<WpfModelBenchmarkSelectedRunViewModel> SelectedRuns { get; } = new();
 
@@ -150,7 +154,35 @@ namespace MvcVisionSystem
 
         public ICommand ClearSelectionCommand { get; }
 
+        public ICommand ResetCatalogFiltersCommand { get; }
+
         public ICommand SetBaselineCommand { get; }
+
+        public bool HasCatalogFilter => !string.IsNullOrEmpty(SearchText) || SelectedTaskFilter != "\uC804\uCCB4";
+
+        public bool HasCatalogLoadFailures => unreadableCatalogPaths.Count > 0;
+
+        public string CatalogLoadFailureText => Format("WpfModelBenchmark.Catalog.ReadFailed", unreadableCatalogPaths.Count);
+
+        public string CatalogLoadFailureDetailText => string.Join(Environment.NewLine, unreadableCatalogPaths);
+
+        public string CatalogLoadFailureHelpText => T("WpfModelBenchmark.Catalog.ReadFailed.Help");
+
+        public string CatalogEmptyTitleText => IsCatalogEmpty
+            ? T(HasCatalogLoadFailures ? "WpfModelBenchmark.Catalog.ReadFailed.Empty" : "WpfModelBenchmark.Catalog.Empty")
+            : T("WpfModelBenchmark.Catalog.FilterEmpty");
+
+        public string CatalogEmptyDetailText => IsCatalogEmpty
+            ? T(HasCatalogLoadFailures ? "WpfModelBenchmark.Catalog.ReadFailed.Help" : "WpfModelBenchmark.Catalog.Empty.Help")
+            : T("WpfModelBenchmark.Catalog.FilterEmpty.Help");
+
+        public string ResetCatalogFiltersText => T("WpfModelBenchmark.Catalog.ResetFilters");
+
+        public string SelectionEmptyTitleText => T("WpfModelBenchmark.Selection.Empty");
+
+        public string SelectionEmptyDetailText => T(IsCatalogEmpty
+            ? "WpfModelBenchmark.Selection.NoReports.Help"
+            : "WpfModelBenchmark.Selection.Empty.Help");
 
         public string SearchText
         {
@@ -160,6 +192,7 @@ namespace MvcVisionSystem
                 if (SetProperty(ref searchText, value ?? string.Empty))
                 {
                     filteredRuns.Refresh();
+                    RefreshCatalogPresentation();
                 }
             }
         }
@@ -172,6 +205,7 @@ namespace MvcVisionSystem
                 if (SetProperty(ref selectedTaskFilter, string.IsNullOrWhiteSpace(value) ? "\uC804\uCCB4" : value))
                 {
                     filteredRuns.Refresh();
+                    RefreshCatalogPresentation();
                 }
             }
         }
@@ -343,7 +377,7 @@ namespace MvcVisionSystem
                 .Select(item => item.Run.Id)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             string previousBaselineId = baselineRunId;
-            IReadOnlyList<WpfModelBenchmarkRun> runs = catalogService.Load(repositoryRoot, this.preferredSourcePath);
+            IReadOnlyList<WpfModelBenchmarkRun> runs = catalogService.Load(repositoryRoot, this.preferredSourcePath, out unreadableCatalogPaths);
 
             suppressSelectionRefresh = true;
             try
@@ -385,7 +419,34 @@ namespace MvcVisionSystem
 
             IsCatalogEmpty = CatalogRuns.Count == 0;
             filteredRuns.Refresh();
+            RefreshCatalogPresentation();
             RefreshComparison();
+        }
+
+        private void ResetCatalogFilters()
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            SearchText = string.Empty;
+            SelectedTaskFilter = "\uC804\uCCB4";
+        }
+
+        private void RefreshCatalogPresentation()
+        {
+            OnPropertyChanged(nameof(HasCatalogFilter));
+            OnPropertyChanged(nameof(HasCatalogLoadFailures));
+            OnPropertyChanged(nameof(CatalogLoadFailureText));
+            OnPropertyChanged(nameof(CatalogLoadFailureDetailText));
+            OnPropertyChanged(nameof(CatalogLoadFailureHelpText));
+            OnPropertyChanged(nameof(CatalogEmptyTitleText));
+            OnPropertyChanged(nameof(CatalogEmptyDetailText));
+            OnPropertyChanged(nameof(ResetCatalogFiltersText));
+            OnPropertyChanged(nameof(SelectionEmptyTitleText));
+            OnPropertyChanged(nameof(SelectionEmptyDetailText));
+            CommandManager.InvalidateRequerySuggested();
         }
 
         private bool RestorePreferredSelection(string preferredSourcePath)
@@ -443,12 +504,6 @@ namespace MvcVisionSystem
         private void RefreshTaskFilters(IReadOnlyList<WpfModelBenchmarkRun> runs)
         {
             string previous = SelectedTaskFilter;
-            CatalogTaskSummaryText = string.Join(
-                " \u00B7 ",
-                runs.GroupBy(run => run.TaskText, StringComparer.CurrentCultureIgnoreCase)
-                    .OrderBy(group => GetTaskDisplayOrder(group.Key))
-                    .ThenBy(group => group.Key, StringComparer.CurrentCultureIgnoreCase)
-                    .Select(group => $"{group.Key} {group.Count()}"));
             TaskFilters.Clear();
             TaskFilters.Add("\uC804\uCCB4");
             foreach (string task in runs
@@ -460,8 +515,34 @@ namespace MvcVisionSystem
                 TaskFilters.Add(task);
             }
 
+            for (int index = TaskFilterOptions.Count - 1; index >= 0; index--)
+            {
+                if (!TaskFilters.Contains(TaskFilterOptions[index].Key)) TaskFilterOptions.RemoveAt(index);
+            }
+            for (int index = 0; index < TaskFilters.Count; index++)
+            {
+                string task = TaskFilters[index];
+                ModelBenchmarkTaskFilterOption option = TaskFilterOptions.FirstOrDefault(item => item.Key == task);
+                if (option == null) TaskFilterOptions.Insert(index, new ModelBenchmarkTaskFilterOption(task));
+                else if (TaskFilterOptions.IndexOf(option) != index) TaskFilterOptions.Move(TaskFilterOptions.IndexOf(option), index);
+            }
             selectedTaskFilter = TaskFilters.Contains(previous) ? previous : "\uC804\uCCB4";
             OnPropertyChanged(nameof(SelectedTaskFilter));
+            RefreshTaskFilterPresentation();
+        }
+
+        private void RefreshTaskFilterPresentation()
+        {
+            CatalogTaskSummaryText = string.Join(
+                " \u00B7 ",
+                CatalogRuns.GroupBy(item => item.Run.TaskText, StringComparer.CurrentCultureIgnoreCase)
+                    .OrderBy(group => GetTaskDisplayOrder(group.Key))
+                    .ThenBy(group => group.Key, StringComparer.CurrentCultureIgnoreCase)
+                    .Select(group => $"{ModelBenchmarkValueFormatter.FormatTaskText(group.Key)} {group.Count()}"));
+            foreach (ModelBenchmarkTaskFilterOption option in TaskFilterOptions)
+            {
+                option.RefreshLocalizedPresentation();
+            }
         }
 
         private static int GetTaskDisplayOrder(string taskText)
@@ -664,14 +745,14 @@ namespace MvcVisionSystem
                     WpfModelBenchmarkGroundTruthReview review = run.GroundTruthReview;
                     if (string.Equals(run.TaskKey, "anomaly-classification", StringComparison.OrdinalIgnoreCase))
                     {
-                        notices.Add($"{run.DisplayName}: \uC774\uBBF8\uC9C0 {review.ImageCount}\uC7A5 \u00B7 \uC815\uC0C1 \uC624\uAC80\uCD9C {review.FalsePositiveCount} \u00B7 \uC774\uC0C1 \uBBF8\uAC80\uCD9C {review.FalseNegativeCount} \u00B7 \uC800\uC7A5\uB41C \uD310\uC815 \uACB0\uACFC {review.Examples.Count}\uAC74");
+                        notices.Add(Format("WpfModelBenchmark.GroundTruth.AnomalyNotice", run.DisplayName, review.ImageCount, review.FalsePositiveCount, review.FalseNegativeCount, review.Examples.Count));
                     }
                     else
                     {
-                        string nmsIouText = review.PredictionNmsIouThreshold?.ToString("P0", CultureInfo.CurrentCulture) ?? "\uBBF8\uAE30\uB85D";
+                        string nmsIouText = review.PredictionNmsIouThreshold?.ToString("P0", CultureInfo.CurrentCulture) ?? T("WpfModelBenchmark.GroundTruth.NmsUnrecorded");
                         notices.Add(string.Format(
                             CultureInfo.CurrentCulture,
-                            "{0}: \uC2E0\uB8B0\uB3C4 {1:P0} \u00B7 NMS IoU {2} \u00B7 \uC815\uB2F5 \uB9E4\uCE6D IoU {3:P0} \u00B7 TP {4} / FP {5} / FN {6}",
+                            T("WpfModelBenchmark.GroundTruth.DetectionNotice"),
                             run.DisplayName,
                             review.Confidence ?? 0D,
                             nmsIouText,
@@ -698,15 +779,15 @@ namespace MvcVisionSystem
                 : T("WpfModelBenchmark.GroundTruth.Notice.Empty");
             GroundTruthErrorExampleStatusText = GroundTruthExamples.Count > 0
                 ? anomalyOnly
-                    ? $"\uC624\uB958 \uC6B0\uC120\uC73C\uB85C \uC800\uC7A5\uB41C \uC774\uBBF8\uC9C0\uBCC4 \uD310\uC815 \uACB0\uACFC {GroundTruthExamples.Count}\uAC74\uC785\uB2C8\uB2E4. \uD45C\uC2DC\uB294 \uCD5C\uB300 500\uAC74\uC785\uB2C8\uB2E4."
-                    : $"\uB9AC\uD3EC\uD2B8\uC5D0 \uC800\uC7A5\uB41C \uC624\uB958 \uC608\uC2DC {GroundTruthExamples.Count}\uAC74"
+                    ? Format("WpfModelBenchmark.GroundTruth.AnomalyCount", GroundTruthExamples.Count)
+                    : Format("WpfModelBenchmark.GroundTruth.ErrorCount", GroundTruthExamples.Count)
                 : T("WpfModelBenchmark.GroundTruth.Errors.Empty");
             if (notices.Count == 0
                 && selectedRuns.Count > 0
                 && selectedRuns.All(run => string.Equals(run.TaskKey, "segmentation", StringComparison.OrdinalIgnoreCase)))
             {
-                GroundTruthReviewNoticeText = "\uC138\uADF8\uBA58\uD14C\uC774\uC158 \uBCF4\uACE0\uC11C\ub294 \ud3f4\ub9ac\uace4/\ub9c8\uc2a4\ud06c \uc9c0\ud45c\ub97c \uc0ac\uc6a9\ud569\ub2c8\ub2e4. \ubc15\uc2a4 \uc815\ub2f5 \ub300\uc870 \uae30\ub85d\uc740 \uac1d\uccb4 \ud0d0\uc9c0 \ube44\uad50\uc5d0\uc11c\ub9cc \uc81c\uacf5\ub429\ub2c8\ub2e4.";
-                GroundTruthErrorExampleStatusText = "\uC138\uADF8\uBA58\uD14C\uC774\uC158 \uBCF4\uACE0\uC11C\uc5d0\ub294 \ubc15\uc2a4 \ubbf8\uac80\ucd9c/\uc624\uac80\ucd9c \uc608\uc2dc\uac00 \uc5c6\uc2b5\ub2c8\ub2e4.";
+                GroundTruthReviewNoticeText = T("WpfModelBenchmark.GroundTruth.SegmentationNotice");
+                GroundTruthErrorExampleStatusText = T("WpfModelBenchmark.GroundTruth.SegmentationErrors");
             }
             SelectedGroundTruthExample = GroundTruthExamples.FirstOrDefault();
         }
@@ -803,9 +884,9 @@ namespace MvcVisionSystem
                     review.TruePositiveCount,
                     review.FalsePositiveCount,
                     review.FalseNegativeCount,
-                    anomaly ? "\uC815\uB2F5" : "TP",
-                    anomaly ? "\uC624\uAC80\uCD9C" : "FP",
-                    anomaly ? "\uBBF8\uAC80\uCD9C" : "FN"));
+                    anomaly ? T("WpfModelBenchmark.Error.Correct") : "TP",
+                    anomaly ? T("WpfModelBenchmark.Outcome.FalsePositive") : "FP",
+                    anomaly ? T("WpfModelBenchmark.Outcome.FalseNegative") : "FN"));
             }
 
             HasDashboardQualityTaktPoints = DashboardQualityTaktPoints.Count >= 2;
@@ -815,14 +896,14 @@ namespace MvcVisionSystem
             bool timingComparable = selectedRuns.Count > 1
                 && selectedRuns.All(run => AreTimingComparable(run, baseline));
             DashboardEvidenceText = selectedRuns.Count == 1
-                ? "\uAE30\uC900 \uC2E4\uD589 1\uAC1C"
+                ? T("WpfModelBenchmark.Dashboard.Evidence.One")
                 : qualityComparable
                     ? selectedRuns.All(run => !string.IsNullOrWhiteSpace(run.EvidenceFingerprintSha256))
-                        ? "\uB370\uC774\uD130 \uC9C0\uBB38 \uC77C\uCE58"
-                        : "\uD3C9\uAC00 \uACBD\uB85C/\uBD84\uD560 \uC77C\uCE58"
-                    : "\uBE44\uAD50 \uC81C\uC678";
+                        ? T("WpfModelBenchmark.Dashboard.Evidence.Fingerprint")
+                        : T("WpfModelBenchmark.Dashboard.Evidence.PathSplit")
+                    : T("WpfModelBenchmark.Dashboard.Evidence.Excluded");
             DashboardEvidenceDetailText = qualityComparable
-                ? $"{baseline.Split} {baseline.EvidenceCount}\uC7A5 \uAE30\uC900 \u00B7 \uC120\uD0DD {selectedRuns.Count}\uAC1C"
+                ? Format("WpfModelBenchmark.Dashboard.Evidence.Detail", baseline.Split, baseline.EvidenceCount, selectedRuns.Count)
                 : ComparisonNoticeText;
 
             WpfModelBenchmarkDashboardPointViewModel candidatePoint = DashboardQualityTaktPoints
@@ -830,22 +911,22 @@ namespace MvcVisionSystem
             if (candidatePoint != null && baselineMetric != null)
             {
                 DashboardQualityText = $"{baselineMetric.DisplayName} {baselineMetric.FormatValue()} -> {candidatePoint.QualityText}";
-                DashboardQualityDetailText = $"\uB3D9\uC77C \uD3C9\uAC00 \uADFC\uAC70\uC758 {DashboardQualityTaktPoints.Count}\uAC1C \uC2E4\uD589";
+                DashboardQualityDetailText = Format("WpfModelBenchmark.Dashboard.Quality.ComparableCount", DashboardQualityTaktPoints.Count);
                 DashboardTaktText = $"{baseline.TaktMs.Value:0.00} ms -> {candidatePoint.TaktMs:0.00} ms";
                 DashboardTaktDetailText = $"{baseline.TimingSource} \u00B7 n={baseline.TimingRepeatCount}";
-                DashboardQualityTaktStatusText = $"\uD3C9\uAC00 \uC9C0\uD45C: {baselineMetric.DisplayName} \u00B7 \uC624\uB978\uCABD\uC77C\uC218\uB85D \uB354 \uB192\uACE0, \uC67C\uCABD\uC77C\uC218\uB85D \uB354 \uBE60\uB985\uB2C8\uB2E4.";
+                DashboardQualityTaktStatusText = Format("WpfModelBenchmark.Dashboard.QualityTakt.Metric", baselineMetric.DisplayName);
             }
             else
             {
                 DashboardQualityText = baselineMetric == null
-                    ? "\uB300\uD45C \uC9C0\uD45C \uC5C6\uC74C"
+                    ? T("WpfModelBenchmark.Dashboard.Quality.Unavailable")
                     : baselineMetric.DisplayName + " " + baselineMetric.FormatValue();
-                DashboardQualityDetailText = "\uB3D9\uC77C \uD3C9\uAC00 \uADFC\uAC70\uC758 \uBE44\uAD50 \uC2E4\uD589\uC744 \uC120\uD0DD\uD558\uC138\uC694.";
+                DashboardQualityDetailText = T("WpfModelBenchmark.Dashboard.Quality.SelectComparable");
                 DashboardTaktText = baseline.TaktMs.HasValue
                     ? baseline.TaktMs.Value.ToString("0.00", CultureInfo.CurrentCulture) + " ms"
-                    : "Takt \uBBF8\uCE21\uC815";
-                DashboardTaktDetailText = "\uB3D9\uC77C \uD0C0\uC774\uBC0D \uC870\uAC74\uC758 \uC2E4\uD589\uC774 \uD544\uC694\uD569\uB2C8\uB2E4.";
-                DashboardQualityTaktStatusText = "\uC0B0\uC810\uB3C4 \uC81C\uC678: " + ComparisonNoticeText;
+                    : T("WpfModelBenchmark.Dashboard.Takt.Unmeasured");
+                DashboardTaktDetailText = T("WpfModelBenchmark.Dashboard.Takt.SelectComparable");
+                DashboardQualityTaktStatusText = Format("WpfModelBenchmark.Dashboard.QualityTakt.Excluded", ComparisonNoticeText);
             }
 
             WpfModelBenchmarkRun decisionRun = selectedRuns
@@ -853,23 +934,23 @@ namespace MvcVisionSystem
                     && !string.IsNullOrWhiteSpace(run.DecisionText))
                 ?? baseline;
             DashboardDecisionText = string.IsNullOrWhiteSpace(decisionRun?.DecisionText)
-                ? "\uD310\uC815 \uAE30\uB85D \uC5C6\uC74C"
-                : decisionRun.DecisionText;
+                ? T("WpfModelBenchmark.Dashboard.Decision.Unrecorded")
+                : ModelBenchmarkValueFormatter.FormatDecisionText(decisionRun.DecisionText);
             DashboardDecisionDetailText = decisionRun == null
                 ? string.Empty
                 : string.Equals(decisionRun.Id, baseline.Id, StringComparison.OrdinalIgnoreCase)
-                    ? "\uAE30\uC900 \uC2E4\uD589 \uD310\uC815"
-                    : "\uBE44\uAD50 \uC2E4\uD589: " + decisionRun.DisplayName;
+                    ? T("WpfModelBenchmark.Dashboard.Decision.Baseline")
+                    : Format("WpfModelBenchmark.Dashboard.Decision.Candidate", decisionRun.DisplayName);
             DashboardOutcomeStatusText = DashboardOutcomeRows.Count > 0
                 ? selectedRuns.All(run => string.Equals(run.TaskKey, "anomaly-classification", StringComparison.OrdinalIgnoreCase))
-                    ? "\uAC01 \uC2E4\uD589\uC758 \uC815\uB2F5, \uC815\uC0C1 \uC624\uAC80\uCD9C, \uC774\uC0C1 \uBBF8\uAC80\uCD9C \uC218\uC785\uB2C8\uB2E4. \uC774\uBBF8\uC9C0\uBCC4 \uACB0\uACFC\uB294 \uD074\uB798\uC2A4/\uC624\uB958 \uD0ED\uC5D0\uC11C \uD655\uC778\uD569\uB2C8\uB2E4."
-                    : "\uAC01 \uC2E4\uD589 \uBCF4\uACE0\uC11C\uC758 \uC815\uB2F5 \uB300\uC870 \uC6D0\uC2DC \uC218\uCE58\uC785\uB2C8\uB2E4. \uC0C1\uD638 \uC6B0\uC5F4\uC740 \uBCF4\uACE0\uC11C \uC870\uAC74\uC774 \uC77C\uCE58\uD560 \uB54C\uB9CC \uD310\uB2E8\uD569\uB2C8\uB2E4."
-                : "\uC120\uD0DD\uB41C \uBCF4\uACE0\uC11C\uC5D0 \uC815\uB2F5 \uB300\uC870(TP/FP/FN) \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.";
+                    ? T("WpfModelBenchmark.Dashboard.Outcome.Anomaly")
+                    : T("WpfModelBenchmark.Dashboard.Outcome.Detection")
+                : T("WpfModelBenchmark.Dashboard.Outcome.Unrecorded");
             if (DashboardOutcomeRows.Count == 0
                 && selectedRuns.Count > 0
                 && selectedRuns.All(run => string.Equals(run.TaskKey, "segmentation", StringComparison.OrdinalIgnoreCase)))
             {
-                DashboardOutcomeStatusText = "\uC138\uADF8\uBA58\uD14C\uC774\uC158: \ud3f4\ub9ac\uace4/\ub9c8\uc2a4\ud06c \uc9c0\ud45c \uc0ac\uc6a9. \ubc15\uc2a4 TP/FP/FN \ub300\uc870\ub294 \uac1d\uccb4 \ud0d0\uc9c0 \ube44\uad50\uc5d0\uc11c\ub9cc \uc81c\uacf5\ub429\ub2c8\ub2e4.";
+                DashboardOutcomeStatusText = T("WpfModelBenchmark.Dashboard.Outcome.Segmentation");
             }
             DashboardRevision = DashboardRevision == int.MaxValue ? 0 : DashboardRevision + 1;
         }
@@ -903,7 +984,7 @@ namespace MvcVisionSystem
         {
             if (isBaseline)
             {
-                return "\uAE30\uC900";
+                return T("WpfModelBenchmark.Run.Baseline");
             }
 
             if (metric == null || baselineMetric == null || !metric.SupportsDelta)
@@ -913,7 +994,7 @@ namespace MvcVisionSystem
 
             if (!AreQualityComparable(run, baseline))
             {
-                return "\uC870\uAC74 \uB2E4\uB984";
+                return T("WpfModelBenchmark.Run.ConditionMismatch");
             }
 
             double delta = metric.Value - baselineMetric.Value;
@@ -962,29 +1043,29 @@ namespace MvcVisionSystem
 
             if (selectedRuns.Any(run => !string.Equals(run.TaskKey, baseline?.TaskKey, StringComparison.OrdinalIgnoreCase)))
             {
-                return "\uC791\uC5C5 \uC885\uB958\uAC00 \uB2EC\uB77C \uC815\uD655\uB3C4\uC640 Takt \uC6B0\uC5F4\uC744 \uACC4\uC0B0\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
+                return T("WpfModelBenchmark.Comparison.TaskMismatch");
             }
 
             if (selectedRuns.Any(run => !AreQualityComparable(run, baseline)))
             {
-                return "\uD3C9\uAC00 \uB370\uC774\uD130 \uC9C0\uBB38, \uACBD\uB85C, \uBD84\uD560 \uB610\uB294 \uC774\uBBF8\uC9C0 \uC218\uAC00 \uB2EC\uB77C \uC815\uD655\uB3C4 \uC6B0\uC5F4\uC744 \uACC4\uC0B0\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
+                return T("WpfModelBenchmark.Comparison.EvidenceMismatch");
             }
 
             string evidenceIdentityText = selectedRuns.All(run => !string.IsNullOrWhiteSpace(run.EvidenceFingerprintSha256))
-                ? "\uB370\uC774\uD130 \uC9C0\uBB38 \uC77C\uCE58"
-                : "\uB370\uC774\uD130 \uC9C0\uBB38 \uBBF8\uAE30\uB85D \u00B7 \uACBD\uB85C/\uBD84\uD560/\uC774\uBBF8\uC9C0 \uC218\uB85C\uB9CC \uD655\uC778";
+                ? T("WpfModelBenchmark.Dashboard.Evidence.Fingerprint")
+                : T("WpfModelBenchmark.Comparison.LegacyEvidence");
             IReadOnlyList<WpfModelBenchmarkRun> taktRuns = selectedRuns.Where(run => run.TaktMs.HasValue).ToArray();
             if (taktRuns.Count == 0)
             {
-                return "\uC815\uD655\uB3C4 \uBE44\uAD50 \uAC00\uB2A5 \u00B7 Takt \uCE21\uC815 \uC5C6\uC74C \u00B7 " + evidenceIdentityText;
+                return Format("WpfModelBenchmark.Comparison.NoTakt", evidenceIdentityText);
             }
 
             if (taktRuns.Count != selectedRuns.Count || taktRuns.Any(run => !AreTimingComparable(run, baseline)))
             {
-                return "\uC815\uD655\uB3C4 \uBE44\uAD50 \uAC00\uB2A5 \u00B7 Takt\uB294 \uBBF8\uCE21\uC815 \uB610\uB294 \uC2E4\uD589 \uC870\uAC74\uC774 \uB2EC\uB77C \uC6B0\uC5F4 \uACC4\uC0B0 \uC81C\uC678";
+                return T("WpfModelBenchmark.Comparison.TaktMismatch");
             }
 
-            return "\uC815\uD655\uB3C4/Takt \uBE44\uAD50 \uAC00\uB2A5 \u00B7 " + evidenceIdentityText;
+            return Format("WpfModelBenchmark.Comparison.Comparable", evidenceIdentityText);
         }
 
         private void OpenVisionLanguageService_LanguageChanged(object sender, EventArgs e)
@@ -1001,13 +1082,24 @@ namespace MvcVisionSystem
             OnPropertyChanged(nameof(ThresholdTabText));
             OnPropertyChanged(nameof(GroundTruthPreviewTitleText));
             OnPropertyChanged(nameof(GroundTruthPreviewStatusText));
+            foreach (WpfModelBenchmarkRunItemViewModel item in CatalogRuns)
+            {
+                item.RefreshLocalizedPresentation();
+            }
+            RefreshTaskFilterPresentation();
+            RefreshCatalogPresentation();
+            int selectedExampleIndex = GroundTruthExamples.IndexOf(SelectedGroundTruthExample);
             RefreshComparison();
+            if (selectedExampleIndex >= 0 && selectedExampleIndex < GroundTruthExamples.Count)
+            {
+                SelectedGroundTruthExample = GroundTruthExamples[selectedExampleIndex];
+            }
         }
 
         private static string T(string key) => OpenVisionLanguageService.T(key);
 
         private static string Format(string key, params object[] values)
-            => string.Format(CultureInfo.InvariantCulture, T(key), values ?? Array.Empty<object>());
+            => string.Format(CultureInfo.CurrentCulture, T(key), values ?? Array.Empty<object>());
 
         private static string NormalizePath(string path)
         {

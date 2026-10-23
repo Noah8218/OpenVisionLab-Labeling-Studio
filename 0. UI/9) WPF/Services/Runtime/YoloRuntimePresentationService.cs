@@ -5,8 +5,8 @@ using System.Globalization;
 namespace MvcVisionSystem
 {
     /// <summary>
-    /// Owns pure Python runtime status, timeout, and elapsed-time presentation policy.
-    /// The Window supplies snapshots; this service does not read controls or global state.
+    /// Formats Python runtime status, timeout, and elapsed-time text.
+    /// The Window supplies snapshots; display captions use the shared language service.
     /// </summary>
     public static class YoloRuntimePresentationService
     {
@@ -17,8 +17,8 @@ namespace MvcVisionSystem
             string error = FirstNonEmpty(
                 communicationStatus?.LastError,
                 processLastError,
-                "상세 없음");
-            return $"추론 실행기 연결 실패: {error}";
+                OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloRuntimePresentationService.FailureNoDetail"));
+            return string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloRuntimePresentationService.21"), error);
         }
 
         public static int GetWorkerConnectTimeoutMilliseconds(int detectionTimeoutSeconds)
@@ -66,9 +66,9 @@ namespace MvcVisionSystem
         {
             return path switch
             {
-                "worker" => "추론 실행기",
-                "smoke fallback" => "테스트 결과",
-                _ => FirstNonEmpty(path, "알 수 없음")
+                "worker" => OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloRuntimePresentationService.69"),
+                "smoke fallback" => OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloRuntimePresentationService.SmokeFallback"),
+                _ => FirstNonEmpty(path, OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeCompanion.YoloRuntimePresentationService.UnknownPath"))
             };
         }
 
@@ -110,8 +110,8 @@ namespace MvcVisionSystem
 
             return message.Trim() switch
             {
-                "Python TCP listener is waiting for a client." => "추론 실행기 연결 대기 중입니다.",
-                "Python TCP listener stopped." => "추론 실행기가 중지되었습니다.",
+                "Python TCP listener is waiting for a client." => OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloRuntimePresentationService.113"),
+                "Python TCP listener stopped." => OpenVisionLab.OpenVisionLanguageService.T("WpfModelDetails.RuntimeFollowOn.YoloRuntimePresentationService.114"),
                 _ => message.Trim()
             };
         }

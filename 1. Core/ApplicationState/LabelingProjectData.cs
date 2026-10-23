@@ -109,6 +109,7 @@ namespace MvcVisionSystem
             RecipeConfigurationSaveResult result = null;
             AnnotationFilePersistence.ExecuteTransaction(() =>
             {
+                DatasetSplitAssignmentService.SaveContract(this);
                 result = new RecipeConfigurationStore().Save(GetRecipeConfigPath(recipeName), this);
                 if (!result.IsSuccess)
                 {
@@ -147,6 +148,7 @@ namespace MvcVisionSystem
                 bool committed = AnnotationFilePersistence.ExecuteTransaction(() =>
                 {
                     SaveYoloDataYaml();
+                    DatasetSplitAssignmentService.SaveContract(this);
                     recipeResult = new RecipeConfigurationStore().Save(recipeConfigPath, this);
                     if (recipeResult.IsSuccess && refreshDatasetVersion)
                     {

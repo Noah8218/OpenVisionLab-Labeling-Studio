@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 
 namespace MvcVisionSystem
@@ -19,9 +20,16 @@ namespace MvcVisionSystem
             {
                 if (TryResolveFormatKey(label.ContentStringFormat, out string key))
                 {
-                    label.SetCurrentValue(
-                        ContentControl.ContentStringFormatProperty,
-                        OpenVisionLanguageService.T(key));
+                    string format = OpenVisionLanguageService.T(key);
+                    if (string.Equals(label.ContentStringFormat, format, StringComparison.Ordinal)) continue;
+                    BindingBase contentBinding = label.Content is string ? BindingOperations.GetBindingBase(label, ContentControl.ContentProperty) : null;
+                    label.SetCurrentValue(ContentControl.ContentStringFormatProperty, format);
+                    if (contentBinding != null)
+                    {
+                        // WPF caches string formatters in the content template; keep the original binding when recreating it.
+                        BindingOperations.ClearBinding(label, ContentControl.ContentProperty);
+                        BindingOperations.SetBinding(label, ContentControl.ContentProperty, contentBinding);
+                    }
                 }
             }
         }

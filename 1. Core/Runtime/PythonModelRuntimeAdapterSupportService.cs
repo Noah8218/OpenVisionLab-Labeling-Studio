@@ -21,9 +21,9 @@ namespace MvcVisionSystem._1._Core
                     isExecutionSupported: true,
                     canTrain: true,
                     canInspect: true,
-                    "YOLOv5 worker \uC5F0\uACB0 \uC9C0\uC6D0",
-                    "YOLOv5 TCP worker\uB85C \uD559\uC2B5\uACFC \uD604\uC7AC \uAC80\uC0AC\uB97C \uC2E4\uD589\uD569\uB2C8\uB2E4.",
-                    "YOLOv5 \uD559\uC2B5/\uAC80\uC0AC \uC2E4\uD589 \uAC00\uB2A5");
+                    "YOLOv5 실행 환경 연결됨",
+                    "YOLOv5 TCP \uC5F0\uACB0\uB85C \uD559\uC2B5\uACFC \uD604\uC7AC \uC774\uBBF8\uC9C0 \uCD94\uB860\uC744 \uC2E4\uD589\uD569\uB2C8\uB2E4.",
+                    "YOLOv5 학습·추론 가능");
             }
 
             if (string.Equals(engine, PythonModelSettings.EngineUnet, StringComparison.Ordinal))
@@ -70,8 +70,8 @@ namespace MvcVisionSystem._1._Core
                         canTrain: true,
                         canInspect: true,
                         "PatchCore worker connection ready",
-                        "Bundled PatchCore worker와 torch/torchvision이 준비되었습니다. 학습은 검토 완료 정상 이미지만 사용하고, 검사 결과는 저장 전 후보입니다.",
-                        "PatchCore 정상-only 학습과 현재 검사 가능");
+                        "번들 PatchCore 프로그램과 torch/torchvision이 준비되었습니다. 학습은 정상으로 판정한 이미지만 사용합니다. 추론 결과는 후보이며 라벨 저장은 별도입니다.",
+                        "PatchCore 정상 이미지 학습·현재 추론 가능");
                 }
 
                 string missing = !workerPresent
@@ -84,8 +84,8 @@ namespace MvcVisionSystem._1._Core
                     canTrain: false,
                     canInspect: false,
                     "PatchCore runtime connection required",
-                    $"PatchCore 학습과 검사는 {missing} 확인 전까지 차단됩니다.",
-                    "PatchCore PyTorch 실행기와 bundled worker를 연결하세요.");
+                    $"PatchCore 학습·추론은 {missing} 확인 전까지 차단됩니다.",
+                    "PatchCore PyTorch 실행 환경과 번들 프로그램을 연결하세요.");
             }
 
             if (string.Equals(engine, PythonModelSettings.EngineYoloV8, StringComparison.Ordinal)
@@ -108,11 +108,11 @@ namespace MvcVisionSystem._1._Core
                         isExecutionSupported: true,
                         canTrain,
                         canInspect,
-                        $"{displayName} worker \uC5F0\uACB0 \uD655\uC778",
-                        $"{displayName} adapter capability\uAC00 worker\uC5D0\uC11C \uD655\uC778\uB410\uC2B5\uB2C8\uB2E4. \uD559\uC2B5:{FormatAllowed(canTrain)} / \uAC80\uC0AC:{FormatAllowed(canInspect)}",
+                        $"{displayName} 실행 환경 연결 확인됨",
+                        $"{displayName} \uc2e4\ud589 \ud658\uacbd \uc9c0\uc6d0\uc774 \ud655\uc778\ub410\uc2b5\ub2c8\ub2e4. \ud559\uc2b5: {FormatAllowed(canTrain)} / \ucd94\ub860: {FormatAllowed(canInspect)}",
                         canTrain && canInspect
-                            ? $"{displayName} \uD559\uC2B5/\uAC80\uC0AC \uC2E4\uD589 \uAC00\uB2A5"
-                            : $"{displayName} worker capability\uC5D0\uC11C \uBD80\uBD84 \uC9C0\uC6D0\uB9CC \uD655\uC778\uB428");
+                            ? $"{displayName} 학습·추론 가능"
+                            : $"{displayName} 실행 환경의 일부 기능만 지원이 확인됐습니다.");
                 }
 
                 if (hasAnyWorkerCapabilities)
@@ -136,11 +136,11 @@ namespace MvcVisionSystem._1._Core
                         isExecutionSupported: true,
                         canTrain: localWorkerCanTrain,
                         canInspect: true,
-                        localWorkerCanTrain ? "YOLOv8 local worker \uD559\uC2B5/\uAC80\uC0AC \uC900\uBE44" : "YOLOv8 local worker \uAC80\uC0AC \uC900\uBE44",
+                        localWorkerCanTrain ? "YOLOv8 학습·추론 준비됨" : "YOLOv8 추론 준비됨",
                         localWorkerCanTrain
-                            ? "YOLOv8 local TCP worker\uB85C \uD559\uC2B5\uACFC \uD604\uC7AC \uAC80\uC0AC\uB97C \uC2E4\uD589\uD569\uB2C8\uB2E4. \uB85C\uCEEC segmentation weight\uB97C \uD655\uC778\uD558\uC138\uC694."
-                            : "YOLOv8 local TCP worker\uB85C \uD604\uC7AC \uAC80\uC0AC\uB97C \uC2E4\uD589\uD569\uB2C8\uB2E4. \uD559\uC2B5\uC740 worker\uAC00 TrainYolo \uCC98\uB9AC\uB97C \uC9C0\uC6D0\uD560 \uB54C\uAE4C\uC9C0 \uCC28\uB2E8\uD569\uB2C8\uB2E4.",
-                        localWorkerCanTrain ? "YOLOv8 \uD559\uC2B5/\uD604\uC7AC \uAC80\uC0AC \uAC00\uB2A5" : "YOLOv8 \uD604\uC7AC \uAC80\uC0AC \uAC00\uB2A5 / \uD559\uC2B5\uC740 local worker TrainYolo \uC9C0\uC6D0 \uD544\uC694");
+                            ? "\uB85C\uCEEC YOLOv8 TCP \uC5F0\uACB0\uB85C \uD559\uC2B5\uACFC \uD604\uC7AC \uC774\uBBF8\uC9C0 \uCD94\uB860\uC744 \uC2E4\uD589\uD569\uB2C8\uB2E4. \uC138\uADF8\uBA58\uD14C\uC774\uC158 \uBAA8\uB378 \uD30C\uC77C\uB3C4 \uD655\uC778\uD558\uC138\uC694."
+                            : "\uB85C\uCEEC YOLOv8 TCP \uC5F0\uACB0\uB85C \uD604\uC7AC \uC774\uBBF8\uC9C0 \uCD94\uB860\uC744 \uC2E4\uD589\uD569\uB2C8\uB2E4. \uD559\uC2B5\uC740 \uC2E4\uD589 \uD504\uB85C\uADF8\uB7A8\uC758 TrainYolo \uC9C0\uC6D0\uC774 \uD544\uC694\uD569\uB2C8\uB2E4.",
+                        localWorkerCanTrain ? "YOLOv8 학습·현재 추론 가능" : "YOLOv8 현재 추론 가능 / 학습은 TrainYolo 지원 필요");
                 }
 
                 if (hasLocalYoloV8Worker)
@@ -149,8 +149,8 @@ namespace MvcVisionSystem._1._Core
                         isExecutionSupported: false,
                         canTrain: false,
                         canInspect: false,
-                        "YOLOv8 local worker \uC5F0\uACB0 / Ultralytics \uC124\uCE58 \uD544\uC694",
-                        "YOLOv8 local TCP worker\uB294 \uD655\uC778\uB410\uC9C0\uB9CC, \uC120\uD0DD\uD55C venv\uC5D0 ultralytics \uD328\uD0A4\uC9C0\uAC00 \uD655\uC778\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.",
+                        "YOLOv8 실행 환경 연결됨 / Ultralytics 설치 필요",
+                        "YOLOv8 \uC2E4\uD589 \uD504\uB85C\uADF8\uB7A8\uC774 \uC788\uC9C0\uB9CC \uC120\uD0DD\uD55C venv\uC5D0\uC11C ultralytics \uD328\uD0A4\uC9C0\uB97C \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.",
                         "YOLOv8 venv\uC5D0 ultralytics\uB97C \uC124\uCE58\uD558\uACE0 segmentation \uAC00\uC911\uCE58\uB97C \uC5F0\uACB0\uD558\uC138\uC694.");
                 }
 
@@ -161,18 +161,18 @@ namespace MvcVisionSystem._1._Core
                         isExecutionSupported: true,
                         canTrain: false,
                         canInspect: true,
-                        $"{displayName} Ultralytics worker \uAC80\uC0AC \uC900\uBE44",
-                        $"{displayName} \uBC88\uB4E4 Ultralytics worker\uAC00 \uC5F0\uACB0\uB418\uC5B4 \uD604\uC7AC \uAC80\uC0AC\uB294 \uC2E4\uD589\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uD559\uC2B5\uC740 \uC544\uC9C1 \uC774 worker\uC5D0 \uC5F0\uACB0\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.",
-                        $"{displayName} \uD604\uC7AC \uAC80\uC0AC \uAC00\uB2A5 / \uD559\uC2B5\uC740 \uC9C0\uC6D0 \uB418\uB294 \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uD544\uC694");
+                        $"{displayName} Ultralytics 추론 준비됨",
+                        $"{displayName} \uBC88\uB4E4 Ultralytics \uC2E4\uD589 \uD504\uB85C\uADF8\uB7A8\uC73C\uB85C \uD604\uC7AC \uC774\uBBF8\uC9C0 \uCD94\uB860\uC744 \uC2E4\uD589\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uC774 \uD504\uB85C\uADF8\uB7A8\uC5D0\uC11C\uB294 \uD604\uC7AC \uD559\uC2B5\uC744 \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.",
+                        $"{displayName} 현재 추론 가능 / 학습 지원 실행 환경 연결 필요");
                 }
 
                 return new PythonModelRuntimeAdapterSupport(
                     isExecutionSupported: false,
                     canTrain: false,
                     canInspect: false,
-                    "\uB77C\uBCA8\uB9C1 \uAC00\uB2A5 / Ultralytics \uC2E4\uD589 \uC5F0\uACB0 \uD544\uC694",
-                    $"{displayName} \uD328\uD0A4\uC9C0/\uACBD\uB85C \uC810\uAC80\uC740 \uAC00\uB2A5\uD558\uC9C0\uB9CC, \uD604\uC7AC \uD559\uC2B5/\uAC80\uC0AC \uC2E4\uD589\uC740 YOLOv5 worker\uB9CC \uC5F0\uACB0\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4. {displayName}\uB85C \uC790\uB3D9 \uB300\uCCB4 \uC2E4\uD589\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.",
-                    $"{displayName} \uC2E4\uD589 \uC5F0\uACB0 \uC804\uC5D0\uB294 YOLOv5 \uD504\uB85C\uD544\uB85C \uD559\uC2B5/\uAC80\uC0AC\uD558\uC138\uC694.");
+                    "라벨링 가능 / Ultralytics 실행 환경 연결 필요",
+                    $"{displayName} 패키지·경로를 점검할 수 있습니다. 학습·추론은 현재 YOLOv5 환경을 쓰며 {displayName}로 자동 대체하지 않습니다.",
+                    $"{displayName} 연결 전에는 YOLOv5 실행 환경으로 학습·추론하세요.");
             }
 
             if (string.Equals(engine, PythonModelSettings.EngineOnnx, StringComparison.Ordinal))
@@ -182,17 +182,17 @@ namespace MvcVisionSystem._1._Core
                     canTrain: false,
                     canInspect: false,
                     "\uB77C\uBCA8\uB9C1 \uAC00\uB2A5 / ONNX \uCD94\uB860 \uC5F0\uACB0 \uD544\uC694",
-                    "ONNX\uB294 \uCD94\uB860 \uC804\uC6A9 \uD504\uB85C\uD544\uC774\uBA70, \uD604\uC7AC \uAC80\uC0AC \uC2E4\uD589 \uC5F0\uACB0\uC740 \uC544\uC9C1 \uBD84\uB9AC \uAD6C\uD604\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.",
-                    "ONNX \uCD94\uB860 \uC5F0\uACB0\uC774 \uC900\uBE44\uB418\uAE30 \uC804\uC5D0\uB294 YOLOv5 \uD504\uB85C\uD544\uB85C \uAC80\uC0AC\uD558\uC138\uC694.");
+                    "ONNX\uB294 \uCD94\uB860 \uC804\uC6A9\uC785\uB2C8\uB2E4. \uD604\uC7AC \uC774\uBBF8\uC9C0 \uCD94\uB860\uC744 \uC704\uD55C \uBCC4\uB3C4 \uC2E4\uD589 \uD658\uACBD \uC5F0\uACB0\uC774 \uD544\uC694\uD569\uB2C8\uB2E4.",
+                    "ONNX 추론 연결 전에는 YOLOv5 실행 환경으로 추론하세요.");
             }
 
             return new PythonModelRuntimeAdapterSupport(
                 isExecutionSupported: false,
                 canTrain: false,
                 canInspect: false,
-                "\uB77C\uBCA8\uB9C1 \uAC00\uB2A5 / \uBAA8\uB378 \uC2E4\uD589 \uC5F0\uACB0 \uD544\uC694",
-                "\uC120\uD0DD\uD55C \uBAA8\uB378 \uC2E4\uD589 \uC5F0\uACB0\uC744 \uD655\uC778\uD558\uC138\uC694.",
-                "\uBAA8\uB378 \uC2E4\uD589 \uC5F0\uACB0 \uD544\uC694");
+                "라벨링 가능 / 실행 환경 연결 필요",
+                "\uC120\uD0DD\uD55C \uC2E4\uD589 \uD658\uACBD \uC5F0\uACB0\uC744 \uD655\uC778\uD558\uC138\uC694.",
+                "실행 환경 연결 필요");
         }
 
         private static bool SupportsModel(string adapterKey, IEnumerable<string> values)

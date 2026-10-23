@@ -5,12 +5,16 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-                 Title="PatchCore 히트맵 검토"
-                 Width="420"
-                 Height="440"
-                 MinWidth="340"
-                 MinHeight="360"
-                 Background="{DynamicResource AppBackgroundBrush}"
+                 Title="PatchCore 히트맵 확인"
+                 Width="640"
+                 Height="600"
+                 MinWidth="420"
+                 MinHeight="440"
+                 Background="{DynamicResource RecipePageBrush}"
+                 Foreground="{DynamicResource RecipeTextBrush}"
+                 FontFamily="{DynamicResource UiFontFamily}"
+                 FontSize="13"
+                 UseLayoutRounding="True"
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="None"
                  WindowCornerPreference="Round"
@@ -23,117 +27,80 @@
                 <ui:ControlsDictionary />
                 <ResourceDictionary Source="../../Themes/WpfButtonStateTemplates.xaml" />
             </ResourceDictionary.MergedDictionaries>
-            <Style x:Key="PatchCoreHeatmapWindowButtonStyle" TargetType="{x:Type ui:Button}">
-                <Setter Property="Template" Value="{StaticResource WpfUiDarkButtonTemplate}" />
-                <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
-                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
-                <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="11" />
-                <Setter Property="MinHeight" Value="30" />
-                <Style.Triggers>
-                    <Trigger Property="IsMouseOver" Value="True">
-                        <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
-                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                    </Trigger>
-                    <Trigger Property="IsPressed" Value="True">
-                        <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
-                        <Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" />
-                    </Trigger>
-                    <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                    </Trigger>
-                    <Trigger Property="IsEnabled" Value="False">
-                        <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
-                        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
-                        <Setter Property="Opacity" Value="0.45" />
-                    </Trigger>
-                </Style.Triggers>
+            <Style x:Key="PatchCoreHeatmapWindowButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource RecipeButtonBaseStyle}" />
+            <Style TargetType="ToolTip">
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" /><Setter Property="FontSize" Value="13" /><Setter Property="MaxWidth" Value="420" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" /><Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonBorderBrush}" /><Setter Property="BorderThickness" Value="1" /><Setter Property="Padding" Value="10" />
+                <Setter Property="ContentTemplate"><Setter.Value><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" /></DataTemplate></Setter.Value></Setter>
+                <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToolTip"><Border x:Name="ToolTipChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}" CornerRadius="7"><ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}" /></Border></ControlTemplate></Setter.Value></Setter>
             </Style>
         </ResourceDictionary>
     </ui:FluentWindow.Resources>
 
+    <Border Background="{DynamicResource RecipePageBrush}">
     <Grid Margin="18,16,18,18">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        <Grid Grid.Row="0" Margin="0,0,0,10">
+        <Grid Grid.Row="0" Margin="0,0,0,14">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <Border Width="36"
-                    Height="36"
-                    Background="{DynamicResource CanvasBrush}"
-                    BorderBrush="{DynamicResource BorderBrushDark}"
-                    BorderThickness="1"
-                    CornerRadius="5"
-                    Margin="0,0,10,0">
-                <iconPacks:PackIconMaterial Kind="CrosshairsGps"
-                                            Width="19"
-                                            Height="19"
-                                            Foreground="{DynamicResource AccentBrush}"
-                                            HorizontalAlignment="Center"
-                                            VerticalAlignment="Center" />
+            <Border Width="40" Height="40" Background="{DynamicResource RecipeSurfaceBrush}"
+                    BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1" CornerRadius="7" Margin="0,0,12,0">
+                <iconPacks:PackIconMaterial Kind="CrosshairsGps" Width="20" Height="20" Foreground="{DynamicResource RecipeAccentBrush}"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
-            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                <TextBlock Text="PatchCore 히트맵"
-                           Foreground="{DynamicResource PrimaryTextBrush}"
-                           FontFamily="Segoe UI"
-                           FontSize="15"
-                           FontWeight="SemiBold" />
-                <TextBlock Text="{Binding PatchCoreHeatmapFileName}"
-                           ToolTip="{Binding PatchCoreHeatmapToolTip}"
-                           Foreground="{DynamicResource SecondaryTextBrush}"
-                           FontFamily="Segoe UI"
-                           FontSize="9.5"
-                           TextTrimming="CharacterEllipsis"
-                           Margin="0,2,0,0" />
-            </StackPanel>
-            <ui:Button Grid.Column="2"
-                       Style="{StaticResource PatchCoreHeatmapWindowButtonStyle}"
-                       AutomationProperties.Name="PatchCore 히트맵 닫기"
-                       ToolTip="PatchCore 히트맵 검토 창을 닫습니다."
-                       Command="{Binding TogglePatchCoreHeatmapCommand}"
-                       MinWidth="68">
+            <TextBlock Grid.Column="1" Text="PatchCore 히트맵" Foreground="{DynamicResource RecipeTextBrush}" FontSize="18"
+                       FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <ui:Button x:Name="PatchCoreHeatmapCloseButton" Grid.Column="2" Style="{StaticResource PatchCoreHeatmapWindowButtonStyle}"
+                       AutomationProperties.AutomationId="PatchCoreHeatmapCloseButton" AutomationProperties.Name="PatchCore 히트맵 닫기"
+                       ToolTip="PatchCore 히트맵 창을 닫습니다." Command="{Binding TogglePatchCoreHeatmapCommand}"
+                       MinWidth="94" MinHeight="30" VerticalAlignment="Center" KeyboardNavigation.TabIndex="0">
                 <StackPanel Orientation="Horizontal">
-                    <iconPacks:PackIconMaterial Kind="Close" Width="14" Height="14" Margin="0,0,4,0" />
+                    <iconPacks:PackIconMaterial Kind="Close" Width="14" Height="14" Margin="0,0,6,0" />
                     <TextBlock Text="닫기" VerticalAlignment="Center" />
                 </StackPanel>
             </ui:Button>
         </Grid>
-        <Border x:Name="PatchCoreHeatmapPreviewBorder"
-                Grid.Row="1"
-                AutomationProperties.AutomationId="PatchCoreHeatmapPreviewBorder"
-                Background="{DynamicResource PanelBrush}"
-                BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
-                BorderThickness="1"
-                CornerRadius="5"
-                Padding="6">
-            <Image x:Name="PatchCoreHeatmapPreviewImage"
-                   AutomationProperties.AutomationId="PatchCoreHeatmapPreviewImage"
-                   AutomationProperties.Name="PatchCore 결함 위치 히트맵"
-                   Source="{Binding PatchCoreHeatmapSource}"
-                   Stretch="Uniform"
-                   SnapsToDevicePixels="True" />
+        <Border Grid.Row="1" Background="{DynamicResource RecipeSurfaceBrush}" BorderThickness="1" CornerRadius="7" Padding="12,10" Margin="0,0,0,12">
+            <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="{DynamicResource RecipeBorderBrush}" /><Style.Triggers><DataTrigger Binding="{Binding IsKeyboardFocusWithin, ElementName=PatchCoreHeatmapPathScrollViewer}" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></DataTrigger></Style.Triggers></Style></Border.Style>
+            <ScrollViewer x:Name="PatchCoreHeatmapPathScrollViewer" MaxHeight="100" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          Focusable="True" IsTabStop="True" KeyboardNavigation.TabIndex="1" FocusVisualStyle="{x:Null}" AutomationProperties.Name="히트맵 결과 파일 경로">
+                <StackPanel Margin="0,0,16,0">
+                    <TextBlock Text="결과 파일" Foreground="{DynamicResource RecipeMutedTextBrush}" Margin="0,0,0,4" />
+                    <TextBlock x:Name="PatchCoreHeatmapFileNameText" Text="{Binding PatchCoreHeatmapFileName}" ToolTip="{Binding PatchCoreHeatmapToolTip}"
+                               Foreground="{DynamicResource RecipeTextBrush}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock x:Name="PatchCoreHeatmapPathText" Text="{Binding PatchCoreHeatmapToolTip}" Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               TextWrapping="Wrap" Margin="0,4,0,0" />
+                </StackPanel>
+            </ScrollViewer>
         </Border>
-        <Border Grid.Row="2"
-                Background="{DynamicResource CanvasBrush}"
-                BorderBrush="{DynamicResource BorderBrushDark}"
-                BorderThickness="1"
-                CornerRadius="4"
-                Padding="8,6"
-                Margin="0,10,0,0">
-            <TextBlock Text="{Binding PatchCoreHeatmapStatusText}"
-                       ToolTip="{Binding PatchCoreHeatmapStatusText}"
-                       Foreground="{DynamicResource SecondaryTextBrush}"
-                       FontFamily="Segoe UI"
-                       FontSize="10"
-                       TextWrapping="Wrap" />
+        <Border x:Name="PatchCoreHeatmapPreviewBorder" Grid.Row="2" AutomationProperties.AutomationId="PatchCoreHeatmapPreviewBorder"
+                Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}"
+                BorderThickness="1" CornerRadius="7" Padding="8">
+            <Image x:Name="PatchCoreHeatmapPreviewImage" AutomationProperties.AutomationId="PatchCoreHeatmapPreviewImage"
+                   AutomationProperties.Name="PatchCore 결함 위치 히트맵" Source="{Binding PatchCoreHeatmapSource}"
+                   Stretch="Uniform" SnapsToDevicePixels="True" />
+        </Border>
+        <Border Grid.Row="3" Background="{DynamicResource RecipeSurfaceBrush}" BorderThickness="1" CornerRadius="7" Padding="12,10" Margin="0,12,0,0">
+            <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="{DynamicResource RecipeBorderBrush}" /><Style.Triggers><DataTrigger Binding="{Binding IsKeyboardFocusWithin, ElementName=PatchCoreHeatmapStatusScrollViewer}" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></DataTrigger></Style.Triggers></Style></Border.Style>
+            <ScrollViewer x:Name="PatchCoreHeatmapStatusScrollViewer" MaxHeight="112" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          Focusable="True" IsTabStop="True" KeyboardNavigation.TabIndex="2" FocusVisualStyle="{x:Null}" AutomationProperties.Name="히트맵 확인 안내">
+                <StackPanel>
+                    <TextBlock x:Name="PatchCoreHeatmapReadOnlyText" Text="읽기 전용 결과입니다. 히트맵은 정답 라벨이나 정확도가 아닙니다."
+                               Foreground="{DynamicResource RecipeTextBrush}" TextWrapping="Wrap" />
+                    <TextBlock x:Name="PatchCoreHeatmapStatusText" Text="{Binding PatchCoreHeatmapStatusText}" Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               TextWrapping="Wrap" Margin="0,6,0,0" />
+                </StackPanel>
+            </ScrollViewer>
         </Border>
     </Grid>
+    </Border>
 </ui:FluentWindow>

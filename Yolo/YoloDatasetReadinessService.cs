@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Linq;
 using MvcVisionSystem._1._Core;
 
 namespace MvcVisionSystem.Yolo
@@ -38,7 +40,10 @@ namespace MvcVisionSystem.Yolo
                 };
                 return new YoloDatasetReadinessReport(
                     configuration,
-                    new YoloDatasetValidationResult(anomaly.Errors),
+                    new YoloDatasetValidationResult(
+                        PythonModelSettings.NormalizeModelEngine(data.ProjectSettings.PythonModel.ModelEngine) == PythonModelSettings.EnginePatchCore
+                            ? PatchCoreAnomalyTrainingReadinessService.Build(data).Errors
+                            : anomaly.Errors),
                     anomalyStatistics,
                     purpose);
             }
@@ -49,6 +54,9 @@ namespace MvcVisionSystem.Yolo
             }
 
             YoloDatasetValidationResult files = YoloDatasetValidator.ValidateTrainingFiles(data);
+            if (data?.ProjectSettings?.AdditionalImageRootPaths?.Count > 0)
+                files = new YoloDatasetValidationResult(files.Errors.Concat(data.ProjectSettings.ResolveImageRootPaths().Where(root => !Directory.Exists(root))
+                    .Select(root => string.Format(OpenVisionLab.OpenVisionLanguageService.T("DatasetSourceFolders.Unavailable"), root))).ToArray());
             // Keep statistics even when readiness fails so the operator sees the scale of the issue
             // (for example, 125 duplicated train/valid images) instead of a vague "not ready" state.
             YoloDatasetStatistics statistics = YoloDatasetValidator.BuildStatistics(data);

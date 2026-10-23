@@ -110,6 +110,7 @@ namespace MvcVisionSystem.Yolo
                             ? NormalizeQualityReviewNote(persisted.QualityReviewNote)
                             : string.Empty;
                         status.DetectionStatusOverride = string.Empty;
+                        status.LabelSuspicionDismissalIdentity = persisted.LabelSuspicionDismissalIdentity ?? string.Empty;
                         status.LastUpdatedUtc = persisted.LastUpdatedUtc;
                     }
                 }
@@ -120,7 +121,7 @@ namespace MvcVisionSystem.Yolo
             }
         }
 
-        public void SaveReviewStatus(LabelingProjectData data)
+        public void SaveReviewStatus(LabelingProjectData data, bool throwOnError = false)
         {
             string filePath = ResolveReviewStatusFilePath(data);
             if (string.IsNullOrWhiteSpace(filePath))
@@ -134,6 +135,7 @@ namespace MvcVisionSystem.Yolo
                 persistedItems = statuses.Values
                     .Where(status => status.ReviewState != YoloImageReviewState.Unreviewed
                         || status.QualityReviewState != YoloImageQualityReviewState.Unreviewed
+                        || !string.IsNullOrWhiteSpace(status.LabelSuspicionDismissalIdentity)
                         || !string.IsNullOrWhiteSpace(status.QualityReviewNote))
                     .Select(status => new PersistedReviewStatus
                     {
@@ -147,6 +149,7 @@ namespace MvcVisionSystem.Yolo
                         QualityReviewState = status.QualityReviewState,
                         QualityReviewStateName = status.QualityReviewState.ToString(),
                         QualityReviewNote = status.QualityReviewNote,
+                        LabelSuspicionDismissalIdentity = status.LabelSuspicionDismissalIdentity,
                         LastUpdatedUtc = status.LastUpdatedUtc
                     })
                     .OrderBy(item => item.ImagePath, StringComparer.OrdinalIgnoreCase)
@@ -182,6 +185,11 @@ namespace MvcVisionSystem.Yolo
             catch (Exception error)
             {
                 AppLog.ABNORMAL($"Image review status save failed; previous file retained: {filePath} / {error.Message}");
+                if (throwOnError)
+                {
+                    if (error is JsonException) throw new InvalidDataException("Image review status could not be read; the previous file was retained.", error);
+                    throw;
+                }
             }
         }
 
@@ -190,6 +198,18 @@ namespace MvcVisionSystem.Yolo
             lock (syncRoot)
             {
                 return GetOrCreateCore(imagePath);
+            }
+        }
+
+        internal YoloImageReviewStatus SetLabelSuspicionDismissal(string imagePath, string evidenceIdentity)
+        {
+            lock (syncRoot)
+            {
+                YoloImageReviewStatus status = GetOrCreateCore(imagePath);
+                if (status == null) return null;
+                status.LabelSuspicionDismissalIdentity = evidenceIdentity ?? string.Empty;
+                status.LastUpdatedUtc = DateTime.UtcNow;
+                return status;
             }
         }
 
@@ -246,23 +266,30 @@ namespace MvcVisionSystem.Yolo
         {
             lock (syncRoot)
             {
-                YoloImageReviewStatus status = ApplyLabelStatusCore(imagePath, labelStatus);
-                if (status == null || hasActiveCandidates)
-                {
-                    return status;
-                }
+                YoloImageReviewStatus status = GetOrCreateCore(imagePath);
+                if (status == null) return null;
+                var previousState = (status.ReviewState, status.DetectionCandidateCount, status.LastDetectionMessage);
+                DateTime previousUpdatedUtc = status.LastUpdatedUtc;
+                ApplyLabelStatusCore(imagePath, labelStatus);
+                if (hasActiveCandidates) return status;
 
                 if (status.IsLabeled)
                 {
-                    return SetReviewState(status.ImagePath, status.ImageName, YoloImageReviewState.Confirmed, 0, "Candidates confirmed.");
+                    SetReviewState(status.ImagePath, status.ImageName, YoloImageReviewState.Confirmed, 0, "Candidates confirmed.");
                 }
-
-                if (status.LabelStatus?.HasLabelFile == true)
+                else if (status.LabelStatus?.HasLabelFile == true)
                 {
-                    return SetReviewState(status.ImagePath, status.ImageName, YoloImageReviewState.NoCandidate, 0, "Reviewed as no object.");
+                    SetReviewState(status.ImagePath, status.ImageName, YoloImageReviewState.NoCandidate, 0, "Reviewed as no object.");
+                }
+                else
+                {
+                    SetDetectionCandidatesCore(status.ImagePath, status.ImageName, 0);
                 }
 
-                return SetDetectionCandidatesCore(status.ImagePath, status.ImageName, 0);
+                // Rebuilding the label projection must not create a new persisted review event.
+                if (previousState == (status.ReviewState, status.DetectionCandidateCount, status.LastDetectionMessage))
+                    status.LastUpdatedUtc = previousUpdatedUtc;
+                return status;
             }
         }
 
@@ -274,6 +301,7 @@ namespace MvcVisionSystem.Yolo
                 return null;
             }
 
+            YoloImageReviewState previousState = status.ReviewState;
             status.LabelStatus = labelStatus;
             if (status.LabelStatus?.HasObjects == true && status.ReviewState == YoloImageReviewState.Unreviewed)
             {
@@ -284,7 +312,7 @@ namespace MvcVisionSystem.Yolo
                 status.ReviewState = YoloImageReviewState.Unreviewed;
             }
 
-            status.LastUpdatedUtc = DateTime.UtcNow;
+            if (status.ReviewState != previousState) status.LastUpdatedUtc = DateTime.UtcNow;
             return status;
         }
 
@@ -481,15 +509,14 @@ namespace MvcVisionSystem.Yolo
                 return true;
             }
 
-            if (status.IsLabeled)
+            if (status.IsLabeled || status.LabelStatus?.HasLabelFile == true)
             {
                 return false;
             }
 
-            // A reviewed normal image has no label objects, but it is not an operator queue item anymore.
+            // An AI zero-result without saved labels still needs label work.
             return status.ReviewState != YoloImageReviewState.Confirmed
-                && status.ReviewState != YoloImageReviewState.Skipped
-                && status.ReviewState != YoloImageReviewState.NoCandidate;
+                && status.ReviewState != YoloImageReviewState.Skipped;
         }
 
         private YoloImageReviewStatus SetDetectionStatus(string imagePath, string imageName, string text, string message, bool countDetectionAttempt = false)
@@ -700,6 +727,7 @@ namespace MvcVisionSystem.Yolo
             public string QualityReviewStateName { get; set; } = string.Empty;
 
             public string QualityReviewNote { get; set; } = string.Empty;
+            public string LabelSuspicionDismissalIdentity { get; set; } = string.Empty;
 
             public DateTime LastUpdatedUtc { get; set; }
         }

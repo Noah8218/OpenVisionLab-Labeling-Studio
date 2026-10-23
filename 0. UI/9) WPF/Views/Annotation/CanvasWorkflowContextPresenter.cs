@@ -13,17 +13,20 @@ namespace MvcVisionSystem
         private readonly WpfLearningWorkflowPanelViewModel learningWorkflowViewModel;
         private readonly Action refreshSmartMaskCommandState;
         private readonly Func<CanvasWorkflowContextSnapshot> snapshotProvider;
+        private readonly OpenVisionLab.ImageCanvas.ViewModels.RoiImageCanvasViewModel imageCanvasViewModel;
 
         internal CanvasWorkflowContextPresenter(
             WpfCanvasPanelViewModel canvasPanelViewModel,
             WpfLearningWorkflowPanelViewModel learningWorkflowViewModel,
             Action refreshSmartMaskCommandState,
-            Func<CanvasWorkflowContextSnapshot> snapshotProvider)
+            Func<CanvasWorkflowContextSnapshot> snapshotProvider,
+            OpenVisionLab.ImageCanvas.ViewModels.RoiImageCanvasViewModel imageCanvasViewModel = null)
         {
             this.canvasPanelViewModel = canvasPanelViewModel ?? throw new ArgumentNullException(nameof(canvasPanelViewModel));
             this.learningWorkflowViewModel = learningWorkflowViewModel ?? throw new ArgumentNullException(nameof(learningWorkflowViewModel));
             this.refreshSmartMaskCommandState = refreshSmartMaskCommandState ?? throw new ArgumentNullException(nameof(refreshSmartMaskCommandState));
             this.snapshotProvider = snapshotProvider ?? throw new ArgumentNullException(nameof(snapshotProvider));
+            this.imageCanvasViewModel = imageCanvasViewModel;
         }
 
         internal void Refresh()
@@ -47,7 +50,16 @@ namespace MvcVisionSystem
                 snapshot.SelectedTool,
                 snapshot.SelectedToolText,
                 snapshot.ActiveAnnotationTool,
-                snapshot.SelectedBoxDrawingMethod);
+                snapshot.SelectedBoxDrawingMethod,
+                snapshot.EraserScope,
+                snapshot.HasSelectedMaskObject,
+                snapshot.IsSmartMaskCandidateEditActive);
+            if (imageCanvasViewModel != null)
+            {
+                System.Drawing.Color? color = snapshot.IsLabelingStage ? snapshot.LabelClassColor : null;
+                imageCanvasViewModel.LabelDrawingColor = color.HasValue ? System.Drawing.Color.FromArgb((int)Math.Round(color.Value.A * Math.Clamp(snapshot.LabelOpacity, 0D, 1D)), color.Value) : null;
+                imageCanvasViewModel.RectangleGuideToolActive = snapshot.IsLabelingStage && snapshot.ActiveAnnotationTool == WpfAnnotationTool.Rectangle;
+            }
             canvasPanelViewModel.SetWorkflowContext(context);
             learningWorkflowViewModel.SetLiveLabelingTask(context);
         }
@@ -70,7 +82,11 @@ namespace MvcVisionSystem
             WpfAnnotationTool? selectedTool,
             string selectedToolText,
             WpfAnnotationTool activeAnnotationTool,
-            LabelingBoxDrawingMethod? selectedBoxDrawingMethod)
+            LabelingBoxDrawingMethod? selectedBoxDrawingMethod,
+            MaskEraserScope eraserScope = MaskEraserScope.VisibleEditable,
+            bool hasSelectedMaskObject = false,
+            bool isSmartMaskCandidateEditActive = false,
+            bool isLabelingStage = false, System.Drawing.Color? labelClassColor = null, double labelOpacity = 1D)
         {
             IsInferenceMode = isInferenceMode;
             IsAnomalyDatasetPurpose = isAnomalyDatasetPurpose;
@@ -84,6 +100,10 @@ namespace MvcVisionSystem
             SelectedToolText = selectedToolText ?? string.Empty;
             ActiveAnnotationTool = activeAnnotationTool;
             SelectedBoxDrawingMethod = selectedBoxDrawingMethod;
+            EraserScope = eraserScope;
+            HasSelectedMaskObject = hasSelectedMaskObject;
+            IsSmartMaskCandidateEditActive = isSmartMaskCandidateEditActive;
+            IsLabelingStage = isLabelingStage; LabelClassColor = labelClassColor; LabelOpacity = labelOpacity;
         }
 
         internal bool IsInferenceMode { get; }
@@ -109,5 +129,14 @@ namespace MvcVisionSystem
         internal WpfAnnotationTool ActiveAnnotationTool { get; }
 
         internal LabelingBoxDrawingMethod? SelectedBoxDrawingMethod { get; }
+
+        internal MaskEraserScope EraserScope { get; }
+
+        internal bool HasSelectedMaskObject { get; }
+
+        internal bool IsSmartMaskCandidateEditActive { get; }
+        internal bool IsLabelingStage { get; }
+        internal System.Drawing.Color? LabelClassColor { get; }
+        internal double LabelOpacity { get; }
     }
 }

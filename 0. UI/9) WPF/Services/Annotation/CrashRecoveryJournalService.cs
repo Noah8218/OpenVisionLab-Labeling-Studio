@@ -127,7 +127,7 @@ namespace MvcVisionSystem
                     if (!IsSha256(envelope.PayloadSha256)
                         || !string.Equals(envelope.PayloadSha256, actualSha256, StringComparison.OrdinalIgnoreCase))
                     {
-                        throw new InvalidDataException("복구 저널 무결성 검증에 실패했습니다.");
+                        throw new InvalidDataException(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.CrashRecoveryJournalService.IntegrityFailed"));
                     }
 
                     DateTime now = utcNow ?? DateTime.UtcNow;
@@ -169,17 +169,17 @@ namespace MvcVisionSystem
             string expectedDatasetRoot,
             string expectedClassOrderSha256)
         {
-            string normalizedRecipe = NormalizeRequired(expectedRecipeName, "현재 Recipe");
+            string normalizedRecipe = NormalizeRequired(expectedRecipeName, OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.CrashRecoveryJournalService.CurrentRecipe"));
             if (!string.Equals(draft.RecipeName, normalizedRecipe, StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidDataException(
-                    $"복구 초안 Recipe '{draft.RecipeName}'가 현재 Recipe '{normalizedRecipe}'와 다릅니다.");
+                    string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.CrashRecoveryJournalService.WrongRecipe"), draft.RecipeName, normalizedRecipe));
             }
 
             string normalizedExpectedRoot = NormalizePath(expectedDatasetRoot, "현재 데이터셋");
             if (!string.Equals(draft.DatasetRootPath, normalizedExpectedRoot, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidDataException("복구 초안 데이터셋이 현재 Recipe 데이터셋과 다릅니다.");
+                throw new InvalidDataException(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.CrashRecoveryJournalService.WrongDataset"));
             }
 
             if (!string.IsNullOrWhiteSpace(expectedClassOrderSha256)
@@ -188,7 +188,7 @@ namespace MvcVisionSystem
                     NormalizeSha256(expectedClassOrderSha256, "현재 클래스 순서"),
                     StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidDataException("복구 초안 클래스 순서가 현재 Recipe와 다릅니다.");
+                throw new InvalidDataException(OpenVisionLab.OpenVisionLanguageService.T("WpfLabeling.CrashRecoveryJournalService.WrongClasses"));
             }
         }
 

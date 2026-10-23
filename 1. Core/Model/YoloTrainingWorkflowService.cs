@@ -1,7 +1,9 @@
 using MvcVisionSystem._3._Communication.TCP;
 using MvcVisionSystem.Yolo;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 
 namespace MvcVisionSystem._1._Core
@@ -18,12 +20,30 @@ namespace MvcVisionSystem._1._Core
 
         public string LastTrainingRunId { get; private set; } = string.Empty;
 
+        public static bool CanUseQueuedTrainingModel(PythonModelSettings settings, LabelingDatasetPurpose purpose, PythonCommunicationStatus status, string modelEngine, string weightsName, bool requireLocalWeights = true)
+        {
+            if (settings == null) return false;
+            string connected = PythonModelSettings.NormalizeModelEngine(settings.ModelEngine), selected = PythonModelSettings.NormalizeModelEngine(modelEngine);
+            if (connected == selected) return true;
+            if (connected is not (PythonModelSettings.EngineYoloV8 or PythonModelSettings.EngineYolo11) || selected is not (PythonModelSettings.EngineYoloV8 or PythonModelSettings.EngineYolo11)) return false;
+            IEnumerable<string> taskModels = purpose switch { LabelingDatasetPurpose.Segmentation => status?.WorkerSegmentationModels, LabelingDatasetPurpose.AnomalyDetection => status?.WorkerClassificationModels, _ => status?.WorkerDetectionModels };
+            bool Supports(IEnumerable<string> values) => values?.Any(value => PythonModelSettings.NormalizeModelEngine(value) == selected) == true;
+            return status?.IsClientConnected == true && Supports(status.WorkerTrainingModels) && Supports(taskModels)
+                && (!requireLocalWeights || !string.IsNullOrWhiteSpace(weightsName) && status.WorkerRuntimeReadyTrainingWeights?.Any(path => string.Equals(Path.GetFileName(path), weightsName, StringComparison.OrdinalIgnoreCase)) == true);
+        }
+
         public bool TryStartTraining(
             LabelingProjectData data,
             PythonModelCommunication communication,
             string runName = "",
             string recipeName = "",
-            string runId = "")
+            string runId = "",
+            TrainingSettings settingsOverride = null,
+            string weightsOverride = "",
+            string sourceDatasetVersionId = "",
+            string sourceDatasetContentSha256 = "",
+            bool updateRecipeManifest = true,
+            string modelEngineOverride = "")
         {
             if (!TryPrepareTrainingDataset(data, out YoloTrainingDatasetRequest trainingRequest))
             {
@@ -44,7 +64,7 @@ namespace MvcVisionSystem._1._Core
                     recipeSnapshot = RecipeDatasetVersionService.CreateSnapshot(data);
                     trainingRequest.DatasetVersionId = recipeSnapshot.DatasetVersionId;
                     trainingRequest.DatasetContentSha256 = recipeSnapshot.ContentSha256;
-                    if (!string.IsNullOrWhiteSpace(recipeName))
+                    if (updateRecipeManifest && !string.IsNullOrWhiteSpace(recipeName))
                     {
                         LabelingDatasetManifestService.Save(data, recipeName, recipeSnapshot);
                     }
@@ -60,9 +80,15 @@ namespace MvcVisionSystem._1._Core
                 }
             }
 
-            TrainingSettings training = data.GetTrainingSettings();
-            string model = data?.ProjectSettings?.PythonModel?.GetProtocolModelName() ?? "yolov5";
-            string weightFile = ResolveTrainingWeightFile(training.Weight, model, trainingRequest.Task);
+            TrainingSettings training = settingsOverride ?? data.GetTrainingSettings();
+            PythonModelSettings modelSettings = data?.ProjectSettings?.PythonModel;
+            string model = string.IsNullOrWhiteSpace(modelEngineOverride) ? modelSettings?.GetProtocolModelName() ?? "yolov5" : new PythonModelSettings { ModelEngine = modelEngineOverride }.GetProtocolModelName();
+            string weightFile = string.IsNullOrWhiteSpace(weightsOverride) ? ResolveTrainingWeightFile(training.Weight, model, trainingRequest.Task) : weightsOverride.Trim();
+            if (!string.IsNullOrWhiteSpace(modelEngineOverride) && !CanUseQueuedTrainingModel(modelSettings, data.ProjectSettings.DatasetPurpose, communication.GetStatusSnapshot(), modelEngineOverride, weightFile))
+            {
+                LastPreparationFailureMessage = "The connected worker no longer supports this selected training model or its local weights.";
+                return false;
+            }
             if (!TryResolveTrainingRunId(runId, out string trainingRunId))
             {
                 LastPreparationFailureMessage = "학습 Run ID는 영문, 숫자, '-' 또는 '_'만 사용할 수 있습니다.";
@@ -91,9 +117,9 @@ namespace MvcVisionSystem._1._Core
             else
             {
                 data.ProjectSettings.TrainingGuide.LastTrainingDatasetVersionId =
-                    trainingRequest.DatasetVersionId ?? string.Empty;
+                    string.IsNullOrWhiteSpace(sourceDatasetVersionId) ? trainingRequest.DatasetVersionId ?? string.Empty : sourceDatasetVersionId;
                 data.ProjectSettings.TrainingGuide.LastTrainingDatasetContentSha256 =
-                    trainingRequest.DatasetContentSha256 ?? string.Empty;
+                    string.IsNullOrWhiteSpace(sourceDatasetContentSha256) ? trainingRequest.DatasetContentSha256 ?? string.Empty : sourceDatasetContentSha256;
                 data.ProjectSettings.TrainingGuide.LastTrainingRunId = trainingRunId;
                 data.ProjectSettings.TrainingGuide.LastTrainingRunName = trainingRunName;
                 LastTrainingRunId = trainingRunId;
@@ -149,7 +175,8 @@ namespace MvcVisionSystem._1._Core
         public bool TryStopTraining(
             PythonModelCommunication communication,
             YoloPythonClientProcessService processService = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            string runId = null)
         {
             if (communication == null)
             {
@@ -157,7 +184,7 @@ namespace MvcVisionSystem._1._Core
                 return false;
             }
 
-            communication.MarkTrainingStopRequested();
+            communication.MarkTrainingStopRequested(runId);
             bool sent = communication.SendStopTraining();
             if (!sent)
             {

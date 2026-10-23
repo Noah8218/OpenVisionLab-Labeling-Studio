@@ -644,11 +644,10 @@ namespace MvcVisionSystem
             AddExternalReference(references, "modelProjectRoot", python?.ProjectRootPath, datasetRoot);
             AddExternalReference(references, "modelClientScript", python?.ClientScriptPath, datasetRoot);
             AddExternalReference(references, "modelWeights", python?.WeightsPath, datasetRoot);
-            AddExternalReference(
-                references,
-                "imageRoot",
-                data.ProjectSettings?.ResolveImageRootPath(),
-                datasetRoot);
+            IEnumerable<string> sourceRoots = data.ProjectSettings?.AdditionalImageRootPaths?.Count > 0
+                ? data.ProjectSettings.ResolveImageRootPaths() : new[] { data.ProjectSettings?.ResolveImageRootPath() };
+            foreach (string imageRoot in sourceRoots)
+                AddExternalReference(references, "imageRoot", imageRoot, datasetRoot);
             AddExternalReference(references, "externalYoloDataYaml", external?.DataYamlFilePath, datasetRoot);
             return references;
         }

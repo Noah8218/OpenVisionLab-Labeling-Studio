@@ -18,6 +18,10 @@ namespace MvcVisionSystem
             ArgumentNullException.ThrowIfNull(context.DataProvider);
         }
 
+        internal bool HasUnsavedSettings
+            => context.YoloModelSettingsViewModel?.IsSettingsDirty == true
+                || context.TrainingSettingsViewModel?.IsSettingsDirty == true;
+
         internal void PopulateYoloEditorFields()
         {
             context.EnsureProjectSettings?.Invoke();

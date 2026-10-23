@@ -32,12 +32,21 @@ namespace MvcVisionSystem
                 || InvokePointerHandler(context.TryHandlePendingIntelligentScissors, e)
                 || InvokePointerHandler(context.TryApplyPendingSegmentationSplit, e)
                 || InvokePointerHandler(context.TryApplyPendingSegmentationHoleEdit, e)
+                || context.TryApplySmartMaskCandidatePolygonInput?.Invoke(
+                    e,
+                    context.PolygonAnnotationService) == true
                 || InvokePointerHandler(context.TryApplySmartMaskPointInput, e))
             {
                 return;
             }
 
             WpfAnnotationTool activeTool = GetActiveAnnotationTool();
+            if ((activeTool == WpfAnnotationTool.Brush || activeTool == WpfAnnotationTool.Eraser)
+                && context.TryApplySmartMaskCandidateStroke?.Invoke(e, true) == true)
+            {
+                return;
+            }
+
             if (activeTool == WpfAnnotationTool.Select
                 && InvokePointerHandler(context.TryBeginSelectedSegmentEdit, e))
             {
@@ -59,6 +68,8 @@ namespace MvcVisionSystem
             {
                 context.ResetPolygonAnnotation?.Invoke();
                 context.RefreshPolygonOverlays?.Invoke();
+                context.SetCanvasCrossLine?.Invoke(false);
+                context.SetPolygonProgress?.Invoke(0);
                 context.SetYoloCommandStatus?.Invoke(
                     "폴리곤 초안을 취소했습니다. 이미지를 클릭해 새 폴리곤을 시작하세요.",
                     false);
@@ -74,6 +85,8 @@ namespace MvcVisionSystem
             PolygonAnnotationService polygonAnnotationService = context.PolygonAnnotationService;
             if (e.Clicks > 1 && polygonAnnotationService?.Points.Count >= 3)
             {
+                context.SetCanvasCrossLine?.Invoke(false);
+                context.SetPolygonProgress?.Invoke(0);
                 context.CompletePolygonAnnotation?.Invoke();
                 return;
             }
@@ -87,9 +100,13 @@ namespace MvcVisionSystem
             context.RefreshPolygonOverlays?.Invoke();
             if (closed)
             {
+                context.SetCanvasCrossLine?.Invoke(false);
+                context.SetPolygonProgress?.Invoke(0);
                 context.CompletePolygonAnnotation?.Invoke();
                 return;
             }
+
+            context.SetPolygonProgress?.Invoke(polygonAnnotationService.Points.Count);
 
             context.SetYoloCommandStatus?.Invoke(
                 $"폴리곤 초안: {polygonAnnotationService.Points.Count}점. 첫 점 근처를 클릭하거나 더블클릭해 완료하세요.",
@@ -115,6 +132,11 @@ namespace MvcVisionSystem
                 return;
             }
 
+            if (context.TryApplySmartMaskCandidateStroke?.Invoke(e, false) == true)
+            {
+                return;
+            }
+
             context.ApplyMaskAnnotationStroke?.Invoke(e, false);
         }
 
@@ -125,6 +147,7 @@ namespace MvcVisionSystem
                 return;
             }
 
+            context.CompleteSmartMaskCandidateStroke?.Invoke();
             context.CompleteMaskAnnotationStroke?.Invoke();
             context.SetLastMaskStrokePoint?.Invoke(null);
             context.CompleteSelectedSegmentEdit?.Invoke();
@@ -152,11 +175,12 @@ namespace MvcVisionSystem
         internal void BeginPolygonAnnotationMode()
         {
             context.EnsureSegmentationDatasetPurposeForSegmentationTool?.Invoke();
-            context.SetLabelingWorkflowMode?.Invoke();
             context.SetActiveAnnotationTool?.Invoke(WpfAnnotationTool.Polygon);
             context.SetCanvasTeachingMode?.Invoke(false);
             context.SetCanvasImagePointInputMode?.Invoke(true);
             context.SetCanvasInteractionMode?.Invoke(CanvasInteractionMode.None);
+            context.SetCanvasCrossLine?.Invoke(false);
+            context.SetPolygonProgress?.Invoke(0);
             context.ResetPolygonAnnotation?.Invoke();
             context.RefreshPolygonOverlays?.Invoke();
             context.SetModelStatus?.Invoke("도구: 폴리곤 세그멘테이션");
@@ -170,6 +194,8 @@ namespace MvcVisionSystem
         internal void EndPolygonAnnotationMode(bool clearDraft)
         {
             context.SetCanvasImagePointInputMode?.Invoke(false);
+            context.SetCanvasCrossLine?.Invoke(false);
+            context.SetPolygonProgress?.Invoke(0);
             if (clearDraft)
             {
                 context.ResetPolygonAnnotation?.Invoke();
@@ -177,13 +203,76 @@ namespace MvcVisionSystem
             }
         }
 
+        internal bool TryCompletePolygonDraft()
+        {
+            if (context.TryCompleteSmartMaskCandidatePolygonDraft?.Invoke(context.PolygonAnnotationService) == true)
+            {
+                return true;
+            }
+
+            if (GetActiveAnnotationTool() != WpfAnnotationTool.Polygon
+                || context.PolygonAnnotationService?.Points.Count < 3)
+            {
+                return false;
+            }
+
+            context.SetCanvasCrossLine?.Invoke(false);
+            context.SetPolygonProgress?.Invoke(0);
+            context.CompletePolygonAnnotation?.Invoke();
+            return true;
+        }
+
+        internal bool TryRemoveLastPolygonDraftPoint()
+        {
+            if (IsCloseApproved() || GetActiveAnnotationTool() != WpfAnnotationTool.Polygon
+                || context.PolygonAnnotationService?.RemoveLastPoint() != true) return false;
+            context.RefreshPolygonOverlays?.Invoke();
+            context.SetPolygonProgress?.Invoke(context.PolygonAnnotationService.Points.Count);
+            context.RefreshCanvasWorkflowContext?.Invoke();
+            return true;
+        }
+
+        internal bool TryCancelPolygonDraft()
+        {
+            if (context.TryCancelSmartMaskCandidatePolygonDraft?.Invoke(context.PolygonAnnotationService) == true)
+            {
+                return true;
+            }
+
+            if (GetActiveAnnotationTool() != WpfAnnotationTool.Polygon)
+            {
+                return false;
+            }
+
+            if (context.PolygonAnnotationService?.Points.Count == 0)
+            {
+                context.SetCanvasCrossLine?.Invoke(false);
+                context.SetPolygonProgress?.Invoke(0);
+                context.SetYoloCommandStatus?.Invoke(
+                    "폴리곤 초안을 취소했습니다. 이미지를 클릭해 새 폴리곤을 시작하세요.",
+                    false);
+                return true;
+            }
+
+            context.ResetPolygonAnnotation?.Invoke();
+            context.RefreshPolygonOverlays?.Invoke();
+            context.SetCanvasCrossLine?.Invoke(false);
+            context.SetPolygonProgress?.Invoke(0);
+            context.SetYoloCommandStatus?.Invoke(
+                "폴리곤 초안을 취소했습니다. 이미지를 클릭해 새 폴리곤을 시작하세요.",
+                false);
+            return true;
+        }
+
         internal void BeginMaskAnnotationMode(WpfAnnotationTool tool)
         {
             // Do not drop a GPU-previewed brush stroke before MouseUp when tools change.
+            context.CompleteSmartMaskCandidateStroke?.Invoke();
             context.CompleteMaskAnnotationStroke?.Invoke();
             context.EnsureSegmentationDatasetPurposeForSegmentationTool?.Invoke();
-            context.SetLabelingWorkflowMode?.Invoke();
             context.SetActiveAnnotationTool?.Invoke(tool);
+            context.SetCanvasCrossLine?.Invoke(false);
+            context.SetPolygonProgress?.Invoke(0);
             context.SetCanvasTeachingMode?.Invoke(false);
             context.SetCanvasImagePointInputMode?.Invoke(true);
             context.SetCanvasInteractionMode?.Invoke(CanvasInteractionMode.None);
@@ -214,6 +303,7 @@ namespace MvcVisionSystem
 
         internal void EndMaskAnnotationMode()
         {
+            context.CompleteSmartMaskCandidateStroke?.Invoke();
             context.CompleteMaskAnnotationStroke?.Invoke();
             bool materializationScheduled = context.ScheduleQueuedMaskStrokeCommitsAfterToolEnd?.Invoke() == true;
             context.SetLastMaskStrokePoint?.Invoke(null);
@@ -253,10 +343,15 @@ namespace MvcVisionSystem
         internal Func<CanvasImagePointEventArgs, bool> TryApplyPendingSegmentationSplit { get; init; }
         internal Func<CanvasImagePointEventArgs, bool> TryApplyPendingSegmentationHoleEdit { get; init; }
         internal Func<CanvasImagePointEventArgs, bool> TryApplySmartMaskPointInput { get; init; }
+        internal Func<CanvasImagePointEventArgs, PolygonAnnotationService, bool> TryApplySmartMaskCandidatePolygonInput { get; init; }
+        internal Func<PolygonAnnotationService, bool> TryCompleteSmartMaskCandidatePolygonDraft { get; init; }
+        internal Func<PolygonAnnotationService, bool> TryCancelSmartMaskCandidatePolygonDraft { get; init; }
         internal Func<WpfAnnotationTool> ActiveAnnotationToolProvider { get; init; }
         internal Func<CanvasImagePointEventArgs, bool> TryBeginSelectedSegmentEdit { get; init; }
         internal Func<CanvasImagePointEventArgs, bool> TryMoveSelectedSegmentEdit { get; init; }
         internal Action<CanvasImagePointEventArgs, bool> ApplyMaskAnnotationStroke { get; init; }
+        internal Func<CanvasImagePointEventArgs, bool, bool> TryApplySmartMaskCandidateStroke { get; init; }
+        internal Action CompleteSmartMaskCandidateStroke { get; init; }
         internal Action CompleteMaskAnnotationStroke { get; init; }
         internal Action CompleteSelectedSegmentEdit { get; init; }
         internal Action ResetPolygonAnnotation { get; init; }
@@ -266,10 +361,11 @@ namespace MvcVisionSystem
         internal Action RefreshPolygonOverlays { get; init; }
         internal Action<string, bool> SetYoloCommandStatus { get; init; }
         internal Action EnsureSegmentationDatasetPurposeForSegmentationTool { get; init; }
-        internal Action SetLabelingWorkflowMode { get; init; }
         internal Action<WpfAnnotationTool> SetActiveAnnotationTool { get; init; }
         internal Action<bool> SetCanvasTeachingMode { get; init; }
         internal Action<bool> SetCanvasImagePointInputMode { get; init; }
+        internal Action<bool> SetCanvasCrossLine { get; init; }
+        internal Action<int> SetPolygonProgress { get; init; }
         internal Action<CanvasInteractionMode> SetCanvasInteractionMode { get; init; }
         internal Action<string> SetModelStatus { get; init; }
         internal Action<string> AppendLog { get; init; }

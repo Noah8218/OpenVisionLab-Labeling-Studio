@@ -30,12 +30,12 @@ namespace MvcVisionSystem
             string weightsPath = settings?.WeightsPath ?? string.Empty;
             string modelText = BuildModelText(settings, hasPendingModelCandidate);
             string modelPathText = string.IsNullOrWhiteSpace(weightsPath)
-                ? "\uBAA8\uB378 \uACBD\uB85C \uC5C6\uC74C"
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.NoModelPath")
                 : weightsPath;
-            string runtimeText = "\uC2E4\uD589\uAE30: " + BuildRuntimeLabel(settings);
+            string runtimeText = OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.RuntimeLabel") + " " + BuildRuntimeLabel(settings);
             string statusLine = string.IsNullOrWhiteSpace(statusText)
-                ? "\uCD94\uB860 \uC0C1\uD0DC: \uB300\uAE30"
-                : "\uCD94\uB860 \uC0C1\uD0DC: " + statusText.Trim();
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.StatusWaiting")
+                : OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.StatusLabel") + " " + statusText.Trim();
             return $"{statusLine}\n{modelText}\n{runtimeText}\n{modelPathText}";
         }
 
@@ -55,7 +55,7 @@ namespace MvcVisionSystem
             string weightsPath = settings?.WeightsPath ?? string.Empty;
             if (string.IsNullOrWhiteSpace(weightsPath) || !File.Exists(weightsPath))
             {
-                return "\uAC80\uC0AC \uBAA8\uB378: \uC5C6\uC74C";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Status.ModelNone");
             }
 
             string displayPath = TrainingWeightsService.FormatWeightsDisplayPath(weightsPath);
@@ -76,13 +76,14 @@ namespace MvcVisionSystem
             string weightsPath = settings?.WeightsPath ?? string.Empty;
             if (string.IsNullOrWhiteSpace(weightsPath) || !File.Exists(weightsPath))
             {
-                return "\uAC80\uC0AC\uC5D0 \uC0AC\uC6A9\uD560 \uBAA8\uB378 \uD30C\uC77C\uC744 YOLO \uC124\uC815\uC5D0\uC11C \uC120\uD0DD\uD558\uC138\uC694.";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.ChooseModelFile");
             }
 
-            string roleText = hasPendingModelCandidate
-                ? "\uC120\uD0DD\uB41C \uD559\uC2B5 \uACB0\uACFC \uD6C4\uBCF4\uC785\uB2C8\uB2E4. \uAC80\uC0AC \uBAA8\uB378\uB85C \uD655\uC815\uD558\uB824\uBA74 YOLO \uC124\uC815\uC744 \uC800\uC7A5\uD558\uC138\uC694."
-                : "\uD604\uC7AC \uCD94\uB860/\uAC80\uC0AC\uC5D0 \uC0AC\uC6A9\uD558\uB294 \uBAA8\uB378\uC785\uB2C8\uB2E4.";
-            return $"{roleText}\n\uC2E4\uD589\uAE30: {BuildRuntimeLabel(settings)}\n\uBAA8\uB378 \uD30C\uC77C: {weightsPath}";
+            return string.Format(CultureInfo.InvariantCulture,
+                OpenVisionLab.OpenVisionLanguageService.T(hasPendingModelCandidate
+                    ? "WpfInference.Text.InferenceStatusPresentationService.PendingModelToolTip"
+                    : "WpfInference.Text.InferenceStatusPresentationService.InspectionModelToolTip"),
+                BuildRuntimeLabel(settings), weightsPath);
         }
 
         public static string BuildRuntimeModelLabel(PythonModelSettings settings)
@@ -103,17 +104,17 @@ namespace MvcVisionSystem
             string runtimeLabel = BuildRuntimeLabel(settings);
             string currentModel = FormatComparisonModelPath(currentWeightsPath);
             string candidateModel = FormatComparisonModelPath(candidateWeightsPath);
-            return $"\uBE44\uAD50 \uB300\uC0C1: \uD604\uC7AC \uAC80\uC0AC {runtimeLabel} / {currentModel} -> \uD559\uC2B5 \uD6C4\uBCF4 {runtimeLabel} / {candidateModel}";
+            return string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfInference.ComparisonSource.Models"), runtimeLabel, currentModel, runtimeLabel, candidateModel);
         }
 
         public static string BuildInteractivePreparingCommandStatus()
         {
-            return "\uCD94\uB860 \uC900\uBE44 \uC911...";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.PreparingCommand");
         }
 
         public static string BuildInteractivePreparingInferenceStatus()
         {
-            return "\uD604\uC7AC \uC774\uBBF8\uC9C0 \uCD94\uB860 \uC900\uBE44 \uC911";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.PreparingImage");
         }
 
         public static string BuildInteractiveCompletionCommandStatus(YoloWorkerSmokeTestResult result, string elapsedText)
@@ -123,14 +124,14 @@ namespace MvcVisionSystem
             {
                 return string.Format(
                     CultureInfo.CurrentCulture,
-                    "\uCD94\uB860 \uC644\uB8CC: \uD6C4\uBCF4 {0}\uAC1C / {1}",
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.CompletedCommand"),
                     Math.Max(0, result.CandidateCount),
                     elapsed);
             }
 
             return string.Format(
                 CultureInfo.CurrentCulture,
-                "\uCD94\uB860 \uC2E4\uD328: {0} / {1}",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.FailedCommand"),
                 BuildInteractiveDetectionFailureSummary(result),
                 elapsed);
         }
@@ -142,14 +143,14 @@ namespace MvcVisionSystem
             {
                 return string.Format(
                     CultureInfo.CurrentCulture,
-                    "\uC644\uB8CC: \uD6C4\uBCF4 {0}\uAC1C / {1}",
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.CompletedStatus"),
                     Math.Max(0, result.CandidateCount),
                     elapsed);
             }
 
             return string.Format(
                 CultureInfo.CurrentCulture,
-                "\uC2E4\uD328: {0}",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.FailedStatus"),
                 BuildInteractiveDetectionFailureSummary(result));
         }
 
@@ -160,14 +161,14 @@ namespace MvcVisionSystem
             {
                 return string.Format(
                     CultureInfo.CurrentCulture,
-                    "\uB2E8\uC77C \uC774\uBBF8\uC9C0 \uCD94\uB860 \uC644\uB8CC: {0} / \uACBD\uB85C {1}",
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.CompletedLog"),
                     elapsed,
                     NormalizeDisplayText(inferencePathText));
             }
 
             return string.Format(
                 CultureInfo.CurrentCulture,
-                "\uB2E8\uC77C \uC774\uBBF8\uC9C0 \uCD94\uB860 \uC2E4\uD328: {0} / {1}",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.FailedLog"),
                 elapsed,
                 BuildInteractiveDetectionFailureSummary(result));
         }
@@ -178,7 +179,12 @@ namespace MvcVisionSystem
                 result?.Summary,
                 result?.Error,
                 result?.Errors?.FirstOrDefault(),
-                "\uCD94\uB860 \uACB0\uACFC \uB610\uB294 \uC751\uB2F5\uC744 \uD655\uC778\uD558\uC138\uC694.");
+                OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.FailureHelp"));
+            if (string.Equals(summary, BuildWorkerImageMissingSummary(), StringComparison.Ordinal)) summary = OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.ImageMissing");
+            else if (string.Equals(summary, BuildWorkerImageLoadFailureSummary(), StringComparison.Ordinal)) summary = OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.ImageLoadFailed");
+            else if (string.Equals(summary, BuildWorkerTimedOutSummary(), StringComparison.Ordinal)) summary = OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.TimeoutFailure");
+            else if (string.Equals(summary, BuildWorkerCanceledSummary(), StringComparison.Ordinal)) summary = OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.CanceledFailure");
+            else if (string.Equals(summary, BuildWorkerRequestFailureSummary(string.Empty), StringComparison.Ordinal)) summary = OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.RequestFailure");
             summary = summary.Replace(Environment.NewLine, " ").Trim();
             if (summary.Length <= maxLength)
             {
@@ -217,62 +223,65 @@ namespace MvcVisionSystem
         public static string BuildWorkerPreparingInferenceStatus(bool applyToCanvas, string imagePath)
         {
             return applyToCanvas
-                ? "\uD604\uC7AC \uC774\uBBF8\uC9C0 \uCD94\uB860 \uC900\uBE44 \uC911"
-                : string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uCD94\uB860 \uC900\uBE44 {0}", ResolveImageFileName(imagePath));
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.PreparingImage")
+                : string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.BatchPreparing"), ResolveImageFileName(imagePath));
         }
 
         public static string BuildWorkerPreparingCommandStatus()
         {
-            return "\uCD94\uB860 \uC2E4\uD589\uAE30 \uC900\uBE44 \uC911...";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.RuntimePreparing");
         }
 
         public static string BuildWorkerConnectionFailureInferenceStatus()
         {
-            return "\uC2E4\uD328: \uCD94\uB860 \uC5F0\uACB0 \uC2E4\uD328";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.ConnectionFailed");
         }
 
         public static string BuildWorkerConnectionFailureLog(string elapsedText)
         {
             return string.Format(
                 CultureInfo.CurrentCulture,
-                "\uCD94\uB860 \uC5F0\uACB0 \uC2E4\uD328: {0}. \uBAA8\uB378 \uC124\uC815 \uB610\uB294 \uCD94\uB860 \uC2E4\uD589 \uC0C1\uD0DC\uB97C \uD655\uC778\uD558\uC138\uC694.",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.ConnectionFailedLog"),
                 NormalizeElapsedText(elapsedText));
         }
 
         public static string BuildWorkerRunningInferenceStatus(bool applyToCanvas, string imagePath)
         {
             return applyToCanvas
-                ? "AI \uCD94\uB860 \uC911"
-                : string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uCD94\uB860 \uC911 {0}", ResolveImageFileName(imagePath));
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.Running")
+                : string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.BatchRunning"), ResolveImageFileName(imagePath));
         }
 
         public static string BuildWorkerStartLog(string imagePath, string modelSourceText)
         {
             return string.Format(
                 CultureInfo.CurrentCulture,
-                "\uCD94\uB860 \uC2DC\uC791: {0} / \uBAA8\uB378 {1}",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.StartedLog"),
                 ResolveImageFileName(imagePath),
                 NormalizeDisplayText(modelSourceText));
         }
 
         public static string BuildWorkerRequestCommandStatus()
         {
-            return "AI \uCD94\uB860 \uC694\uCCAD \uC911...";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.Requested");
         }
 
         public static string BuildWorkerRequestFailureInferenceStatus()
         {
-            return "\uC2E4\uD328: \uCD94\uB860 \uC694\uCCAD \uC2E4\uD328";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.RequestFailed");
         }
 
         public static string BuildWorkerRequestFailureSummary(string lastError)
         {
-            return FirstNonEmpty(lastError, "\uCD94\uB860 \uAC80\uCD9C \uC694\uCCAD\uC744 \uBCF4\uB0B4\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
+            string summary = FirstNonEmpty(lastError, OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Transport.RequestFailed"));
+            return OpenVisionLab.OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfInference.Transport.RequestDisconnected").Contains(summary, StringComparer.Ordinal)
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Transport.RequestDisconnected")
+                : summary;
         }
 
         public static string BuildWorkerTimedOutInferenceStatus()
         {
-            return "\uC2E4\uD328: \uCD94\uB860 \uC2DC\uAC04 \uCD08\uACFC";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.TimeoutStatus");
         }
 
         public static string BuildWorkerTimedOutSummary()
@@ -293,7 +302,7 @@ namespace MvcVisionSystem
         {
             return string.Format(
                 CultureInfo.CurrentCulture,
-                "\uCD94\uB860: \uC644\uB8CC  \uBAA8\uB378 {0} / \uD6C4\uBCF4 {1}",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.PythonCompleted"),
                 NormalizeDisplayText(modelSourceText),
                 Math.Max(0, candidateCount));
         }
@@ -302,14 +311,14 @@ namespace MvcVisionSystem
         {
             return string.Format(
                 CultureInfo.CurrentCulture,
-                "\uCD94\uB860 \uC2DC\uAC04: {0} / \uBAA8\uB378 {1}",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.ElapsedLog"),
                 NormalizeElapsedText(elapsedText),
                 NormalizeDisplayText(modelSourceText));
         }
 
         public static string BuildWorkerCanceledInferenceStatus()
         {
-            return "\uCD94\uB860 \uCDE8\uC18C";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.InferenceStatusPresentationService.Canceled");
         }
 
         public static string BuildWorkerCanceledSummary()
@@ -322,14 +331,15 @@ namespace MvcVisionSystem
             string weightsPath = settings?.WeightsPath ?? string.Empty;
             if (string.IsNullOrWhiteSpace(weightsPath) || !File.Exists(weightsPath))
             {
-                return "\uAC80\uC0AC \uBAA8\uB378 \uC5C6\uC74C";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Status.ModelNone");
             }
 
             string displayPath = TrainingWeightsService.FormatWeightsDisplayPath(weightsPath);
             string runtimeLabel = BuildRuntimeLabel(settings);
-            return hasPendingModelCandidate
-                ? $"\uBAA8\uB378 \uD6C4\uBCF4 {runtimeLabel} / {displayPath}"
-                : $"\uAC80\uC0AC \uBAA8\uB378 {runtimeLabel} / {displayPath}";
+            return string.Format(CultureInfo.InvariantCulture,
+                OpenVisionLab.OpenVisionLanguageService.T(hasPendingModelCandidate
+                    ? "WpfShell.Status.InspectionCandidate" : "WpfShell.Status.InspectionModel"),
+                runtimeLabel, displayPath);
         }
 
         private static string FormatComparisonModelPath(string weightsPath)
@@ -346,6 +356,8 @@ namespace MvcVisionSystem
             {
                 PythonModelSettings.EngineYoloV8 => "YOLOv8",
                 PythonModelSettings.EngineYolo11 => "YOLO11",
+                PythonModelSettings.EngineUnet => "U-Net",
+                PythonModelSettings.EnginePatchCore => "PatchCore",
                 PythonModelSettings.EngineOnnx => "ONNX",
                 _ => "YOLOv5"
             };

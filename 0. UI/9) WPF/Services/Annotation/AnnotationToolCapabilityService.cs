@@ -12,23 +12,23 @@ namespace MvcVisionSystem
                 [WpfAnnotationTool.Select] = Connected(
                     WpfAnnotationTool.Select,
                     "\uC120\uD0DD",
-                    "\uAC1D\uCCB4 \uC120\uD0DD/\uD3B8\uC9D1 \uBAA8\uB4DC\uB85C \uC804\uD658\uB429\uB2C8\uB2E4."),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.ToolTip.Select.Capability")),
                 [WpfAnnotationTool.Rectangle] = Connected(
                     WpfAnnotationTool.Rectangle,
                     "\uBC15\uC2A4",
-                    "박스 라벨을 그릴 수 있습니다."),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.ToolTip.Rectangle.Capability")),
                 [WpfAnnotationTool.PanZoom] = Connected(
                     WpfAnnotationTool.PanZoom,
-                    "\uC774\uB3D9",
-                    "이미지를 이동하고 확대/축소할 수 있습니다."),
+                    "화면 이동",
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.ToolTip.PanZoom.Capability")),
                 [WpfAnnotationTool.Delete] = Connected(
                     WpfAnnotationTool.Delete,
                     "\uC0AD\uC81C",
-                    "선택한 라벨을 삭제할 수 있습니다."),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.ToolTip.Delete.Capability")),
                 [WpfAnnotationTool.Ellipse] = Connected(
                     WpfAnnotationTool.Ellipse,
                     "\uC6D0/\uD0C0\uC6D0",
-                    "원형 또는 타원형 라벨을 그릴 수 있습니다."),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.ToolTip.Ellipse.Capability")),
                 [WpfAnnotationTool.Polygon] = Connected(
                     WpfAnnotationTool.Polygon,
                     "\uD3F4\uB9AC\uACE4",
@@ -36,19 +36,23 @@ namespace MvcVisionSystem
                 [WpfAnnotationTool.Brush] = Connected(
                     WpfAnnotationTool.Brush,
                     "\uBE0C\uB7EC\uC2DC",
-                    "브러시로 세그멘테이션 마스크를 칠하고 저장할 수 있습니다."),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.ToolTip.Brush.Capability")),
+                [WpfAnnotationTool.SmartMask] = Connected(
+                    WpfAnnotationTool.SmartMask,
+                    "스마트 마스크",
+                    "스마트 마스크 후보를 만들고 경계를 보정할 수 있습니다."),
                 [WpfAnnotationTool.Eraser] = Connected(
                     WpfAnnotationTool.Eraser,
                     "\uC9C0\uC6B0\uAC1C",
-                    "지우개로 마스크 일부를 지우고 저장할 수 있습니다."),
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.ToolTip.Eraser.Capability")),
                 [WpfAnnotationTool.Undo] = Connected(
                     WpfAnnotationTool.Undo,
-                    "되돌리기",
-                    "직전 편집을 되돌릴 수 있습니다."),
+                    "실행 취소",
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.ToolTip.Undo.Capability")),
                 [WpfAnnotationTool.Redo] = Connected(
                     WpfAnnotationTool.Redo,
-                    "다시 적용",
-                    "되돌린 편집을 다시 적용할 수 있습니다.")
+                    "다시 실행",
+                    "실행 취소한 편집을 다시 실행합니다.")
             };
 
         public static AnnotationToolCapability Get(WpfAnnotationTool tool)

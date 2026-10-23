@@ -40,6 +40,14 @@ namespace MvcVisionSystem
                 data,
                 saveAdditionalArtifacts));
 
+        public AnnotationSaveResult SaveUnlabeled(LabelingImageSnapshot activeImage, LabelingProjectData data, Func<bool> saveAdditionalArtifacts)
+        {
+            if (!HasActiveImage(activeImage)) return AnnotationSaveResult.Failed(0);
+            bool saved = LabelingAnnotationPersistence.SaveImageAnnotations(activeImage.ImageName, activeImage.Image, null, null, data,
+                activeImage.ImagePath ?? string.Empty, saveAdditionalArtifacts, keepEmptyLabels: false);
+            return new AnnotationSaveResult(saved, 0);
+        }
+
         private static bool HasActiveImage(LabelingImageSnapshot activeImage)
             => activeImage?.Image != null && !activeImage.ImageSize.IsEmpty;
     }

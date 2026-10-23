@@ -50,28 +50,28 @@ namespace MvcVisionSystem
                     && YoloExternalDatasetIntakeService.HasCurrentSourceIdentity(externalDataset, externalReport, out _));
 
             string canonicalDatasetText = isSegmentationRecipe
-                ? $"공통 입력: 현재 레시피의 저장 마스크 → app-owned canonical export / test {testImageCount}장 / 클래스 {classCount}개"
-                : "이 비교는 Segmentation 레시피에서만 사용할 수 있습니다. 객체탐지 mAP와 U-Net mask 점수는 섞지 않습니다.";
+                ? string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.Input.Recipe"), testImageCount, classCount)
+                : OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.Input.Unsupported");
             string statusText = !isSegmentationRecipe
-                ? "세그멘테이션 레시피 필요"
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.Status.RecipeRequired")
                 : testImageCount <= 0
-                    ? "최종 검증(test) 이미지 필요"
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.Status.TestMissing")
                     : string.IsNullOrWhiteSpace(unetWeightsPath) || string.IsNullOrWhiteSpace(yoloWeightsPath)
-                        ? "두 checkpoint 선택 필요"
-                        : "비교 준비";
+                        ? OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.Status.ModelsRequired")
+                        : OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.Status.Ready");
             string actionText = !isSegmentationRecipe
-                ? "데이터셋 목적을 세그멘테이션으로 설정하고 저장 마스크가 있는 train/valid/test 분할을 준비하세요."
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.Action.Prepare")
                 : testImageCount <= 0
-                    ? "동일 레시피에 test 이미지와 저장된 마스크를 준비한 뒤 비교하세요."
-                    : "U-Net과 YOLO-seg checkpoint를 확인한 뒤 비교 실행을 누르세요. 결과는 artifact에만 저장되며 검사 모델은 자동 교체하지 않습니다.";
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.Action.Test")
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.Action.Run");
 
             if (isSegmentationRecipe && usesExternalNativeYolo)
             {
-                canonicalDatasetText = $"공통 입력: 외부 native YOLO segmentation data.yaml을 원본 변경 없이 canonical mask export로 변환 / test {testImageCount}장 / 클래스 {classCount}개";
+                canonicalDatasetText = string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.Input.External"), testImageCount, classCount);
                 if (!externalSourceReady)
                 {
-                    statusText = "외부 native YOLO source 재검증·명시적 활성화 필요";
-                    actionText = "외부 data.yaml의 원본 파일이 바뀌었거나 아직 활성화되지 않았습니다. Dataset 화면에서 검증 후 명시적으로 사용을 확정하세요.";
+                    statusText = OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.Status.ExternalSource");
+                    actionText = OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.Action.ExternalSource");
                 }
             }
 
@@ -80,7 +80,7 @@ namespace MvcVisionSystem
                 IsVisible = isSegmentationRecipe,
                 CanonicalDatasetText = canonicalDatasetText,
                 StatusText = statusText,
-                DetailText = "동일한 raw raster mask를 Dice/IoU 및 결함 component TP/FP/FN으로 비교합니다. YOLO mAP 보고서와 직접 합산하지 않습니다.",
+                DetailText = OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.Detail.Method"),
                 ActionText = actionText,
                 UnetWeightsPath = unetWeightsPath,
                 YoloWeightsPath = yoloWeightsPath,
@@ -123,20 +123,20 @@ namespace MvcVisionSystem
             var errors = new List<string>();
             if (request?.Data == null)
             {
-                errors.Add("세그멘테이션 비교에 사용할 레시피가 없습니다.");
+                errors.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.Error.RecipeMissing"));
                 return errors;
             }
 
             if (request.Data.ProjectSettings?.DatasetPurpose != LabelingDatasetPurpose.Segmentation)
             {
-                errors.Add("U-Net vs YOLO-seg 비교는 세그멘테이션 레시피에서만 실행할 수 있습니다.");
+                errors.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.Error.RecipePurpose"));
             }
 
             ValidateRuntime(request.UnetSettings, "U-Net", PythonModelSettings.EngineUnet, errors);
             ValidateRuntime(request.YoloSettings, "YOLO-seg", request.YoloEngine, errors);
             if (string.IsNullOrWhiteSpace(request.OutputParentDirectory))
             {
-                errors.Add("세그멘테이션 비교 artifact 저장 위치가 없습니다.");
+                errors.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.Error.OutputMissing"));
             }
 
             return errors;
@@ -171,7 +171,10 @@ namespace MvcVisionSystem
             if (!export.IsReady)
             {
                 return SegmentationAdapterComparisonRunResult.Failed(
-                    "공통 canonical segmentation export를 만들 수 없습니다: " + string.Join(" / ", export.Errors));
+                    string.Format(
+                        System.Globalization.CultureInfo.CurrentCulture,
+                        OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.Error.SharedData"),
+                        string.Join(" / ", export.Errors)));
             }
 
             string runRoot = BuildNewRunRoot(request.OutputParentDirectory, export.DatasetFingerprint);
@@ -192,7 +195,10 @@ namespace MvcVisionSystem
             if (!unetPrediction.Succeeded)
             {
                 return SegmentationAdapterComparisonRunResult.Failed(
-                    "U-Net raw mask export에 실패했습니다: " + FirstLine(unetPrediction.Error),
+                    string.Format(
+                        System.Globalization.CultureInfo.CurrentCulture,
+                        OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.Error.UnetMasks"),
+                        FirstLine(unetPrediction.Error)),
                     export.OutputRootPath,
                     runRoot);
             }
@@ -203,7 +209,10 @@ namespace MvcVisionSystem
             if (!yoloPrediction.Succeeded)
             {
                 return SegmentationAdapterComparisonRunResult.Failed(
-                    "YOLO-seg raw mask export에 실패했습니다: " + FirstLine(yoloPrediction.Error),
+                    string.Format(
+                        System.Globalization.CultureInfo.CurrentCulture,
+                        OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.Error.YoloMasks"),
+                        FirstLine(yoloPrediction.Error)),
                     export.OutputRootPath,
                     runRoot,
                     unetPrediction.PredictionManifestPath);

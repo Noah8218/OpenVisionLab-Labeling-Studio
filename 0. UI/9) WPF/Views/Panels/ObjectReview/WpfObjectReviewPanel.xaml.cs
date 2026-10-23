@@ -1,4 +1,5 @@
 using System.Windows.Controls;
+using System.Windows;
 using Border = System.Windows.Controls.Border;
 using ComboBox = System.Windows.Controls.ComboBox;
 using ListBox = System.Windows.Controls.ListBox;
@@ -9,14 +10,25 @@ namespace MvcVisionSystem
 {
     public partial class WpfObjectReviewPanel : UserControl
     {
+        public static readonly DependencyProperty CandidateReviewViewModelProperty = DependencyProperty.Register(nameof(CandidateReviewViewModel), typeof(WpfCandidateReviewPanelViewModel), typeof(WpfObjectReviewPanel));
+
         public WpfObjectReviewPanel()
         {
             InitializeComponent();
+            var classDisplay = (ObjectReviewClassDisplayConverter)Resources["ObjectReviewClassDisplayConverter"];
+            System.Windows.Data.BindingOperations.SetBinding(classDisplay, ObjectReviewClassDisplayConverter.ClassesProperty, new System.Windows.Data.Binding("Tag.LabelClasses") { Source = this, Mode = System.Windows.Data.BindingMode.OneWay });
         }
 
         public WpfObjectReviewPanelViewModel ViewModel => DataContext as WpfObjectReviewPanelViewModel;
 
+        public WpfCandidateReviewPanelViewModel CandidateReviewViewModel
+        {
+            get => (WpfCandidateReviewPanelViewModel)GetValue(CandidateReviewViewModelProperty);
+            set => SetValue(CandidateReviewViewModelProperty, value);
+        }
+
         public TextBlock SummaryTextBlock => ObjectReviewSummaryText;
+        public ListBox InlineCandidateList => InlineCandidateListBox;
         public Border LabelSaveBadge => ObjectReviewLabelSaveBadge;
         public TextBlock LabelSaveBadgeTextBlock => ObjectReviewLabelSaveBadgeText;
         public TextBlock LabelSaveDetailTextBlock => ObjectReviewLabelSaveDetailText;

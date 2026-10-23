@@ -27,16 +27,16 @@ namespace MvcVisionSystem
         {
             return new TrainingRecoveryStatus
             {
-                Title = "추론 실행기 연결 실패",
+                Title = OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingCommandPresentationService.ConnectionFailed"),
                 Detail = NormalizeDetail(detail),
-                Action = "다음: 모델 실행기의 테스트 또는 재시작으로 연결을 확인한 뒤 학습을 다시 시작하세요."
+                Action = OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingCommandPresentationService.ReconnectAction")
             };
         }
 
         public static string BuildStartCommandResultStatus(bool started)
         {
             return started
-                ? "학습 시작 요청 전달됨. 아직 성공 완료가 아니며, 워커의 시작 응답과 첫 에폭 로그를 확인하는 중입니다. 중지 버튼으로 취소할 수 있습니다."
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingCommandPresentationService.StartRequested")
                 : "학습 시작 명령을 보내지 못했습니다. 데이터셋 준비 상태와 추론 연결을 확인하세요.";
         }
 
@@ -56,13 +56,13 @@ namespace MvcVisionSystem
             {
                 Title = "학습 시작 실패",
                 Detail = NormalizeDetail(detail),
-                Action = "다음: 데이터셋 점검 결과와 모델 실행기 연결 상태를 확인한 뒤 학습 시작을 다시 누르세요."
+                Action = OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingCommandPresentationService.StartRetryAction")
             };
         }
 
         public static string BuildTrainingAcceptedProgressText()
         {
-            return "학습 시작 요청 전달됨 / 워커 시작 확인 대기";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingCommandPresentationService.StartPending");
         }
 
         public static string BuildStartExceptionStatus(string message)
@@ -98,7 +98,7 @@ namespace MvcVisionSystem
             {
                 Title = "학습 중지 실패",
                 Detail = NormalizeDetail(detail),
-                Action = "다음: 모델 실행기 재시작 또는 중지 후 상태를 다시 확인하세요."
+                Action = OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingCommandPresentationService.StopRetryAction")
             };
         }
 
@@ -113,7 +113,7 @@ namespace MvcVisionSystem
             {
                 Title = "학습 중지 오류",
                 Detail = NormalizeDetail(detail),
-                Action = "다음: 상세 로그에서 오류를 확인하고 모델 실행기를 재시작하세요."
+                Action = OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.TrainingCommandPresentationService.StopErrorAction")
             };
         }
 

@@ -23,32 +23,44 @@ namespace MvcVisionSystem
         internal void ApplyDetectionCandidates(
             IReadOnlyList<YoloWorkerSmokeCandidate> candidates,
             bool succeeded)
-            => ApplyDetectionCandidatesCore(candidates, succeeded, clearConfirmed: true);
+            => ApplyDetectionCandidatesCore(candidates, succeeded, clearConfirmed: true, keepCurrentWorkflow: false);
 
         internal void ApplyDetectionCandidatesPreservingConfirmed(
             IReadOnlyList<YoloWorkerSmokeCandidate> candidates,
             bool succeeded)
-            => ApplyDetectionCandidatesCore(candidates, succeeded, clearConfirmed: false);
+            => ApplyDetectionCandidatesCore(candidates, succeeded, clearConfirmed: false, keepCurrentWorkflow: false);
+
+        internal void ApplyDetectionCandidatesPreservingConfirmedInCurrentWorkflow(
+            IReadOnlyList<YoloWorkerSmokeCandidate> candidates,
+            bool succeeded)
+            => ApplyDetectionCandidatesCore(candidates, succeeded, clearConfirmed: false, keepCurrentWorkflow: true);
 
         private void ApplyDetectionCandidatesCore(
             IReadOnlyList<YoloWorkerSmokeCandidate> candidates,
             bool succeeded,
-            bool clearConfirmed)
+            bool clearConfirmed,
+            bool keepCurrentWorkflow)
         {
             int loadedCount = context.CandidateReviewState.LoadPendingCandidates(candidates, clearConfirmed);
             context.ClearCandidateReviewHistory?.Invoke();
-            context.ApplyCanvasDisplayMode?.Invoke(WpfCanvasDisplayMode.InferenceOnly, false, false);
+            context.ApplyCanvasDisplayMode?.Invoke(
+                keepCurrentWorkflow ? WpfCanvasDisplayMode.Both : WpfCanvasDisplayMode.InferenceOnly,
+                false,
+                false);
             context.RefreshCandidateList?.Invoke();
             context.RefreshObjectList?.Invoke();
             context.RedrawReviewRois?.Invoke();
             context.SetActiveImageDetectionStatus?.Invoke(loadedCount, succeeded);
-            context.ApplyActiveAnomalyClassification?.Invoke(candidates);
+            context.ApplyActiveAnomalyClassification?.Invoke(succeeded ? candidates : Array.Empty<YoloWorkerSmokeCandidate>());
             context.AddCandidateReviewHistory?.Invoke(
                 context.DetectionResultPresentationService.BuildCandidateLoadHistory(
                     loadedCount,
                     succeeded,
                     context.CandidateConfidenceFilterProvider?.Invoke() ?? 0D));
-            context.ShowCandidateReviewWorkflowView?.Invoke();
+            if (!keepCurrentWorkflow)
+            {
+                context.ShowCandidateReviewWorkflowView?.Invoke();
+            }
             context.RefreshCanvasWorkflowContext?.Invoke();
 
             if (!context.CandidateReviewState.HasPendingCandidates)
@@ -58,6 +70,16 @@ namespace MvcVisionSystem
             }
 
             context.AppendLog?.Invoke($"AI 후보 로드: {loadedCount}개");
+        }
+
+        internal void RestoreInferenceResult(YoloWorkerSmokeTestResult result)
+        {
+            if (result != null && !result.Succeeded) return;
+            if (result == null) context.CandidateReviewState.ClearPendingCandidates();
+            else context.CandidateReviewState.LoadPendingCandidates(result.Candidates, clearConfirmed: true);
+            context.RefreshCandidateList?.Invoke();
+            context.RedrawReviewRois?.Invoke();
+            context.RefreshCanvasWorkflowContext?.Invoke();
         }
 
         internal void AddCandidateReviewHistory(string message)

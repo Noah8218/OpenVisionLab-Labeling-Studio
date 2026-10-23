@@ -8,7 +8,7 @@ namespace MvcVisionSystem
 {
     public static class ModelRegistryHistoryPresentationService
     {
-        public static IReadOnlyList<WpfModelRegistryHistoryItem> BuildHistoryItems(ModelRegistrySettings registry)
+        public static IReadOnlyList<WpfModelRegistryHistoryItem> BuildHistoryItems(ModelRegistrySettings registry, int maximumItems = 6)
         {
             registry?.EnsureDefaults();
             if (registry == null || registry.Candidates == null || registry.Candidates.Count == 0)
@@ -38,9 +38,52 @@ namespace MvcVisionSystem
                 .Where(item => item != null && !string.IsNullOrWhiteSpace(item.WeightsPath))
                 .OrderByDescending(item => item.IsCurrentInspectionModel)
                 .ThenByDescending(item => ModelRegistryTextPresentationService.ParseUtc(item.LastSeenUtc))
-                .Take(6)
+                .Take(Math.Max(1, maximumItems))
                 .Select(candidate => BuildHistoryItem(candidate, profiles, runs, decisions))
                 .ToList();
+        }
+
+        public static IReadOnlyList<WpfModelRegistryHistoryItem> IncludeConfiguredModel(IReadOnlyList<WpfModelRegistryHistoryItem> items, PythonModelSettings settings, int maximumItems = 6)
+        {
+            items ??= Array.Empty<WpfModelRegistryHistoryItem>();
+            string weightsPath = settings?.WeightsPath?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(weightsPath) || items.Any(item => item?.IsCurrentInspectionModel == true))
+            {
+                return items;
+            }
+
+            var current = new WpfModelRegistryHistoryItem
+            {
+                WeightsPath = weightsPath,
+                ModelEngine = settings.ModelEngine,
+                ProjectRootPath = settings.ProjectRootPath,
+                IsCurrentInspectionModel = true,
+                IsConfiguredModelFallback = true,
+                KindText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Configured.Model"),
+                TitleText = $"{OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Configured.Model")}: {ModelRegistryTextPresentationService.FormatModelPath(weightsPath)}",
+                DetailText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Configured.Detail"),
+                DecisionText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Configured.Detail"),
+                ActionText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Configured.Model"),
+                ActionToolTip = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Configured.Detail")
+            };
+            return new[] { current }.Concat(items.Where(item => item != null && !string.Equals(item.WeightsPath, weightsPath, StringComparison.OrdinalIgnoreCase))).Take(Math.Max(1, maximumItems)).ToArray();
+        }
+
+        public static IReadOnlyList<WpfModelRegistryHistoryItem> IncludeInferenceSelection(IReadOnlyList<WpfModelRegistryHistoryItem> items, WpfModelRegistryHistoryItem selection, int maximumItems = 6)
+        {
+            items ??= Array.Empty<WpfModelRegistryHistoryItem>();
+            if (selection == null || items.Any(item => item != null
+                && string.Equals(item.CandidateId, selection.CandidateId, StringComparison.Ordinal)
+                && string.Equals(item.WeightsPath, selection.WeightsPath, StringComparison.OrdinalIgnoreCase)))
+            {
+                return items;
+            }
+
+            return items.Where(item => item?.IsCurrentInspectionModel == true)
+                .Concat(new[] { selection })
+                .Concat(items.Where(item => item != null && !item.IsCurrentInspectionModel))
+                .Take(Math.Max(1, maximumItems))
+                .ToArray();
         }
 
         public static WpfModelRegistryHistoryItem FindHistorySelection(
@@ -75,17 +118,17 @@ namespace MvcVisionSystem
             IEnumerable<WpfModelRegistryHistoryItem> items,
             WpfModelRegistryHistoryItem selected)
         {
-            const string comparisonTitle = "\uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uACFC \uC120\uD0DD \uC774\uB825 \uBAA8\uB378";
+            string comparisonTitle = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Selection.ComparisonTitle");
             if (selected == null)
             {
                 return new WpfModelRegistryHistorySelectionPresentation
                 {
                     IsVisible = false,
-                    TitleText = "\uBAA8\uB378 \uC774\uB825 \uC120\uD0DD \uC5C6\uC74C",
-                    DetailText = "\uC774\uB825\uC744 \uC120\uD0DD\uD558\uBA74 \uAC00\uC911\uCE58, \uC9C0\uD45C, \uC801\uC6A9 \uAC00\uB2A5 \uC5EC\uBD80\uB97C \uD655\uC778\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.",
+                    TitleText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Selection.NoneTitle"),
+                    DetailText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Selection.NoneDetail"),
                     ComparisonTitleText = comparisonTitle,
-                    ActionText = "\uC801\uC6A9 \uBD88\uAC00",
-                    ActionToolTip = "\uC801\uC6A9\uD560 \uBAA8\uB378 \uC774\uB825\uC744 \uBA3C\uC800 \uC120\uD0DD\uD558\uC138\uC694.",
+                    ActionText = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Selection.CannotAssign"),
+                    ActionToolTip = OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Selection.SelectFirst"),
                     CanPromoteToInspectionModel = false
                 };
             }
@@ -93,16 +136,16 @@ namespace MvcVisionSystem
             WpfModelRegistryHistoryItem current = (items ?? Array.Empty<WpfModelRegistryHistoryItem>())
                 .FirstOrDefault(item => item?.IsCurrentInspectionModel == true);
             string title = string.IsNullOrWhiteSpace(selected.TitleText)
-                ? "\uBAA8\uB378 \uC774\uB825"
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Selection.TitleFallback")
                 : selected.TitleText.Trim();
             string detail = string.IsNullOrWhiteSpace(selected.DetailText)
                 ? selected.WeightsPath ?? string.Empty
                 : selected.DetailText.Trim();
             string actionText = string.IsNullOrWhiteSpace(selected.ActionText)
-                ? "\uC801\uC6A9 \uBD88\uAC00"
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Selection.CannotAssign")
                 : selected.ActionText.Trim();
             string actionToolTip = string.IsNullOrWhiteSpace(selected.ActionToolTip)
-                ? "\uC120\uD0DD\uD55C \uBAA8\uB378 \uC774\uB825\uC744 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD569\uB2C8\uB2E4."
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Selection.AssignToolTip")
                 : selected.ActionToolTip.Trim();
 
             return new WpfModelRegistryHistorySelectionPresentation
@@ -114,9 +157,9 @@ namespace MvcVisionSystem
                 DecisionText = selected.DecisionText ?? string.Empty,
                 ComparisonTitleText = comparisonTitle,
                 CurrentModelText = current == null
-                    ? "\uD604\uC7AC \uAC80\uC0AC: \uB4F1\uB85D\uB41C \uC774\uB825 \uC5C6\uC74C"
-                    : BuildHistoryComparisonRowText("\uD604\uC7AC \uAC80\uC0AC", current),
-                SelectedModelText = selected.IsCurrentInspectionModel
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Current.Empty")
+                    : current.IsConfiguredModelFallback ? current.TitleText : BuildHistoryComparisonRowText(OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Current.Label"), current),
+                SelectedModelText = selected.IsConfiguredModelFallback ? selected.TitleText : selected.IsCurrentInspectionModel
                     ? "\uC120\uD0DD \uC774\uB825: \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uACFC \uAC19\uC74C"
                     : BuildHistoryComparisonRowText("\uC120\uD0DD \uC774\uB825", selected),
                 ComparisonMetricText = BuildHistoryComparisonMetricText(current, selected),
@@ -137,15 +180,15 @@ namespace MvcVisionSystem
             decisions.TryGetValue(candidate.CandidateId ?? string.Empty, out ModelCandidateDecision decision);
 
             string titlePrefix = candidate.IsCurrentInspectionModel
-                ? "\uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378"
-                : "\uD559\uC2B5 \uD6C4\uBCF4";
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Current.Kind")
+                : OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Trained.Label");
             string modelPath = ModelRegistryTextPresentationService.FormatModelPath(candidate.WeightsPath);
             string profileText = string.IsNullOrWhiteSpace(profile?.DisplayName)
-                ? "\uD504\uB85C\uD544 \uBBF8\uD655\uC778"
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Profile.Unknown")
                 : profile.DisplayName;
             string runText = run == null
-                ? "\uC2E4\uD589 \uC774\uB825 \uBBF8\uD655\uC778"
-                : $"\uC2E4\uD589 {ModelRegistryTextPresentationService.FormatTrainingState(run.State)} {ModelRegistryTextPresentationService.FormatLocalTime(run.EventUtc)}".TrimEnd();
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Run.Unknown")
+                : string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Run.Value"), ModelRegistryTextPresentationService.FormatTrainingState(run.State), ModelRegistryTextPresentationService.FormatLocalTime(run.EventUtc)).TrimEnd();
             string baseline = ModelRegistryTextPresentationService.FormatModelPath(candidate.BaselineWeightsPath);
             string baselineText = string.IsNullOrWhiteSpace(baseline)
                 ? string.Empty
@@ -164,7 +207,7 @@ namespace MvcVisionSystem
             string decisionText = ModelRegistryTextPresentationService.FormatCandidateDecisionText(decisionCode);
             if (string.IsNullOrWhiteSpace(decisionText))
             {
-                decisionText = candidate.SavedToRecipe ? "\uCC44\uD0DD" : "\uB300\uAE30";
+                decisionText = candidate.SavedToRecipe ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.Decision.Assigned") : OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.Decision.Pending");
             }
 
             bool weightsExists = File.Exists(candidate.WeightsPath ?? string.Empty)
@@ -173,14 +216,27 @@ namespace MvcVisionSystem
                 || ModelArtifactStoreService.Verify(candidate.ArtifactPath, candidate.WeightsSha256);
             bool isRejected = string.Equals(decisionCode, ModelRegistryService.CandidateDecisionRejected, StringComparison.Ordinal);
             bool canPromote = !candidate.IsCurrentInspectionModel && weightsExists && artifactVerified && !isRejected;
+            bool canRunInferenceTrial = !candidate.IsCurrentInspectionModel
+                && !isRejected
+                && File.Exists(candidate.WeightsPath ?? string.Empty)
+                && artifactVerified
+                && profile != null
+                && string.Equals(profile.DatasetPurpose, LabelingDatasetPurpose.ObjectDetection.ToString(), StringComparison.Ordinal)
+                && PythonModelSettings.GetSupportedModelEngines().Contains(
+                    PythonModelSettings.NormalizeModelEngine(profile.ModelEngine),
+                    StringComparer.Ordinal);
             return new WpfModelRegistryHistoryItem
             {
                 CandidateId = candidate.CandidateId ?? string.Empty,
                 ProfileId = candidate.ProfileId ?? string.Empty,
                 TrainingRunId = candidate.TrainingRunId ?? string.Empty,
+                TrainingRunName = run?.RunName ?? string.Empty,
                 DatasetVersionId = run?.DatasetVersionId ?? string.Empty,
                 DatasetContentSha256 = run?.DatasetContentSha256 ?? string.Empty,
                 WeightsPath = candidate.WeightsPath ?? string.Empty,
+                ModelEngine = profile?.ModelEngine ?? string.Empty,
+                ProjectRootPath = profile?.ProjectRootPath ?? string.Empty,
+                CanRunInferenceTrial = canRunInferenceTrial,
                 WeightsSha256 = candidate.WeightsSha256 ?? string.Empty,
                 ArtifactPath = candidate.ArtifactPath ?? string.Empty,
                 ArtifactStatus = candidate.ArtifactStatus ?? string.Empty,

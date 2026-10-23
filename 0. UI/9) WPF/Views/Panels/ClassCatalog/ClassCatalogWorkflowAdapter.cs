@@ -24,6 +24,7 @@ namespace MvcVisionSystem
         #region ClassCatalog
         internal void FocusClassCatalogTab()
         {
+            if (context.IsClassAddDialogOpen?.Invoke() == true) context.ClassCatalogViewModel?.PrepareClassAddDialog();
             context.ShowClassCatalogWorkflowView?.Invoke(context.IsDatasetStageActive?.Invoke() == true
                 ? WpfShellWorkflowStage.Dataset
                 : WpfShellWorkflowStage.Labeling);
@@ -61,8 +62,9 @@ namespace MvcVisionSystem
                 case WpfClassCatalogMutationKind.Add:
                     RefreshClassCatalogPersistencePresentation();
                     PopulateClassList(result.ClassItem?.Text);
-                    context.ClassCatalogViewModel?.ClearClassName();
-                    context.ClassNameBox?.Focus();
+                    context.ClassCatalogViewModel?.ClearNewClassName();
+                    if (context.IsClassAddDialogOpen?.Invoke() == true) context.CloseClassCatalogDialog?.Invoke();
+                    else context.ClassNameBox?.Focus();
                     break;
                 case WpfClassCatalogMutationKind.Rename:
                     RenameActiveAnnotationClasses(result.PreviousClassName, result.ClassItem?.Text, result.ClassItem);
@@ -273,6 +275,8 @@ namespace MvcVisionSystem
         internal AnnotationDirtyState AnnotationDirtyState { get; init; }
         internal Func<bool> IsApplicationCloseApproved { get; init; }
         internal Func<bool> IsDatasetStageActive { get; init; }
+        internal Func<bool> IsClassAddDialogOpen { get; init; }
+        internal Action CloseClassCatalogDialog { get; init; }
         internal Action<WpfShellWorkflowStage> ShowClassCatalogWorkflowView { get; init; }
         internal Action UpdateLayout { get; init; }
         internal Func<string, string, string> SelectOutputRootFolder { get; init; }

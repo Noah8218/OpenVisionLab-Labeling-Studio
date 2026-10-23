@@ -31,6 +31,13 @@ namespace MvcVisionSystem
             IsClosed = false;
         }
 
+        public bool RemoveLastPoint()
+        {
+            if (IsClosed || points.Count == 0) return false;
+            points.RemoveAt(points.Count - 1);
+            return true;
+        }
+
         public bool TryAddPoint(Point imagePoint, Size imageSize, out bool closed)
         {
             closed = false;

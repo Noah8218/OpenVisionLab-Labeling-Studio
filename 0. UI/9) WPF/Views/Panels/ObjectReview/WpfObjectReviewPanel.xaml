@@ -7,14 +7,173 @@
              xmlns:mvvm="clr-namespace:OpenVisionLab.Mvvm.Behaviors;assembly=OpenVisionLab.Mvvm"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
     <UserControl.Resources>
+      <ResourceDictionary>
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="../../../Themes/WpfButtonStateTemplates.xaml" />
+            <ResourceDictionary Source="../CandidateReview/CandidateReviewResources.xaml" />
+        </ResourceDictionary.MergedDictionaries>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <local:ObjectReviewClassDisplayConverter x:Key="ObjectReviewClassDisplayConverter" />
+
+        <Style x:Key="ObjectReviewClassListBoxItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="ToolTip" Value="{Binding ToolTip}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding CanonicalDisplayText}" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid>
+                            <Border x:Name="ClassChoiceChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5.5" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" />
+                            </Border>
+                            <Border x:Name="ClassChoiceFocusCue" BorderBrush="Transparent" BorderThickness="2" CornerRadius="6" IsHitTestVisible="False" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="ClassChoiceFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="ClassChoiceFocusCue" Property="BorderBrush" Value="Transparent" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource RecipeSelectedBorderBrush}" />
+                </Trigger>
+                <MultiTrigger>
+                    <MultiTrigger.Conditions><Condition Property="IsSelected" Value="True" /><Condition Property="IsMouseOver" Value="True" /></MultiTrigger.Conditions>
+                    <Setter Property="Background" Value="{DynamicResource RecipeSelectedHoverBrush}" />
+                </MultiTrigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" />
+                    <Setter Property="Cursor" Value="Arrow" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ObjectReviewObjectListBoxItemStyle" TargetType="ListBoxItem" BasedOn="{StaticResource ObjectReviewClassListBoxItemStyle}">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Padding" Value="4" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding DisplayText}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid>
+                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" />
+                            </Border>
+                            <Border x:Name="ObjectRowFocusCue" BorderBrush="Transparent" BorderThickness="2" CornerRadius="6" IsHitTestVisible="False" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="ObjectRowFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMetadataFilterMatch}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ShellViewModel.IsSavedLabelsShortcutActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/></MultiDataTrigger.Conditions><Setter Property="Padding" Value="8,5"/></MultiDataTrigger>
+                <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ShellViewModel.IsSavedLabelsShortcutActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/><Condition Binding="{Binding IsEnabled}" Value="False"/></MultiDataTrigger.Conditions><Setter Property="Padding" Value="0"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="Background" Value="Transparent"/><Setter Property="BorderBrush" Value="Transparent"/></MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="ObjectReviewEditActionButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource RecipeButtonBaseStyle}">
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+        <Style x:Key="ObjectReviewSessionButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource RecipeQuietButtonStyle}">
+            <Setter Property="MinWidth" Value="30" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource RecipeSelectedBorderBrush}" />
+                </DataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="True" />
+                        <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsMouseOver}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="{DynamicResource RecipeSelectedHoverBrush}" />
+                </MultiDataTrigger>
+                <Trigger Property="IsPressed" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeButtonPressedBrush}" /></Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="ObjectReviewEditClassBoxStyle" TargetType="ComboBox" BasedOn="{StaticResource RecipeComboBoxStyle}">
+            <Style.Resources>
+                <Style TargetType="ToggleButton" BasedOn="{StaticResource RecipeButtonBaseStyle}">
+                    <Setter Property="FontSize" Value="{Binding FontSize, RelativeSource={RelativeSource TemplatedParent}}" />
+                </Style>
+            </Style.Resources>
+            <Setter Property="Height" Value="Auto" />
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="ItemTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <TextBlock TextWrapping="Wrap" MaxWidth="180">
+                            <TextBlock.Text>
+                                <MultiBinding Converter="{StaticResource ObjectReviewClassDisplayConverter}" Mode="OneWay">
+                                    <Binding />
+                                    <Binding Source="{StaticResource ObjectReviewClassDisplayConverter}" Path="Classes" />
+                                    <Binding Source="{StaticResource ObjectReviewClassDisplayConverter}" Path="Revision" />
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" />
+                    <Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="ObjectReviewHistoryListBoxItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}"><ContentPresenter /></Border></ControlTemplate></Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}" /></Trigger>
+                <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" /></Trigger>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger>
+            </Style.Triggers>
+        </Style>
 
         <Style x:Key="ObjectReviewButtonStyle" TargetType="{x:Type ui:Button}">
             <Setter Property="Template" Value="{DynamicResource WpfUiDarkButtonTemplate}" />
             <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="MinHeight" Value="26" />
             <Style.Triggers>
@@ -68,7 +227,7 @@
             <Setter Property="Background" Value="{DynamicResource InputBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="Margin" Value="0,3,0,0" />
             <Setter Property="MaxDropDownHeight" Value="220" />
@@ -167,7 +326,8 @@
             </Style.Triggers>
         </Style>
 
-        <Style x:Key="ObjectReviewMergeCheckBoxStyle" TargetType="CheckBox">
+        <Style x:Key="ObjectReviewMergeCheckBoxStyle" TargetType="CheckBox" BasedOn="{StaticResource RecipeCheckBoxStyle}">
+            <Setter Property="MinHeight" Value="18" />
             <Setter Property="Visibility" Value="Collapsed" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Margin" Value="0,0,7,0" />
@@ -177,6 +337,24 @@
                 <DataTrigger Binding="{Binding IsMergeSelectionVisible}" Value="True">
                     <Setter Property="Visibility" Value="Visible" />
                 </DataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" />
+                        <Condition Binding="{Binding DataContext.ShellViewModel.IsSavedLabelsShortcutActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" />
+                        <Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="False" />
+                        <Condition Binding="{Binding DataContext.IsSegmentAdvancedEditorOpen, RelativeSource={RelativeSource AncestorType={x:Type local:WpfObjectReviewPanel}}}" Value="False" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </MultiDataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" />
+                        <Condition Binding="{Binding DataContext.ShellViewModel.IsSavedLabelsShortcutActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" />
+                        <Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="False" />
+                        <Condition Binding="{Binding IsExpanded, ElementName=ObjectReviewSecondaryEditor}" Value="False" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </MultiDataTrigger>
             </Style.Triggers>
         </Style>
 
@@ -209,25 +387,145 @@
                     <Setter Property="Background" Value="#173B29" />
                     <Setter Property="BorderBrush" Value="#57C785" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding LabelSaveStateKey}" Value="SaveError">
+                    <Setter Property="BorderBrush" Value="{DynamicResource ErrorBrush}" />
+                </DataTrigger>
             </Style.Triggers>
         </Style>
+      </ResourceDictionary>
     </UserControl.Resources>
 
-    <Grid Margin="8">
+    <ScrollViewer x:Name="ObjectReviewScrollViewer"
+                  AutomationProperties.AutomationId="ObjectReviewScrollViewer"
+                  Margin="0"
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  CanContentScroll="True"
+                  Focusable="False">
+    <ScrollViewer.Style><Style TargetType="ScrollViewer" BasedOn="{StaticResource {x:Type ScrollViewer}}"><Style.Triggers>
+        <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ShellViewModel.IsSavedLabelsShortcutActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/></MultiDataTrigger.Conditions><Setter Property="Template"><Setter.Value>
+            <!-- Preserve the pinned UiScrollViewer parts and bindings; reserve its existing scrollbar row/column in this inspector. -->
+            <ControlTemplate TargetType="ScrollViewer">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Grid Grid.Row="0" Grid.Column="0" Margin="{TemplateBinding Padding}"><ScrollContentPresenter CanContentScroll="{TemplateBinding CanContentScroll}"/></Grid>
+                    <ScrollBar x:Name="PART_VerticalScrollBar" Grid.Row="0" Grid.Column="1" Maximum="{TemplateBinding ScrollableHeight}" ViewportSize="{TemplateBinding ViewportHeight}" Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" Value="{TemplateBinding VerticalOffset}"/>
+                    <ScrollBar x:Name="PART_HorizontalScrollBar" Grid.Row="1" Grid.Column="0" Maximum="{TemplateBinding ScrollableWidth}" Orientation="Horizontal" ViewportSize="{TemplateBinding ViewportWidth}" Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" Value="{TemplateBinding HorizontalOffset}"/>
+                </Grid>
+            </ControlTemplate>
+        </Setter.Value></Setter></MultiDataTrigger>
+    </Style.Triggers></Style></ScrollViewer.Style>
+    <Grid><Grid.Style><Style TargetType="Grid"><Setter Property="Margin" Value="8"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyGridActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/></MultiDataTrigger.Conditions><Setter Property="Margin" Value="0"/></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ShellViewModel.IsSavedLabelsShortcutActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/></MultiDataTrigger.Conditions><Setter Property="Margin" Value="0"/></MultiDataTrigger></Style.Triggers></Style></Grid.Style>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
+        <Border x:Name="ObjectReviewReferenceClassPanel"
+                AutomationProperties.AutomationId="ObjectReviewReferenceClassPanel"
+                Background="Transparent"
+                BorderBrush="{DynamicResource RecipeBorderBrush}"
+
+                CornerRadius="6"
+
+               ><Border.Style><Style TargetType="Border"><Setter Property="Padding" Value="14,12"/><Setter Property="Margin" Value="0,0,0,8"/><Setter Property="BorderThickness" Value="0,0,0,1"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyGridActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/><Condition Binding="{Binding IsLabelingModeActive}" Value="True"/><Condition Binding="{Binding SelectedObject}" Value="{x:Null}"/></MultiDataTrigger.Conditions><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="BorderThickness" Value="0"/></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyGridActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/><Condition Binding="{Binding DataContext.CanvasPanelViewModel.SelectedAnnotationTool.Tool, RelativeSource={RelativeSource AncestorType=Window}}" Value="{x:Static local:WpfAnnotationTool.Rectangle}"/></MultiDataTrigger.Conditions><Setter Property="Padding" Value="14,12"/><Setter Property="Margin" Value="0,0,0,8"/><Setter Property="BorderThickness" Value="0,0,0,1"/></MultiDataTrigger></Style.Triggers></Style></Border.Style>
+            <StackPanel>
+                <Border Background="#3D1E22" BorderBrush="#73343A" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,12"
+                        Visibility="{Binding IsQualityNeedsFixActive, Converter={StaticResource BooleanToVisibilityConverter}}" AutomationProperties.AutomationId="ImageReviewRejectionBanner">
+                    <StackPanel>
+                        <TextBlock Text="{Binding QualityReviewStatusText}" FontSize="13" FontWeight="SemiBold" Foreground="#FFB3B3" />
+                        <TextBlock Text="{Binding QualityReviewNoteText, Mode=OneWay, Converter={StaticResource CandidateReviewWordBoundaryConverter}}" AutomationProperties.Name="{Binding QualityReviewNoteText, Mode=OneWay}" TextWrapping="Wrap" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" FontSize="12" Foreground="#FFB3B3" Margin="0,6,0,0" AutomationProperties.AutomationId="ImageReviewRejectionNoteText" />
+                        <TextBlock Text="{Binding QualityReviewDetailText, Mode=OneWay, Converter={StaticResource CandidateReviewWordBoundaryConverter}}" AutomationProperties.Name="{Binding QualityReviewDetailText, Mode=OneWay}" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource RecipeMutedTextBrush}" Margin="0,6,0,0" />
+                    </StackPanel>
+                </Border>
+                <Grid><Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyGridActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/><Condition Binding="{Binding IsLabelingModeActive}" Value="True"/><Condition Binding="{Binding SelectedObject}" Value="{x:Null}"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Collapsed"/></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyGridActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/><Condition Binding="{Binding DataContext.CanvasPanelViewModel.SelectedAnnotationTool.Tool, RelativeSource={RelativeSource AncestorType=Window}}" Value="{x:Static local:WpfAnnotationTool.Rectangle}"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible"/></MultiDataTrigger></Style.Triggers></Style></Grid.Style>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="ObjectReviewReferenceClassTitleText"
+                               AutomationProperties.AutomationId="ObjectReviewReferenceClassTitleText"
+                               Text="{Binding DataContext.LanguageViewModel[WpfObjectReview.Class.Title], RelativeSource={RelativeSource AncestorType=Window}}"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               LineHeight="17.4" LineStackingStrategy="BlockLineHeight" />
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding DataContext.LanguageViewModel[WpfObjectReview.Class.SelectionHint], RelativeSource={RelativeSource AncestorType=Window}}"
+                               AutomationProperties.Name="{Binding Text, RelativeSource={RelativeSource Self}}"
+                               Foreground="{DynamicResource RecipeDisabledTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="12" FontWeight="SemiBold"
+                               LineHeight="17.4" LineStackingStrategy="BlockLineHeight"
+                               VerticalAlignment="Center" />
+                </Grid>
+                <ListBox x:Name="ObjectReviewReferenceClassListBox"
+                         AutomationProperties.AutomationId="ObjectReviewReferenceClassListBox"
+                         Margin="0,8,0,0"
+                         MaxHeight="180"
+                         ItemsSource="{Binding Tag.LabelClasses, ElementName=ObjectReviewRoot}"
+                         SelectedItem="{Binding Tag.SelectedLabelClass, ElementName=ObjectReviewRoot, Mode=TwoWay}"
+                         Background="Transparent" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding Tag.LabelClassSelectionChangedCommand, ElementName=ObjectReviewRoot}"><ListBox.Style><Style TargetType="ListBox"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyGridActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/><Condition Binding="{Binding IsLabelingModeActive}" Value="True"/><Condition Binding="{Binding SelectedObject}" Value="{x:Null}"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Collapsed"/></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyGridActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/><Condition Binding="{Binding DataContext.CanvasPanelViewModel.SelectedAnnotationTool.Tool, RelativeSource={RelativeSource AncestorType=Window}}" Value="{x:Static local:WpfAnnotationTool.Rectangle}"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible"/></MultiDataTrigger></Style.Triggers></Style></ListBox.Style>
+                    <ListBox.InputBindings>
+                        <KeyBinding Key="Enter" Command="{Binding ApplyReferenceClassCommand}" />
+                        <KeyBinding Key="Space" Command="{Binding ApplyReferenceClassCommand}" />
+                    </ListBox.InputBindings>
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource ObjectReviewClassListBoxItemStyle}">
+                            <Setter Property="mvvm:InputCommandBehaviors.MouseClickInputCommand"
+                                    Value="{Binding DataContext.ApplyReferenceClassCommand, RelativeSource={RelativeSource AncestorType={x:Type local:WpfObjectReviewPanel}}}" />
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.Template>
+                        <ControlTemplate TargetType="ListBox">
+                            <Border x:Name="ReferenceClassListChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}" SnapsToDevicePixels="True" Padding="0">
+                                <ScrollViewer Padding="{TemplateBinding Padding}" Focusable="False">
+                                    <ItemsPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+                                </ScrollViewer>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <MultiTrigger>
+                                    <MultiTrigger.Conditions>
+                                        <Condition Property="IsGrouping" Value="True" />
+                                        <Condition Property="VirtualizingPanel.IsVirtualizingWhenGrouping" Value="False" />
+                                    </MultiTrigger.Conditions>
+                                    <Setter Property="ScrollViewer.CanContentScroll" Value="False" />
+                                </MultiTrigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </ListBox.Template>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="16" /><ColumnDefinition Width="8" /><ColumnDefinition Width="14" /><ColumnDefinition Width="8" /><ColumnDefinition Width="*" /><ColumnDefinition Width="8" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <Border Width="12" Height="12" CornerRadius="3" Background="{Binding DrawBrush}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Text="{Binding ShortcutIndex}" FontFamily="Consolas" FontSize="11" FontWeight="Normal" Foreground="{DynamicResource RecipeDisabledTextBrush}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="4" Text="{Binding Text}" FontFamily="{DynamicResource UiFontFamily}" FontSize="13" FontWeight="Normal" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="6" Text="{Binding ObjectCountText}" FontFamily="{DynamicResource UiFontFamily}" FontSize="12" FontWeight="Normal" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Typography.NumeralAlignment="Tabular" Foreground="{DynamicResource RecipeMutedTextBrush}" VerticalAlignment="Center" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </StackPanel>
+        </Border>
         <Border x:Name="ObjectReviewModePanel"
                 AutomationProperties.AutomationId="ObjectReviewModePanel"
-                Background="{DynamicResource CanvasBrush}"
-                BorderBrush="{DynamicResource BorderBrushDark}"
-                BorderThickness="1"
-                CornerRadius="5"
-                Padding="8,6"
-                Margin="0,0,0,8">
+                Grid.Row="1"
+                Background="Transparent"
+                BorderBrush="{DynamicResource RecipeBorderBrush}"
+                BorderThickness="0"
+                CornerRadius="6"
+                Padding="14,4"
+                Margin="0,0,0,8"><Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyGridActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/><Condition Binding="{Binding IsLabelingModeActive}" Value="True"/><Condition Binding="{Binding SelectedObject}" Value="{x:Null}"/><Condition Binding="{Binding CandidateReviewViewModel.CandidateInteractionVisibility, ElementName=ObjectReviewRoot, FallbackValue=Collapsed, TargetNullValue=Collapsed}" Value="Collapsed"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Collapsed"/></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyGridActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/><Condition Binding="{Binding DataContext.CanvasPanelViewModel.SelectedAnnotationTool.Tool, RelativeSource={RelativeSource AncestorType=Window}}" Value="{x:Static local:WpfAnnotationTool.Rectangle}"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible"/></MultiDataTrigger></Style.Triggers></Style></Border.Style>
             <StackPanel>
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -237,14 +535,16 @@
                     <TextBlock x:Name="ObjectReviewModeTitleText"
                                AutomationProperties.AutomationId="ObjectReviewModeTitleText"
                                Text="{Binding PanelModeTitleText}"
+                               Visibility="Collapsed"
                                Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
+                               FontFamily="{DynamicResource UiFontFamily}"
                                FontSize="12"
                                FontWeight="SemiBold"
                                VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" />
                     <Border x:Name="ObjectReviewModeBadge"
                             Grid.Column="1"
+                            Visibility="Collapsed"
                             AutomationProperties.AutomationId="ObjectReviewModeBadge"
                             Background="#173B29"
                             BorderBrush="#57C785"
@@ -257,8 +557,8 @@
                                    AutomationProperties.AutomationId="ObjectReviewModeBadgeText"
                                    Text="{Binding PanelModeBadgeText}"
                                    Foreground="{DynamicResource PrimaryTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="10"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="11"
                                    FontWeight="SemiBold"
                                    TextTrimming="CharacterEllipsis" />
                     </Border>
@@ -266,18 +566,48 @@
                 <TextBlock x:Name="ObjectReviewModeScopeText"
                            AutomationProperties.AutomationId="ObjectReviewModeScopeText"
                            Text="{Binding PanelModeScopeText}"
-                           Foreground="#57C785"
-                           FontFamily="Segoe UI"
-                           FontSize="10"
-                           FontWeight="SemiBold"
+                           Visibility="Collapsed"
+                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                           FontFamily="{DynamicResource UiFontFamily}"
+                           FontSize="11"
                            TextWrapping="Wrap"
                            Margin="0,3,0,0" />
+                <Grid Margin="0,6,0,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <WrapPanel VerticalAlignment="Center">
+                <TextBlock x:Name="ObjectReviewSummaryText"
+                           AutomationProperties.AutomationId="ObjectReviewSummaryText"
+                           Text="{Binding SummaryText}"
+                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                           FontFamily="{DynamicResource UiFontFamily}"
+                           FontSize="12" FontWeight="SemiBold" LineHeight="17.4" LineStackingStrategy="BlockLineHeight"
+                           TextWrapping="Wrap"
+                           Margin="0" />
+                        <TextBlock Text="{Binding CandidateReviewViewModel.CandidateCountSummaryText, ElementName=ObjectReviewRoot}"
+                                   Visibility="{Binding CandidateReviewViewModel.CandidateInteractionVisibility, ElementName=ObjectReviewRoot, FallbackValue=Collapsed, TargetNullValue=Collapsed}"
+                                   Foreground="{DynamicResource RecipeMutedTextBrush}" FontSize="12" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </WrapPanel>
+                    <Button x:Name="ObjectReviewToggleAllVisibilityButton" Grid.Column="1" Width="30" Height="24" MinHeight="24" Padding="0" Margin="8,0,0,0"
+                            Style="{StaticResource RecipeButtonBaseStyle}" Command="{Binding ToggleAllObjectsHiddenCommand}"
+                            ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.All.Visibility], RelativeSource={RelativeSource AncestorType=Window}}"
+                            AutomationProperties.Name="{Binding ToolTip, RelativeSource={RelativeSource Self}}">
+                        <iconPacks:PackIconMaterial Width="14" Height="14"><iconPacks:PackIconMaterial.Style><Style TargetType="iconPacks:PackIconMaterial"><Setter Property="Kind" Value="EyeOutline" /><Style.Triggers><DataTrigger Binding="{Binding AreAllObjectsHidden}" Value="True"><Setter Property="Kind" Value="EyeOffOutline" /></DataTrigger></Style.Triggers></Style></iconPacks:PackIconMaterial.Style></iconPacks:PackIconMaterial>
+                    </Button>
+                    <Button x:Name="InlineConfirmAllCandidatesButton" Grid.Column="1"
+                            AutomationProperties.AutomationId="InlineConfirmAllCandidatesButton"
+                            Content="{Binding DataContext.LanguageViewModel[WpfCandidate.ConfirmVisible.Save], RelativeSource={RelativeSource AncestorType=Window}}"
+                            Style="{StaticResource RecipeButtonBaseStyle}" Height="26" MinHeight="26" Padding="8,3" FontSize="12" Margin="8,0,38,0"
+                            IsEnabled="{Binding CandidateReviewViewModel.IsConfirmAllEnabled, ElementName=ObjectReviewRoot, FallbackValue=False, TargetNullValue=False}"
+                            Visibility="{Binding CandidateReviewViewModel.CandidateInteractionVisibility, ElementName=ObjectReviewRoot, FallbackValue=Collapsed, TargetNullValue=Collapsed}"
+                            ToolTip="{Binding CandidateReviewViewModel.ConfirmAllToolTip, ElementName=ObjectReviewRoot}"
+                            Command="{Binding CandidateReviewViewModel.ConfirmAllCommand, ElementName=ObjectReviewRoot}" />
+                </Grid>
                 <TextBlock x:Name="ObjectReviewModeDetailText"
                            AutomationProperties.AutomationId="ObjectReviewModeDetailText"
                            Text="{Binding PanelModeDetailText}"
                            Foreground="{DynamicResource SecondaryTextBrush}"
-                           FontFamily="Segoe UI"
-                           FontSize="10"
+                           FontFamily="{DynamicResource UiFontFamily}"
+                           FontSize="11"
                            TextWrapping="Wrap"
                            Visibility="Collapsed"
                            Margin="0,2,0,0" />
@@ -285,66 +615,80 @@
                            AutomationProperties.AutomationId="ObjectReviewActionGuideText"
                            Text="{Binding ActionGuideText}"
                            Foreground="{DynamicResource DisabledTextBrush}"
-                           FontFamily="Segoe UI"
-                           FontSize="10"
+                           FontFamily="{DynamicResource UiFontFamily}"
+                           FontSize="11"
                            TextWrapping="Wrap"
                            Visibility="Collapsed"
                            Margin="0,3,0,0" />
             </StackPanel>
         </Border>
+        <Expander x:Name="ObjectReviewSecondaryEditor" Grid.Row="4"
+                  AutomationProperties.AutomationId="ObjectReviewSecondaryEditor"
+                  Header="{Binding DataContext.LanguageViewModel[WpfObjectReview.Advanced.Title], RelativeSource={RelativeSource AncestorType=Window}}"
+                  IsExpanded="False" Margin="0,8,0,0"><Expander.Style><Style TargetType="Expander" BasedOn="{StaticResource DatasetExpanderStyle}"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyGridActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/><Condition Binding="{Binding IsLabelingModeActive}" Value="True"/><Condition Binding="{Binding SelectedObject}" Value="{x:Null}"/><Condition Binding="{Binding CandidateReviewViewModel.CandidateInteractionVisibility, ElementName=ObjectReviewRoot, FallbackValue=Collapsed, TargetNullValue=Collapsed}" Value="Collapsed"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Collapsed"/></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyGridActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/><Condition Binding="{Binding DataContext.CanvasPanelViewModel.SelectedAnnotationTool.Tool, RelativeSource={RelativeSource AncestorType=Window}}" Value="{x:Static local:WpfAnnotationTool.Rectangle}"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible"/></MultiDataTrigger></Style.Triggers></Style></Expander.Style>
+            <StackPanel>
+                <StackPanel x:Name="InlineCandidateFilterPanel" DataContext="{Binding CandidateReviewViewModel, ElementName=ObjectReviewRoot}"
+                            Visibility="{Binding CandidateInteractionVisibility, FallbackValue=Collapsed, TargetNullValue=Collapsed}" Margin="0,0,0,12">
+                    <TextBlock Text="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfCandidate.Inline.Confidence]}" FontSize="12" Foreground="{DynamicResource RecipeMutedTextBrush}" Margin="0,0,0,4" />
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <Slider x:Name="InlineCandidateConfidenceSlider" Minimum="0" Maximum="1" Value="{Binding DisplayConfidence, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MinHeight="30" />
+                        <TextBlock Grid.Column="1" Text="{Binding ConfidenceText}" FontFamily="Consolas" FontSize="12" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </Grid>
+                </StackPanel>
         <Border x:Name="ObjectReviewCurrentTaskPanel"
                 AutomationProperties.AutomationId="ObjectReviewCurrentTaskPanel"
-                Grid.Row="1"
-                Background="{DynamicResource CanvasBrush}"
-                BorderBrush="{DynamicResource BorderBrushDark}"
+                Background="{DynamicResource RecipeSurfaceBrush}"
+                BorderBrush="{DynamicResource RecipeBorderBrush}"
                 BorderThickness="1"
-                CornerRadius="5"
-                Padding="8,6"
+                CornerRadius="7"
+                Padding="10,8"
                 Margin="0,0,0,8">
             <StackPanel>
-                <TextBlock x:Name="ObjectReviewSummaryText"
-                           AutomationProperties.AutomationId="ObjectReviewSummaryText"
-                           Text="{Binding SummaryText}"
-                           Foreground="{DynamicResource SecondaryTextBrush}"
-                           FontFamily="Segoe UI"
-                           FontSize="10.5"
-                           TextTrimming="CharacterEllipsis" />
-                <Grid Margin="0,5,0,0">
+                <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Border x:Name="ObjectReviewLabelSaveBadge"
+                            Visibility="Collapsed"
                             AutomationProperties.AutomationId="ObjectReviewLabelSaveBadge"
                             Style="{StaticResource ObjectReviewLabelSaveBadgeStyle}">
                         <TextBlock x:Name="ObjectReviewLabelSaveBadgeText"
                                    AutomationProperties.AutomationId="ObjectReviewLabelSaveBadgeText"
                                    Text="{Binding LabelSaveBadgeText}"
                                    Foreground="{DynamicResource PrimaryTextBrush}"
-                                   FontFamily="Segoe UI"
+                                   FontFamily="{DynamicResource UiFontFamily}"
                                    FontSize="10"
                                    FontWeight="SemiBold"
                                    TextTrimming="CharacterEllipsis" />
                     </Border>
                     <TextBlock x:Name="ObjectReviewLabelSaveDetailText"
                                Grid.Column="1"
+                               Visibility="Collapsed"
                                AutomationProperties.AutomationId="ObjectReviewLabelSaveDetailText"
                                Text="{Binding LabelSaveDetailText}"
                                Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
+                               FontFamily="{DynamicResource UiFontFamily}"
                                FontSize="10"
                                Margin="6,1,0,0"
                                TextWrapping="Wrap" />
                 </Grid>
+                <TextBlock x:Name="ObjectReviewVisibleQualityStatusText"
+                           Text="{Binding QualityReviewStatusText}"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           FontFamily="{DynamicResource UiFontFamily}"
+                           FontSize="10"
+                           TextWrapping="Wrap"
+                           Margin="0,5,0,0" />
                 <Border Height="1"
                         Background="{DynamicResource BorderBrushDark}"
                         Margin="0,7,0,6" />
                 <Expander x:Name="ObjectQualityReviewExpander"
                           AutomationProperties.AutomationId="ObjectQualityReviewExpander"
-                          AutomationProperties.Name="&#xD488;&#xC9C8; &#xAC80;&#xC218; &#xC635;&#xC158;"
-                          Header="&#xD488;&#xC9C8; &#xAC80;&#xC218; &#xC635;&#xC158;"
+                          AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.QualityReview.Options], RelativeSource={RelativeSource AncestorType=Window}}"
+                          Header="{Binding DataContext.LanguageViewModel[WpfObjectReview.QualityReview.Options], RelativeSource={RelativeSource AncestorType=Window}}"
                           Foreground="{DynamicResource PrimaryTextBrush}"
-                          FontFamily="Segoe UI"
+                          FontFamily="{DynamicResource UiFontFamily}"
                           FontSize="11"
                           IsExpanded="False">
                 <Grid x:Name="ObjectQualityReviewPanel"
@@ -355,15 +699,17 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="&#xD488;&#xC9C8; &#xAC80;&#xC218;"
+                        <TextBlock Text="{Binding DataContext.LanguageViewModel[WpfObjectReview.QualityReview.Title], RelativeSource={RelativeSource AncestorType=Window}}"
                                    Foreground="{DynamicResource PrimaryTextBrush}"
-                                   FontFamily="Segoe UI"
+                                   FontFamily="{DynamicResource UiFontFamily}"
                                    FontSize="11"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
@@ -372,7 +718,7 @@
                                    AutomationProperties.AutomationId="ObjectQualityReviewStatusText"
                                    Text="{Binding QualityReviewStatusText}"
                                    Foreground="{DynamicResource SecondaryTextBrush}"
-                                   FontFamily="Segoe UI"
+                                   FontFamily="{DynamicResource UiFontFamily}"
                                    FontSize="10"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
@@ -380,43 +726,44 @@
                     <UniformGrid Grid.Row="1" Columns="3" Margin="-2,5,-2,0">
                         <ui:Button x:Name="MarkQualityUnreviewedButton"
                                    AutomationProperties.AutomationId="MarkQualityUnreviewedButton"
-                                   AutomationProperties.Name="&#xBBF8;&#xAC80;&#xD1A0;"
+                                   AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.QualityReview.Unreviewed], RelativeSource={RelativeSource AncestorType=Window}}"
                                    Style="{StaticResource ObjectReviewQualityButtonStyle}"
-                                   Content="&#xBBF8;&#xAC80;&#xD1A0;"
+                                   Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.QualityReview.Unreviewed], RelativeSource={RelativeSource AncestorType=Window}}"
                                    Tag="{Binding IsQualityUnreviewedActive}"
                                    IsEnabled="{Binding IsQualityReviewEnabled}"
                                    Command="{Binding MarkQualityUnreviewedCommand}" />
                         <ui:Button x:Name="MarkQualityNeedsFixButton"
                                    AutomationProperties.AutomationId="MarkQualityNeedsFixButton"
-                                   AutomationProperties.Name="&#xC218;&#xC815; &#xD544;&#xC694;"
+                                   AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.QualityReview.NeedsFix], RelativeSource={RelativeSource AncestorType=Window}}"
                                    Style="{StaticResource ObjectReviewQualityButtonStyle}"
-                                   Content="&#xC218;&#xC815; &#xD544;&#xC694;"
+                                   Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.QualityReview.NeedsFix], RelativeSource={RelativeSource AncestorType=Window}}"
                                    Tag="{Binding IsQualityNeedsFixActive}"
                                    IsEnabled="{Binding IsQualityReviewEnabled}"
                                    Command="{Binding MarkQualityNeedsFixCommand}" />
                         <ui:Button x:Name="MarkQualityReviewedButton"
                                    AutomationProperties.AutomationId="MarkQualityReviewedButton"
-                                   AutomationProperties.Name="&#xAC80;&#xC218; &#xC644;&#xB8CC;"
+                                   AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.QualityReview.Reviewed], RelativeSource={RelativeSource AncestorType=Window}}"
                                    Style="{StaticResource ObjectReviewQualityButtonStyle}"
-                                   Content="&#xAC80;&#xC218; &#xC644;&#xB8CC;"
+                                   Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.QualityReview.Reviewed], RelativeSource={RelativeSource AncestorType=Window}}"
                                    Tag="{Binding IsQualityReviewedActive}"
                                    IsEnabled="{Binding IsMarkQualityReviewedEnabled}"
                                    Command="{Binding MarkQualityReviewedCommand}" />
                     </UniformGrid>
                     <Grid Grid.Row="2" Margin="0,5,0,0">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="54" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="&#xC218;&#xC815; &#xC0AC;&#xC720;"
+                        <TextBlock Text="{Binding DataContext.LanguageViewModel[WpfObjectReview.QualityReview.Note], RelativeSource={RelativeSource AncestorType=Window}}"
                                    Foreground="{DynamicResource SecondaryTextBrush}"
-                                   FontFamily="Segoe UI"
+                                   FontFamily="{DynamicResource UiFontFamily}"
                                    FontSize="10"
+                                   Margin="0,0,6,0"
                                    VerticalAlignment="Center" />
                         <TextBox x:Name="QualityReviewNoteTextBox"
                                  Grid.Column="1"
                                  AutomationProperties.AutomationId="QualityReviewNoteTextBox"
-                                 AutomationProperties.Name="&#xC218;&#xC815; &#xC0AC;&#xC720;"
+                                 AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.QualityReview.Note], RelativeSource={RelativeSource AncestorType=Window}}"
                                  Text="{Binding QualityReviewNoteText, UpdateSourceTrigger=PropertyChanged}"
                                  IsEnabled="{Binding IsQualityReviewEnabled}"
                                  MaxLength="200"
@@ -427,9 +774,9 @@
                                  Foreground="{DynamicResource PrimaryTextBrush}"
                                  BorderBrush="{DynamicResource InputBorderBrush}"
                                  BorderThickness="1"
-                                 FontFamily="Segoe UI"
+                                 FontFamily="{DynamicResource UiFontFamily}"
                                  FontSize="10.5"
-                                 ToolTip="&#xC0AC;&#xC720;&#xB97C; &#xC785;&#xB825;&#xD558;&#xACE0; &#xC218;&#xC815; &#xD544;&#xC694;&#xB97C; &#xB204;&#xB974;&#xBA74; &#xD568;&#xAED8; &#xC800;&#xC7A5;&#xB429;&#xB2C8;&#xB2E4;." />
+                                 ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.QualityReview.Note.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}" />
                     </Grid>
                     <Grid Grid.Row="3" Margin="0,4,0,0">
                         <Grid.ColumnDefinitions>
@@ -440,32 +787,191 @@
                                    AutomationProperties.AutomationId="ObjectQualityReviewDetailText"
                                    Text="{Binding QualityReviewDetailText}"
                                    Foreground="{DynamicResource SecondaryTextBrush}"
-                                   FontFamily="Segoe UI"
+                                   FontFamily="{DynamicResource UiFontFamily}"
                                    FontSize="9.5"
                                    TextWrapping="Wrap"
-                                   MaxHeight="28"
                                    VerticalAlignment="Center" />
                         <ui:Button x:Name="ExportQualityReviewReportButton"
                                    Grid.Column="1"
                                    AutomationProperties.AutomationId="ExportQualityReviewReportButton"
-                                   AutomationProperties.Name="QA &#xBCF4;&#xACE0;&#xC11C;"
+                                   AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.QualityReview.Report], RelativeSource={RelativeSource AncestorType=Window}}"
                                    Style="{StaticResource ObjectReviewButtonStyle}"
-                                   Content="QA &#xBCF4;&#xACE0;&#xC11C;"
+                                   Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.QualityReview.Report], RelativeSource={RelativeSource AncestorType=Window}}"
                                    Command="{Binding ExportQualityReviewReportCommand}"
                                    IsEnabled="{Binding IsQualityReviewEnabled}"
                                    Height="25"
                                    Padding="6,0"
                                    Margin="6,0,0,0"
                                    FontSize="10"
-                                   ToolTip="&#xC800;&#xC7A5; &#xD3F4;&#xB354;&#xC5D0; label-quality-review.md&#xB85C; &#xC800;&#xC7A5;&#xD569;&#xB2C8;&#xB2E4;." />
+                                   ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.QualityReview.Report.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}" />
+                    </Grid>
+                    <Grid Grid.Row="4" Margin="0,6,0,0">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding DataContext.LanguageViewModel[WpfObjectReview.MaskQuality.Analyze], RelativeSource={RelativeSource AncestorType=Window}}"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="10"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,6,0" />
+                        <TextBox Grid.Column="1"
+                                 Height="23"
+                                 Background="{DynamicResource InputBrush}"
+                                 Foreground="{DynamicResource PrimaryTextBrush}"
+                                 BorderBrush="{DynamicResource InputBorderBrush}"
+                                 Padding="5,0"
+                                 VerticalContentAlignment="Center"
+                                 FontSize="10.5"
+                                 Text="{Binding SmallComponentMaximumArea, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.MaskQuality.SmallArea.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
+                                 AutomationProperties.AutomationId="MaskQualitySmallComponentMaximumAreaTextBox" />
+                        <TextBlock Grid.Column="2"
+                                   Text="{Binding DataContext.LanguageViewModel[WpfObjectReview.MaskQuality.Hole], RelativeSource={RelativeSource AncestorType=Window}}"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   FontSize="10"
+                                   VerticalAlignment="Center"
+                                   Margin="8,0,5,0" />
+                        <TextBox Grid.Column="3"
+                                 Height="23"
+                                 Background="{DynamicResource InputBrush}"
+                                 Foreground="{DynamicResource PrimaryTextBrush}"
+                                 BorderBrush="{DynamicResource InputBorderBrush}"
+                                 Padding="5,0"
+                                 VerticalContentAlignment="Center"
+                                 FontSize="10.5"
+                                 Text="{Binding HoleMaximumArea, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.MaskQuality.HoleArea.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
+                                 AutomationProperties.AutomationId="MaskQualityHoleMaximumAreaTextBox" />
+                        <TextBlock Grid.Row="1" Grid.ColumnSpan="3"
+                                   Text="{Binding MaskQualityThresholdSummaryText}"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   FontSize="9"
+                                   VerticalAlignment="Center"
+                                   Margin="0,5,6,0"
+                                   TextWrapping="Wrap" />
+                        <ui:Button Grid.Row="1" Grid.Column="3"
+                                   Style="{StaticResource ObjectReviewButtonStyle}"
+                                   Height="24"
+                                   Padding="7,0"
+                                   Margin="0,5,0,0"
+                                   Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.MaskQuality.Analyze], RelativeSource={RelativeSource AncestorType=Window}}"
+                                   Command="{Binding AnalyzeMaskQualityCommand}"
+                                   ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.MaskQuality.Analyze.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
+                                   AutomationProperties.AutomationId="AnalyzeMaskQualityButton" />
+                    </Grid>
+                    <Grid Grid.Row="5" Margin="0,5,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <ListBox Grid.Column="0"
+                                 Height="96"
+                                 Background="Transparent" BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 ItemsSource="{Binding MaskQualityMarkers}"
+                                 SelectedItem="{Binding SelectedMaskQualityMarker, Mode=TwoWay}"
+                                 ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.MaskQuality.Markers.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
+                                 AutomationProperties.AutomationId="MaskQualityMarkerListBox">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem" BasedOn="{StaticResource ObjectReviewClassListBoxItemStyle}">
+                                    <Setter Property="ToolTip" Value="{Binding DisplayText}" />
+                                    <Setter Property="AutomationProperties.Name" Value="{Binding DisplayText}" />
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayText}" FontSize="11" TextWrapping="Wrap" /></DataTemplate></ListBox.ItemTemplate>
+                        </ListBox>
+                        <ui:Button Grid.Row="1" HorizontalAlignment="Right"
+                                   Style="{StaticResource ObjectReviewButtonStyle}"
+                                   Height="24"
+                                   Padding="7,0"
+                                   Margin="0,5,0,0"
+                                   Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.MaskQuality.Repair], RelativeSource={RelativeSource AncestorType=Window}}"
+                                   Command="{Binding RepairSelectedMaskQualityMarkerCommand}"
+                                   IsEnabled="{Binding IsRepairSelectedMaskQualityMarkerEnabled}"
+                                   ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.MaskQuality.Repair.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
+                                   AutomationProperties.AutomationId="RepairSelectedMaskQualityMarkerButton" />
                     </Grid>
                 </Grid>
                 </Expander>
+                <Grid Margin="0,8,0,0">
+                    <Expander x:Name="ObjectEditHistoryExpander"
+                              AutomationProperties.AutomationId="ObjectEditHistoryExpander"
+                              AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.History.Title], RelativeSource={RelativeSource AncestorType=Window}}"
+                              Style="{StaticResource DatasetExpanderStyle}"
+                              FontFamily="{DynamicResource UiFontFamily}"
+                              FontSize="13"
+                              IsExpanded="{Binding IsEditHistoryExpanded, Mode=TwoWay}"
+                              Margin="0">
+                        <Expander.Header>
+                                <TextBlock x:Name="ObjectHistoryTitleText"
+                                           AutomationProperties.AutomationId="ObjectHistoryTitleText"
+                                           Text="{Binding DataContext.LanguageViewModel[WpfObjectReview.History.Title], RelativeSource={RelativeSource AncestorType=Window}}"
+                                           TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,80,0" />
+                        </Expander.Header>
+                        <StackPanel Margin="0,6,0,0">
+                            <TextBlock Foreground="{DynamicResource RecipeMutedTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,5">
+                                <TextBlock.Text>
+                                    <MultiBinding StringFormat="{}{1} · {0}">
+                                        <Binding Path="DataContext.LanguageViewModel[WpfObjectReview.History.Guide]" RelativeSource="{RelativeSource AncestorType=Window}" />
+                                        <Binding Path="EditHistoryItems.Count" />
+                                    </MultiBinding>
+                                </TextBlock.Text>
+                            </TextBlock>
+                            <ListBox x:Name="ObjectEditHistoryListBox"
+                                     ItemsSource="{Binding EditHistoryItems}"
+                                     MaxHeight="128"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     ItemContainerStyle="{StaticResource ObjectReviewHistoryListBoxItemStyle}"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     AutomationProperties.AutomationId="ObjectEditHistoryListBox">
+                                <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" FontSize="12" TextWrapping="Wrap" /></DataTemplate></ListBox.ItemTemplate>
+                            </ListBox>
+                            <TextBlock x:Name="ObjectEditHistoryEmptyText"
+                                       AutomationProperties.AutomationId="ObjectEditHistoryEmptyText"
+                                       Text="{Binding DataContext.LanguageViewModel[WpfObjectReview.History.Empty], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       Foreground="{DynamicResource RecipeMutedTextBrush}" FontSize="12" TextWrapping="Wrap">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers><DataTrigger Binding="{Binding EditHistoryItems.Count}" Value="0"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </Expander>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,32,0">
+                                <ui:Button x:Name="ObjectHistoryUndoButton"
+                                           AutomationProperties.AutomationId="ObjectHistoryUndoButton"
+                                           AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfAnnotationTool.Undo], RelativeSource={RelativeSource AncestorType=Window}}"
+                                           ToolTip="{Binding Tag.UndoAnnotationTool.ToolTip, RelativeSource={RelativeSource AncestorType={x:Type local:WpfObjectReviewPanel}}}"
+                                           Style="{StaticResource ObjectReviewEditActionButtonStyle}"
+                                           IsEnabled="{Binding Tag.UndoAnnotationTool.IsActionEnabled, RelativeSource={RelativeSource AncestorType={x:Type local:WpfObjectReviewPanel}}}"
+                                           Command="{Binding Tag.UndoAnnotationCommand, RelativeSource={RelativeSource AncestorType={x:Type local:WpfObjectReviewPanel}}}">
+                                    <iconPacks:PackIconMaterial Kind="UndoVariant" Style="{StaticResource ObjectReviewStateIconStyle}" />
+                                </ui:Button>
+                                <ui:Button x:Name="ObjectHistoryRedoButton" Margin="4,0,0,0"
+                                           AutomationProperties.AutomationId="ObjectHistoryRedoButton"
+                                           AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfAnnotationTool.Redo], RelativeSource={RelativeSource AncestorType=Window}}"
+                                           ToolTip="{Binding Tag.RedoAnnotationTool.ToolTip, RelativeSource={RelativeSource AncestorType={x:Type local:WpfObjectReviewPanel}}}"
+                                           Style="{StaticResource ObjectReviewEditActionButtonStyle}"
+                                           IsEnabled="{Binding Tag.RedoAnnotationTool.IsActionEnabled, RelativeSource={RelativeSource AncestorType={x:Type local:WpfObjectReviewPanel}}}"
+                                           Command="{Binding Tag.RedoAnnotationCommand, RelativeSource={RelativeSource AncestorType={x:Type local:WpfObjectReviewPanel}}}">
+                                    <iconPacks:PackIconMaterial Kind="RedoVariant" Style="{StaticResource ObjectReviewStateIconStyle}" />
+                                </ui:Button>
+                            </StackPanel>
+                </Grid>
                 <TextBlock x:Name="ObjectReviewSelectedTaskTitleText"
                            AutomationProperties.AutomationId="ObjectReviewSelectedTaskTitleText"
                            Text="{Binding SelectedObjectTaskTitleText}"
                            Foreground="{DynamicResource PrimaryTextBrush}"
-                           FontFamily="Segoe UI"
+                           FontFamily="{DynamicResource UiFontFamily}"
                            FontSize="12"
                            FontWeight="SemiBold"
                            Margin="0,3,0,0"
@@ -475,16 +981,15 @@
                            AutomationProperties.AutomationId="ObjectReviewSelectedTaskDetailText"
                            Text="{Binding SelectedObjectTaskDetailText}"
                            Foreground="{DynamicResource PrimaryTextBrush}"
-                           FontFamily="Segoe UI"
+                           FontFamily="{DynamicResource UiFontFamily}"
                            FontSize="11"
                            Margin="0,2,0,0"
-                           Visibility="Collapsed"
                            TextWrapping="Wrap" />
                 <TextBlock x:Name="ObjectReviewSelectedTaskActionText"
                            AutomationProperties.AutomationId="ObjectReviewSelectedTaskActionText"
                            Text="{Binding SelectedObjectTaskActionText}"
                            Foreground="{DynamicResource SecondaryTextBrush}"
-                           FontFamily="Segoe UI"
+                           FontFamily="{DynamicResource UiFontFamily}"
                            FontSize="10"
                            Margin="0,3,0,0"
                            Visibility="Collapsed"
@@ -493,128 +998,155 @@
         </Border>
         <Border x:Name="ObjectReviewEditPanel"
                 AutomationProperties.AutomationId="ObjectReviewEditPanel"
-                Grid.Row="2"
-                Background="{DynamicResource CanvasBrush}"
-                BorderBrush="{DynamicResource BorderBrushDark}"
+                Background="{DynamicResource RecipeSurfaceBrush}"
+                BorderBrush="{DynamicResource RecipeBorderBrush}"
                 BorderThickness="1"
-                CornerRadius="5"
-                Padding="8,6"
+                CornerRadius="7"
+                Padding="10,8"
                 Margin="0,0,0,8">
             <StackPanel>
-                <Grid Margin="0,0,0,5">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock x:Name="ObjectReviewEditTitleText"
-                               AutomationProperties.AutomationId="ObjectReviewEditTitleText"
-                               Text="&#xC120;&#xD0DD; &#xB77C;&#xBCA8; &#xC218;&#xC815;"
-                               Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="12"
-                               FontWeight="SemiBold"
-                               VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis" />
-                    <ui:Button x:Name="DeleteObjectButton"
-                               Grid.Column="1"
-                               AutomationProperties.AutomationId="DeleteObjectButton"
-                               Style="{StaticResource ObjectReviewButtonStyle}"
-                               MinWidth="58"
-                               Height="24"
-                               Padding="8,0"
-                               Content="&#xC0AD;&#xC81C;"
-                               ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xC800;&#xC7A5; &#xB77C;&#xBCA8; &#xC0AD;&#xC81C;"
-                               IsEnabled="{Binding IsDeleteEnabled}"
-                               Command="{Binding DeleteObjectCommand}" />
-                </Grid>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <ComboBox x:Name="ObjectClassBox"
-                              AutomationProperties.AutomationId="ObjectClassBox"
-                              Style="{StaticResource ObjectReviewComboBoxStyle}"
-                              ItemsSource="{Binding ClassNames}"
-                              SelectedItem="{Binding SelectedClassName, Mode=TwoWay}"
-                              ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xC800;&#xC7A5; &#xB77C;&#xBCA8;&#xC5D0; &#xC801;&#xC6A9;&#xD560; &#xD074;&#xB798;&#xC2A4;" />
-                    <ui:Button x:Name="ApplyObjectClassButton"
-                               Grid.Column="1"
-                               AutomationProperties.AutomationId="ApplyObjectClassButton"
-                               Style="{StaticResource ObjectReviewButtonStyle}"
-                               MinWidth="58"
-                               Height="24"
-                               Padding="8,0"
-                               Margin="6,0,0,0"
-                               Content="&#xC801;&#xC6A9;"
-                               ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xC800;&#xC7A5; &#xB77C;&#xBCA8; &#xD074;&#xB798;&#xC2A4; &#xBCC0;&#xACBD;"
-                               IsEnabled="{Binding IsApplyClassEnabled}"
-                               Command="{Binding ApplyObjectClassCommand}" />
-                </Grid>
-                <Grid Margin="0,6,0,0"
-                      HorizontalAlignment="Right">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <ui:Button x:Name="ToggleObjectHiddenButton"
-                               AutomationProperties.AutomationId="ToggleObjectHiddenButton"
-                               AutomationProperties.Name="&#xC120;&#xD0DD; &#xAC1D;&#xCCB4; &#xC228;&#xAE40; &#xC804;&#xD658;"
-                               Style="{StaticResource ObjectReviewStateButtonStyle}"
-                               Margin="0,0,3,0"
-                               ToolTip="&#xC228;&#xAE40;: &#xD604;&#xC7AC; &#xC774;&#xBBF8;&#xC9C0; &#xC138;&#xC158;&#xC5D0;&#xC11C;&#xB9CC; &#xCEA0;&#xBC84;&#xC2A4; &#xD45C;&#xC2DC; &#xC804;&#xD658;"
-                               Tag="{Binding IsSelectedObjectHidden}"
-                               IsEnabled="{Binding IsObjectSessionStateEnabled}"
-                               Command="{Binding ToggleObjectHiddenCommand}">
-                        <iconPacks:PackIconMaterial Kind="EyeOffOutline"
-                                                    Style="{StaticResource ObjectReviewStateIconStyle}" />
-                    </ui:Button>
-                    <ui:Button x:Name="ToggleObjectLockedButton"
-                               Grid.Column="1"
-                               AutomationProperties.AutomationId="ToggleObjectLockedButton"
-                               AutomationProperties.Name="&#xC120;&#xD0DD; &#xAC1D;&#xCCB4; &#xC7A0;&#xAE08; &#xC804;&#xD658;"
-                               Style="{StaticResource ObjectReviewStateButtonStyle}"
-                               Margin="3,0"
-                               ToolTip="&#xC7A0;&#xAE08;: geometry, &#xD074;&#xB798;&#xC2A4;, &#xC0AD;&#xC81C;, &#xAD6C;&#xC870; &#xD3B8;&#xC9D1; &#xCC28;&#xB2E8;"
-                               Tag="{Binding IsSelectedObjectLocked}"
-                               IsEnabled="{Binding IsObjectSessionStateEnabled}"
-                               Command="{Binding ToggleObjectLockedCommand}">
-                        <iconPacks:PackIconMaterial Kind="LockOutline"
-                                                    Style="{StaticResource ObjectReviewStateIconStyle}" />
-                    </ui:Button>
-                    <ui:Button x:Name="ToggleObjectPinnedButton"
-                               Grid.Column="2"
-                               AutomationProperties.AutomationId="ToggleObjectPinnedButton"
-                               AutomationProperties.Name="&#xC120;&#xD0DD; &#xAC1D;&#xCCB4; &#xC774;&#xB3D9; &#xACE0;&#xC815; &#xC804;&#xD658;"
-                               Style="{StaticResource ObjectReviewStateButtonStyle}"
-                               Margin="3,0,0,0"
-                               ToolTip="&#xC774;&#xB3D9; &#xACE0;&#xC815;: &#xC804;&#xCCB4; &#xC704;&#xCE58; &#xC774;&#xB3D9;&#xB9CC; &#xB9C9;&#xACE0; &#xD06C;&#xAE30; &#xC870;&#xC808;, &#xBCF5;&#xC0AC;, &#xC0AD;&#xC81C;&#xB294; &#xD5C8;&#xC6A9;"
-                               Tag="{Binding IsSelectedObjectPinned}"
-                               IsEnabled="{Binding IsObjectSessionStateEnabled}"
-                               Command="{Binding ToggleObjectPinnedCommand}">
-                        <iconPacks:PackIconMaterial Kind="PinOutline"
-                                                    Style="{StaticResource ObjectReviewStateIconStyle}" />
-                    </ui:Button>
-                </Grid>
+                <StackPanel x:Name="ObjectReviewSelectedObjectEditor"
+                            AutomationProperties.AutomationId="ObjectReviewSelectedObjectEditor">
+                    <StackPanel.Style>
+                        <Style TargetType="{x:Type StackPanel}">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedObject}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <Grid Margin="0,0,0,5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="ObjectReviewEditTitleText"
+                                   AutomationProperties.AutomationId="ObjectReviewEditTitleText"
+                                   Text="{Binding DataContext.LanguageViewModel[WpfObjectReview.Edit.Title], RelativeSource={RelativeSource AncestorType=Window}}"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   FontFamily="{DynamicResource UiFontFamily}"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" />
+                        <ui:Button x:Name="DeleteObjectButton"
+                                   Grid.Column="1"
+                                   AutomationProperties.AutomationId="DeleteObjectButton"
+                                   Style="{StaticResource ObjectReviewEditActionButtonStyle}"
+                                   MinWidth="58"
+                                   Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Edit.Delete], RelativeSource={RelativeSource AncestorType=Window}}"
+                                   AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.Edit.Delete], RelativeSource={RelativeSource AncestorType=Window}}"
+                                   ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Edit.Delete.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
+                                   IsEnabled="{Binding IsDeleteEnabled}"
+                                   Command="{Binding DeleteObjectCommand}" />
+                    </Grid>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="ObjectClassBox"
+                                  Grid.ColumnSpan="2"
+                                  AutomationProperties.AutomationId="ObjectClassBox"
+                                  Style="{StaticResource ObjectReviewEditClassBoxStyle}"
+                                  ItemsSource="{Binding ClassNames}"
+                                  SelectedItem="{Binding SelectedClassName, Mode=TwoWay}"
+                                  ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Edit.Class.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}" />
+                        <ui:Button x:Name="ApplyObjectClassButton"
+                                   Grid.Row="1"
+                                   Grid.Column="1"
+                                   AutomationProperties.AutomationId="ApplyObjectClassButton"
+                                   Style="{StaticResource ObjectReviewEditActionButtonStyle}"
+                                   MinWidth="58"
+                                   Margin="0,6,0,0"
+                                   Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Edit.Apply], RelativeSource={RelativeSource AncestorType=Window}}"
+                                   AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.Edit.Apply], RelativeSource={RelativeSource AncestorType=Window}}"
+                                   ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Edit.Apply.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
+                                   IsEnabled="{Binding IsApplyClassEnabled}"
+                                   Command="{Binding ApplyObjectClassCommand}" />
+                    </Grid>
+                    <Grid Margin="0,6,0,0"
+                          HorizontalAlignment="Right">
+                        <ui:Button x:Name="ApplySelectedObjectsClassButton"
+                                   AutomationProperties.AutomationId="ApplySelectedObjectsClassButton"
+                                   Style="{StaticResource ObjectReviewEditActionButtonStyle}"
+                                   MinWidth="126"
+                                   Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Edit.Multiple], RelativeSource={RelativeSource AncestorType=Window}}"
+                                   AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.Edit.Multiple], RelativeSource={RelativeSource AncestorType=Window}}"
+                                   ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Edit.Multiple.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
+                                   IsEnabled="{Binding IsApplySelectedObjectsClassEnabled}"
+                                   Command="{Binding ApplySelectedObjectsClassCommand}" />
+                    </Grid>
+                    <Grid Margin="0,6,0,0"
+                          HorizontalAlignment="Right">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ui:Button x:Name="ToggleObjectHiddenButton"
+                                   AutomationProperties.AutomationId="ToggleObjectHiddenButton"
+                                   AutomationProperties.Name="&#xC120;&#xD0DD; &#xAC1D;&#xCCB4; &#xC228;&#xAE40; &#xC804;&#xD658;"
+                                   Style="{StaticResource ObjectReviewSessionButtonStyle}"
+                                   Margin="0,0,3,0"
+                                   ToolTip="&#xC228;&#xAE40;: &#xD604;&#xC7AC; &#xC774;&#xBBF8;&#xC9C0; &#xC138;&#xC158;&#xC5D0;&#xC11C;&#xB9CC; &#xCE94;&#xBC84;&#xC2A4; &#xD45C;&#xC2DC; &#xC804;&#xD658;"
+                                   Tag="{Binding IsSelectedObjectHidden}"
+                                   IsEnabled="{Binding IsObjectSessionStateEnabled}"
+                                   Command="{Binding ToggleObjectHiddenCommand}">
+                            <iconPacks:PackIconMaterial Kind="EyeOffOutline"
+                                                        Style="{StaticResource ObjectReviewStateIconStyle}" />
+                        </ui:Button>
+                        <ui:Button x:Name="ToggleObjectLockedButton"
+                                   Grid.Column="1"
+                                   AutomationProperties.AutomationId="ToggleObjectLockedButton"
+                                   AutomationProperties.Name="&#xC120;&#xD0DD; &#xAC1D;&#xCCB4; &#xC7A0;&#xAE08; &#xC804;&#xD658;"
+                                   Style="{StaticResource ObjectReviewSessionButtonStyle}"
+                                   Margin="3,0"
+                                   ToolTip="&#xC7A0;&#xAE08;: &#xC704;&#xCE58;&#xB7;&#xD06C;&#xAE30;&#xB7;&#xD615;&#xC0C1;&#xB7;&#xD074;&#xB798;&#xC2A4; &#xBCC0;&#xACBD;, &#xC0AD;&#xC81C;, &#xAD6C;&#xC870; &#xD3B8;&#xC9D1; &#xCC28;&#xB2E8;"
+                                   Tag="{Binding IsSelectedObjectLocked}"
+                                   IsEnabled="{Binding IsObjectSessionStateEnabled}"
+                                   Command="{Binding ToggleObjectLockedCommand}">
+                            <iconPacks:PackIconMaterial Kind="LockOutline"
+                                                        Style="{StaticResource ObjectReviewStateIconStyle}" />
+                        </ui:Button>
+                        <ui:Button x:Name="ToggleObjectPinnedButton"
+                                   Grid.Column="2"
+                                   AutomationProperties.AutomationId="ToggleObjectPinnedButton"
+                                   AutomationProperties.Name="&#xC120;&#xD0DD; &#xAC1D;&#xCCB4; &#xC774;&#xB3D9; &#xACE0;&#xC815; &#xC804;&#xD658;"
+                                   Style="{StaticResource ObjectReviewSessionButtonStyle}"
+                                   Margin="3,0,0,0"
+                                   ToolTip="&#xC774;&#xB3D9; &#xACE0;&#xC815;: &#xC804;&#xCCB4; &#xC704;&#xCE58; &#xC774;&#xB3D9;&#xB9CC; &#xB9C9;&#xACE0; &#xD06C;&#xAE30; &#xC870;&#xC808;, &#xBCF5;&#xC0AC;, &#xC0AD;&#xC81C;&#xB294; &#xD5C8;&#xC6A9;"
+                                   Tag="{Binding IsSelectedObjectPinned}"
+                                   IsEnabled="{Binding IsObjectSessionStateEnabled}"
+                                   Command="{Binding ToggleObjectPinnedCommand}">
+                            <iconPacks:PackIconMaterial Kind="PinOutline"
+                                                        Style="{StaticResource ObjectReviewStateIconStyle}" />
+                        </ui:Button>
+                    </Grid>
+                </StackPanel>
                 <TextBlock x:Name="ObjectSessionStateStatusText"
                            AutomationProperties.AutomationId="ObjectSessionStateStatusText"
                            Text="{Binding ObjectSessionStateStatusText}"
                            Foreground="{DynamicResource SecondaryTextBrush}"
-                           FontFamily="Segoe UI"
-                           FontSize="9.5"
+                           FontFamily="{DynamicResource UiFontFamily}"
+                           FontSize="11"
                            Margin="0,4,0,0"
-                           Visibility="Collapsed"
                            TextWrapping="Wrap" />
                 <Expander x:Name="ObjectMetadataExpander"
                           AutomationProperties.AutomationId="ObjectMetadataExpander"
                           AutomationProperties.Name="&#xAC1D;&#xCCB4; &#xAC80;&#xC218; &#xBA54;&#xD0C0;&#xB370;&#xC774;&#xD130;"
-                          Header="&#xAC80;&#xC218; &#xBA54;&#xD0C0;&#xB370;&#xC774;&#xD130;"
+                          Header="{Binding DataContext.LanguageViewModel[WpfObjectReview.Options], RelativeSource={RelativeSource AncestorType=Window}}"
                           Margin="0,6,0,0"
                           Foreground="{DynamicResource PrimaryTextBrush}"
-                          FontFamily="Segoe UI"
+                          FontFamily="{DynamicResource UiFontFamily}"
                           FontSize="11"
-                          IsExpanded="True">
+                          IsExpanded="False">
                     <ScrollViewer VerticalScrollBarVisibility="Auto"
                                   HorizontalScrollBarVisibility="Disabled"
                                   MaxHeight="100"
@@ -642,7 +1174,7 @@
                             <ComboBox x:Name="ObjectMetadataTagBox"
                                       Grid.Column="1"
                                       AutomationProperties.AutomationId="ObjectMetadataTagBox"
-                                      AutomationProperties.Name="Recipe &#xAC1D;&#xCCB4; &#xD0DC;&#xADF8;"
+                                      AutomationProperties.Name="&#xB808;&#xC2DC;&#xD53C; &#xAC1D;&#xCCB4; &#xD0DC;&#xADF8;"
                                       Height="24"
                                       Background="{DynamicResource InputBrush}"
                                       Foreground="{DynamicResource PrimaryTextBrush}"
@@ -652,7 +1184,7 @@
                                       ItemsSource="{Binding MetadataTagOptions}"
                                       Text="{Binding SelectedMetadataTag, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                       IsEnabled="{Binding IsPersistentMetadataEnabled}"
-                                      ToolTip="&#xAE30;&#xC874; Recipe &#xD0DC;&#xADF8;&#xB97C; &#xC120;&#xD0DD;&#xD558;&#xAC70;&#xB098; &#xC0C8; &#xD0DC;&#xADF8;&#xB97C; &#xC785;&#xB825;&#xD558;&#xBA74; Recipe&#xC5D0; &#xC800;&#xC7A5;&#xB429;&#xB2C8;&#xB2E4;." />
+                                      ToolTip="&#xAE30;&#xC874; &#xB808;&#xC2DC;&#xD53C; &#xD0DC;&#xADF8;&#xB97C; &#xC120;&#xD0DD;&#xD558;&#xAC70;&#xB098; &#xC0C8; &#xD0DC;&#xADF8;&#xB97C; &#xC785;&#xB825;&#xD558;&#xC138;&#xC694;. &#xC0C8; &#xD0DC;&#xADF8;&#xB294; &#xC801;&#xC6A9;/&#xD574;&#xC81C;&#xB97C; &#xB20C;&#xB7EC; &#xCC98;&#xC74C; &#xC801;&#xC6A9;&#xD560; &#xB54C; &#xB808;&#xC2DC;&#xD53C; &#xD0DC;&#xADF8; &#xBAA9;&#xB85D;&#xC5D0; &#xC800;&#xC7A5;&#xB429;&#xB2C8;&#xB2E4;." />
                             <ui:Button x:Name="TogglePersistentTagButton"
                                        Grid.Column="2"
                                        AutomationProperties.AutomationId="TogglePersistentTagButton"
@@ -787,7 +1319,7 @@
                                                Padding="5,0"
                                                Content="&#xADF8;&#xB8F9; &#xD0DC;&#xADF8;"
                                                IsEnabled="{Binding IsSelectedObjectGrouped}"
-                                               ToolTip="&#xD604;&#xC7AC; &#xC120;&#xD0DD;&#xD55C; Recipe &#xD0DC;&#xADF8;&#xB97C; &#xADF8;&#xB8F9; &#xC804;&#xCCB4;&#xC5D0; &#xC801;&#xC6A9; &#xB610;&#xB294; &#xD574;&#xC81C;"
+                                               ToolTip="&#xD604;&#xC7AC; &#xC120;&#xD0DD;&#xD55C; &#xB808;&#xC2DC;&#xD53C; &#xD0DC;&#xADF8;&#xB97C; &#xADF8;&#xB8F9; &#xC804;&#xCCB4;&#xC5D0; &#xC801;&#xC6A9; &#xB610;&#xB294; &#xD574;&#xC81C;"
                                                Command="{Binding ToggleGroupTagCommand}" />
                                 </Grid>
                             </StackPanel>
@@ -819,7 +1351,7 @@
                                       Padding="5,1"
                                       ItemsSource="{Binding MetadataTagFilters}"
                                       SelectedItem="{Binding SelectedMetadataTagFilter, Mode=TwoWay}"
-                                      ToolTip="Recipe &#xD0DC;&#xADF8;&#xB85C; &#xC800;&#xC7A5; &#xB77C;&#xBCA8; &#xD544;&#xD130;" />
+                                      ToolTip="&#xB808;&#xC2DC;&#xD53C; &#xD0DC;&#xADF8;&#xB85C; &#xC800;&#xC7A5; &#xB77C;&#xBCA8; &#xD544;&#xD130;" />
                             <ui:Button x:Name="ResetObjectMetadataFilterButton"
                                        Grid.Column="2"
                                        AutomationProperties.AutomationId="ResetObjectMetadataFilterButton"
@@ -861,8 +1393,8 @@
                                        Height="22"
                                        MinWidth="76"
                                        Padding="5,0"
-                                       Content="Recipe &#xD0DC;&#xADF8; &#xCD08;&#xAE30;&#xD654;"
-                                       ToolTip="Recipe &#xD0DC;&#xADF8; &#xC815;&#xC758;&#xB9CC; &#xBE48; &#xBAA9;&#xB85D;&#xC73C;&#xB85C; &#xB418;&#xB3CC;&#xB9BC;. &#xAE30;&#xC874; &#xAC1D;&#xCCB4; &#xD0DC;&#xADF8;&#xB294; &#xBCF4;&#xC874;"
+                                       Content="&#xB808;&#xC2DC;&#xD53C; &#xD0DC;&#xADF8; &#xCD08;&#xAE30;&#xD654;"
+                                       ToolTip="&#xB808;&#xC2DC;&#xD53C; &#xD0DC;&#xADF8; &#xC815;&#xC758;&#xB9CC; &#xBE48; &#xBAA9;&#xB85D;&#xC73C;&#xB85C; &#xB418;&#xB3CC;&#xB9BC;. &#xAE30;&#xC874; &#xAC1D;&#xCCB4; &#xD0DC;&#xADF8;&#xB294; &#xBCF4;&#xC874;"
                                        Command="{Binding ResetRecipeMetadataTagsCommand}" />
                         </Grid>
                         </StackPanel>
@@ -870,11 +1402,11 @@
                 </Expander>
                 <Expander x:Name="SegmentationAdvancedEditExpander"
                           AutomationProperties.AutomationId="SegmentationAdvancedEditExpander"
-                          AutomationProperties.Name="&#xC138;&#xADF8;&#xBA3C;&#xD2B8; &#xACE0;&#xAE09; &#xD3B8;&#xC9D1;"
-                          Header="&#xC138;&#xADF8;&#xBA3C;&#xD2B8; &#xD3B8;&#xC9D1; &#xC635;&#xC158;"
+                          AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Edit.Advanced], RelativeSource={RelativeSource AncestorType=Window}}"
+                          Header="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Edit.Options], RelativeSource={RelativeSource AncestorType=Window}}"
                           Margin="0,5,0,0"
                           Foreground="{DynamicResource PrimaryTextBrush}"
-                          FontFamily="Segoe UI"
+                          FontFamily="{DynamicResource UiFontFamily}"
                           FontSize="11"
                           IsExpanded="{Binding IsSegmentAdvancedEditorOpen, Mode=TwoWay}"
                           Visibility="{Binding IsSegmentContextVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -890,17 +1422,17 @@
                                        Foreground="{DynamicResource SecondaryTextBrush}"
                                        FontSize="9.5"
                                        VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis" />
+                                       TextWrapping="Wrap" />
                             <ui:Button x:Name="MergeSelectedSegmentsButton"
                                        Grid.Column="1"
                                        AutomationProperties.AutomationId="MergeSelectedSegmentsButton"
-                                       AutomationProperties.Name="&#xC120;&#xD0DD; &#xB9C8;&#xC2A4;&#xD06C; &#xBCD1;&#xD569;"
+                                       AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Merge.Name], RelativeSource={RelativeSource AncestorType=Window}}"
                                        Style="{StaticResource ObjectReviewButtonStyle}"
                                        Height="24"
                                        Padding="7,0"
                                        Margin="5,0,0,0"
-                                       Content="&#xBCD1;&#xD569;"
-                                       ToolTip="&#xAC19;&#xC740; &#xD074;&#xB798;&#xC2A4; &#xC138;&#xADF8;&#xBA3C;&#xD2B8; 2&#xAC1C; &#xC774;&#xC0C1; &#xBCD1;&#xD569;"
+                                       Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Merge], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Merge.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
                                        IsEnabled="{Binding IsMergeSelectedSegmentsEnabled}"
                                        Command="{Binding MergeSelectedSegmentsCommand}" />
                         </Grid>
@@ -914,23 +1446,23 @@
                                 </Grid.ColumnDefinitions>
                                 <ui:Button x:Name="BeginInsertVertexButton"
                                            AutomationProperties.AutomationId="BeginInsertVertexButton"
-                                           AutomationProperties.Name="&#xD3F4;&#xB9AC;&#xACE4; &#xC815;&#xC810; &#xCD94;&#xAC00;"
+                                           AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Vertex.Add.Name], RelativeSource={RelativeSource AncestorType=Window}}"
                                            Style="{StaticResource ObjectReviewButtonStyle}"
                                            Height="24"
                                            Margin="0,0,3,0"
-                                           Content="&#xC815;&#xC810; &#xCD94;&#xAC00;"
-                                           ToolTip="&#xCE94;&#xBC84;&#xC2A4;&#xC5D0;&#xC11C; &#xD3F4;&#xB9AC;&#xACE4; &#xBAA8;&#xC11C;&#xB9AC;&#xB97C; &#xD074;&#xB9AD;&#xD574; &#xC815;&#xC810; &#xCD94;&#xAC00;"
+                                           Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Vertex.Add], RelativeSource={RelativeSource AncestorType=Window}}"
+                                           ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Vertex.Add.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
                                            IsEnabled="{Binding IsVertexEditEnabled}"
                                            Command="{Binding BeginInsertVertexCommand}" />
                                 <ui:Button x:Name="BeginDeleteVertexButton"
                                            Grid.Column="1"
                                            AutomationProperties.AutomationId="BeginDeleteVertexButton"
-                                           AutomationProperties.Name="&#xD3F4;&#xB9AC;&#xACE4; &#xC815;&#xC810; &#xC0AD;&#xC81C;"
+                                           AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Vertex.Delete.Name], RelativeSource={RelativeSource AncestorType=Window}}"
                                            Style="{StaticResource ObjectReviewButtonStyle}"
                                            Height="24"
                                            Margin="3,0"
-                                           Content="&#xC815;&#xC810; &#xC0AD;&#xC81C;"
-                                           ToolTip="&#xCE94;&#xBC84;&#xC2A4;&#xC5D0;&#xC11C; &#xD3F4;&#xB9AC;&#xACE4; &#xC815;&#xC810;&#xC744; &#xD074;&#xB9AD;&#xD574; &#xC0AD;&#xC81C;"
+                                           Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Vertex.Delete], RelativeSource={RelativeSource AncestorType=Window}}"
+                                           ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Vertex.Delete.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
                                            IsEnabled="{Binding IsVertexEditEnabled}"
                                            Command="{Binding BeginDeleteVertexCommand}" />
                                 <ui:Button x:Name="CancelVertexEditButton"
@@ -940,8 +1472,8 @@
                                            Height="24"
                                            Margin="3,0,0,0"
                                            Padding="7,0"
-                                           Content="&#xCDE8;&#xC18C;"
-                                           ToolTip="&#xC815;&#xC810; &#xD3B8;&#xC9D1; &#xC704;&#xCE58; &#xC120;&#xD0DD; &#xCDE8;&#xC18C;"
+                                           Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Cancel], RelativeSource={RelativeSource AncestorType=Window}}"
+                                           ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Vertex.Cancel.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
                                            Visibility="{Binding IsVertexEditPending, Converter={StaticResource BooleanToVisibilityConverter}}"
                                            Command="{Binding CancelVertexEditCommand}" />
                             </Grid>
@@ -964,36 +1496,36 @@
                                 </Grid.ColumnDefinitions>
                                 <ui:Button x:Name="BeginIntelligentScissorsButton"
                                            AutomationProperties.AutomationId="BeginIntelligentScissorsButton"
-                                           AutomationProperties.Name="&#xACBD;&#xACC4; &#xCD94;&#xC885; &#xBBF8;&#xB9AC;&#xBCF4;&#xAE30; &#xC2DC;&#xC791;"
+                                           AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Scissors.Begin.Name], RelativeSource={RelativeSource AncestorType=Window}}"
                                            Style="{StaticResource ObjectReviewButtonStyle}"
                                            Height="24"
                                            Margin="0,0,3,0"
-                                           Content="&#xACBD;&#xACC4; &#xCD94;&#xC885;"
-                                           ToolTip="&#xD3F4;&#xB9AC;&#xACE4; &#xBAA8;&#xC11C;&#xB9AC;&#xB97C; &#xD074;&#xB9AD;&#xD574; &#xC774;&#xBBF8;&#xC9C0; &#xACBD;&#xACC4; &#xACBD;&#xB85C;&#xB97C; &#xBBF8;&#xB9AC;&#xBCF4;&#xAE30;"
+                                           Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Scissors.Begin], RelativeSource={RelativeSource AncestorType=Window}}"
+                                           ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Scissors.Begin.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
                                            IsEnabled="{Binding IsIntelligentScissorsEnabled}"
                                            Command="{Binding BeginIntelligentScissorsCommand}" />
                                 <ui:Button x:Name="ApplyIntelligentScissorsButton"
                                            Grid.Column="1"
                                            AutomationProperties.AutomationId="ApplyIntelligentScissorsButton"
-                                           AutomationProperties.Name="&#xACBD;&#xACC4; &#xACBD;&#xB85C; &#xC801;&#xC6A9;"
+                                           AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Scissors.Apply.Name], RelativeSource={RelativeSource AncestorType=Window}}"
                                            Style="{StaticResource ObjectReviewButtonStyle}"
                                            Height="24"
                                            Margin="3,0"
-                                           Content="&#xBBF8;&#xB9AC;&#xBCF4;&#xAE30; &#xC801;&#xC6A9;"
-                                           ToolTip="&#xCE94;&#xBC84;&#xC2A4;&#xC758; &#xBBF8;&#xB9AC;&#xBCF4;&#xAE30; &#xACBD;&#xB85C;&#xB97C; &#xD3F4;&#xB9AC;&#xACE4;&#xC5D0; &#xC801;&#xC6A9;"
+                                           Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Scissors.Apply], RelativeSource={RelativeSource AncestorType=Window}}"
+                                           ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Scissors.Apply.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
                                            IsEnabled="{Binding HasIntelligentScissorsPreview}"
                                            Visibility="{Binding IsIntelligentScissorsPending, Converter={StaticResource BooleanToVisibilityConverter}}"
                                            Command="{Binding ApplyIntelligentScissorsCommand}" />
                                 <ui:Button x:Name="CancelIntelligentScissorsButton"
                                            Grid.Column="2"
                                            AutomationProperties.AutomationId="CancelIntelligentScissorsButton"
-                                           AutomationProperties.Name="&#xACBD;&#xACC4; &#xCD94;&#xC885; &#xCDE8;&#xC18C;"
+                                           AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Scissors.Cancel.Name], RelativeSource={RelativeSource AncestorType=Window}}"
                                            Style="{StaticResource ObjectReviewButtonStyle}"
                                            Height="24"
                                            Margin="3,0,0,0"
                                            Padding="7,0"
-                                           Content="&#xCDE8;&#xC18C;"
-                                           ToolTip="&#xACBD;&#xACC4; &#xC120;&#xD0DD; &#xB610;&#xB294; &#xBBF8;&#xB9AC;&#xBCF4;&#xAE30; &#xCDE8;&#xC18C;"
+                                           Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Cancel], RelativeSource={RelativeSource AncestorType=Window}}"
+                                           ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Scissors.Cancel.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
                                            Visibility="{Binding IsIntelligentScissorsPending, Converter={StaticResource BooleanToVisibilityConverter}}"
                                            Command="{Binding CancelIntelligentScissorsCommand}" />
                             </Grid>
@@ -1017,8 +1549,8 @@
                                        Style="{StaticResource ObjectReviewButtonStyle}"
                                        Height="24"
                                        Margin="0,0,3,0"
-                                       Content="&#xC138;&#xB85C; &#xC808;&#xB2E8;"
-                                       ToolTip="&#xC138;&#xB85C; &#xC808;&#xB2E8; &#xC704;&#xCE58;&#xB97C; &#xCE94;&#xBC84;&#xC2A4;&#xC5D0;&#xC11C; &#xC120;&#xD0DD;"
+                                       Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Split.Vertical], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Split.Vertical.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
                                        IsEnabled="{Binding IsSplitEnabled}"
                                        Command="{Binding BeginVerticalSplitCommand}" />
                             <ui:Button x:Name="BeginHorizontalSplitButton"
@@ -1027,8 +1559,8 @@
                                        Style="{StaticResource ObjectReviewButtonStyle}"
                                        Height="24"
                                        Margin="3,0"
-                                       Content="&#xAC00;&#xB85C; &#xC808;&#xB2E8;"
-                                       ToolTip="&#xAC00;&#xB85C; &#xC808;&#xB2E8; &#xC704;&#xCE58;&#xB97C; &#xCE94;&#xBC84;&#xC2A4;&#xC5D0;&#xC11C; &#xC120;&#xD0DD;"
+                                       Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Split.Horizontal], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Split.Horizontal.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
                                        IsEnabled="{Binding IsSplitEnabled}"
                                        Command="{Binding BeginHorizontalSplitCommand}" />
                             <ui:Button x:Name="CancelSplitButton"
@@ -1038,8 +1570,8 @@
                                        Height="24"
                                        Margin="3,0,0,0"
                                        Padding="7,0"
-                                       Content="&#xCDE8;&#xC18C;"
-                                       ToolTip="&#xC808;&#xB2E8; &#xC704;&#xCE58; &#xC120;&#xD0DD; &#xCDE8;&#xC18C;"
+                                       Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Cancel], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Split.Cancel.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
                                        Visibility="{Binding IsSplitPending, Converter={StaticResource BooleanToVisibilityConverter}}"
                                        Command="{Binding CancelSplitCommand}" />
                         </Grid>
@@ -1062,8 +1594,8 @@
                                        Style="{StaticResource ObjectReviewButtonStyle}"
                                        Height="24"
                                        Margin="0,0,3,0"
-                                       Content="&#xAD6C;&#xBA4D; &#xCD94;&#xAC00;"
-                                       ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xC138;&#xADF8;&#xBA3C;&#xD2B8; &#xC548;&#xCABD;&#xC5D0; &#xAD6C;&#xBA4D; &#xCD94;&#xAC00;"
+                                       Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Hole.Add], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Hole.Add.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
                                        IsEnabled="{Binding IsHoleEditEnabled}"
                                        Command="{Binding BeginAddHoleCommand}" />
                             <ui:Button x:Name="BeginRemoveHoleButton"
@@ -1072,8 +1604,8 @@
                                        Style="{StaticResource ObjectReviewButtonStyle}"
                                        Height="24"
                                        Margin="3,0"
-                                       Content="&#xAD6C;&#xBA4D; &#xCC44;&#xC6B0;&#xAE30;"
-                                       ToolTip="&#xBE48; &#xB0B4;&#xBD80; &#xAD6C;&#xBA4D;&#xC744; &#xD074;&#xB9AD;&#xD574; &#xCC44;&#xC6B0;&#xAE30;"
+                                       Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Hole.Fill], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Hole.Fill.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
                                        IsEnabled="{Binding IsHoleEditEnabled}"
                                        Command="{Binding BeginRemoveHoleCommand}" />
                             <ui:Button x:Name="CancelHoleEditButton"
@@ -1083,7 +1615,7 @@
                                        Height="24"
                                        Margin="3,0,0,0"
                                        Padding="7,0"
-                                       Content="&#xCDE8;&#xC18C;"
+                                       Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Cancel], RelativeSource={RelativeSource AncestorType=Window}}"
                                        Visibility="{Binding IsHoleEditPending, Converter={StaticResource BooleanToVisibilityConverter}}"
                                        Command="{Binding CancelHoleEditCommand}" />
                         </Grid>
@@ -1106,9 +1638,10 @@
                                        AutomationProperties.AutomationId="SendSegmentationToBackButton"
                                        Style="{StaticResource ObjectReviewButtonStyle}"
                                        Height="24"
+                                       FontSize="10"
                                        Margin="0,0,3,0"
-                                       Content="&#xB9E8; &#xB4A4;"
-                                       ToolTip="&#xAC00;&#xC7A5; &#xB4A4;&#xB85C; &#xC774;&#xB3D9;"
+                                       Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Order.Back], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Order.Back.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
                                        IsEnabled="{Binding IsSendToBackEnabled}"
                                        Command="{Binding SendToBackCommand}" />
                             <ui:Button x:Name="SendSegmentationBackwardButton"
@@ -1116,9 +1649,10 @@
                                        AutomationProperties.AutomationId="SendSegmentationBackwardButton"
                                        Style="{StaticResource ObjectReviewButtonStyle}"
                                        Height="24"
+                                       FontSize="10"
                                        Margin="3,0"
-                                       Content="&#xD55C; &#xCE78; &#xB4A4;"
-                                       ToolTip="&#xD55C; &#xB2E8;&#xACC4; &#xB4A4;&#xB85C; &#xC774;&#xB3D9;"
+                                       Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Order.Backward], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Order.Backward.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
                                        IsEnabled="{Binding IsSendBackwardEnabled}"
                                        Command="{Binding SendBackwardCommand}" />
                             <ui:Button x:Name="BringSegmentationForwardButton"
@@ -1126,9 +1660,10 @@
                                        AutomationProperties.AutomationId="BringSegmentationForwardButton"
                                        Style="{StaticResource ObjectReviewButtonStyle}"
                                        Height="24"
+                                       FontSize="10"
                                        Margin="3,0"
-                                       Content="&#xD55C; &#xCE78; &#xC55E;"
-                                       ToolTip="&#xD55C; &#xB2E8;&#xACC4; &#xC55E;&#xC73C;&#xB85C; &#xC774;&#xB3D9;"
+                                       Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Order.Forward], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Order.Forward.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
                                        IsEnabled="{Binding IsBringForwardEnabled}"
                                        Command="{Binding BringForwardCommand}" />
                             <ui:Button x:Name="BringSegmentationToFrontButton"
@@ -1136,9 +1671,10 @@
                                        AutomationProperties.AutomationId="BringSegmentationToFrontButton"
                                        Style="{StaticResource ObjectReviewButtonStyle}"
                                        Height="24"
+                                       FontSize="10"
                                        Margin="3,0,0,0"
-                                       Content="&#xB9E8; &#xC55E;"
-                                       ToolTip="&#xAC00;&#xC7A5; &#xC55E;&#xC73C;&#xB85C; &#xC774;&#xB3D9;"
+                                       Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Order.Front], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Order.Front.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
                                        IsEnabled="{Binding IsBringToFrontEnabled}"
                                        Command="{Binding BringToFrontCommand}" />
                         </Grid>
@@ -1159,8 +1695,8 @@
                                        AutomationProperties.AutomationId="PreviewRemoveUnderlyingButton"
                                        Height="24"
                                        Margin="0,0,3,0"
-                                       Content="&#xACB9;&#xCE68; &#xBD84;&#xC11D;"
-                                       ToolTip="&#xB4A4;&#xCABD; &#xACB9;&#xCE68; &#xC81C;&#xAC70; &#xC601;&#xD5A5; &#xBBF8;&#xB9AC;&#xBCF4;&#xAE30;"
+                                       Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Overlap.Analyze], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Overlap.Analyze.ToolTip], RelativeSource={RelativeSource AncestorType=Window}}"
                                        IsEnabled="{Binding IsRemoveUnderlyingPreviewEnabled}"
                                        Command="{Binding PreviewRemoveUnderlyingCommand}">
                                 <ui:Button.Style>
@@ -1180,7 +1716,7 @@
                                        Style="{StaticResource ObjectReviewButtonStyle}"
                                        Height="24"
                                        Margin="3,0"
-                                       Content="&#xD655;&#xC778; &#xD6C4; &#xC81C;&#xAC70;"
+                                       Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Overlap.Apply], RelativeSource={RelativeSource AncestorType=Window}}"
                                        Visibility="{Binding IsRemoveUnderlyingPreviewPending, Converter={StaticResource BooleanToVisibilityConverter}}"
                                        Command="{Binding ApplyRemoveUnderlyingCommand}" />
                             <ui:Button x:Name="CancelRemoveUnderlyingButton"
@@ -1189,7 +1725,7 @@
                                        Style="{StaticResource ObjectReviewButtonStyle}"
                                        Height="24"
                                        Margin="3,0,0,0"
-                                       Content="&#xCDE8;&#xC18C;"
+                                       Content="{Binding DataContext.LanguageViewModel[WpfObjectReview.Segmentation.Cancel], RelativeSource={RelativeSource AncestorType=Window}}"
                                        Visibility="{Binding IsRemoveUnderlyingPreviewPending, Converter={StaticResource BooleanToVisibilityConverter}}"
                                        Command="{Binding CancelRemoveUnderlyingCommand}" />
                         </Grid>
@@ -1206,57 +1742,258 @@
                 </Expander>
             </StackPanel>
         </Border>
+            </StackPanel>
+        </Expander>
+        <StackPanel Grid.Row="2">
+        <StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ShellViewModel.IsSavedLabelsShortcutActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/></MultiDataTrigger.Conditions><Setter Property="Margin" Value="14,0"/></MultiDataTrigger></Style.Triggers></Style></StackPanel.Style>
         <ListBox x:Name="ObjectListBox"
                  AutomationProperties.AutomationId="ObjectListBox"
-                 Grid.Row="3"
+                 MinHeight="30"
+                 MaxHeight="220"
                  Background="Transparent"
                  BorderThickness="0"
                  Foreground="{DynamicResource SecondaryTextBrush}"
                  ItemsSource="{Binding Objects}"
                  SelectedItem="{Binding SelectedObject, Mode=TwoWay}"
-                 ItemContainerStyle="{StaticResource ObjectReviewListBoxItemStyle}"
+                 ItemContainerStyle="{StaticResource ObjectReviewObjectListBoxItemStyle}"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  ScrollViewer.CanContentScroll="True"
                  VirtualizingPanel.IsVirtualizing="True"
                  VirtualizingPanel.VirtualizationMode="Recycling"
                  mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding ObjectSelectionChangedCommand}"
                  mvvm:InputCommandBehaviors.PreviewKeyInputCommand="{Binding ObjectPreviewKeyDownCommand}">
+            <ListBox.Style><Style TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}"><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ShellViewModel.IsSavedLabelsShortcutActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/></MultiDataTrigger.Conditions><Setter Property="Template" Value="{Binding Template, ElementName=ObjectReviewReferenceClassListBox}"/></MultiDataTrigger></Style.Triggers></Style></ListBox.Style>
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <CheckBox Style="{StaticResource ObjectReviewGroupCheckBoxStyle}"
-                                  IsChecked="{Binding IsGroupSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                  IsEnabled="{Binding CanGroupSelect}"
-                                  Command="{Binding DataContext.GroupSelectionChangedCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
-                                  CommandParameter="{Binding}" />
-                        <CheckBox Grid.Column="1"
-                                  Style="{StaticResource ObjectReviewMergeCheckBoxStyle}"
-                                  IsChecked="{Binding IsMergeSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                  IsEnabled="{Binding CanMergeSelect}"
-                                  Command="{Binding DataContext.MergeSelectionChangedCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
-                                  CommandParameter="{Binding}" />
-                        <TextBlock Grid.Column="2"
-                                   Text="{Binding DisplayText}"
-                                   ToolTip="{Binding ToolTip}"
-                                   Opacity="{Binding ContentOpacity}"
-                                   TextTrimming="CharacterEllipsis"
-                                   VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="3"
-                                   Text="{Binding StateBadgeText}"
-                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                   FontSize="9.5"
-                                   FontWeight="SemiBold"
-                                   Margin="6,0,0,0"
-                                   VerticalAlignment="Center" />
-                    </Grid>
+                    <StackPanel>
+                        <TextBlock TextWrapping="Wrap" FontSize="12" AutomationProperties.Name="{Binding Text, RelativeSource={RelativeSource Self}}">
+                            <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="FontWeight" Value="Normal"/><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}"/><Setter Property="LineHeight" Value="17.4"/><Setter Property="LineStackingStrategy" Value="BlockLineHeight"/><Setter Property="Text" Value="{Binding EmptyHintDisplayText}"/><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding IsEnabled}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyGridActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/></MultiDataTrigger.Conditions><Setter Property="Text" Value="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfAnomalyLabeling.EmptyLocation]}"/><Setter Property="LineHeight" Value="17.4"/><Setter Property="LineStackingStrategy" Value="BlockLineHeight"/><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}"/></MultiDataTrigger></Style.Triggers></Style></TextBlock.Style>
+                        </TextBlock>
+                        <Grid Visibility="{Binding IsEnabled, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <Border Width="12" Height="12" CornerRadius="3" Background="{Binding ClassBrush}" VerticalAlignment="Center" />
+                            <ComboBox x:Name="ObjectRowClassBox" Grid.Column="1" Margin="4,0" MinHeight="24" FontSize="12" Padding="8,2,24,2"
+                                      AutomationProperties.AutomationId="ObjectRowClassBox"
+                                      AutomationProperties.Name="{Binding DisplayText}" ToolTip="{Binding ClassName}"
+                                      Style="{StaticResource ObjectReviewEditClassBoxStyle}"
+                                      ItemsSource="{Binding DataContext.ClassNames, RelativeSource={RelativeSource AncestorType={x:Type local:WpfObjectReviewPanel}}}"
+                                      SelectedItem="{Binding SelectedClassName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      IsEnabled="{Binding IsInlineEditEnabled}" />
+                            <TextBlock Grid.Column="2" Text="{Binding ObjectKindText}" FontSize="11" Foreground="{DynamicResource RecipeMutedTextBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <ui:Button x:Name="ObjectRowHiddenButton" Grid.Column="3" Width="22" Height="22" MinWidth="22" MinHeight="22" Padding="0"
+                                       AutomationProperties.AutomationId="ObjectRowHiddenButton"
+                                       AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.Row.Visibility], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       ToolTip="{Binding ObjectSessionStateText}" Style="{StaticResource ObjectReviewSessionButtonStyle}" Tag="{Binding IsHidden}"
+                                       IsEnabled="{Binding SupportsSessionState}" CommandParameter="{Binding}"
+                                       Command="{Binding DataContext.ToggleRowHiddenCommand, RelativeSource={RelativeSource AncestorType={x:Type local:WpfObjectReviewPanel}}}">
+                                <iconPacks:PackIconMaterial Width="14" Height="14"><iconPacks:PackIconMaterial.Style><Style TargetType="iconPacks:PackIconMaterial"><Setter Property="Kind" Value="EyeOutline" /><Style.Triggers><DataTrigger Binding="{Binding IsHidden}" Value="True"><Setter Property="Kind" Value="EyeOffOutline" /></DataTrigger></Style.Triggers></Style></iconPacks:PackIconMaterial.Style></iconPacks:PackIconMaterial>
+                            </ui:Button>
+                            <ui:Button x:Name="ObjectRowLockedButton" Grid.Column="4" Width="22" Height="22" MinWidth="22" MinHeight="22" Padding="0" Margin="4,0,0,0"
+                                       AutomationProperties.AutomationId="ObjectRowLockedButton"
+                                       AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.Row.Lock], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       ToolTip="{Binding ObjectSessionStateText}" Style="{StaticResource ObjectReviewSessionButtonStyle}" Tag="{Binding IsLocked}"
+                                       IsEnabled="{Binding SupportsSessionState}" CommandParameter="{Binding}"
+                                       Command="{Binding DataContext.ToggleRowLockedCommand, RelativeSource={RelativeSource AncestorType={x:Type local:WpfObjectReviewPanel}}}">
+                                <iconPacks:PackIconMaterial Width="14" Height="14"><iconPacks:PackIconMaterial.Style><Style TargetType="iconPacks:PackIconMaterial"><Setter Property="Kind" Value="LockOpenOutline" /><Style.Triggers><DataTrigger Binding="{Binding IsLocked}" Value="True"><Setter Property="Kind" Value="LockOutline" /></DataTrigger></Style.Triggers></Style></iconPacks:PackIconMaterial.Style></iconPacks:PackIconMaterial>
+                            </ui:Button>
+                            <ui:Button x:Name="ObjectRowDeleteButton" Grid.Column="5" Width="22" Height="22" MinWidth="22" MinHeight="22" Padding="0" Margin="4,0,0,0"
+                                       AutomationProperties.AutomationId="ObjectRowDeleteButton"
+                                       AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfObjectReview.Row.Delete], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       ToolTip="{Binding DataContext.LanguageViewModel[WpfObjectReview.Row.Delete.Hint], RelativeSource={RelativeSource AncestorType=Window}}"
+                                       Style="{StaticResource RecipeQuietButtonStyle}" IsEnabled="{Binding IsInlineEditEnabled}" CommandParameter="{Binding}"
+                                       Command="{Binding DataContext.DeleteRowCommand, RelativeSource={RelativeSource AncestorType={x:Type local:WpfObjectReviewPanel}}}">
+                                <iconPacks:PackIconMaterial Kind="Close" Width="14" Height="14" />
+                            </ui:Button>
+                        </Grid>
+                        <StackPanel x:Name="ObjectRowStateDetails" Orientation="Horizontal">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Style.Triggers>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding StateBadgeText}" Value="" />
+                                                <Condition Binding="{Binding IsGroupSelectionVisible}" Value="False" />
+                                                <Condition Binding="{Binding IsMergeSelectionVisible}" Value="False" />
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </MultiDataTrigger>
+                                    <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ShellViewModel.IsSavedLabelsShortcutActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/><Condition Binding="{Binding MetadataBadgeText}" Value=""/><Condition Binding="{Binding IsGroupSelectionVisible}" Value="False"/><Condition Binding="{Binding IsMergeSelectionVisible}" Value="False"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Collapsed"/></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ShellViewModel.IsSavedLabelsShortcutActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/><Condition Binding="{Binding MetadataBadgeText}" Value=""/><Condition Binding="{Binding IsGroupSelectionVisible}" Value="False"/><Condition Binding="{Binding DataContext.IsSegmentAdvancedEditorOpen, RelativeSource={RelativeSource AncestorType={x:Type local:WpfObjectReviewPanel}}}" Value="False"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Collapsed"/></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ShellViewModel.IsSavedLabelsShortcutActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/><Condition Binding="{Binding MetadataBadgeText}" Value=""/><Condition Binding="{Binding IsGroupSelectionVisible}" Value="False"/><Condition Binding="{Binding IsExpanded, ElementName=ObjectReviewSecondaryEditor}" Value="False"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Collapsed"/></MultiDataTrigger></Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <CheckBox Style="{StaticResource ObjectReviewGroupCheckBoxStyle}" IsChecked="{Binding IsGroupSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanGroupSelect}" Command="{Binding DataContext.GroupSelectionChangedCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}" CommandParameter="{Binding}" />
+                            <CheckBox Style="{StaticResource ObjectReviewMergeCheckBoxStyle}" IsChecked="{Binding IsMergeSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanMergeSelect}" Command="{Binding DataContext.MergeSelectionChangedCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}" CommandParameter="{Binding}" />
+                            <TextBlock x:Name="ObjectRowStateBadgeText" Foreground="{DynamicResource RecipeMutedTextBrush}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" AutomationProperties.Name="{Binding StateBadgeText}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="{Binding StateBadgeText, Mode=OneWay}"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ShellViewModel.IsSavedLabelsShortcutActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/></MultiDataTrigger.Conditions><Setter Property="Text" Value="{Binding MetadataBadgeText, Mode=OneWay}"/></MultiDataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                        </StackPanel>
+                    </StackPanel>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
+        <ListBox x:Name="InlineCandidateListBox" DataContext="{Binding CandidateReviewViewModel, ElementName=ObjectReviewRoot}"
+                 AutomationProperties.AutomationId="InlineCandidateListBox"
+                 Visibility="{Binding CandidateInteractionVisibility, FallbackValue=Collapsed, TargetNullValue=Collapsed}" ItemsSource="{Binding Candidates}" SelectedItem="{Binding SelectedCandidate, Mode=TwoWay}"
+                 Background="Transparent" BorderThickness="0" Foreground="{DynamicResource RecipeTextBrush}" FontFamily="{DynamicResource UiFontFamily}" FontSize="12"
+                 HorizontalContentAlignment="Stretch" MaxHeight="220" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                 mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding CandidateSelectionChangedCommand}"
+                 mvvm:InputCommandBehaviors.PreviewKeyInputCommand="{Binding CandidatePreviewKeyDownCommand}">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem" BasedOn="{StaticResource ObjectReviewClassListBoxItemStyle}">
+                    <Setter Property="Padding" Value="4" />
+                    <Setter Property="Margin" Value="0,0,0,6" />
+                    <Setter Property="FontSize" Value="12" />
+                    <Setter Property="BorderBrush" Value="#59647A" />
+                    <Setter Property="AutomationProperties.Name" Value="{Binding Title}" />
+                    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem">
+                        <Grid>
+                            <Rectangle Fill="{TemplateBinding Background}" Stroke="{TemplateBinding BorderBrush}" StrokeThickness="1" StrokeDashArray="3,3" RadiusX="6" RadiusY="6" />
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Stretch" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" />
+                            <Border x:Name="InlineCandidateFocusCue" BorderBrush="Transparent" BorderThickness="2" CornerRadius="6" IsHitTestVisible="False" />
+                        </Grid>
+                        <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="InlineCandidateFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger></ControlTemplate.Triggers>
+                    </ControlTemplate></Setter.Value></Setter>
+                </Style>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate><DataTemplate>
+                <StackPanel>
+                    <TextBlock Text="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfCandidate.Inline.Filtered]}" TextWrapping="Wrap" Foreground="{DynamicResource RecipeMutedTextBrush}">
+                        <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding IsEnabled}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                    </TextBlock>
+                    <Grid Visibility="{Binding IsEnabled, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <Border x:Name="InlineCandidateClassSwatch" Width="12" Height="12" CornerRadius="3" Background="{Binding ClassBrush}" Opacity="0.6" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" TextWrapping="Wrap" Margin="4,0" VerticalAlignment="Center">
+                            <Run Text="{Binding ClassName, Mode=OneWay}" /><Run Text=" " /><Run Text="{Binding InlineConfidenceText, Mode=OneWay}" Foreground="{DynamicResource RecipeMutedTextBrush}" />
+                        </TextBlock>
+                        <TextBlock Grid.Column="2" FontSize="11" Foreground="{DynamicResource RecipeMutedTextBrush}" Margin="0,0,4,0" VerticalAlignment="Center">
+                            <TextBlock.Style><Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfCandidate.Inline.Source]}" />
+                                <Style.Triggers><DataTrigger Binding="{Binding IsSmartMaskCandidate}" Value="True"><Setter Property="Text" Value="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfCandidate.Inline.SmartMask]}" /></DataTrigger></Style.Triggers>
+                            </Style></TextBlock.Style>
+                        </TextBlock>
+                        <ui:Button x:Name="InlineConfirmCandidateButton" Grid.Column="3" Width="22" Height="22" MinWidth="22" MinHeight="22" Padding="0"
+                                   AutomationProperties.AutomationId="InlineConfirmCandidateButton"
+                                   AutomationProperties.Name="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfCandidate.ConfirmSelected.Save]}"
+                                   ToolTip="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfCandidate.Draft.ConfirmSelectedHint]}"
+                                   Style="{StaticResource ObjectReviewSessionButtonStyle}" IsEnabled="{Binding IsInlineConfirmEnabled}"
+                                   Command="{Binding DataContext.ConfirmRowCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding}">
+                            <iconPacks:PackIconMaterial Kind="Check" Width="14" Height="14" />
+                        </ui:Button>
+                        <Border Grid.Column="4" Width="22" Margin="4,0,0,0" />
+                        <ui:Button x:Name="InlineSkipCandidateButton" Grid.Column="5" Width="22" Height="22" MinWidth="22" MinHeight="22" Padding="0" Margin="4,0,0,0"
+                                   AutomationProperties.AutomationId="InlineSkipCandidateButton"
+                                   AutomationProperties.Name="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfCandidate.Skip.Hide]}"
+                                   ToolTip="{Binding Source={x:Static local:WpfLocalizationViewModel.Instance}, Path=[WpfCandidate.Inline.SkipHint]}"
+                                   Style="{StaticResource ObjectReviewSessionButtonStyle}" IsEnabled="{Binding IsInlineSkipEnabled}"
+                                   Command="{Binding DataContext.SkipRowCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding}">
+                            <iconPacks:PackIconMaterial Kind="Close" Width="14" Height="14" />
+                        </ui:Button>
+                    </Grid>
+                </StackPanel>
+            </DataTemplate></ListBox.ItemTemplate>
+        </ListBox>
+        </StackPanel>
+        <StackPanel Grid.Row="3">
+            <StackPanel.Style>
+                <Style TargetType="StackPanel">
+                    <Setter Property="Margin" Value="0,8,0,8" />
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" Value="True" />
+                                <Condition Binding="{Binding DataContext.ShellViewModel.IsAnnotationWorkflowVisible, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" Value="True" />
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="Visibility" Value="Visible" />
+                        </MultiDataTrigger>
+                        <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DataContext.ShellViewModel.IsLabelingStageActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ShellViewModel.IsSavedLabelsShortcutActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/><Condition Binding="{Binding DataContext.ImageQueueViewModel.IsAnomalyImageReviewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/></MultiDataTrigger.Conditions><Setter Property="Margin" Value="14,8"/></MultiDataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </StackPanel.Style>
+            <ContentControl x:Name="InlineLabelSuspicionReview" AutomationProperties.AutomationId="InlineLabelSuspicionReview"
+                            Content="{Binding CandidateReviewViewModel, ElementName=ObjectReviewRoot}"
+                            ContentTemplate="{StaticResource LabelSuspicionReviewTemplate}" HorizontalContentAlignment="Stretch"
+                            Visibility="{Binding IsReviewModeActive, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,0,0,8" />
+            <TextBlock Text="{Binding DataContext.LanguageViewModel[WpfCanvas.NoObject.Selection.Image], RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                       Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4" />
+            <CheckBox x:Name="ObjectReviewNoObjectCheckBox" AutomationProperties.AutomationId="ObjectReviewNoObjectCheckBox"
+                      AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfCanvas.NoObject.Selection.Name], RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                      IsChecked="{Binding DataContext.CanvasPanelViewModel.IsNoObjectSelected, RelativeSource={RelativeSource AncestorType={x:Type Window}}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                      IsEnabled="{Binding DataContext.CanvasPanelViewModel.IsNoObjectSelectionEnabled, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                      ToolTip="{Binding DataContext.CanvasPanelViewModel.NoObjectSelectionToolTip, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                      ToolTipService.ShowOnDisabled="True" MinHeight="30" FontSize="13" FocusVisualStyle="{x:Null}">
+                <CheckBox.Style>
+                    <Style TargetType="CheckBox">
+                        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                        <Setter Property="Cursor" Value="Hand" />
+                    </Style>
+                </CheckBox.Style>
+                <CheckBox.Template>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid Background="Transparent">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="15" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Border x:Name="NoObjectCheckChrome" Width="15" Height="15" CornerRadius="3" Background="{DynamicResource InputBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" VerticalAlignment="Center" />
+                            <Path x:Name="NoObjectCheckMark" Data="M 3,7 L 6,10 L 12,3" Width="15" Height="15" Stroke="White" StrokeThickness="2" Visibility="Collapsed" VerticalAlignment="Center" />
+                            <ContentPresenter Grid.Column="1" ContentSource="Content" Margin="8,0,0,0" VerticalAlignment="Center" />
+                            <Border x:Name="NoObjectCheckFocusCue" Grid.ColumnSpan="2" CornerRadius="6" BorderThickness="2" BorderBrush="Transparent" IsHitTestVisible="False" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="NoObjectCheckChrome" Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}" /><Setter TargetName="NoObjectCheckChrome" Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                            <Trigger Property="IsChecked" Value="True"><Setter TargetName="NoObjectCheckMark" Property="Visibility" Value="Visible" /><Setter TargetName="NoObjectCheckChrome" Property="Background" Value="{DynamicResource AccentBrush}" /><Setter TargetName="NoObjectCheckChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="NoObjectCheckChrome" Property="Background" Value="{DynamicResource RecipeButtonPressedBrush}" /></Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="NoObjectCheckFocusCue" Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /><Setter TargetName="NoObjectCheckChrome" Property="Background" Value="{DynamicResource RecipeDisabledBrush}" /><Setter TargetName="NoObjectCheckMark" Property="Stroke" Value="{DynamicResource RecipeDisabledTextBrush}" /><Setter Property="Cursor" Value="Arrow" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </CheckBox.Template>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding DataContext.LanguageViewModel[WpfCanvas.NoObject.Selection.Name], RelativeSource={RelativeSource AncestorType={x:Type Window}}}" />
+                    <Border Background="{DynamicResource InputBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1,1,1,2" CornerRadius="4" Padding="3,0" Margin="6,0,0,0">
+                        <TextBlock Text="X" FontFamily="Consolas" FontSize="11">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+                                    <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /></Trigger></Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Border>
+                </StackPanel>
+            </CheckBox>
+            <TextBlock Text="{Binding DataContext.LanguageViewModel[WpfCanvas.NoObject.Selection.Hint], RelativeSource={RelativeSource AncestorType={x:Type Window}}, Mode=OneWay, Converter={StaticResource CandidateReviewWordBoundaryConverter}}"
+                       AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfCanvas.NoObject.Selection.Hint], RelativeSource={RelativeSource AncestorType=Window}}"
+                       Foreground="{DynamicResource RecipeDisabledTextBrush}" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" FontSize="12" TextWrapping="Wrap" />
+            <TextBlock x:Name="ObjectReviewActiveImageSplitStatusText" FontSize="12" FontWeight="Normal" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" Foreground="{DynamicResource RecipeDisabledTextBrush}" Margin="0,8,0,0">
+                <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding DataContext.ImageQueueViewModel.ActiveQueueItem, RelativeSource={RelativeSource AncestorType=Window}}" Value="{x:Null}"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                <Run Text="{Binding DataContext.LanguageViewModel[WpfLabeling.Image.Split], RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}" /><Run Text=" " /><Run Text="{Binding DataContext.ImageQueueViewModel.ActiveQueueItem.DatasetSplitText, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding DataContext.ImageQueueViewModel.ActiveQueueItem.DatasetReviewStatusText, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}" />
+            </TextBlock>
+            <Border BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,1,0,0" Margin="0,12,0,0" Padding="0,12,0,0">
+                <StackPanel>
+                    <TextBlock Text="{Binding DataContext.LanguageViewModel[WpfCanvas.PreviousLabels.Section], RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                               Foreground="{DynamicResource SecondaryTextBrush}" FontFamily="{DynamicResource UiFontFamily}" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8" />
+                    <ui:Button x:Name="ObjectReviewPreviousLabelsButton" AutomationProperties.AutomationId="ObjectReviewPreviousLabelsButton"
+                               AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfCanvas.PreviousLabels.Name], RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                               Style="{StaticResource RecipeSecondaryButtonStyle}" MinHeight="24" Padding="8,2" FontSize="12" FontFamily="{DynamicResource UiFontFamily}"
+                               HorizontalContentAlignment="Stretch"
+                               Command="{Binding DataContext.CanvasPanelViewModel.ImportPreviousLabelsCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                               ToolTip="{Binding DataContext.LanguageViewModel[WpfCanvas.PreviousLabels.Hint], RelativeSource={RelativeSource AncestorType={x:Type Window}}}" ToolTipService.ShowOnDisabled="True">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding DataContext.LanguageViewModel[WpfCanvas.PreviousLabels.Name], RelativeSource={RelativeSource AncestorType={x:Type Window}}}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            <Border Grid.Column="1" Background="{DynamicResource InputBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1,1,1,2" CornerRadius="4" Padding="3,0" Margin="6,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="Ctrl+Shift+V" FontFamily="Consolas" FontSize="11">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+                                            <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /></Trigger></Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Border>
+                        </Grid>
+                    </ui:Button>
+                </StackPanel>
+            </Border>
+        </StackPanel>
     </Grid>
+    </ScrollViewer>
 </UserControl>

@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Windows.Input;
 
 namespace MvcVisionSystem
@@ -36,7 +37,7 @@ namespace MvcVisionSystem
         private Action<string> openVisualQaImage = _ => { };
         private string datasetName = "데이터셋 미선택";
         private string purposeText = "목적 미확인";
-        private string outputRootText = "저장 폴더를 확인하세요.";
+        private string outputRootText = T("WpfDatasetHealth.OutputRootPrompt");
         private string statusText = "저장 데이터 분석 대기";
         private string statusDetailText = "분할, 라벨 품질, 클래스 분포를 읽기 전용으로 확인합니다.";
         private string generatedAtText = string.Empty;
@@ -48,6 +49,7 @@ namespace MvcVisionSystem
         private bool isVisualQaLoaded;
         private bool isRefreshingVisualQa;
         private int selectedTabIndex;
+        private bool isDetailsExpanded;
         private bool showOnlyVisualQaProblems;
         private IReadOnlyList<string> visualQaSplitFilters = new[] { AllVisualQaSplits };
         private string selectedVisualQaSplitFilter = AllVisualQaSplits;
@@ -65,6 +67,7 @@ namespace MvcVisionSystem
         {
             this.data = data;
             RefreshCommand = new RelayCommand(() => Refresh(this.data));
+            ToggleDetailsCommand = new RelayCommand(() => IsDetailsExpanded = !IsDetailsExpanded);
             OpenSelectedVisualQaImageCommand = new RelayCommand(OpenSelectedVisualQaImage);
             OpenVisionLanguageService.LanguageChanged += OpenVisionLanguageService_LanguageChanged;
             Refresh(data);
@@ -76,9 +79,15 @@ namespace MvcVisionSystem
 
         public ObservableCollection<WpfDatasetHealthClassRow> ClassRows { get; } = new ObservableCollection<WpfDatasetHealthClassRow>();
 
+        public ObservableCollection<DatasetHealthSummaryRow> SummaryClassRows { get; } = new ObservableCollection<DatasetHealthSummaryRow>();
+
+        public bool HasUnavailableSummaryCounts => SummaryClassRows.Any(item => item.HasUnavailableCounts);
+
         public ObservableCollection<WpfDatasetHealthIssueItem> Issues { get; } = new ObservableCollection<WpfDatasetHealthIssueItem>();
 
         public ObservableCollection<WpfDatasetVisualQaItem> VisualQaItems { get; } = new ObservableCollection<WpfDatasetVisualQaItem>();
+
+        public WpfLocalizationViewModel LanguageViewModel => WpfLocalizationViewModel.Instance;
 
         public IReadOnlyList<string> VisualQaSplitFilters
         {
@@ -130,7 +139,7 @@ namespace MvcVisionSystem
             private set => SetProperty(ref generatedAtText, value ?? string.Empty);
         }
 
-        public string DataScopeText => T("WpfDatasetHealth.Scope");
+        public string DataScopeText => T(IsAnomalyDataset ? "WpfDatasetHealth.Scope.Anomaly" : "WpfDatasetHealth.Scope");
 
         public string EvidenceBoundaryText => T("WpfDatasetHealth.EvidenceBoundary");
 
@@ -140,6 +149,9 @@ namespace MvcVisionSystem
             private set => SetProperty(ref anomalyDetailText, value ?? string.Empty);
         }
 
+        public string ClassDistributionTitleText => T(IsAnomalyDataset ? "WpfDatasetHealth.Label.ImageClassDistribution" : "WpfDatasetHealth.Label.PrimaryClassDistribution");
+        public string ClassCountHeaderText => T(IsAnomalyDataset ? "WpfDatasetHealth.Label.ImageCount" : "WpfDatasetHealth.Label.PrimaryLabelCount");
+
         public bool IsAnomalyDataset
         {
             get => isAnomalyDataset;
@@ -148,6 +160,9 @@ namespace MvcVisionSystem
                 if (SetProperty(ref isAnomalyDataset, value))
                 {
                     OnPropertyChanged(nameof(IsYoloDataset));
+                    OnPropertyChanged(nameof(ClassDistributionTitleText));
+                    OnPropertyChanged(nameof(ClassCountHeaderText));
+                    OnPropertyChanged(nameof(DataScopeText));
                 }
             }
         }
@@ -171,6 +186,19 @@ namespace MvcVisionSystem
             get => hasVisualQaItems;
             private set => SetProperty(ref hasVisualQaItems, value);
         }
+
+        public bool IsDetailsExpanded
+        {
+            get => isDetailsExpanded;
+            set
+            {
+                if (SetProperty(ref isDetailsExpanded, value)) OnPropertyChanged(nameof(DetailsToggleText));
+            }
+        }
+
+        public string DetailsToggleText => T(IsDetailsExpanded ? "WpfDatasetHealth.Action.ShowSummary" : "WpfDatasetHealth.Action.ShowDetails");
+
+        public ICommand ToggleDetailsCommand { get; }
 
         public int SelectedTabIndex
         {
@@ -306,6 +334,8 @@ namespace MvcVisionSystem
                 Metrics.Clear();
                 SplitRows.Clear();
                 ClassRows.Clear();
+                SummaryClassRows.Clear();
+                OnPropertyChanged(nameof(HasUnavailableSummaryCounts));
                 Issues.Clear();
                 DatasetName = DatasetContextPresentationService.BuildDatasetName(string.Empty, data?.OutputRootPath);
                 PurposeText = DatasetContextPresentationService.FormatPurposeName(data?.ProjectSettings?.DatasetPurpose ?? LabelingDatasetPurpose.ObjectDetection);
@@ -416,9 +446,12 @@ namespace MvcVisionSystem
                 }
             }
 
-            VisualQaClassFilters = filters;
-            SelectedVisualQaClassFilter = filters.FirstOrDefault(item => item.HasSameIdentity(previous))
-                ?? filters[0];
+            if (!VisualQaClassFilters.Select(item => (item.ClassIndex, item.ClassName, item.Text)).SequenceEqual(filters.Select(item => (item.ClassIndex, item.ClassName, item.Text))))
+            {
+                VisualQaClassFilters = filters;
+            }
+            SelectedVisualQaClassFilter = VisualQaClassFilters.FirstOrDefault(item => item.HasSameIdentity(previous))
+                ?? VisualQaClassFilters[0];
             OnPropertyChanged(nameof(SelectedVisualQaClassFilter));
             OnPropertyChanged(nameof(IsVisualQaClassFilterEnabled));
         }
@@ -469,7 +502,7 @@ namespace MvcVisionSystem
                 ? T("WpfDatasetHealth.VisualQa.AllSplitLabel")
                 : Format("WpfDatasetHealth.VisualQa.SplitLabel", SelectedVisualQaSplitFilter);
             string classLabel = SelectedVisualQaClassFilter?.ClassIndex.HasValue == true
-                ? Format("WpfDatasetHealth.VisualQa.ClassLabel", SelectedVisualQaClassFilter.Text)
+                ? " · " + Format("WpfDatasetHealth.VisualQa.ClassLabel", SelectedVisualQaClassFilter.Text)
                 : string.Empty;
             string problemsSuffix = ShowOnlyVisualQaProblems
                 ? T("WpfDatasetHealth.VisualQa.ProblemsOnlySuffix")
@@ -515,7 +548,7 @@ namespace MvcVisionSystem
                 ? T("WpfDatasetHealth.Status.Ready")
                 : T("WpfDatasetHealth.Status.NeedsAttention");
             StatusDetailText = report.IsReady
-                ? T("WpfDatasetHealth.Status.Detail.Ready")
+                ? T(IsAnomalyDataset ? "WpfDatasetHealth.Status.Detail.AnomalyReady" : "WpfDatasetHealth.Status.Detail.Ready")
                 : FormatIssue(report.Issues.FirstOrDefault());
             GeneratedAtText = Format(
                 "WpfDatasetHealth.GeneratedAt",
@@ -542,9 +575,10 @@ namespace MvcVisionSystem
                     item.ClassName,
                     item.Count,
                     100D * item.Count / totalClassCount,
-                    report.Purpose == LabelingDatasetPurpose.AnomalyDetection));
+                    report.Purpose == LabelingDatasetPurpose.AnomalyDetection) { DisplayClassName = FormatDisplayClassName(item.ClassName, report.Purpose == LabelingDatasetPurpose.AnomalyDetection) });
             }
             HasClasses = ClassRows.Count > 0;
+            ApplySummaryRows(report);
 
             Issues.Clear();
             foreach (string issue in report.Issues.Take(6))
@@ -560,6 +594,62 @@ namespace MvcVisionSystem
                     isBlocking: false));
             }
             HasIssues = Issues.Count > 0;
+        }
+
+        private void ApplySummaryRows(YoloDatasetHealthReport report)
+        {
+            SummaryClassRows.Clear();
+            IEnumerable<YoloDatasetHealthClassSummary> classes = report.Classes;
+            if (report.Purpose != LabelingDatasetPurpose.AnomalyDetection && data?.ClassNamedList?.Count > 0)
+            {
+                classes = classes.OrderBy(item => data.ClassNamedList.FindIndex(label => string.Equals(label?.Text?.Trim(), item.ClassName, StringComparison.OrdinalIgnoreCase)));
+            }
+            foreach (YoloDatasetHealthClassSummary item in classes)
+            {
+                int? trainCount = null; int? validCount = null; int? testCount = null;
+                int count = item.Count;
+                if (report.Purpose == LabelingDatasetPurpose.ObjectDetection && report.QualityAudit != null)
+                {
+                    trainCount = ReadSummaryClassCount(report.QualityAudit, "train", item.ClassName);
+                    validCount = ReadSummaryClassCount(report.QualityAudit, "valid", item.ClassName);
+                    testCount = ReadSummaryClassCount(report.QualityAudit, "test", item.ClassName);
+                    count = report.QualityAudit.ObjectCountByClass.TryGetValue(item.ClassName, out int auditedCount) ? auditedCount : 0;
+                }
+                else if (report.Purpose == LabelingDatasetPurpose.Segmentation && report.YoloReadiness?.Statistics is YoloDatasetStatistics statistics)
+                {
+                    trainCount = statistics.GetSegmentationObjectCount("train", item.ClassName);
+                    validCount = statistics.GetSegmentationObjectCount("valid", item.ClassName);
+                    testCount = statistics.GetSegmentationObjectCount("test", item.ClassName);
+                }
+                else if (report.Purpose == LabelingDatasetPurpose.AnomalyDetection && report.AnomalyReadiness != null)
+                {
+                    AnomalyClassificationTrainingReadinessReport anomaly = report.AnomalyReadiness;
+                    if (string.Equals(item.ClassName, "normal", StringComparison.OrdinalIgnoreCase))
+                    {
+                        trainCount = anomaly.TrainNormalImageCount; validCount = anomaly.ValidNormalImageCount; testCount = anomaly.TestNormalImageCount;
+                    }
+                    else if (string.Equals(item.ClassName, "abnormal", StringComparison.OrdinalIgnoreCase))
+                    {
+                        trainCount = anomaly.TrainAbnormalImageCount; validCount = anomaly.ValidAbnormalImageCount; testCount = anomaly.TestAbnormalImageCount;
+                    }
+                }
+                SummaryClassRows.Add(new DatasetHealthSummaryRow(item.ClassName, count, trainCount, validCount, testCount) { DisplayClassName = FormatDisplayClassName(item.ClassName, report.Purpose == LabelingDatasetPurpose.AnomalyDetection) });
+            }
+            OnPropertyChanged(nameof(HasUnavailableSummaryCounts));
+        }
+
+        private static string FormatDisplayClassName(string className, bool isAnomaly)
+        {
+            if (isAnomaly && string.Equals(className, "normal", StringComparison.OrdinalIgnoreCase)) return T("WpfDatasetWorkspace.Normal");
+            if (isAnomaly && string.Equals(className, "abnormal", StringComparison.OrdinalIgnoreCase)) return T("WpfDatasetWorkspace.Abnormal");
+            return className ?? string.Empty;
+        }
+
+        private static int? ReadSummaryClassCount(YoloDatasetQualityAuditReport report, string split, string className)
+        {
+            YoloDatasetQualityAuditSplitSummary summary = report.Splits.FirstOrDefault(item => string.Equals(item.Split, split, StringComparison.OrdinalIgnoreCase));
+            if (summary == null) return null;
+            return summary.ObjectCountByClass.TryGetValue(className, out int count) ? count : 0;
         }
 
         private static IEnumerable<WpfDatasetHealthMetricItem> BuildMetrics(YoloDatasetHealthReport report)
@@ -665,6 +755,31 @@ namespace MvcVisionSystem
                 return T("WpfDatasetHealth.Issue.Empty");
             }
 
+            Match positiveSamples = Regex.Match(normalized, @"^YOLO dataset warning: segmentation (train|valid) split has only ([0-9]+) positive mask image\(s\)\. Add more NG mask examples before trusting YOLOv8 SEG training\.$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (positiveSamples.Success)
+            {
+                string splitKey = string.Equals(positiveSamples.Groups[1].Value, "train", StringComparison.OrdinalIgnoreCase) ? "WpfDatasetHealth.Split.Train" : "WpfDatasetHealth.Split.Valid";
+                return Format("WpfDatasetHealth.Issue.SegmentationPositiveSamples", T(splitKey), positiveSamples.Groups[2].Value);
+            }
+
+            Match backgroundBalance = Regex.Match(normalized, @"^YOLO dataset warning: segmentation (train|valid) split has ([0-9]+) OK/background image\(s\) but only ([0-9]+) positive mask image\(s\)\. Check OK/NG balance before training\.$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (backgroundBalance.Success)
+            {
+                string splitKey = string.Equals(backgroundBalance.Groups[1].Value, "train", StringComparison.OrdinalIgnoreCase) ? "WpfDatasetHealth.Split.Train" : "WpfDatasetHealth.Split.Valid";
+                return Format("WpfDatasetHealth.Issue.SegmentationBackgroundBalance", T(splitKey), backgroundBalance.Groups[2].Value, backgroundBalance.Groups[3].Value);
+            }
+
+            Match testPositiveSamples = Regex.Match(normalized, @"^YOLO dataset warning: segmentation test split has only ([0-9]+) positive mask image\(s\)\. Add more held-out NG mask examples before final YOLOv8 SEG model comparison\.$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (testPositiveSamples.Success)
+            {
+                return Format("WpfDatasetHealth.Issue.SegmentationTestPositiveSamples", T("WpfDatasetHealth.Split.Test"), testPositiveSamples.Groups[1].Value);
+            }
+
+            if (normalized.StartsWith("YOLO dataset warning: segmentation ", StringComparison.OrdinalIgnoreCase))
+            {
+                return normalized;
+            }
+
             if (normalized.Contains("Test split is empty", StringComparison.OrdinalIgnoreCase))
             {
                 return T("WpfDatasetHealth.Issue.TestSplitEmpty");
@@ -688,6 +803,12 @@ namespace MvcVisionSystem
             if (normalized.Contains("unreviewed image", StringComparison.OrdinalIgnoreCase))
             {
                 return T("WpfDatasetHealth.Issue.Unreviewed");
+            }
+
+            if (normalized.Contains("label file is missing", StringComparison.OrdinalIgnoreCase)
+                || normalized.Contains("label directory", StringComparison.OrdinalIgnoreCase))
+            {
+                return T("WpfDatasetHealth.Issue.LabelMissing");
             }
 
             return LocalizationTextRuntimeService.Translate(
@@ -720,6 +841,9 @@ namespace MvcVisionSystem
 
             OnPropertyChanged(nameof(DataScopeText));
             OnPropertyChanged(nameof(EvidenceBoundaryText));
+            OnPropertyChanged(nameof(DetailsToggleText));
+            OnPropertyChanged(nameof(ClassDistributionTitleText));
+            OnPropertyChanged(nameof(ClassCountHeaderText));
         }
 
         private static string T(string key)
@@ -727,6 +851,28 @@ namespace MvcVisionSystem
 
         private static string Format(string key, params object[] arguments)
             => DatasetHealthTextFormatter.Format(key, arguments);
+    }
+
+    public sealed class DatasetHealthSummaryRow
+    {
+        public DatasetHealthSummaryRow(string className, int count, int? trainCount, int? validCount, int? testCount)
+        {
+            ClassName = className; DisplayClassName = className; Count = count; TrainCount = trainCount; ValidCount = validCount; TestCount = testCount;
+        }
+
+        public string ClassName { get; }
+        public string DisplayClassName { get; init; }
+        public int Count { get; }
+        public int? TrainCount { get; }
+        public int? ValidCount { get; }
+        public int? TestCount { get; }
+        public string CountText => Count.ToString(CultureInfo.InvariantCulture);
+        public string TrainCountText => FormatCount(TrainCount);
+        public string ValidCountText => FormatCount(ValidCount);
+        public string TestCountText => FormatCount(TestCount);
+        public bool HasUnavailableCounts => !TrainCount.HasValue || !ValidCount.HasValue || !TestCount.HasValue;
+
+        private static string FormatCount(int? count) => count?.ToString(CultureInfo.InvariantCulture) ?? DatasetHealthTextFormatter.Translate("WpfDatasetHealth.Summary.Unavailable");
     }
 
     public sealed class WpfDatasetHealthMetricItem
@@ -820,6 +966,7 @@ namespace MvcVisionSystem
         public WpfDatasetHealthClassRow(string className, int count, double sharePercent, bool isAnomaly)
         {
             ClassName = className ?? string.Empty;
+            DisplayClassName = ClassName;
             Count = Math.Max(0, count);
             SharePercent = Math.Clamp(sharePercent, 0D, 100D);
             ShareText = SharePercent.ToString("0.0", CultureInfo.InvariantCulture) + "%";
@@ -837,6 +984,7 @@ namespace MvcVisionSystem
             => DatasetHealthTextFormatter.Translate(key);
 
         public string ClassName { get; }
+        public string DisplayClassName { get; init; }
 
         public int Count { get; }
 

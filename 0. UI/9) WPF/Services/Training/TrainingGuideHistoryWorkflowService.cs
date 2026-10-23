@@ -85,6 +85,11 @@ namespace MvcVisionSystem
             ArgumentNullException.ThrowIfNull(request);
             LabelingProjectData data = request.Data
                 ?? throw new ArgumentNullException(nameof(request.Data));
+            if (!request.RecordHistory)
+            {
+                return TrainingGuideHistoryWorkflowResult.Ignored;
+            }
+
             EnsureProjectSettings(data);
 
             trainingGuideHistoryService.UpdateDatasetHistory(

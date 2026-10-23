@@ -76,8 +76,8 @@ namespace MvcVisionSystem
 
             int remainingCount = Math.Max(0, context.TotalImageCount - context.CompletedImageCount);
             string progressText = context.TotalImageCount > 0
-                ? $"진행: {context.CompletedImageCount}/{context.TotalImageCount} 완료 · {remainingCount} 남음"
-                : "진행: 이미지 없음";
+                ? string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfShell.WorkflowStatus.Progress.Counts"), context.CompletedImageCount, context.TotalImageCount, remainingCount)
+                : OpenVisionLab.OpenVisionLanguageService.T("WpfShell.WorkflowStatus.Progress.Empty");
 
             return new ShellWorkflowStatus(
                 BuildStageText(context),
@@ -90,25 +90,25 @@ namespace MvcVisionSystem
             if (context.IsInferenceMode)
             {
                 return context.HasPendingCandidates
-                    ? "단계: AI 후보 검토"
-                    : "단계: AI 후보 대기";
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfShell.WorkflowStatus.Stage.Suggestions")
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfShell.WorkflowStatus.Stage.InferenceResults");
             }
 
             if (context.HasUnsavedAnnotationChanges)
             {
-                return "단계: 저장 필요";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfShell.WorkflowStatus.Stage.Unsaved");
             }
 
             if (context.IsTrainingReady)
             {
-                return "단계: 학습 준비";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfShell.WorkflowStatus.Stage.TrainingReady");
             }
 
             return context.HasActiveImage
-                ? "단계: 라벨링"
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfShell.WorkflowStatus.Stage.Labeling")
                 : context.TotalImageCount > 0
-                    ? "단계: 이미지 선택"
-                    : "단계: 데이터셋 준비";
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfShell.WorkflowStatus.Stage.ImageSelection")
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfShell.WorkflowStatus.Stage.DatasetSetup");
         }
 
         private static string BuildNextActionText(
@@ -118,33 +118,33 @@ namespace MvcVisionSystem
             if (!context.HasActiveImage)
             {
                 return context.TotalImageCount > 0
-                    ? "다음: 이미지 선택"
-                    : "다음: 데이터셋 시작";
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfShell.WorkflowStatus.Next.ImageSelection")
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfShell.WorkflowStatus.Next.DatasetSetup");
             }
 
             if (context.HasPendingCandidates)
             {
-                return "다음: AI 후보 확정/스킵";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfShell.WorkflowStatus.Next.Suggestions");
             }
 
             if (context.HasUnsavedAnnotationChanges)
             {
-                return "다음: 저장";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfShell.WorkflowStatus.Next.Save");
             }
 
             if (context.TotalImageCount > 0 && remainingCount > 0)
             {
-                return "다음: 다음 미완료 이미지";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfShell.WorkflowStatus.Next.Unworked");
             }
 
             if (context.TotalImageCount > 0)
             {
                 return context.IsTrainingReady
-                    ? "다음: 학습 시작"
-                    : "다음: 데이터셋 점검";
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfShell.WorkflowStatus.Next.Training")
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfShell.WorkflowStatus.Next.DatasetCheck");
             }
 
-            return "다음: 이미지 폴더";
+            return OpenVisionLab.OpenVisionLanguageService.T("WpfShell.WorkflowStatus.Next.ImageFolder");
         }
     }
 

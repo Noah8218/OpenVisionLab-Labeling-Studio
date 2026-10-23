@@ -1,5 +1,6 @@
 using MvcVisionSystem._1._Core;
 using MvcVisionSystem._3._Communication.TCP;
+using OpenVisionLab;
 using OpenVisionLab.ImageCanvas.ViewModels;
 using System;
 using System.Collections.Generic;
@@ -15,6 +16,8 @@ namespace MvcVisionSystem
     internal sealed class CandidateReviewActionAdapter
     {
         private readonly CandidateReviewActionAdapterContext context;
+        private bool isCandidateConfirmationRunning;
+        private bool isCompletionCommandRunning;
 
         private LabelingProjectData projectData => context.DataProvider?.Invoke();
         private ClassCatalogWorkflowService classCatalogWorkflowService => context.ClassCatalogWorkflowService;
@@ -101,6 +104,9 @@ namespace MvcVisionSystem
         private bool CanOpenModelComparisonImage(string imagePath)
             => context.CanOpenModelComparisonImage?.Invoke(imagePath) == true;
 
+        private bool IsInferenceInspectionOnly()
+            => context.IsInferenceInspectionOnly?.Invoke() == true;
+
         #region CandidateReviewConfirmationCommands
         // Candidate confirmation mutates labels, history, and review state; keep it out of simple selection code.
         internal void ExecuteConfirmSelectedCandidateCommand()
@@ -117,7 +123,7 @@ namespace MvcVisionSystem
                 return;
             }
 
-            ConfirmCandidates(new[] { candidate }, "선택");
+            ConfirmCandidates(new[] { candidate }, OpenVisionLanguageService.T("WpfCandidate.Inline.Selected"));
         }
 
         internal void ExecuteConfirmAllCandidatesCommand()
@@ -134,12 +140,12 @@ namespace MvcVisionSystem
                 return;
             }
 
-            ConfirmCandidates(candidates, "표시 후보 전체");
+            ConfirmCandidates(candidates, OpenVisionLanguageService.T("WpfCandidate.Inline.Visible"));
         }
 
         internal void ExecuteSkipSelectedCandidateCommand()
         {
-            if (isApplicationCloseApproved)
+            if (isApplicationCloseApproved || isCandidateConfirmationRunning || context.IsCandidateMutationBlocked?.Invoke() == true || IsInferenceInspectionOnly())
             {
                 return;
             }
@@ -147,7 +153,7 @@ namespace MvcVisionSystem
             YoloWorkerSmokeCandidate candidate = GetSelectedCandidate();
             if (candidate == null)
             {
-                AppendLog("스킵할 AI 후보를 선택하세요.");
+                AppendLog("건너뛸 AI 후보를 선택하세요.");
                 return;
             }
 
@@ -165,18 +171,18 @@ namespace MvcVisionSystem
             }
             if (resolvedSmartMaskCandidate && !candidateReviewState.HasPendingCandidates)
             {
-                ContinueAutoSmartMaskAfterResolvedCandidate("스킵");
+                ContinueAutoSmartMaskAfterResolvedCandidate("건너뛰기");
             }
 
             RefreshCandidateListWithPreferred(nextCandidate);
             RedrawReviewRois();
             FocusCandidateInViewer(nextCandidate, logIfMissing: false);
             MarkActiveImageSkippedOrCandidate();
-            AddCandidateReviewHistory($"스킵: {CandidateReviewPresenter.FormatCandidate(
+            AddCandidateReviewHistory($"건너뛰기: {CandidateReviewPresenter.FormatCandidate(
                 candidate,
                 CandidateReviewPresentationService.ClipCandidateBounds(candidate, activeImageSize))}");
             SetPythonStatus($"\uCD94\uB860: \uB300\uAE30 {pendingDetectionCandidates.Count} / \uD655\uC815 {confirmedDetectionCandidates.Count}");
-            AppendLog($"후보 스킵: {CandidateReviewPresenter.FormatCandidate(
+            AppendLog($"후보 건너뛰기: {CandidateReviewPresenter.FormatCandidate(
                 candidate,
                 CandidateReviewPresentationService.ClipCandidateBounds(candidate, activeImageSize))}");
             RefreshSmartMaskCommandState();
@@ -184,10 +190,24 @@ namespace MvcVisionSystem
 
         internal void ExecuteCompleteImageAndNextCommand()
         {
-            if (isApplicationCloseApproved)
+            if (isApplicationCloseApproved || isCompletionCommandRunning || IsInferenceInspectionOnly())
             {
                 return;
             }
+
+            isCompletionCommandRunning = true;
+            try
+            {
+                ExecuteCompleteImageAndNextCore();
+            }
+            finally
+            {
+                isCompletionCommandRunning = false;
+            }
+        }
+
+        private void ExecuteCompleteImageAndNextCore()
+        {
 
             if (activeImageBitmap == null || activeImageSize.IsEmpty)
             {
@@ -200,24 +220,37 @@ namespace MvcVisionSystem
                 ShowCandidateReviewWorkflowView();
                 FocusSelectedCandidateInViewer(logIfMissing: false);
                 AddCandidateReviewHistory($"\uC644\uB8CC \uBCF4\uB958: \uB0A8\uC740 \uD6C4\uBCF4 {candidateReviewState.PendingCount}\uAC1C");
-                AppendLog($"\uB0A8\uC740 AI \uD6C4\uBCF4 {candidateReviewState.PendingCount}\uAC1C\uB97C \uBA3C\uC800 \uD655\uC815\uD558\uAC70\uB098 \uC2A4\uD0B5\uD558\uC138\uC694.");
+                AppendLog($"\uB0A8\uC740 AI \uD6C4\uBCF4 {candidateReviewState.PendingCount}\uAC1C\uB97C \uBA3C\uC800 \uD655\uC815\uD558\uAC70\uB098 \uAC74\uB108\uB6F0\uC138\uC694.");
                 return;
             }
 
             bool hasLabels = HasCanvasLabelObjects();
+            int savedCount = 0;
             bool saved = hasLabels
-                ? SaveCurrentAnnotations(out _)
+                ? SaveCurrentAnnotations(out savedCount)
                 : SaveCurrentEmptyAnnotations();
             if (!saved)
             {
+                context.MarkAnnotationSaveFailed?.Invoke(
+                    hasLabels
+                        ? "라벨 파일을 저장하지 못했습니다. 저장 경로 상태를 확인한 뒤 다시 시도하세요."
+                        : "객체 없음 라벨을 저장하지 못했습니다. 저장 경로 상태를 확인한 뒤 다시 시도하세요.");
                 AppendLog("\uD604\uC7AC \uC774\uBBF8\uC9C0\uB97C \uC644\uB8CC\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uC774\uBBF8\uC9C0\uC640 \uC800\uC7A5 \uACBD\uB85C\uB97C \uD655\uC778\uD558\uC138\uC694.");
                 return;
             }
 
-            if (hasLabels)
+            if (savedCount > 0)
             {
                 MarkActiveImageConfirmed();
                 AddCandidateReviewHistory("\uC774\uBBF8\uC9C0 \uC644\uB8CC: \uB77C\uBCA8 \uC800\uC7A5");
+            }
+            else if (candidateReviewState.HasPendingCandidates)
+            {
+                ShowCandidateReviewWorkflowView();
+                FocusSelectedCandidateInViewer(logIfMissing: false);
+                AddCandidateReviewHistory($"\uC644\uB8CC \uBCF4\uB958: \uB0A8\uC740 \uD6C4\uBCF4 {candidateReviewState.PendingCount}\uAC1C");
+                AppendLog($"\uB0A8\uC740 AI \uD6C4\uBCF4 {candidateReviewState.PendingCount}\uAC1C\uB97C \uBA3C\uC800 \uD655\uC815\uD558\uAC70나 \uAC74\uB108\uB6F0\uAE30\uD558\uC138요.");
+                return;
             }
             else
             {
@@ -245,23 +278,33 @@ namespace MvcVisionSystem
             }
 
             DrawingRectangle bounds = CandidateReviewPresentationService.ClipCandidateBounds(candidate, activeImageSize);
-            string confidence = CandidateReviewPresenter.FormatConfidence(candidate, "P1");
             ApplyCandidateSelectionReview(candidate);
-            SetModelStatus(candidate.ImageLevel
-                ? $"후보: {candidate.ClassName} {confidence} 이미지 전체 판정"
-                : bounds.IsEmpty
-                ? $"후보: {candidate.ClassName} {confidence} 이미지 밖"
-                : $"후보: {candidate.ClassName} {confidence}  {CandidateReviewPresenter.FormatBoundsCompact(bounds)}");
+            if (context.SetCandidateModelStatus != null) context.SetCandidateModelStatus(candidate, bounds);
+            else SetModelStatus(CandidateReviewPresenter.BuildSelectedCandidateStatus(candidate, bounds));
             UpdateDetectionResultOverlay();
             RedrawReviewRois();
         }
 
         internal void ConfirmCandidates(IReadOnlyList<YoloWorkerSmokeCandidate> candidates, string scope)
         {
-            if (isApplicationCloseApproved)
+            if (isApplicationCloseApproved || isCandidateConfirmationRunning || context.IsCandidateMutationBlocked?.Invoke() == true || IsInferenceInspectionOnly())
             {
                 return;
             }
+
+            isCandidateConfirmationRunning = true;
+            try
+            {
+                ConfirmCandidatesCore(candidates, scope);
+            }
+            finally
+            {
+                isCandidateConfirmationRunning = false;
+            }
+        }
+
+        private void ConfirmCandidatesCore(IReadOnlyList<YoloWorkerSmokeCandidate> candidates, string scope)
+        {
 
             if (activeImageBitmap == null || activeImageSize.IsEmpty)
             {
@@ -288,35 +331,26 @@ namespace MvcVisionSystem
             RegisterAnnotationHistoryBeforeChange($"Confirm {scope}");
             EnsureConfirmedCandidateClassItems(plan.ConfirmableCandidates);
             candidateConfirmationService.ApplyConfirmation(candidateReviewState, plan);
-            if (resolvesSmartMaskCandidate)
-            {
-                smartMaskPromptSession.MarkCandidateResolved();
-            }
             if (!candidateReviewState.HasPendingCandidates)
             {
                 ApplyCanvasDisplayMode(WpfCanvasDisplayMode.LabelsOnly, redraw: false, logChange: false);
             }
 
-            bool saved = SaveCurrentAnnotations(out int savedCount);
-            WpfCandidateConfirmationResult result = candidateConfirmationService.BuildConfirmedResult(
-                scope,
-                plan,
-                saved,
-                savedCount,
-                BuildLabelPathSummary());
+            WpfCandidateConfirmationResult result = candidateConfirmationService.BuildDraftResult(scope, plan);
+            if (resolvesSmartMaskCandidate)
+            {
+                smartMaskPromptSession.MarkCandidateResolved();
+            }
+
             AddCandidateReviewHistory(result.ReviewHistoryMessage);
             RefreshCandidateListWithPreferred(nextCandidate);
             RefreshObjectList();
             RedrawReviewRois();
             PopulateClassList();
             SyncObjectClassEditorToSelection();
-            if (saved)
+            if (resolvesSmartMaskCandidate && !candidateReviewState.HasPendingCandidates)
             {
-                MarkActiveImageConfirmed();
-                if (resolvesSmartMaskCandidate && !candidateReviewState.HasPendingCandidates)
-                {
-                    ContinueAutoSmartMaskAfterResolvedCandidate("확정");
-                }
+                ContinueAutoSmartMaskAfterResolvedCandidate("확정");
             }
             if (candidateReviewState.HasPendingCandidates)
             {
@@ -362,6 +396,14 @@ namespace MvcVisionSystem
             SelectCandidateOffset(1);
         }
 
+        internal bool ReturnToModelComparison(WpfModelComparisonReviewExample example)
+        {
+            if (example == null || !CanOpenModelComparisonImage(example.ImagePath) || !TryLoadModelComparisonImage(example.ImagePath)) return false;
+            context.ShowTrainingModelCenter?.Invoke();
+            FocusModelComparisonExampleInViewer(example);
+            return true;
+        }
+
         internal void ExecuteOpenModelComparisonExampleCommand(WpfModelComparisonReviewExample example)
         {
             if (example == null)
@@ -393,6 +435,8 @@ namespace MvcVisionSystem
                 ? example?.LocationText ?? string.Empty
                 : CandidateReviewPresenter.FormatBoundsCompact(bounds);
             CandidateReviewViewModel?.SetModelComparisonFocus(example, boundsText);
+            CandidateReviewViewModel?.SetModelComparisonPreview(ModelComparisonPreviewPresentationService.Build(example));
+            context.RefreshInferenceResultPresentation?.Invoke();
             ApplyCanvasDisplayMode(WpfCanvasDisplayMode.InferenceOnly, redraw: true, logChange: false);
 
             if (bounds.IsEmpty)
@@ -515,6 +559,8 @@ namespace MvcVisionSystem
         internal WpfCanvasPanelViewModel CanvasPanelViewModel { get; init; }
         internal RoiImageCanvasViewModel MainCanvasViewModel { get; init; }
         internal Func<bool> IsApplicationCloseApproved { get; init; }
+        internal Func<bool> IsCandidateMutationBlocked { get; init; }
+        internal Func<bool> IsInferenceInspectionOnly { get; init; }
         internal Func<Bitmap> ActiveImageBitmapProvider { get; init; }
         internal Func<Size> ActiveImageSizeProvider { get; init; }
         internal Func<YoloWorkerSmokeCandidate> GetSelectedCandidate { get; init; }
@@ -525,6 +571,7 @@ namespace MvcVisionSystem
         internal Action<string> AddCandidateReviewHistory { get; init; }
         internal Action<string> SetPythonStatus { get; init; }
         internal Action<string> SetModelStatus { get; init; }
+        internal Action<YoloWorkerSmokeCandidate, Rectangle> SetCandidateModelStatus { get; init; }
         internal Action ShowCandidateReviewWorkflowView { get; init; }
         internal Action ShowSavedLabelsWorkflowView { get; init; }
         internal Action RedrawReviewRois { get; init; }
@@ -548,11 +595,15 @@ namespace MvcVisionSystem
         internal Func<bool> HasCanvasLabelObjects { get; init; }
         internal Func<AnnotationSaveOutcome> SaveCurrentAnnotations { get; init; }
         internal Func<bool> SaveCurrentEmptyAnnotations { get; init; }
+        internal Action<string> MarkAnnotationSaveFailed { get; init; }
+        internal Func<bool> UndoAnnotationHistory { get; init; }
         internal Func<bool> TryOpenNextIncompleteQueueImageWithoutPath { get; init; }
         internal Action FinishQueueCompletionAndGuideDatasetCheck { get; init; }
         internal Func<string> BuildLabelPathSummary { get; init; }
         internal Func<DrawingRectangle, RectangleF> BuildCandidateFocusRect { get; init; }
         internal Action<WpfCandidateReviewListItem> FocusCandidateListItem { get; init; }
+        internal Action ShowTrainingModelCenter { get; init; }
+        internal Action RefreshInferenceResultPresentation { get; init; }
         internal Func<string, bool> CanOpenModelComparisonImage { get; init; }
         internal Func<string, bool> TryLoadModelComparisonImage { get; init; }
     }

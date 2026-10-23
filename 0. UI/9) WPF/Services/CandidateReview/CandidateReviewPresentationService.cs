@@ -1,4 +1,5 @@
 using MvcVisionSystem._1._Core;
+using OpenVisionLab;
 using MvcVisionSystem._3._Communication.TCP;
 using OpenVisionLab.ImageCanvas.ViewModels;
 using System;
@@ -87,7 +88,8 @@ namespace MvcVisionSystem
             IEnumerable<YoloWorkerSmokeCandidate> candidates,
             YoloWorkerSmokeCandidate selectedCandidate,
             Size imageSize,
-            Func<YoloWorkerSmokeCandidate, bool> isConfirmable)
+            Func<YoloWorkerSmokeCandidate, bool> isConfirmable,
+            Func<YoloWorkerSmokeCandidate, Color?> labelColorProvider = null, bool isInferencePrediction = false)
         {
             return (candidates ?? Array.Empty<YoloWorkerSmokeCandidate>())
                 .Where(candidate => candidate != null)
@@ -106,11 +108,14 @@ namespace MvcVisionSystem
                         IsContourOnly = isContourOnly,
                         Label = CandidateReviewPresenter.BuildDetectionOverlayLabel(candidate, index + 1),
                         IsSelected = isSelected,
-                        Color = isSelected
+                        IsLabelingSuggestion = labelColorProvider != null && !isInferencePrediction,
+                        IsInferencePrediction = labelColorProvider != null && isInferencePrediction,
+                        DisplayLabel = labelColorProvider == null ? string.Empty : $"{(isInferencePrediction ? string.Empty : "AI ")}{CandidateReviewPresenter.GetClassName(candidate)} {(CandidateReviewPresenter.IsSmartMask(candidate) ? CandidateReviewPresenter.FormatConfidence(candidate, "0.00") : candidate.Confidence.ToString("0.00", CultureInfo.InvariantCulture))}",
+                        Color = labelColorProvider?.Invoke(candidate) ?? (isSelected
                             ? Color.FromArgb(80, 180, 255)
                             : confirmable
                             ? Color.FromArgb(36, 211, 102)
-                            : Color.FromArgb(255, 193, 7)
+                            : Color.FromArgb(255, 193, 7))
                     };
                 })
                 .Where(overlay => !overlay.Bounds.IsEmpty)
@@ -145,7 +150,8 @@ namespace MvcVisionSystem
             double confidenceFilter,
             float minimumConfidence,
             Func<YoloWorkerSmokeCandidate, Rectangle> getBounds,
-            Func<Rectangle, WpfCandidateOverlapInfo> getOverlap)
+            Func<Rectangle, WpfCandidateOverlapInfo> getOverlap,
+            bool resultOnly = false)
         {
             var rows = new List<WpfCandidateReviewListItem>();
             IReadOnlyList<YoloWorkerSmokeCandidate> pending = pendingCandidates ?? Array.Empty<YoloWorkerSmokeCandidate>();
@@ -154,22 +160,22 @@ namespace MvcVisionSystem
             if (pending.Count == 0)
             {
                 rows.Add(WpfCandidateReviewListItem.Empty(
-                    "AI \uD6C4\uBCF4 \uC5C6\uC74C",
-                    "\uD604\uC7AC \uAC80\uC0AC \uACB0\uACFC AI \uD6C4\uBCF4\uAC00 \uC5C6\uAC70\uB098 \uC544\uC9C1 \uAC80\uC0AC\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4."));
+                    OpenVisionLanguageService.T("WpfCandidate.List.Empty.Title"),
+                    OpenVisionLanguageService.T("WpfCandidate.List.Empty.Detail")));
                 return new WpfCandidateReviewListPresentation(
                     rows,
-                    "AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
+                    OpenVisionLanguageService.T("WpfCandidate.List.Empty.Summary"),
                     null);
             }
 
             if (visible.Count == 0)
             {
                 rows.Add(WpfCandidateReviewListItem.Empty(
-                    "\uD544\uD130 \uD1B5\uACFC AI \uD6C4\uBCF4 \uC5C6\uC74C",
-                    "\uC2E0\uB8B0\uB3C4 \uAE30\uC900\uC744 \uB0AE\uCD94\uBA74 \uC228\uACA8\uC9C4 AI \uD6C4\uBCF4\uB97C \uB2E4\uC2DC \uBCFC \uC218 \uC788\uC2B5\uB2C8\uB2E4."));
+                    OpenVisionLanguageService.T("WpfCandidate.List.FilteredEmpty.Title"),
+                    OpenVisionLanguageService.T("WpfCandidate.List.FilteredEmpty.Detail")));
                 return new WpfCandidateReviewListPresentation(
                     rows,
-                    $"{confidenceFilter.ToString("P0", CultureInfo.CurrentCulture)} \uC774\uC0C1 AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
+                    string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.List.FilteredEmpty.Summary"), confidenceFilter.ToString("P0", CultureInfo.CurrentCulture)),
                     null);
             }
 
@@ -189,7 +195,8 @@ namespace MvcVisionSystem
                     displayIndex,
                     bounds,
                     ResolveOverlap(bounds, getOverlap),
-                    minimumConfidence));
+                    minimumConfidence,
+                    resultOnly));
             }
 
             return new WpfCandidateReviewListPresentation(rows, string.Empty, preferredCandidate);
@@ -202,7 +209,8 @@ namespace MvcVisionSystem
             double confidenceFilter,
             Func<YoloWorkerSmokeCandidate, bool> isDuplicate,
             Func<YoloWorkerSmokeCandidate, bool> isConfirmable,
-            Func<YoloWorkerSmokeCandidate, string> buildSecondaryText)
+            Func<YoloWorkerSmokeCandidate, string> buildSecondaryText,
+            bool resultOnly = false)
         {
             IReadOnlyList<YoloWorkerSmokeCandidate> pending = pendingCandidates ?? Array.Empty<YoloWorkerSmokeCandidate>();
             if (pending.Count == 0)
@@ -213,9 +221,10 @@ namespace MvcVisionSystem
             string imageName = string.IsNullOrWhiteSpace(activeImagePath)
                 ? "-"
                 : Path.GetFileName(activeImagePath);
-            string summary =
-                $"{imageName} / AI \uD6C4\uBCF4 {pending.Count}\uAC1C / \uC800\uC7A5 \uC804 / \uAE30\uC900 {confidenceFilter.ToString("P0", CultureInfo.CurrentCulture)}";
+            string summary = string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.Overlay.Summary"),
+                imageName, pending.Count, confidenceFilter.ToString("P0", CultureInfo.CurrentCulture));
 
+            if (resultOnly) summary = $"{imageName} / {pending.Count} / {OpenVisionLanguageService.T("WpfInference.Purpose.ResultOnly")} / {confidenceFilter:P0}";
             YoloWorkerSmokeCandidate selected = selectedCandidate ?? pending.FirstOrDefault(candidate => candidate != null);
             bool selectedDuplicate = selected != null && SafeInvoke(isDuplicate, selected);
             bool selectedConfirmable = selected != null && SafeInvoke(isConfirmable, selected);
@@ -223,15 +232,17 @@ namespace MvcVisionSystem
             int fallbackIndex = selectedIndex >= 0 ? selectedIndex + 1 : 1;
             int displayIndex = selected?.Index > 0 ? selected.Index : fallbackIndex;
             string selectedText = selected == null
-                ? "\uC120\uD0DD AI \uD6C4\uBCF4 \uC5C6\uC74C"
-                : $"\uC120\uD0DD: AI \uD6C4\uBCF4 {displayIndex} {CandidateReviewPresenter.GetClassName(selected)} {CandidateReviewPresenter.FormatConfidence(selected, "P1")} / {SafeSecondaryText(buildSecondaryText, selected)}";
+                ? OpenVisionLanguageService.T("WpfCandidate.Overlay.None")
+                : string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.Overlay.Selected"), displayIndex,
+                    CandidateReviewPresenter.GetClassName(selected), CandidateReviewPresenter.FormatConfidence(selected, "P1"), SafeSecondaryText(buildSecondaryText, selected));
             string detail = string.Join(
                 "\n",
                 pending
                     .Where(candidate => candidate != null)
                     .Take(4)
-                    .Select((candidate, index) => $"{index + 1}. AI \uD6C4\uBCF4 {CandidateReviewPresenter.GetClassName(candidate)} {CandidateReviewPresenter.FormatConfidence(candidate, "P1")}  {SafeSecondaryText(buildSecondaryText, candidate)}"));
-            WpfDetectionOverlayStatus status = selectedDuplicate
+                    .Select((candidate, index) => string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.Overlay.DetailRow"),
+                        index + 1, CandidateReviewPresenter.GetClassName(candidate), CandidateReviewPresenter.FormatConfidence(candidate, "P1"), SafeSecondaryText(buildSecondaryText, candidate))));
+            WpfDetectionOverlayStatus status = resultOnly ? WpfDetectionOverlayStatus.Review : selectedDuplicate
                 ? WpfDetectionOverlayStatus.Duplicate
                 : selectedConfirmable
                     ? WpfDetectionOverlayStatus.Confirmable
@@ -239,7 +250,7 @@ namespace MvcVisionSystem
 
             return new WpfDetectionOverlayPresentation(
                 isEmpty: false,
-                title: "AI \uD6C4\uBCF4(\uC800\uC7A5 \uC804)",
+                title: resultOnly ? OpenVisionLanguageService.T("WpfInference.ResultOnly.Panel.Title") : OpenVisionLanguageService.T("WpfCandidate.Overlay.Title"),
                 summary: summary,
                 selectedText: selectedText,
                 detail: detail,

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
@@ -48,6 +49,9 @@ namespace MvcVisionSystem.Yolo
             statistics.TrainMaskFileCount = CountFiles(trainMasksPath, "*.png");
             statistics.ValidMaskFileCount = CountFiles(validMasksPath, "*.png");
             statistics.TestMaskFileCount = CountFiles(testMasksPath, "*.png");
+            statistics.TrainSegmentationBackgroundImageCount = CountSegmentationBackgroundImages(data.TrainImagesPath, trainLabelsPath, trainSegmentsPath, trainMasksPath);
+            statistics.ValidSegmentationBackgroundImageCount = CountSegmentationBackgroundImages(data.ValidImagesPath, validLabelsPath, validSegmentsPath, validMasksPath);
+            statistics.TestSegmentationBackgroundImageCount = CountSegmentationBackgroundImages(data.TestImagesPath, testLabelsPath, testSegmentsPath, testMasksPath);
             YoloDatasetSplitQualityService.AddStatistics(
                 data.TrainImagesPath,
                 data.ValidImagesPath,
@@ -57,10 +61,26 @@ namespace MvcVisionSystem.Yolo
             CountObjects(trainLabelsPath, data.ClassNamedList, statistics);
             CountObjects(validLabelsPath, data.ClassNamedList, statistics);
             CountObjects(testLabelsPath, data.ClassNamedList, statistics);
-            CountSegmentationObjects(trainSegmentsPath, data.ClassNamedList, statistics);
-            CountSegmentationObjects(validSegmentsPath, data.ClassNamedList, statistics);
-            CountSegmentationObjects(testSegmentsPath, data.ClassNamedList, statistics);
+            bool collectSegmentationSplitCounts = data.ProjectSettings?.DatasetPurpose == LabelingDatasetPurpose.Segmentation;
+            CountSegmentationObjects(trainSegmentsPath, data.ClassNamedList, statistics, split: collectSegmentationSplitCounts ? YoloDatasetSplitService.TrainMode : null, imageDirectory: data.TrainImagesPath);
+            CountSegmentationObjects(validSegmentsPath, data.ClassNamedList, statistics, split: collectSegmentationSplitCounts ? YoloDatasetSplitService.ValidMode : null, imageDirectory: data.ValidImagesPath);
+            CountSegmentationObjects(testSegmentsPath, data.ClassNamedList, statistics, split: collectSegmentationSplitCounts ? YoloDatasetSplitService.TestMode : null, imageDirectory: data.TestImagesPath);
             return statistics;
+        }
+
+        public static IReadOnlyDictionary<string, int> BuildClassObjectCounts(LabelingProjectData data, bool includeExcluded = false, IReadOnlySet<string> imageNames = null)
+        {
+            var statistics = new YoloDatasetStatistics();
+            if (data == null) return statistics.ObjectCountByClass;
+            foreach (string mode in includeExcluded ? YoloDatasetSplitService.AnnotationModes : YoloDatasetSplitService.StandardModes)
+            {
+                CountObjects(Path.Combine(data.OutputRootPath, "data", mode, "labels"), data.ClassNamedList, statistics, imageNames);
+                CountSegmentationObjects(Path.Combine(data.OutputRootPath, "data", mode, "segments"), data.ClassNamedList, statistics, imageNames);
+            }
+            return data.ClassNamedList.Where(item => item != null).GroupBy(item => item.Text, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => data.ProjectSettings?.DatasetPurpose == LabelingDatasetPurpose.Segmentation
+                    ? Math.Max(statistics.ObjectCountByClass.GetValueOrDefault(group.Key), statistics.SegmentationObjectCountByClass.GetValueOrDefault(group.Key))
+                    : statistics.ObjectCountByClass.GetValueOrDefault(group.Key), StringComparer.OrdinalIgnoreCase);
         }
 
         private static IEnumerable<string> EnumerateSupportedImages(string directory)
@@ -105,7 +125,23 @@ namespace MvcVisionSystem.Yolo
                 .Count(path => File.ReadAllText(path).Trim().Length == 0);
         }
 
-        private static void CountObjects(string labelDirectory, IReadOnlyList<LabelClass> classes, YoloDatasetStatistics statistics)
+        private static int CountSegmentationBackgroundImages(string imageDirectory, string labelDirectory, string segmentDirectory, string maskDirectory)
+        {
+            return EnumerateSupportedImages(imageDirectory).Count(imagePath =>
+            {
+                string fileStem = Path.GetFileNameWithoutExtension(imagePath);
+                if (File.Exists(Path.Combine(segmentDirectory, fileStem + ".json"))
+                    || File.Exists(Path.Combine(maskDirectory, fileStem + ".png")))
+                {
+                    return false;
+                }
+
+                string labelPath = Path.Combine(labelDirectory, fileStem + ".txt");
+                return File.Exists(labelPath) && File.ReadAllText(labelPath).Trim().Length == 0;
+            });
+        }
+
+        private static void CountObjects(string labelDirectory, IReadOnlyList<LabelClass> classes, YoloDatasetStatistics statistics, IReadOnlySet<string> imageNames = null)
         {
             if (!Directory.Exists(labelDirectory) || classes == null || statistics == null)
             {
@@ -114,6 +150,7 @@ namespace MvcVisionSystem.Yolo
 
             foreach (string labelPath in Directory.EnumerateFiles(labelDirectory, "*.txt"))
             {
+                if (imageNames != null && !imageNames.Contains(Path.GetFileNameWithoutExtension(labelPath))) continue;
                 foreach (string line in File.ReadLines(labelPath))
                 {
                     string[] parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
@@ -132,15 +169,36 @@ namespace MvcVisionSystem.Yolo
             }
         }
 
-        private static void CountSegmentationObjects(string segmentDirectory, IReadOnlyList<LabelClass> classes, YoloDatasetStatistics statistics)
+        private static void CountSegmentationObjects(
+            string segmentDirectory,
+            IReadOnlyList<LabelClass> classes,
+            YoloDatasetStatistics statistics,
+            IReadOnlySet<string> imageNames = null,
+            string split = null,
+            string imageDirectory = null)
         {
-            if (!Directory.Exists(segmentDirectory) || statistics == null)
+            if (statistics == null)
             {
                 return;
             }
 
-            foreach (string segmentPath in Directory.EnumerateFiles(segmentDirectory, "*.json"))
+            Dictionary<string, string[]> imagePaths = split == null ? null : EnumerateSupportedImages(imageDirectory)
+                .GroupBy(Path.GetFileNameWithoutExtension, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, int> splitCounts = split == null ? null : (classes ?? Array.Empty<LabelClass>())
+                .Where(item => !string.IsNullOrWhiteSpace(item?.Text))
+                .Select(item => item.Text).Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(name => name, _ => 0, StringComparer.OrdinalIgnoreCase);
+            var remainingImages = imagePaths == null ? null : new HashSet<string>(imagePaths.Keys, StringComparer.OrdinalIgnoreCase);
+            bool hasCompleteSplit = split != null && Directory.Exists(imageDirectory)
+                && splitCounts.Count > 0 && imagePaths.Values.All(paths => paths.Length == 1);
+
+            foreach (string segmentPath in Directory.Exists(segmentDirectory)
+                ? Directory.EnumerateFiles(segmentDirectory, "*.json")
+                : Enumerable.Empty<string>())
             {
+                string fileStem = Path.GetFileNameWithoutExtension(segmentPath);
+                if (imageNames != null && !imageNames.Contains(fileStem)) continue;
                 SegmentationAnnotationFile annotation;
                 try
                 {
@@ -148,6 +206,7 @@ namespace MvcVisionSystem.Yolo
                 }
                 catch
                 {
+                    if (imagePaths?.ContainsKey(fileStem) == true) hasCompleteSplit = false;
                     continue;
                 }
 
@@ -160,7 +219,62 @@ namespace MvcVisionSystem.Yolo
 
                     statistics.AddSegmentationObject(ResolveSegmentationClassName(record, classes));
                 }
+
+                if (imagePaths == null || !imagePaths.TryGetValue(fileStem, out string[] paths)) continue;
+                remainingImages.Remove(fileStem);
+                try
+                {
+                    using FileStream imageStream = File.OpenRead(paths[0]);
+                    using Image image = Image.FromStream(imageStream);
+                    if (annotation?.Polygons == null || annotation.Polygons.Count == 0
+                        || annotation.ImageWidth > 0 && annotation.ImageWidth != image.Width
+                        || annotation.ImageHeight > 0 && annotation.ImageHeight != image.Height)
+                    {
+                        hasCompleteSplit = false;
+                        continue;
+                    }
+
+                    string maskPath = Path.Combine(Path.GetDirectoryName(segmentDirectory), "masks", fileStem + ".png");
+                    YoloSegmentationAnnotationService.LoadSegmentationObjects(annotation, segmentPath, maskPath, classes, image.Size);
+                    foreach (SegmentationPolygonRecord record in annotation.Polygons)
+                    {
+                        string className = ResolveSegmentationClassName(record, classes);
+                        if (!splitCounts.ContainsKey(className))
+                        {
+                            hasCompleteSplit = false;
+                            break;
+                        }
+
+                        splitCounts[className]++;
+                    }
+                }
+                catch
+                {
+                    hasCompleteSplit = false;
+                }
             }
+
+            if (split == null) return;
+            foreach (string fileStem in remainingImages)
+            {
+                string splitDirectory = Path.GetDirectoryName(segmentDirectory);
+                string maskPath = Path.Combine(splitDirectory, "masks", fileStem + ".png");
+                string labelPath = Path.Combine(splitDirectory, "labels", fileStem + ".txt");
+                try
+                {
+                    using FileStream imageStream = File.OpenRead(imagePaths[fileStem][0]);
+                    using Image image = Image.FromStream(imageStream);
+                    if (File.Exists(maskPath) || !File.Exists(labelPath) || File.ReadAllText(labelPath).Trim().Length != 0)
+                    {
+                        hasCompleteSplit = false;
+                    }
+                }
+                catch
+                {
+                    hasCompleteSplit = false;
+                }
+            }
+            statistics.SetSegmentationObjectCounts(split, hasCompleteSplit ? splitCounts : null);
         }
 
         private static string ResolveSegmentationClassName(SegmentationPolygonRecord record, IReadOnlyList<LabelClass> classes)

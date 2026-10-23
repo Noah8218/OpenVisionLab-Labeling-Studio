@@ -1,129 +1,123 @@
 <UserControl x:Class="MvcVisionSystem.WpfWindowTitleBar"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:MvcVisionSystem"
              xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
-             Height="44"
              MinHeight="44"
+             FlowDirection="LeftToRight"
+             Background="{DynamicResource RecipeSurfaceBrush}"
+             Foreground="{DynamicResource RecipeAccentBrush}"
              MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
     <UserControl.Resources>
-        <Style x:Key="TitleBarButtonStyle" TargetType="Button">
+        <SolidColorBrush x:Key="TitleBarCloseHoverBrush" Color="#A52A32" />
+        <SolidColorBrush x:Key="TitleBarClosePressedBrush" Color="#8A242B" />
+        <Style x:Key="TitleBarButtonStyle" TargetType="Button" BasedOn="{StaticResource RecipeQuietButtonStyle}">
             <Setter Property="Width" Value="42" />
-            <Setter Property="Height" Value="44" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="#D9DEE8" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Height" Value="40" />
             <Setter Property="Padding" Value="0" />
-            <Setter Property="Focusable" Value="False" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Root"
-                                Background="{TemplateBinding Background}">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="#303030" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="#3B3B3B" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+            <Setter Property="Focusable" Value="True" />
+        </Style>
+        <Style x:Key="TitleBarMaximizeButtonStyle" TargetType="Button" BasedOn="{StaticResource TitleBarButtonStyle}">
+            <Setter Property="AutomationProperties.Name" Value="{Binding Path=LanguageViewModel[WpfShell.Window.Maximize], RelativeSource={RelativeSource AncestorType=local:WpfWindowTitleBar}}" />
+            <Setter Property="ToolTip" Value="{Binding Path=LanguageViewModel[WpfShell.Window.Maximize], RelativeSource={RelativeSource AncestorType=local:WpfWindowTitleBar}}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}" Value="Maximized">
+                    <Setter Property="AutomationProperties.Name" Value="{Binding Path=LanguageViewModel[WpfShell.Window.Restore], RelativeSource={RelativeSource AncestorType=local:WpfWindowTitleBar}}" />
+                    <Setter Property="ToolTip" Value="{Binding Path=LanguageViewModel[WpfShell.Window.Restore], RelativeSource={RelativeSource AncestorType=local:WpfWindowTitleBar}}" />
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
         <Style x:Key="TitleBarCloseButtonStyle" TargetType="Button" BasedOn="{StaticResource TitleBarButtonStyle}">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Root"
-                                Background="{TemplateBinding Background}">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="#DC2626" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="#B91C1C" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+            <Style.Triggers>
+                <MultiTrigger>
+                    <MultiTrigger.Conditions><Condition Property="IsEnabled" Value="True" /><Condition Property="IsMouseOver" Value="True" /></MultiTrigger.Conditions>
+                    <Setter Property="Background" Value="{StaticResource TitleBarCloseHoverBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TitleBarCloseHoverBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+                </MultiTrigger>
+                <MultiTrigger>
+                    <MultiTrigger.Conditions><Condition Property="IsEnabled" Value="True" /><Condition Property="IsPressed" Value="True" /></MultiTrigger.Conditions>
+                    <Setter Property="Background" Value="{StaticResource TitleBarClosePressedBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TitleBarClosePressedBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+                </MultiTrigger>
+            </Style.Triggers>
         </Style>
     </UserControl.Resources>
 
-    <Border Background="#181818"
-            BorderBrush="#323232"
+    <Border Background="{Binding Background, RelativeSource={RelativeSource AncestorType=UserControl}}"
+            BorderBrush="{DynamicResource RecipeBorderBrush}"
             BorderThickness="0,0,0,1">
-        <Grid>
+        <Grid Margin="14,6,8,6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0"
-                        Orientation="Horizontal"
-                        VerticalAlignment="Center"
-                        Margin="14,0,12,0">
-                <Border Width="26"
-                        Height="26"
-                        CornerRadius="5"
-                        Background="#262626"
-                        BorderBrush="#454545"
+            <Grid Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Width="28"
+                        Height="28"
+                        CornerRadius="7"
+                        Background="{DynamicResource RecipeButtonBrush}"
+                        BorderBrush="{DynamicResource RecipeButtonBorderBrush}"
                         BorderThickness="1"
-                        Margin="0,0,9,0">
+                        VerticalAlignment="Center"
+                        Margin="0,0,10,0">
                     <iconPacks:PackIconMaterial Kind="{Binding IconKind, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                Width="15"
-                                                Height="15"
-                                                Foreground="#F87171"
+                                                Width="16"
+                                                Height="16"
+                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 HorizontalAlignment="Center"
                                                 VerticalAlignment="Center" />
                 </Border>
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="{Binding TitleText, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                               Foreground="#F3F4F6"
-                               FontFamily="Segoe UI"
-                               FontSize="13"
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock x:Name="TitleCaption"
+                               Text="{Binding TitleText, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                               Foreground="{DynamicResource RecipeTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="{Binding TitleFontSize, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="{Binding SubtitleText, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                               Foreground="#9CA3AF"
-                               FontFamily="Segoe UI"
-                               FontSize="10"
-                               TextTrimming="CharacterEllipsis" />
+                               TextWrapping="Wrap"
+                               TextTrimming="None" />
+                    <TextBlock x:Name="SubtitleCaption"
+                               Text="{Binding SubtitleText, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="{Binding SubtitleFontSize, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                               TextWrapping="Wrap"
+                               TextTrimming="None" />
                 </StackPanel>
-            </StackPanel>
+            </Grid>
 
-            <StackPanel Grid.Column="1"
+            <StackPanel x:Name="WindowControlButtons"
+                        Grid.Column="1"
                         Orientation="Horizontal"
                         HorizontalAlignment="Right"
-                        VerticalAlignment="Top">
+                        VerticalAlignment="Center">
                 <Button x:Name="MinimizeButton"
                         Style="{StaticResource TitleBarButtonStyle}"
-                        AutomationProperties.Name="Minimize"
-                        ToolTip="Minimize"
+                        AutomationProperties.Name="{Binding Path=LanguageViewModel[WpfShell.Window.Minimize], RelativeSource={RelativeSource AncestorType=local:WpfWindowTitleBar}}"
+                        ToolTip="{Binding Path=LanguageViewModel[WpfShell.Window.Minimize], RelativeSource={RelativeSource AncestorType=local:WpfWindowTitleBar}}"
                         Click="MinimizeButton_Click">
-                    <iconPacks:PackIconMaterial Kind="WindowMinimize" Width="14" Height="14" />
+                    <iconPacks:PackIconMaterial Kind="WindowMinimize" Width="16" Height="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 </Button>
                 <Button x:Name="MaximizeButton"
-                        Style="{StaticResource TitleBarButtonStyle}"
-                        AutomationProperties.Name="Maximize"
-                        ToolTip="Maximize"
+                        Style="{StaticResource TitleBarMaximizeButtonStyle}"
+                        Margin="2,0,0,0"
                         Click="MaximizeButton_Click">
-                    <iconPacks:PackIconMaterial x:Name="MaximizeIcon" Kind="WindowMaximize" Width="13" Height="13" />
+                    <iconPacks:PackIconMaterial x:Name="MaximizeIcon" Kind="WindowMaximize" Width="16" Height="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 </Button>
                 <Button x:Name="CloseButton"
                         Style="{StaticResource TitleBarCloseButtonStyle}"
-                        AutomationProperties.Name="Close"
-                        ToolTip="Close"
+                        Margin="2,0,0,0"
+                        AutomationProperties.Name="{Binding Path=LanguageViewModel[WpfShell.Window.Close], RelativeSource={RelativeSource AncestorType=local:WpfWindowTitleBar}}"
+                        ToolTip="{Binding Path=LanguageViewModel[WpfShell.Window.Close], RelativeSource={RelativeSource AncestorType=local:WpfWindowTitleBar}}"
                         Click="CloseButton_Click">
-                    <iconPacks:PackIconMaterial Kind="Close" Width="14" Height="14" />
+                    <iconPacks:PackIconMaterial Kind="Close" Width="16" Height="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 </Button>
             </StackPanel>
         </Grid>

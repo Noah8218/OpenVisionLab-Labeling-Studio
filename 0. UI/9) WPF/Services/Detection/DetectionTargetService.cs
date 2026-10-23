@@ -35,7 +35,7 @@ namespace MvcVisionSystem
 
         public string BuildEmptyBatchMessage(string scopeText)
         {
-            return $"\uC77C\uAD04 \uAC80\uC0AC \uAC74\uB108\uB700. \uB300\uC0C1 \uC774\uBBF8\uC9C0 \uC5C6\uC74C: {scopeText}";
+            return string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfInference.Text.DetectionTargetService.EmptyBatch"), scopeText);
         }
     }
 

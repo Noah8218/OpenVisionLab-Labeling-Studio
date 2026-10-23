@@ -56,7 +56,8 @@ namespace MvcVisionSystem
             context.SetStatusBarSaveStatus(
                 dirtyPresentation.IsDirty,
                 dirtyPresentation.StatusBarText,
-                dirtyPresentation.StatusBarToolTip);
+                dirtyPresentation.StatusBarToolTip,
+                dirtyPresentation.CanvasStatusKey);
             if (!string.Equals(context.DirtyState.Reason, "\0", StringComparison.Ordinal))
             {
                 context.ScheduleCrashRecoveryJournalWrite();
@@ -65,8 +66,9 @@ namespace MvcVisionSystem
 
             context.SetStatusBarSaveStatus(
                 true,
-                "?쇰꺼 ????꾩슂",
-                $"?꾩쭅 ?뚯씪????λ릺吏 ?딆? ?몄쭛: {context.DirtyState.Reason}");
+                dirtyPresentation.StatusBarText,
+                dirtyPresentation.StatusBarToolTip,
+                "Dirty");
             context.ScheduleCrashRecoveryJournalWrite();
         }
 
@@ -112,6 +114,59 @@ namespace MvcVisionSystem
             context.UpdateWorkflowProgressStatus();
         }
 
+        internal void MarkAnnotationsUnlabeled()
+        {
+            if (IsAnnotationSaveBlocked())
+            {
+                ApplyAnnotationLoadBlockedPresentation();
+                return;
+            }
+
+            context.DirtyState.Clear();
+            ApplyAnnotationSaveStatePresentation(
+                AnnotationSaveStatePresentationService.BuildUnlabeled());
+            context.RefreshCanvasLayerVisibilityState();
+            context.RefreshCanvasWorkflowContext();
+            context.UpdateWorkflowProgressStatus();
+        }
+
+        internal void MarkAnnotationsNoObjectSaved(string reason)
+        {
+            if (IsAnnotationSaveBlocked())
+            {
+                ApplyAnnotationLoadBlockedPresentation();
+                return;
+            }
+
+            context.DirtyState.Clear();
+            ApplyAnnotationSaveStatePresentation(
+                AnnotationSaveStatePresentationService.BuildNoObjectSaved(reason));
+            context.RefreshCanvasLayerVisibilityState();
+            context.RefreshCanvasWorkflowContext();
+            context.UpdateWorkflowProgressStatus();
+        }
+
+        internal void MarkAnnotationSaveFailed(string reason)
+        {
+            if (IsAnnotationSaveBlocked())
+            {
+                ApplyAnnotationLoadBlockedPresentation();
+                return;
+            }
+
+            if (!context.DirtyState.IsDirty)
+            {
+                context.DirtyState.MarkDirty(reason, "Save failed");
+                context.ApplyActiveImageQueueSaveRequiredStatus(reason);
+                context.ScheduleCrashRecoveryJournalWrite();
+            }
+
+            ApplyAnnotationSaveStatePresentation(
+                AnnotationSaveStatePresentationService.BuildSaveFailed(reason));
+            context.RefreshCanvasWorkflowContext();
+            context.UpdateWorkflowProgressStatus();
+        }
+
         internal void SetAnnotationSaveStatusWaiting()
         {
             context.DirtyState.Clear();
@@ -136,7 +191,8 @@ namespace MvcVisionSystem
             context.SetStatusBarSaveStatus(
                 presentation.IsDirty,
                 presentation.StatusBarText,
-                presentation.StatusBarToolTip);
+                presentation.StatusBarToolTip,
+                presentation.CanvasStatusKey);
             context.ApplyCanvasSaveState(presentation);
             context.ApplyObjectReviewSaveState(presentation);
         }
@@ -161,7 +217,7 @@ namespace MvcVisionSystem
         internal Action UpdateWorkflowProgressStatus { get; init; }
         internal Action ScheduleCrashRecoveryJournalWrite { get; init; }
         internal Action<YoloImageQualityReviewState, bool, bool> SetQualityReviewState { get; init; }
-        internal Action<bool, string, string> SetStatusBarSaveStatus { get; init; }
+        internal Action<bool, string, string, string> SetStatusBarSaveStatus { get; init; }
         internal Action<AnnotationSaveStatePresentation> ApplyCanvasSaveState { get; init; }
         internal Action<AnnotationSaveStatePresentation> ApplyObjectReviewSaveState { get; init; }
         internal Func<bool> IsAnnotationSaveBlocked { get; init; }

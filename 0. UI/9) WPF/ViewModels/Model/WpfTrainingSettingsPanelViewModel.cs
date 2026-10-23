@@ -1,4 +1,6 @@
 using System;
+using MvcVisionSystem._3._Communication.TCP;
+using System.Linq;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
@@ -21,12 +23,23 @@ namespace MvcVisionSystem
         private string validationPercentText = string.Empty;
         private string testPercentText = string.Empty;
         private string splitSeedText = string.Empty;
+        private string appliedEditorSignature = string.Empty;
         private string modelEngine = PythonModelSettings.EngineYoloV5;
         private LabelingDatasetPurpose datasetPurpose = LabelingDatasetPurpose.ObjectDetection;
         private bool usesExternalYoloDataset;
         private string trainingReadinessText = "학습 상태 미확인";
+        private bool isInitialTrainingReadiness = true;
         private string trainingProgressText = "학습 대기";
         private string trainingEpochStatusText = string.Empty;
+        private PythonCommunicationStatus trainingProgressStatus;
+        private PythonCommunicationStatus trainingReadinessStatus;
+        private bool trainingProgressIsLive;
+        private string trainingProgressKey = "WpfTraining.Remaining.TrainingProgressPresentationService.Idle";
+        private string trainingEpochKey;
+        private bool trainingProgressUsesReadiness = true;
+        private bool hasShellTrainingProjection;
+        private string shellTrainingProjectionStatus;
+        private string shellTrainingProjectionDetail;
         private double trainingProgressValue;
         private bool trainingProgressIsIndeterminate;
         private MediaBrush trainingReadinessForeground = MediaBrushes.Gray;
@@ -88,21 +101,25 @@ namespace MvcVisionSystem
 
         public string ViewName => nameof(WpfTrainingSettingsPanel);
 
-        public string TrainingRecommendationTitleText => "추천 시작값";
+        public bool IsSettingsDirty
+            => !string.IsNullOrEmpty(appliedEditorSignature)
+                && !string.Equals(appliedEditorSignature, BuildEditorSignature(), StringComparison.Ordinal);
+
+        public string TrainingRecommendationTitleText => OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.WpfTrainingSettingsPanelViewModel.RecommendedTitle");
 
         public string TrainingRecommendationText =>
-            $"빠른 첫 학습은 이미지 320, 배치 4, 에폭 50, 모델 {TrainingModelDisplayText}, 검증 20%, 최종 검증 0%로 시작합니다. CPU에서는 먼저 성공 여부를 확인하고, GPU가 있거나 여유가 있으면 배치를 8/16으로 올립니다.";
+            string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.WpfTrainingSettingsPanelViewModel.RecommendedSettings"), TrainingModelDisplayText);
 
-        public string FinalVerificationPresetActionText => "\uCD5C\uC885 \uAC80\uC99D \uC900\uBE44";
+        public string FinalVerificationPresetActionText => OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.WpfTrainingSettingsPanelViewModel.TestPreset");
 
         public string FinalVerificationPresetToolTipText =>
-            "\uC0C8\uB85C \uC800\uC7A5\uD558\uB294 \uC774\uBBF8\uC9C0\uB97C \uCD5C\uC885 \uAC80\uC99D(test)\uC5D0\uB9CC \uB123\uB3C4\uB85D \uAC80\uC99D 0%, \uCD5C\uC885 \uAC80\uC99D 100%\uB97C \uC124\uC815\uD569\uB2C8\uB2E4. \uAE30\uC874 \uB370\uC774\uD130\uB294 \uBC14\uB85C \uBCC0\uACBD\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
+            OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.WpfTrainingSettingsPanelViewModel.TestPresetHint");
 
         public string ImageSizeGuideText =>
             "추천 320: 빠르게 되는지 확인합니다. 작은 결함이나 얇은 부품은 640을 사용합니다.";
 
         public string BatchGuideText =>
-            "추천 4: CPU에서도 먼저 성공 여부를 확인하기 위한 안전값입니다. GPU가 있거나 여유가 있으면 8 또는 16으로 올립니다.";
+            OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.WpfTrainingSettingsPanelViewModel.BatchGuide");
 
         public string EpochGuideText =>
             "추천 50: 전체 데이터를 반복 학습하는 횟수입니다. 결과가 흔들리면 100까지 늘립니다.";
@@ -112,19 +129,19 @@ namespace MvcVisionSystem
             : $"현재 모델 엔진과 데이터셋 용도에 맞춰 {TrainingModelDisplayText}을 사용합니다.";
 
         public string WeightGuideText =>
-            "학습 시작 가중치입니다. 공개 가중치에서 시작하면 적은 데이터에서도 더 안정적으로 학습됩니다.";
+            OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.WpfTrainingSettingsPanelViewModel.WeightGuide");
 
         public string ValidationPercentGuideText =>
             "추천 20%: 학습 중 성능 확인용 이미지 비율입니다. 데이터가 매우 적으면 10%도 가능합니다.";
 
         public string TestPercentGuideText =>
-            "추천 0~10%: 학습 후 모델 비교용입니다. 데이터가 적으면 0%로 두고 검증 데이터를 우선 확보합니다.";
+            OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.WpfTrainingSettingsPanelViewModel.TestGuide");
 
         public string SplitSeedGuideText =>
-            "추천 17: 이미지 분할을 재현하기 위한 기준값입니다. 같은 값이면 같은 방식으로 train/valid가 나뉩니다.";
+            OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.WpfTrainingSettingsPanelViewModel.SeedGuide");
 
         public string SplitPolicyHintText =>
-            "검증 %는 학습 중 확인용, 최종 검증 %는 학습 후 모델 비교용입니다. 두 값을 합쳐 100% 이하로 설정하세요.";
+            OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.WpfTrainingSettingsPanelViewModel.SplitGuide");
 
         public string TrainingSettingsSummaryTitleText => "\uD604\uC7AC \uD559\uC2B5 \uC124\uC815";
 
@@ -212,24 +229,24 @@ namespace MvcVisionSystem
         public string TrainingSettingsSummaryModelText
             => string.Format(
                 CultureInfo.CurrentCulture,
-                "\uBAA8\uB378: {0} / \uC2DC\uC791 \uAC00\uC911\uCE58: {1}",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Summary.Model"),
                 TrainingModelDisplayText,
                 TrainingStartWeightDisplayText);
 
         public string TrainingSettingsSummaryRuntimeText
             => string.Format(
                 CultureInfo.CurrentCulture,
-                "\uC774\uBBF8\uC9C0 {0} / \uBC30\uCE58 {1} / \uC5D0\uD3ED {2}",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Summary.Runtime"),
                 string.IsNullOrWhiteSpace(ImageSizeText) ? "-" : ImageSizeText,
                 string.IsNullOrWhiteSpace(BatchText) ? "-" : BatchText,
                 string.IsNullOrWhiteSpace(EpochText) ? "-" : EpochText);
 
         public string TrainingSettingsSummarySplitText
             => usesExternalYoloDataset
-                ? "외부 data.yaml의 train/val/test 분할 사용"
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Summary.ExternalSplit")
                 : string.Format(
                     CultureInfo.CurrentCulture,
-                    "\uAC80\uC99D {0}% / \uCD5C\uC885 \uAC80\uC99D {1}% / \uBD84\uD560 \uAE30\uC900 {2}",
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Summary.Split"),
                     string.IsNullOrWhiteSpace(ValidationPercentText) ? "-" : ValidationPercentText,
                     string.IsNullOrWhiteSpace(TestPercentText) ? "-" : TestPercentText,
                     string.IsNullOrWhiteSpace(SplitSeedText) ? "-" : SplitSeedText);
@@ -433,6 +450,7 @@ namespace MvcVisionSystem
             {
                 if (SetProperty(ref cfg, value ?? string.Empty))
                 {
+                    OnPropertyChanged(nameof(SelectedTrainingModel));
                     NotifyTrainingSettingsSummaryChanged();
                 }
             }
@@ -445,6 +463,7 @@ namespace MvcVisionSystem
             {
                 if (SetProperty(ref weight, value ?? string.Empty))
                 {
+                    OnPropertyChanged(nameof(SelectedTrainingWeight));
                     NotifyTrainingSettingsSummaryChanged();
                 }
             }
@@ -488,21 +507,39 @@ namespace MvcVisionSystem
 
         public string TrainingReadinessText
         {
-            get => trainingReadinessText;
-            private set => SetProperty(ref trainingReadinessText, value ?? string.Empty);
+            get => trainingReadinessStatus != null
+                ? TrainingProgressPresentationService.BuildProgressSummary(trainingReadinessStatus)
+                : isInitialTrainingReadiness ? OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.WpfTrainingSettingsPanelViewModel.ReadinessUnknown") : trainingReadinessText;
+            private set
+            {
+                isInitialTrainingReadiness = false;
+                trainingReadinessStatus = null;
+                if (!SetProperty(ref trainingReadinessText, value ?? string.Empty)) OnPropertyChanged(nameof(TrainingReadinessText));
+            }
         }
+
+        public string TrainingActionStatusText => trainingProgressUsesReadiness ? TrainingReadinessText : TrainingProgressText;
 
         public string TrainingProgressText
         {
-            get => trainingProgressText;
+            get => trainingProgressStatus != null
+                ? TrainingProgressPresentationService.BuildProgressSummary(trainingProgressStatus)
+                : !string.IsNullOrEmpty(trainingProgressKey) ? OpenVisionLab.OpenVisionLanguageService.T(trainingProgressKey) : trainingProgressText;
             private set => SetProperty(ref trainingProgressText, value ?? string.Empty);
         }
 
         public string TrainingEpochStatusText
         {
-            get => trainingEpochStatusText;
+            get => trainingProgressStatus != null
+                ? TrainingProgressPresentationService.BuildEpochSummary(trainingProgressStatus, trainingProgressIsLive)
+                : !string.IsNullOrEmpty(trainingEpochKey) ? OpenVisionLab.OpenVisionLanguageService.T(trainingEpochKey) : trainingEpochStatusText;
             private set => SetProperty(ref trainingEpochStatusText, value ?? string.Empty);
         }
+
+        internal bool HasLocalizedTrainingPresentation => trainingProgressStatus != null || !string.IsNullOrEmpty(trainingProgressKey);
+        internal bool HasShellTrainingProjection => hasShellTrainingProjection;
+        internal string ShellTrainingProjectionStatus => shellTrainingProjectionStatus;
+        internal string ShellTrainingProjectionDetail => shellTrainingProjectionDetail;
 
         public double TrainingProgressValue
         {
@@ -622,15 +659,15 @@ namespace MvcVisionSystem
             string.Equals(modelEngine, PythonModelSettings.EngineUnet, StringComparison.Ordinal)
                 ? "U-Net vs YOLO-seg"
                 : string.Equals(modelEngine, PythonModelSettings.EngineYolo11, StringComparison.Ordinal)
-                ? "v8 vs v11 \uBD84\uC11D"
-                : "v5 vs v8 \uBD84\uC11D";
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.WpfTrainingSettingsPanelViewModel.CompareV8V11Action")
+                : OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.WpfTrainingSettingsPanelViewModel.CompareV5V8Action");
 
         public string RunYoloEngineComparisonToolTipText =>
             string.Equals(modelEngine, PythonModelSettings.EngineUnet, StringComparison.Ordinal)
-                ? "아래 U-Net vs YOLO-seg 비교 패널에서 두 checkpoint를 확인한 뒤 같은 canonical test mask 기준으로 비교합니다. 검사 모델은 자동으로 교체하지 않습니다."
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.CheckpointsHint")
                 : string.Equals(modelEngine, PythonModelSettings.EngineYolo11, StringComparison.Ordinal)
-                ? "\uB3D9\uC77C\uD55C \uAC1D\uCCB4\uD0D0\uC9C0 \uB370\uC774\uD130\uC5D0\uC11C YOLOv8\uACFC YOLO11\uC758 \uC815\uD655\uB3C4\uC640 \uBAA8\uB378 Takt\uB97C \uBE44\uAD50\uD569\uB2C8\uB2E4. test\uAC00 \uC5C6\uC73C\uBA74 val\uC744 \uC131\uB2A5 \uCC38\uACE0\uC6A9\uC73C\uB85C \uC0AC\uC6A9\uD558\uBA70 \uAD50\uCCB4 \uADFC\uAC70\uB85C \uC0AC\uC6A9\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4."
-                : "\uB3D9\uC77C\uD55C \uAC1D\uCCB4\uD0D0\uC9C0 \uB370\uC774\uD130\uC5D0\uC11C YOLOv5\uC640 YOLOv8\uC758 \uC815\uD655\uB3C4\uC640 \uBAA8\uB378 Takt\uB97C \uBE44\uAD50\uD569\uB2C8\uB2E4. test\uAC00 \uC5C6\uC73C\uBA74 val\uC744 \uC131\uB2A5 \uCC38\uACE0\uC6A9\uC73C\uB85C \uC0AC\uC6A9\uD558\uBA70 \uAD50\uCCB4 \uADFC\uAC70\uB85C \uC0AC\uC6A9\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.WpfTrainingSettingsPanelViewModel.CompareV8V11ToolTip")
+                : OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Remaining.WpfTrainingSettingsPanelViewModel.CompareV5V8ToolTip");
 
         public void ConfigureCommands(
             Action refreshReadiness,
@@ -711,7 +748,7 @@ namespace MvcVisionSystem
         private void ExecuteBrowseSegmentationUnetCheckpointCommand()
         {
             ExecuteBrowseSegmentationCheckpoint(
-                "U-Net segmentation checkpoint 선택",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.PickUnetCheckpoint"),
                 "PyTorch checkpoint (*.pt;*.pth)|*.pt;*.pth|All files (*.*)|*.*",
                 SegmentationUnetWeightsPath,
                 selectedPath => SegmentationUnetWeightsPath = selectedPath);
@@ -720,7 +757,7 @@ namespace MvcVisionSystem
         private void ExecuteBrowseSegmentationYoloCheckpointCommand()
         {
             ExecuteBrowseSegmentationCheckpoint(
-                "YOLO segmentation checkpoint 선택",
+                OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Comparison.PickYoloCheckpoint"),
                 "Ultralytics checkpoint (*.pt;*.pth)|*.pt;*.pth|All files (*.*)|*.*",
                 SegmentationYoloWeightsPath,
                 selectedPath => SegmentationYoloWeightsPath = selectedPath);
@@ -826,6 +863,8 @@ namespace MvcVisionSystem
             SplitSeedText = dataset.SplitSeed.ToString(CultureInfo.InvariantCulture);
             NotifyTrainingModelSelectionChanged();
             NotifyTrainingSettingsSummaryChanged();
+            appliedEditorSignature = BuildEditorSignature();
+            OnPropertyChanged(nameof(IsSettingsDirty));
         }
 
         public void ApplyModelEngineSelection(string engine)
@@ -857,7 +896,7 @@ namespace MvcVisionSystem
         {
             ValidationPercentText = "0";
             TestPercentText = "100";
-            TrainingReadinessText = "\uCD5C\uC885 \uAC80\uC99D \uC900\uBE44: \uC0C8\uB85C \uC800\uC7A5\uD558\uB294 \uC774\uBBF8\uC9C0\uB294 test\uC5D0\uB9CC \uC800\uC7A5\uB429\uB2C8\uB2E4. \uB3C5\uB9BD \uC774\uBBF8\uC9C0\uB97C \uBD88\uB7EC\uC640 \uB77C\uBCA8\uC744 \uC800\uC7A5\uD55C \uB4A4 \uBE60\uB978 \uCD94\uCC9C \uC801\uC6A9\uC73C\uB85C \uD559\uC2B5 \uBD84\uD560\uC5D0 \uB3CC\uC544\uC624\uC138\uC694.";
+            TrainingReadinessText = OpenVisionLab.OpenVisionLanguageService.T("WpfTraining.Text.WpfTrainingSettingsPanelViewModel.TestPresetApplied");
         }
 
         public void ApplyTo(TrainingSettings training, YoloDatasetSettings dataset, YoloV5TrainingParameters trainingParam)
@@ -895,15 +934,82 @@ namespace MvcVisionSystem
 
         public void SetTrainingReadinessText(string text)
         {
+            trainingReadinessStatus = null;
             TrainingReadinessText = text;
+            OnPropertyChanged(nameof(TrainingActionStatusText));
         }
 
         public void SetTrainingProgress(string progressText, string epochText, double progressValue, bool isIndeterminate)
         {
+            trainingProgressStatus = null;
+            trainingProgressKey = null;
+            trainingEpochKey = null;
+            hasShellTrainingProjection = false;
+            trainingProgressUsesReadiness = string.IsNullOrWhiteSpace(progressText)
+                || string.Equals(progressText, TrainingProgressPresentationService.BuildIdleProgressText(), StringComparison.Ordinal)
+                || OpenVisionLab.OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfTraining.Remaining.TrainingProgressPresentationService.Idle").Contains(progressText, StringComparer.Ordinal);
             TrainingProgressText = progressText;
             TrainingEpochStatusText = epochText;
             TrainingProgressValue = progressValue;
             TrainingProgressIsIndeterminate = isIndeterminate;
+            OnPropertyChanged(nameof(TrainingActionStatusText));
+        }
+
+        public void SetTrainingProgressFromStatus(PythonCommunicationStatus status, bool isLiveTraining, double progressValue, bool isIndeterminate)
+        {
+            trainingProgressStatus = status?.Clone();
+            trainingProgressIsLive = isLiveTraining;
+            trainingProgressKey = status == null ? "WpfTraining.Remaining.TrainingProgressPresentationService.Idle" : null;
+            trainingEpochKey = status == null && isLiveTraining ? "WpfTraining.Remaining.TrainingProgressPresentationService.BeforeEpoch" : null;
+            hasShellTrainingProjection = false;
+            string progressText = TrainingProgressPresentationService.BuildProgressSummary(trainingProgressStatus);
+            trainingProgressUsesReadiness = string.Equals(progressText, TrainingProgressPresentationService.BuildIdleProgressText(), StringComparison.Ordinal);
+            TrainingProgressText = progressText;
+            TrainingEpochStatusText = TrainingProgressPresentationService.BuildEpochSummary(trainingProgressStatus, isLiveTraining);
+            TrainingProgressValue = progressValue;
+            TrainingProgressIsIndeterminate = isIndeterminate;
+            RefreshLocalizedPresentation();
+        }
+
+        internal void SetTrainingProgressFromKeys(string progressKey, string epochKey, double progressValue, bool isIndeterminate)
+        {
+            trainingProgressStatus = null;
+            trainingProgressKey = progressKey;
+            trainingEpochKey = epochKey;
+            hasShellTrainingProjection = false;
+            string progressText = string.IsNullOrEmpty(progressKey) ? string.Empty : OpenVisionLab.OpenVisionLanguageService.T(progressKey);
+            trainingProgressUsesReadiness = string.IsNullOrWhiteSpace(progressText)
+                || string.Equals(progressKey, "WpfTraining.Remaining.TrainingProgressPresentationService.Idle", StringComparison.Ordinal);
+            TrainingProgressText = progressText;
+            TrainingEpochStatusText = string.IsNullOrEmpty(epochKey) ? string.Empty : OpenVisionLab.OpenVisionLanguageService.T(epochKey);
+            TrainingProgressValue = progressValue;
+            TrainingProgressIsIndeterminate = isIndeterminate;
+            RefreshLocalizedPresentation();
+        }
+
+        internal void UseTrainingProgressForReadiness()
+        {
+            isInitialTrainingReadiness = false;
+            trainingReadinessStatus = trainingProgressStatus;
+            OnPropertyChanged(nameof(TrainingReadinessText));
+            OnPropertyChanged(nameof(TrainingActionStatusText));
+        }
+
+        internal void RecordShellTrainingProjection(string statusText, string detailText)
+        {
+            shellTrainingProjectionStatus = statusText;
+            shellTrainingProjectionDetail = detailText;
+            hasShellTrainingProjection = true;
+        }
+
+        public void RefreshLocalizedPresentation()
+        {
+            OnPropertyChanged(nameof(TrainingReadinessText));
+            OnPropertyChanged(nameof(TrainingProgressText));
+            OnPropertyChanged(nameof(TrainingEpochStatusText));
+            OnPropertyChanged(nameof(TrainingActionStatusText));
+            OnPropertyChanged(nameof(RunYoloEngineComparisonActionText));
+            OnPropertyChanged(nameof(RunYoloEngineComparisonToolTipText));
         }
 
         public void SetTrainingProgressValue(double value)
@@ -1046,12 +1152,13 @@ namespace MvcVisionSystem
                 if (startResult.Started)
                 {
                     string acceptedProgressText = TrainingCommandPresentationService.BuildTrainingAcceptedProgressText();
-                    SetTrainingProgress(
-                        acceptedProgressText,
-                        string.Empty,
+                    SetTrainingProgressFromKeys(
+                        "WpfTraining.Text.TrainingCommandPresentationService.StartPending",
+                        null,
                         0D,
                         isIndeterminate: true);
                     callbacks.SetModelCenterTrainingState(acceptedProgressText, TrainingReadinessText);
+                    callbacks.RecordModelCenterTrainingProjection?.Invoke();
                     callbacks.StartStatusPolling();
                     callbacks.UpdateCommandState();
                 }
@@ -1258,15 +1365,24 @@ namespace MvcVisionSystem
 
         private static string BuildPostTrainingModelDetail(string currentModelText, string candidateModelText, string nextActionText)
         {
+            var entries = OpenVisionLab.OpenVisionLanguageService.GetEntries();
             string current = StripPostTrainingPrefix(
                 currentModelText,
                 "\uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378:",
-                "\uAC80\uC0AC \uBAA8\uB378 \uD6C4\uBCF4:");
+                OpenVisionLab.OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfLearningWorkflow.TrainingModelLifecycle.Term.InspectionModelPending")[0] + ":",
+                entries.First(entry => entry.Key == "WpfLearningWorkflow.TrainingModelLifecycle.Term.InspectionModelPending").Korean + ":",
+                entries.First(entry => entry.Key == "WpfLearningWorkflow.TrainingModelLifecycle.Term.InspectionModelPending").English + ":",
+                entries.First(entry => entry.Key == "WpfModelCenterDashboard.Current.Value").Korean.Split(new[] { "{0}" }, StringSplitOptions.None)[0].TrimEnd(),
+                entries.First(entry => entry.Key == "WpfModelCenterDashboard.Current.Value").English.Split(new[] { "{0}" }, StringSplitOptions.None)[0].TrimEnd());
             string candidate = StripPostTrainingPrefix(
                 candidateModelText,
-                "\uC0C8 \uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4:");
-            string next = StripPostTrainingPrefix(nextActionText, "\uB2E4\uC74C:");
-            return $"\uAC80\uC0AC \uBAA8\uB378 {current} / \uD559\uC2B5 \uD6C4\uBCF4 {candidate} / \uB2E4\uC74C {next}";
+                OpenVisionLab.OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfLearningWorkflow.TrainingModelLifecycle.Term.NewTrainedModel")[0] + ":",
+                entries.First(entry => entry.Key == "WpfLearningWorkflow.TrainingModelLifecycle.Term.NewTrainedModel").Korean + ":",
+                entries.First(entry => entry.Key == "WpfLearningWorkflow.TrainingModelLifecycle.Term.NewTrainedModel").English + ":");
+            string next = StripPostTrainingPrefix(nextActionText, "\uB2E4\uC74C:",
+                entries.First(entry => entry.Key == "WpfLearningWorkflow.TrainingModelLifecycle.Label.NextAction").Korean + ":",
+                entries.First(entry => entry.Key == "WpfLearningWorkflow.TrainingModelLifecycle.Label.NextAction").English + ":");
+            return string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.WpfTrainingSettingsPanelViewModel.PostTrainingDetail"), current, candidate, next);
         }
 
         private static string StripPostTrainingPrefix(string text, params string[] prefixes)
@@ -1290,11 +1406,28 @@ namespace MvcVisionSystem
 
         private void NotifyTrainingSettingsSummaryChanged()
         {
+            OnPropertyChanged(nameof(IsSettingsDirty));
             OnPropertyChanged(nameof(TrainingSettingsSummaryModelText));
             OnPropertyChanged(nameof(TrainingSettingsSummaryRuntimeText));
             OnPropertyChanged(nameof(TrainingSettingsSummarySplitText));
             OnPropertyChanged(nameof(TrainingSettingsSummaryActionText));
         }
+
+        private string BuildEditorSignature()
+            => string.Join("\u001f", new[]
+            {
+                (imageSizeText ?? string.Empty).Trim(),
+                (batchText ?? string.Empty).Trim(),
+                (epochText ?? string.Empty).Trim(),
+                (cfg ?? string.Empty).Trim(),
+                (weight ?? string.Empty).Trim(),
+                (validationPercentText ?? string.Empty).Trim(),
+                (testPercentText ?? string.Empty).Trim(),
+                (splitSeedText ?? string.Empty).Trim(),
+                PythonModelSettings.NormalizeModelEngine(modelEngine),
+                datasetPurpose.ToString(),
+                usesExternalYoloDataset ? "1" : "0"
+            });
 
         private void NotifyTrainingModelSelectionChanged()
         {
@@ -1342,6 +1475,7 @@ namespace MvcVisionSystem
         public Action StartStatusPolling { get; set; } = NoOp;
 
         public Action<string, string> SetModelCenterTrainingState { get; set; } = (_, __) => { };
+        public Action RecordModelCenterTrainingProjection { get; set; }
 
         public Action RefreshTrainingStatus { get; set; } = NoOp;
 

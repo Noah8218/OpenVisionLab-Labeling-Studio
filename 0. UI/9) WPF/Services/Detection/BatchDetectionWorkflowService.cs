@@ -139,7 +139,7 @@ namespace MvcVisionSystem
         {
             HadException = true;
             FailureSummary = string.IsNullOrWhiteSpace(exception.Message)
-                ? "일괄 검사 중 알 수 없는 오류가 발생했습니다."
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfBatch.Run.UnknownError")
                 : exception.Message.Trim();
         }
 

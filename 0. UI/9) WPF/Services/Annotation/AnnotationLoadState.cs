@@ -17,7 +17,7 @@ namespace MvcVisionSystem
             IsSaveBlocked = true;
             LabelPath = labelPath ?? string.Empty;
             ErrorSummary = string.IsNullOrWhiteSpace(errorSummary)
-                ? "라벨 파일 형식을 확인한 뒤 명시적으로 복구해야 합니다."
+                ? "라벨 파일 형식을 확인하고 복구를 실행하세요."
                 : errorSummary;
         }
 

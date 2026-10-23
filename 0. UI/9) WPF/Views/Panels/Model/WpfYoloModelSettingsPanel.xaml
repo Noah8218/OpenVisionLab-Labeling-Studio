@@ -3,122 +3,174 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mvvm="clr-namespace:OpenVisionLab.Mvvm.Behaviors;assembly=OpenVisionLab.Mvvm"
              xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             xmlns:local="clr-namespace:MvcVisionSystem"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
     <UserControl.Resources>
-        <Style x:Key="YoloModelLabelStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Margin" Value="0,6,8,0" />
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../../../Themes/WpfButtonStateTemplates.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="YoloSectionVisibility" />
+            <local:RuntimeDetailTextConverter x:Key="RuntimeDetailText" />
+            <Style x:Key="YoloIntegratedEditorStyle" TargetType="Expander" BasedOn="{StaticResource DatasetExpanderStyle}">
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False">
+                        <Setter Property="IsExpanded" Value="True" />
+                        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Expander"><ContentPresenter Content="{TemplateBinding Content}" /></ControlTemplate></Setter.Value></Setter>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style TargetType="Expander" BasedOn="{StaticResource DatasetExpanderStyle}" />
+            <Style TargetType="TextBlock">
+                <Setter Property="TextWrapping" Value="Wrap" />
+            <Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="LineHeight" Value="18.85" /><Setter Property="LineStackingStrategy" Value="BlockLineHeight" /></DataTrigger></Style.Triggers></Style>
+            <Style TargetType="AccessText">
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
 
-        <Style x:Key="YoloModelTextBoxStyle" TargetType="TextBox">
-            <Setter Property="Height" Value="26" />
-            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="Padding" Value="6,3" />
-            <Setter Property="Margin" Value="0,5,0,0" />
-        </Style>
+            <Style x:Key="YoloModelLabelStyle" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" />
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Margin" Value="0,6,8,0" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+            <Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="FontSize" Value="12" /><Setter Property="FontWeight" Value="Normal" /><Setter Property="Margin" Value="0,0,0,4" /><Setter Property="LineHeight" Value="17.4" /><Setter Property="LineStackingStrategy" Value="BlockLineHeight" /></DataTrigger></Style.Triggers></Style>
 
-        <Style x:Key="YoloModelIconStyle" TargetType="{x:Type iconPacks:PackIconMaterial}">
-            <Setter Property="Width" Value="14" />
-            <Setter Property="Height" Value="14" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="HorizontalAlignment" Value="Center" />
-        </Style>
+            <Style x:Key="YoloModelTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource RecipeInputStyle}">
+                <Setter Property="Height" Value="Auto" />
+                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="Background" Value="{DynamicResource RecipePageBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonBorderBrush}" />
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="Padding" Value="8,4" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+                <Setter Property="Validation.ErrorTemplate" Value="{x:Null}" />
+                <Setter Property="Margin" Value="0,5,0,0" />
+                <Style.Triggers>
+                    <Trigger Property="IsEnabled" Value="False">
+                        <Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" />
+                    </Trigger>
+                    <Trigger Property="Validation.HasError" Value="True">
+                        <Setter Property="BorderBrush" Value="{DynamicResource ErrorBrush}" />
+                    </Trigger>
+                <DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="FontSize" Value="12" /><Setter Property="Height" Value="30" /><Setter Property="MinHeight" Value="30" /><Setter Property="Margin" Value="0" /><Setter Property="Padding" Value="8,5" /><Setter Property="Background" Value="{DynamicResource DatasetInputBrush}" /></DataTrigger></Style.Triggers>
+            </Style>
 
-        <Style x:Key="YoloModelBrowseButtonStyle" TargetType="{x:Type ui:Button}">
-            <Setter Property="Template" Value="{DynamicResource WpfUiDarkButtonTemplate}" />
-            <Setter Property="Width" Value="30" />
-            <Setter Property="MinWidth" Value="30" />
-            <Setter Property="Height" Value="26" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="5,5,0,0" />
-            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
-        </Style>
+            <Style x:Key="YoloAnomalyFieldLabelStyle" TargetType="TextBlock" BasedOn="{StaticResource YoloModelLabelStyle}">
+                <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+                <Setter Property="Margin" Value="0" />
+            <Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"/><Condition Binding="{Binding SettingsSection, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="2"/></MultiDataTrigger.Conditions><Setter Property="FontSize" Value="12"/><Setter Property="FontWeight" Value="Normal"/><Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}"/><Setter Property="LineHeight" Value="17.4"/><Setter Property="LineStackingStrategy" Value="BlockLineHeight"/><Setter Property="Margin" Value="0,0,0,4"/></MultiDataTrigger></Style.Triggers></Style>
+            <Style x:Key="YoloAnomalyClassInputStyle" TargetType="TextBox" BasedOn="{StaticResource YoloModelTextBoxStyle}">
+                <Setter Property="MinHeight" Value="96" />
+                <Setter Property="MaxHeight" Value="120" />
+                <Setter Property="AcceptsReturn" Value="True" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="VerticalContentAlignment" Value="Top" />
+                <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+                <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+                <Setter Property="Padding" Value="10,8" />
+                <Setter Property="Margin" Value="0,6,0,0" />
+            <Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"/><Condition Binding="{Binding SettingsSection, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="2"/></MultiDataTrigger.Conditions><Setter Property="FontSize" Value="12"/><Setter Property="Height" Value="30"/><Setter Property="MinHeight" Value="30"/><Setter Property="MaxHeight" Value="30"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="TextWrapping" Value="NoWrap"/><Setter Property="HorizontalScrollBarVisibility" Value="Hidden"/><Setter Property="VerticalScrollBarVisibility" Value="Hidden"/><Setter Property="Padding" Value="8,5"/><Setter Property="Margin" Value="0"/></MultiDataTrigger></Style.Triggers></Style>
+            <Style x:Key="YoloModelSaveButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource RecipePrimaryButtonStyle}">
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+                <Setter Property="Margin" Value="0,0,5,5" />
+            </Style>
 
-        <Style x:Key="YoloModelCommandButtonStyle" TargetType="{x:Type ui:Button}">
-            <Setter Property="Template" Value="{DynamicResource WpfUiDarkButtonTemplate}" />
-            <Setter Property="Height" Value="30" />
-            <Setter Property="MinHeight" Value="30" />
-            <Setter Property="Padding" Value="8,0" />
-            <Setter Property="Margin" Value="0,0,5,5" />
-            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
-            <Setter Property="FontSize" Value="12" />
-            <Style.Triggers>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
-                    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
-                    <Setter Property="Opacity" Value="0.45" />
-                </Trigger>
-            </Style.Triggers>
-        </Style>
+            <Style x:Key="YoloModelIconStyle" TargetType="{x:Type iconPacks:PackIconMaterial}">
+                <Setter Property="Width" Value="14" />
+                <Setter Property="Height" Value="14" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="HorizontalAlignment" Value="Center" />
+            </Style>
 
-        <Style x:Key="YoloRuntimeProfileActionButtonStyle" TargetType="{x:Type ui:Button}">
-            <Setter Property="Template" Value="{DynamicResource WpfUiDarkButtonTemplate}" />
-            <Setter Property="Height" Value="26" />
-            <Setter Property="MinHeight" Value="26" />
-            <Setter Property="MinWidth" Value="46" />
-            <Setter Property="Padding" Value="8,0" />
-            <Setter Property="Margin" Value="6,0,0,0" />
-            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI" />
-            <Setter Property="FontSize" Value="10.5" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Style.Triggers>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
-                    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
-                    <Setter Property="Opacity" Value="0.45" />
-                </Trigger>
-            </Style.Triggers>
-        </Style>
+            <Style x:Key="YoloModelBrowseButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource RecipeButtonBaseStyle}">
+                <Setter Property="Width" Value="32" />
+                <Setter Property="MinWidth" Value="32" />
+                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Margin" Value="5,5,0,0" />
+            <Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Height" Value="30" /><Setter Property="MinHeight" Value="30" /><Setter Property="Width" Value="30" /><Setter Property="MinWidth" Value="30" /><Setter Property="Margin" Value="4,0,0,0" /><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style>
 
-        <SolidColorBrush x:Key="YoloRuntimeStatusBrush" Color="#93C5FD" />
+            <Style x:Key="YoloModelCommandButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource RecipeButtonBaseStyle}">
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+                <Setter Property="Margin" Value="0,0,5,5" />
+            </Style>
+
+            <Style x:Key="YoloRuntimeProfileActionButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource RecipeButtonBaseStyle}">
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+                <Setter Property="Margin" Value="0,0,5,5" />
+                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="MinWidth" Value="46" />
+                <Setter Property="VerticalAlignment" Value="Top" />
+                <Setter Property="Margin" Value="6,0,0,0" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
+
+            <Style x:Key="YoloModelComboBoxStyle" TargetType="ComboBox" BasedOn="{StaticResource RecipeComboBoxStyle}">
+                <Setter Property="Height" Value="Auto" />
+                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="Background" Value="{DynamicResource RecipePageBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonBorderBrush}" />
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="ItemTemplate">
+                    <Setter.Value>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="300" />
+                        </DataTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Style.Triggers>
+                    <Trigger Property="IsEnabled" Value="False">
+                        <Setter Property="Background" Value="{DynamicResource RecipeDisabledBrush}" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource RecipeDisabledBorderBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" />
+                    </Trigger>
+                    <Trigger Property="Validation.HasError" Value="True">
+                        <Setter Property="BorderBrush" Value="{DynamicResource ErrorBrush}" />
+                    </Trigger>
+                <DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="FontSize" Value="12" /><Setter Property="Height" Value="30" /><Setter Property="MinHeight" Value="30" /><Setter Property="Margin" Value="0" /><Setter Property="Background" Value="{DynamicResource DatasetInputBrush}" /></DataTrigger></Style.Triggers>
+            </Style>
+
+            <SolidColorBrush x:Key="YoloRuntimeStatusBrush" Color="#93C5FD" />
+        </ResourceDictionary>
     </UserControl.Resources>
 
     <Expander x:Name="YoloModelSettingsExpander"
               AutomationProperties.AutomationId="YoloModelSettingsExpander"
               Header="&#xAC80;&#xC0AC;&#xC6A9; &#xBAA8;&#xB378; &#xC694;&#xC57D; / &#xC124;&#xC815;"
-              Foreground="{DynamicResource PrimaryTextBrush}"
-              Margin="0,12,0,0">
-        <StackPanel Margin="0,8,0,0">
-            <Border x:Name="YoloModelSettingsSummaryPanel"
+              Foreground="{DynamicResource RecipeTextBrush}"
+             ><Expander.Style><Style TargetType="Expander" BasedOn="{StaticResource YoloIntegratedEditorStyle}"><Setter Property="Margin" Value="0,12,0,0" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Margin" Value="0" /></DataTrigger></Style.Triggers></Style></Expander.Style>
+        <Grid><Grid.Style><Style TargetType="Grid"><Setter Property="Margin" Value="0,8,0,0" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Margin" Value="0" /></DataTrigger></Style.Triggers></Style></Grid.Style><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Border Grid.Row="2" Grid.RowSpan="2" IsHitTestVisible="False" Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1" CornerRadius="8"><Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"/><Condition Binding="{Binding ShowInspectionFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="True"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible"/></MultiDataTrigger></Style.Triggers></Style></Border.Style></Border><Border x:Name="YoloModelSettingsSummaryPanel"
                     AutomationProperties.AutomationId="YoloModelSettingsSummaryPanel"
-                    Background="{DynamicResource PanelBrush}"
-                    BorderBrush="{DynamicResource AccentBrush}"
+                    Background="{DynamicResource RecipeSurfaceBrush}"
+                    BorderBrush="{DynamicResource RecipeAccentBrush}"
                     BorderThickness="1"
-                    CornerRadius="4"
+                    CornerRadius="7"
                     Padding="8"
-                    Margin="0,0,0,8">
+                    Margin="0,0,0,8" Grid.Row="0" Visibility="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}">
                 <StackPanel>
                     <TextBlock x:Name="YoloModelSettingsSummaryTitleText"
                                AutomationProperties.AutomationId="YoloModelSettingsSummaryTitleText"
                                Text="{Binding SettingsSummaryTitleText}"
-                               Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="12"
+                               Foreground="{DynamicResource RecipeTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                FontWeight="SemiBold"
                                TextWrapping="Wrap" />
                     <TextBlock x:Name="YoloModelSettingsSummaryModelText"
                                AutomationProperties.AutomationId="YoloModelSettingsSummaryModelText"
                                Text="{Binding SettingsSummaryModelText}"
                                ToolTip="{Binding AppliedWeightsPath}"
-                               Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="10.5"
+                               Foreground="{DynamicResource RecipeTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                FontWeight="SemiBold"
                                TextWrapping="Wrap"
                                Margin="0,4,0,0" />
@@ -127,71 +179,268 @@
                                Text="{Binding SettingsSummaryRuntimeStatusText}"
                                ToolTip="{Binding SettingsSummaryRuntimeStatusText}"
                                Foreground="{StaticResource YoloRuntimeStatusBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="10.5"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                FontWeight="SemiBold"
                                TextWrapping="Wrap"
                                Margin="0,3,0,0" />
                     <TextBlock x:Name="YoloModelSettingsSummaryRuntimeText"
                                AutomationProperties.AutomationId="YoloModelSettingsSummaryRuntimeText"
                                Text="{Binding SettingsSummaryRuntimeText}"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="10"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                TextWrapping="Wrap"
                                Margin="0,2,0,0" />
                     <TextBlock x:Name="YoloModelSettingsSummaryPathText"
                                AutomationProperties.AutomationId="YoloModelSettingsSummaryPathText"
                                Text="{Binding SettingsSummaryPathText}"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="10"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                TextWrapping="Wrap"
                                Margin="0,2,0,0" />
                     <TextBlock x:Name="YoloModelSettingsSummaryActionText"
                                AutomationProperties.AutomationId="YoloModelSettingsSummaryActionText"
                                Text="{Binding SettingsSummaryActionText}"
-                               Foreground="{DynamicResource AccentBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="9.5"
+                               Foreground="{DynamicResource RecipeAccentBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                FontWeight="SemiBold"
                                TextWrapping="Wrap"
                                Margin="0,4,0,0" />
                 </StackPanel>
-            </Border>
+            </Border><Border x:Name="YoloInspectionModelQuickPanel" Visibility="{Binding ShowInspectionFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}"
+                    AutomationProperties.AutomationId="YoloInspectionModelQuickPanel"
+                    Background="{DynamicResource RecipeSurfaceBrush}"
+                    BorderBrush="{DynamicResource RecipeBorderBrush}"
+                    BorderThickness="1"
 
-            <Expander x:Name="YoloRuntimeDiagnosticsExpander"
+
+                    Grid.Row="1"><Border.Style><Style TargetType="Border"><Setter Property="Padding" Value="7" /><Setter Property="Margin" Value="0,0,0,8" /><Setter Property="CornerRadius" Value="7" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Padding" Value="14,12" /><Setter Property="Margin" Value="0,0,0,12" /><Setter Property="CornerRadius" Value="8" /></DataTrigger></Style.Triggers></Style></Border.Style>
+                <StackPanel><Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Grid.Style><TextBlock Text="{Binding [WpfTrainingWorkspace.InspectionModel], Source={x:Static local:WpfLocalizationViewModel.Instance}}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" FontWeight="SemiBold" Foreground="{DynamicResource RecipeMutedTextBrush}" VerticalAlignment="Center" /><Border Grid.Column="1" HorizontalAlignment="Right" Padding="8,1" CornerRadius="11" BorderThickness="1" BorderBrush="{DynamicResource RecipeButtonBorderBrush}" Background="{DynamicResource RecipeButtonBrush}"><TextBlock FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Text="{Binding TrainingWorkspace.InspectionModelBadgeText, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" ToolTip="{Binding AppliedWeightsPath}" /></Border></Grid><TextBlock x:Name="YoloEditingSummaryTitleText"
+                               AutomationProperties.AutomationId="YoloEditingSummaryTitleText"
+                               Text="{Binding EditingSummaryTitleText}"
+                               Foreground="{DynamicResource RecipeTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
+                               FontWeight="SemiBold"  TextWrapping="Wrap" ><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Visible" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock><Grid Visibility="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><TextBlock Visibility="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}"
+                               Text="{Binding [WpfModelSettings.Engine], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                               Style="{StaticResource YoloModelLabelStyle}"
+                               Margin="0,6,8,0"  TextWrapping="Wrap" /><ComboBox Grid.Column="1" x:Name="YoloModelEngineQuickBox" Visibility="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}"
+                              AutomationProperties.AutomationId="YoloModelEngineQuickBox"
+                              AutomationProperties.Name="{Binding [WpfModelSettings.EditingEngine], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                              ItemsSource="{Binding ModelEngineOptions}"
+                              SelectedItem="{Binding SelectedModelEngine, Mode=TwoWay}"
+                              Margin="0,6,0,0"
+                              Style="{StaticResource YoloModelComboBoxStyle}" /></Grid><StackPanel><TextBlock
+
+
+                                TextWrapping="Wrap" ><TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource YoloModelLabelStyle}"><Setter Property="Text" Value="{Binding [WpfModelSettings.Weights], Source={x:Static local:WpfLocalizationViewModel.Instance}}" /><Setter Property="Margin" Value="0,0,8,0" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Text" Value="{Binding [WpfTrainingSettings.ModelFile], Source={x:Static local:WpfLocalizationViewModel.Instance}}" /><Setter Property="Margin" Value="0,0,0,4" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBox x:Name="YoloWeightsPathBox"
+                             Style="{StaticResource YoloModelTextBoxStyle}"
+                             Text="{Binding WeightsPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="{Binding WeightsPath}"
+                             Margin="0" /><ui:Button Grid.Column="1" x:Name="BrowseYoloWeightsButton"
+                               Style="{StaticResource YoloModelBrowseButtonStyle}"
+                               IsEnabled="{Binding IsBrowseWeightsEnabled}"
+                               ToolTip="&#xAC80;&#xC0AC;&#xC5D0; &#xC0AC;&#xC6A9;&#xD560; &#xBAA8;&#xB378; &#xD30C;&#xC77C; &#xC120;&#xD0DD;"
+                               Command="{Binding BrowseWeightsCommand}"
+                               Margin="5,0,0,0">
+                        <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
+                    </ui:Button></Grid></StackPanel><TextBlock Text="{Binding [WpfTrainingSettings.ModelDesignationHint], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Foreground="{DynamicResource RecipeMutedTextBrush}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" Margin="0,8,0,0" ><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></StackPanel>
+</Border><Expander x:Name="YoloAdvancedModelSettingsExpander" Style="{StaticResource YoloIntegratedEditorStyle}"
+                      AutomationProperties.AutomationId="YoloAdvancedModelSettingsExpander"
+                      Header="{Binding AdvancedSettingsHeaderText}"
+                      Foreground="{DynamicResource RecipeTextBrush}"
+                      Margin="0" Grid.Row="2">
+                <StackPanel><StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Margin" Value="0,8,0,0" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Margin" Value="0" /></DataTrigger></Style.Triggers></Style></StackPanel.Style>
+<Border x:Name="YoloModelEnginePanel" Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1"><Border.Style><Style TargetType="Border"><Setter Property="Padding" Value="14" /><Setter Property="CornerRadius" Value="7" /><Setter Property="Margin" Value="0,0,0,12" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Padding" Value="14,12" /><Setter Property="CornerRadius" Value="8" /><Setter Property="Margin" Value="0,0,0,12" /></DataTrigger></Style.Triggers></Style></Border.Style><StackPanel><TextBlock Text="{Binding [WpfTrainingSettings.RuntimeConnection], Source={x:Static local:WpfLocalizationViewModel.Instance}}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" FontWeight="SemiBold" Foreground="{DynamicResource RecipeMutedTextBrush}" Margin="0,0,0,8" ><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions><Border Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="1"><Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="0,0,16,12" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Margin" Value="0,0,6,12" /></DataTrigger></Style.Triggers></Style></Border.Style><StackPanel><TextBlock Text="{Binding [WpfModelSettings.Engine], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+
+                                TextWrapping="Wrap" ><TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource YoloModelLabelStyle}"><Setter Property="Margin" Value="0,0,8,0" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Margin" Value="0,0,0,4" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock><ComboBox x:Name="YoloModelEngineBox"
+                              ItemsSource="{Binding ModelEngineOptions}"
+                              SelectedItem="{Binding SelectedModelEngine, Mode=TwoWay}"
+                              mvvm:InputCommandBehaviors.DropDownOpenedCommand="{Binding ModelEngineDropDownOpenedCommand}"
+                              mvvm:InputCommandBehaviors.DropDownClosedCommand="{Binding ModelEngineDropDownClosedCommand}"
+                              Style="{StaticResource YoloModelComboBoxStyle}" /><TextBlock x:Name="YoloModelEngineHintText"
+                               Text="{Binding ModelEngineHintText}"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
+                               Margin="0,4,0,0"
+                               TextWrapping="Wrap" ><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Visible" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></StackPanel></Border><Border Grid.Column="1" Grid.Row="0" Grid.ColumnSpan="1"><Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="0,0,0,12" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Margin" Value="6,0,0,12" /></DataTrigger></Style.Triggers></Style></Border.Style><StackPanel><TextBlock Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" Text="{Binding [WpfModelSettings.Python], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource YoloModelLabelStyle}"  TextWrapping="Wrap" /><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBox Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" x:Name="YoloPythonPathBox"
+                         Style="{StaticResource YoloModelTextBoxStyle}"
+                         Text="{Binding PythonExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="{Binding PythonExecutablePath}" /><ui:Button Grid.Column="1" x:Name="BrowseYoloPythonButton"
+                           Style="{StaticResource YoloModelBrowseButtonStyle}"
+                           IsEnabled="{Binding IsBrowsePythonEnabled}"
+                           ToolTip="&#xCD94;&#xB860; &#xC2E4;&#xD589; &#xD30C;&#xC77C; &#xC120;&#xD0DD;"
+                           Command="{Binding BrowsePythonCommand}">
+                    <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
+                </ui:Button></Grid></StackPanel></Border><Border Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="1"><Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="0,0,16,12" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Margin" Value="0,0,6,0" /></DataTrigger></Style.Triggers></Style></Border.Style><StackPanel><TextBlock Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" Text="{Binding [WpfModelSettings.ProjectRoot], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource YoloModelLabelStyle}"  TextWrapping="Wrap" /><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBox Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" x:Name="YoloProjectRootBox"
+                         Style="{StaticResource YoloModelTextBoxStyle}"
+                         Text="{Binding ProjectRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="{Binding ProjectRootPath}" /><ui:Button Grid.Column="1" x:Name="BrowseYoloProjectRootButton"
+                           Style="{StaticResource YoloModelBrowseButtonStyle}"
+                           IsEnabled="{Binding IsBrowseProjectRootEnabled}"
+                           ToolTip="&#xBAA8;&#xB378; &#xC2E4;&#xD589; &#xD658;&#xACBD; &#xD3F4;&#xB354; &#xC120;&#xD0DD;"
+                           Command="{Binding BrowseProjectRootCommand}">
+                    <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
+                </ui:Button></Grid></StackPanel></Border><Border Grid.Column="1" Grid.Row="1" Grid.ColumnSpan="1"><Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="0,0,0,12" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Margin" Value="6,0,0,0" /></DataTrigger></Style.Triggers></Style></Border.Style><StackPanel><TextBlock Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" Text="{Binding [WpfModelSettings.ClientScript], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource YoloModelLabelStyle}"  TextWrapping="Wrap" /><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBox Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" x:Name="YoloClientScriptBox"
+                         Style="{StaticResource YoloModelTextBoxStyle}"
+                         Text="{Binding ClientScriptPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="{Binding ClientScriptPath}" /><ui:Button Grid.Column="1" x:Name="BrowseYoloClientScriptButton"
+                           Style="{StaticResource YoloModelBrowseButtonStyle}"
+                           IsEnabled="{Binding IsBrowseClientScriptEnabled}"
+                           ToolTip="&#xBAA8;&#xB378; &#xD1B5;&#xC2E0; &#xC2A4;&#xD06C;&#xB9BD;&#xD2B8; &#xC120;&#xD0DD;"
+                           Command="{Binding BrowseClientScriptCommand}">
+                    <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
+                </ui:Button></Grid></StackPanel></Border><Border Grid.Column="0" Grid.Row="2" Grid.ColumnSpan="2"><Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="0,0,0,12" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Margin" Value="0,12,0,0" /></DataTrigger></Style.Triggers></Style></Border.Style><CheckBox Content="{Binding [WpfModelSettings.AutoStart], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" x:Name="YoloAutoStartCheckBox"
+                          IsChecked="{Binding AutoStartClient, Mode=TwoWay}"
+
+                          FontFamily="{DynamicResource UiFontFamily}"
+
+                          VerticalAlignment="Center"
+                          ><CheckBox.Style><Style TargetType="CheckBox" BasedOn="{StaticResource RecipeCheckBoxStyle}"><Setter Property="FontSize" Value="13" /><Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" /><Setter Property="Margin" Value="0,7,0,0" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="MinHeight" Value="18" /><Setter Property="FontSize" Value="12" /><Setter Property="TextBlock.LineHeight" Value="17.4" /><Setter Property="TextBlock.LineStackingStrategy" Value="BlockLineHeight" /><Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" /><Setter Property="Margin" Value="0" /></DataTrigger></Style.Triggers></Style></CheckBox.Style></CheckBox></Border></Grid></StackPanel></Border>
+<Border Visibility="{Binding ShowInspectionFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" BorderThickness="1"><Border.Style><Style TargetType="Border"><Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource RecipeBorderBrush}"/><Setter Property="Padding" Value="14" /><Setter Property="CornerRadius" Value="7" /><Setter Property="Margin" Value="0,0,0,12" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Padding" Value="14,12,14,0" /><Setter Property="Background" Value="Transparent"/><Setter Property="BorderBrush" Value="Transparent"/><Setter Property="CornerRadius" Value="8" /><Setter Property="Margin" Value="0" /></DataTrigger></Style.Triggers></Style></Border.Style><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="{Binding [WpfTrainingSettings.InferenceConditions], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Grid.Row="0" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" FontWeight="SemiBold" Foreground="{DynamicResource RecipeMutedTextBrush}" Margin="0,0,0,8" ><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock><StackPanel><StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Grid.Row" Value="0" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Grid.Row" Value="2" /><Setter Property="Margin" Value="0,12,0,0" /></DataTrigger></Style.Triggers></Style></StackPanel.Style><TextBlock Visibility="{Binding ShowInspectionFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" TextWrapping="Wrap"><TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource YoloModelLabelStyle}"><Setter Property="Text" Value="{Binding [WpfModelSettings.ImageRoot], Source={x:Static local:WpfLocalizationViewModel.Instance}}"/><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Text" Value="{Binding [WpfTrainingSettings.InspectionImageFolder], Source={x:Static local:WpfLocalizationViewModel.Instance}}"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBox Visibility="{Binding ShowInspectionFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" x:Name="YoloImageRootBox"
+                         Style="{StaticResource YoloModelTextBoxStyle}"
+                         Text="{Binding ImageRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="{Binding ImageRootPath}" /><ui:Button Grid.Column="1" x:Name="BrowseYoloImageRootButton"
+                           Style="{StaticResource YoloModelBrowseButtonStyle}"
+                           IsEnabled="{Binding IsBrowseImageRootEnabled}"
+                           ToolTip="&#xC774;&#xBBF8;&#xC9C0; &#xB8E8;&#xD2B8; &#xD3F4;&#xB354; &#xC120;&#xD0DD;"
+                           Command="{Binding BrowseImageRootCommand}">
+                    <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
+                </ui:Button></Grid></StackPanel><Grid><Grid.Style><Style TargetType="Grid"><Setter Property="Grid.Row" Value="1" /><Setter Property="Margin" Value="0,12,0,0" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Grid.Row" Value="1" /><Setter Property="Margin" Value="0" /></DataTrigger></Style.Triggers></Style></Grid.Style><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions><Border Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="1"><Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="0,0,16,12" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Margin" Value="0,0,6,12" /></DataTrigger></Style.Triggers></Style></Border.Style><StackPanel><TextBlock Visibility="{Binding ShowInspectionFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" Text="{Binding [WpfModelSettings.Confidence], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource YoloModelLabelStyle}"  TextWrapping="Wrap" /><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBox Visibility="{Binding ShowInspectionFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" x:Name="YoloConfidenceBox"
+                         Style="{StaticResource YoloModelTextBoxStyle}"
+                         Text="{Binding MinimumConfidenceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="0~1 &#xC0AC;&#xC774; &#xC2E0;&#xB8B0;&#xB3C4; &#xAC12;"
+                         mvvm:InputCommandBehaviors.TextInputFilter="Decimal" /></Grid></StackPanel></Border><Border Grid.Column="1" Grid.Row="0" Grid.ColumnSpan="1"><Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="0,0,0,12" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Margin" Value="6,0,0,12" /></DataTrigger></Style.Triggers></Style></Border.Style><StackPanel><TextBlock Visibility="{Binding ShowInspectionFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" TextWrapping="Wrap"><TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource YoloModelLabelStyle}"><Setter Property="Text" Value="{Binding [WpfModelSettings.InferenceSize], Source={x:Static local:WpfLocalizationViewModel.Instance}}"/><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Text" Value="{Binding [WpfTrainingSettings.InferenceImageSizePixels], Source={x:Static local:WpfLocalizationViewModel.Instance}}"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBox Visibility="{Binding ShowInspectionFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" x:Name="YoloInferenceImageSizeBox"
+                         Style="{StaticResource YoloModelTextBoxStyle}"
+                         Text="{Binding InferenceImageSizeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="64~2048"
+                         mvvm:InputCommandBehaviors.TextInputFilter="Integer" /></Grid></StackPanel></Border><Border Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="1"><Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="0,0,16,12" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Margin" Value="0,0,6,0" /></DataTrigger></Style.Triggers></Style></Border.Style><StackPanel><TextBlock Visibility="{Binding ShowInspectionFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" Text="{Binding [WpfModelSettings.MaxCandidates], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource YoloModelLabelStyle}"  TextWrapping="Wrap" /><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBox Visibility="{Binding ShowInspectionFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" x:Name="YoloMaxCandidatesBox"
+                         Style="{StaticResource YoloModelTextBoxStyle}"
+                         Text="{Binding MaximumCandidatesText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="1~200"
+                         mvvm:InputCommandBehaviors.TextInputFilter="Integer" /></Grid></StackPanel></Border><Border Grid.Column="1" Grid.Row="1" Grid.ColumnSpan="1"><Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="0,0,0,12" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Margin" Value="6,0,0,0" /></DataTrigger></Style.Triggers></Style></Border.Style><StackPanel><TextBlock Visibility="{Binding ShowInspectionFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" Text="{Binding [WpfModelSettings.Timeout], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource YoloModelLabelStyle}"  TextWrapping="Wrap" /><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBox Visibility="{Binding ShowInspectionFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" x:Name="YoloTimeoutBox"
+                         Style="{StaticResource YoloModelTextBoxStyle}"
+                         Text="{Binding TimeoutSecondsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="1~600&#xCD08;"
+                         mvvm:InputCommandBehaviors.TextInputFilter="Integer" /></Grid></StackPanel></Border></Grid></Grid></Border>
+</StackPanel>
+</Expander><Expander Grid.Row="3" Visibility="{Binding ShowInspectionFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" Header="{Binding [WpfTrainingSettings.AnomalyConditions], Source={x:Static local:WpfLocalizationViewModel.Instance}}"><Expander.Template><ControlTemplate TargetType="Expander"><StackPanel><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><ToggleButton x:Name="AnomalyDetailToggle" HorizontalAlignment="Left" IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource TemplatedParent}}" Style="{StaticResource RecipeFilterToggleStyle}" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" FontSize="13" Padding="0" MinHeight="19"><StackPanel Orientation="Horizontal"><TextBlock x:Name="AnomalyDetailGlyph" Text="▸" Margin="0,0,5,0"/><ContentPresenter Content="{TemplateBinding Header}" VerticalAlignment="Center"/></StackPanel></ToggleButton><TextBlock x:Name="AnomalyCompactInputHint" Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource RecipeMutedTextBrush}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" Text="{Binding Path='[쉼표(^,) 또는 줄바꿈으로 구분하세요. 예: Defect^, OK^, NG]', Source={x:Static local:WpfLocalizationViewModel.Instance}}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"/><Condition Binding="{Binding SettingsSection, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="2"/><Condition Binding="{Binding IsExpanded, RelativeSource={RelativeSource AncestorType=Expander}}" Value="True"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible"/></MultiDataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid><ContentPresenter x:Name="AnomalyDetailContent" Content="{TemplateBinding Content}" Visibility="Collapsed"/></StackPanel><ControlTemplate.Triggers><Trigger Property="IsExpanded" Value="True"><Setter TargetName="AnomalyDetailContent" Property="Visibility" Value="Visible"/><Setter TargetName="AnomalyDetailGlyph" Property="Text" Value="▾"/></Trigger><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="True"><Setter TargetName="AnomalyDetailToggle" Property="Visibility" Value="Collapsed"/></DataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"/><Condition Binding="{Binding SettingsSection, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="2"/></MultiDataTrigger.Conditions><Setter TargetName="AnomalyDetailContent" Property="Margin" Value="0,10,0,0"/></MultiDataTrigger></ControlTemplate.Triggers></ControlTemplate></Expander.Template><Expander.Style><Style TargetType="Expander"><Setter Property="IsExpanded" Value="True" /><Setter Property="Margin" Value="0" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="IsExpanded" Value="False" /><Setter Property="Margin" Value="15,14,15,13" /></DataTrigger></Style.Triggers></Style></Expander.Style><Border x:Name="YoloAnomalyMappingPanel" AutomationProperties.AutomationId="YoloAnomalyMappingPanel"><Border.Style><Style TargetType="Border"><Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource RecipeBorderBrush}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="7"/><Setter Property="Padding" Value="14"/><Setter Property="Margin" Value="0,0,0,8"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"/><Condition Binding="{Binding SettingsSection, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="2"/></MultiDataTrigger.Conditions><Setter Property="Background" Value="Transparent"/><Setter Property="BorderBrush" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/></MultiDataTrigger></Style.Triggers></Style></Border.Style>
+                <StackPanel>
+                    <TextBlock x:Name="YoloAnomalyMappingHeaderText"
+                               AutomationProperties.AutomationId="YoloAnomalyMappingHeaderText"
+                               Text="{Binding AnomalyMappingHeaderText}"
+                               Foreground="{DynamicResource RecipeTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" ><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"/><Condition Binding="{Binding SettingsSection, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="2"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Collapsed"/></MultiDataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                    <TextBlock x:Name="YoloAnomalyMappingSummaryText"
+                               AutomationProperties.AutomationId="YoloAnomalyMappingSummaryText"
+                               Text="{Binding AnomalyMappingSummaryText}"
+                               Foreground="{DynamicResource RecipeAccentBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,6,0,0" ><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"/><Condition Binding="{Binding SettingsSection, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="2"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Collapsed"/></MultiDataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                    <TextBlock x:Name="YoloAnomalyMappingGuideText"
+                               Text="{Binding [WpfAnomalyMapping.Guide], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}" FontSize="13" TextWrapping="Wrap" Margin="0,8,0,12" ><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"/><Condition Binding="{Binding SettingsSection, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="2"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Collapsed"/></MultiDataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <StackPanel>
+                            <TextBlock x:Name="YoloAnomalyNormalClassesLabel"><TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource YoloAnomalyFieldLabelStyle}"><Setter Property="Text" Value="{Binding [WpfAnomalyMapping.NormalClasses], Source={x:Static local:WpfLocalizationViewModel.Instance}}"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"/><Condition Binding="{Binding SettingsSection, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="2"/></MultiDataTrigger.Conditions><Setter Property="Text" Value="{Binding [WpfTrainingSettings.AnomalyNormalClassNames], Source={x:Static local:WpfLocalizationViewModel.Instance}}"/></MultiDataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                            <TextBox x:Name="YoloAnomalyNormalClassesBox"
+                                     AutomationProperties.LabeledBy="{Binding ElementName=YoloAnomalyNormalClassesLabel}"
+                                     Style="{StaticResource YoloAnomalyClassInputStyle}"
+                                     Text="{Binding AnomalyNormalClassNamesText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="Normal, OK" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock x:Name="YoloAnomalyAbnormalClassesLabel"><TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource YoloAnomalyFieldLabelStyle}"><Setter Property="Text" Value="{Binding [WpfAnomalyMapping.AbnormalClasses], Source={x:Static local:WpfLocalizationViewModel.Instance}}"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"/><Condition Binding="{Binding SettingsSection, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="2"/></MultiDataTrigger.Conditions><Setter Property="Text" Value="{Binding [WpfTrainingSettings.AnomalyAbnormalClassNames], Source={x:Static local:WpfLocalizationViewModel.Instance}}"/></MultiDataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                            <TextBox x:Name="YoloAnomalyAbnormalClassesBox"
+                                     AutomationProperties.LabeledBy="{Binding ElementName=YoloAnomalyAbnormalClassesLabel}"
+                                     Style="{StaticResource YoloAnomalyClassInputStyle}"
+                                     Text="{Binding AnomalyAbnormalClassNamesText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="Abnormal, NG" />
+                        </StackPanel>
+                    <StackPanel Grid.Row="1"><StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Grid.ColumnSpan" Value="3"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"/><Condition Binding="{Binding SettingsSection, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="2"/></MultiDataTrigger.Conditions><Setter Property="Grid.ColumnSpan" Value="1"/><Setter Property="Margin" Value="0,12,0,0"/></MultiDataTrigger></Style.Triggers></Style></StackPanel.Style><TextBlock x:Name="YoloAnomalyMinimumConfidenceLabel"><TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource YoloAnomalyFieldLabelStyle}"><Setter Property="Text" Value="{Binding [WpfAnomalyMapping.MinimumConfidence], Source={x:Static local:WpfLocalizationViewModel.Instance}}"/><Setter Property="Margin" Value="0,12,0,0"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"/><Condition Binding="{Binding SettingsSection, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="2"/></MultiDataTrigger.Conditions><Setter Property="Text" Value="{Binding [WpfTrainingSettings.AnomalyMinimumConfidence], Source={x:Static local:WpfLocalizationViewModel.Instance}, StringFormat='{}{0} (0–1)'}"/><Setter Property="Margin" Value="0,0,0,4"/></MultiDataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock><TextBox x:Name="YoloAnomalyMinimumConfidenceBox"
+                             AutomationProperties.LabeledBy="{Binding ElementName=YoloAnomalyMinimumConfidenceLabel}"
+                             Text="{Binding AnomalyMinimumConfidenceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="0~1 (0.8 = 80%)"
+                             mvvm:InputCommandBehaviors.TextInputFilter="Decimal" ><TextBox.Style><Style TargetType="TextBox" BasedOn="{StaticResource YoloModelTextBoxStyle}"><Setter Property="MinWidth" Value="140"/><Setter Property="MinHeight" Value="38"/><Setter Property="HorizontalAlignment" Value="Left"/><Setter Property="Margin" Value="0,6,0,0"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"/><Condition Binding="{Binding SettingsSection, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="2"/></MultiDataTrigger.Conditions><Setter Property="MinWidth" Value="0"/><Setter Property="Height" Value="30"/><Setter Property="MinHeight" Value="30"/><Setter Property="MaxHeight" Value="30"/><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="Margin" Value="0"/></MultiDataTrigger></Style.Triggers></Style></TextBox.Style></TextBox></StackPanel></Grid>
+
+
+                    <TextBlock x:Name="YoloAnomalyConfidenceHintText"
+                               Text="{Binding [WpfAnomalyMapping.ConfidenceHint], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}" FontSize="13" TextWrapping="Wrap" Margin="0,8,0,0" ><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"/><Condition Binding="{Binding SettingsSection, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="2"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Collapsed"/></MultiDataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                    <TextBlock x:Name="YoloAnomalySaveHintText"
+                               Text="{Binding [WpfAnomalyMapping.SaveHint], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}" FontSize="13" TextWrapping="Wrap" Margin="0,8,0,0" ><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"/><Condition Binding="{Binding SettingsSection, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="2"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Collapsed"/></MultiDataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                </StackPanel>
+            </Border></Expander><StackPanel><StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Grid.Row" Value="4" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Grid.Row" Value="6" /></DataTrigger></Style.Triggers></Style></StackPanel.Style><TextBlock x:Name="YoloEditingStateText"
+                               AutomationProperties.AutomationId="YoloEditingStateText"
+                               AutomationProperties.Name="{Binding EditStateText}"
+                               Text="{Binding EditStateText}"
+                               ToolTip="{Binding WeightsPath}"
+
+                               FontFamily="{DynamicResource UiFontFamily}"
+
+                               TextWrapping="Wrap"
+                               ><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="FontSize" Value="13" /><Setter Property="Foreground" Value="{DynamicResource RecipeAccentBrush}" /><Setter Property="Margin" Value="0,4,0,0" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="FontSize" Value="12" /><Setter Property="LineHeight" Value="17.4" /><Setter Property="LineStackingStrategy" Value="BlockLineHeight" /><Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" /><Setter Property="Margin" Value="0,10,0,0" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock><StackPanel><StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"/><Condition Binding="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="True"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible"/></MultiDataTrigger></Style.Triggers></Style></StackPanel.Style><TextBlock Text="{Binding TrainingWorkspace.EnvironmentText, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" Margin="0,6,0,0"/><TextBlock x:Name="TrainingRuntimeConnectionStatus" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" Foreground="{DynamicResource RecipeMutedTextBrush}"><TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}" ConverterParameter="RuntimeConnectionCommandStatusLines"><Binding Path="TrainingWorkspace.RuntimeStatus.CommandStatusText" RelativeSource="{RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}"/><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}"/></MultiBinding></TextBlock.Text></TextBlock><ProgressBar Height="4" Margin="0,8,0,0" Style="{StaticResource RecipeProgressStyle}" IsIndeterminate="{Binding TrainingWorkspace.RuntimeStatus.CommandProgressIsIndeterminate, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Visibility="{Binding TrainingWorkspace.RuntimeStatus.CommandProgressVisibility, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}"/></StackPanel></StackPanel><Grid Grid.Row="5"><Grid.Style><Style TargetType="Grid"><Setter Property="Margin" Value="0,0,0,8" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Margin" Value="0,16,0,0" /></DataTrigger></Style.Triggers></Style></Grid.Style><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding SettingsSaveScopeText}" VerticalAlignment="Center" Foreground="{DynamicResource RecipeMutedTextBrush}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" Margin="0,0,16,0"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock><WrapPanel><WrapPanel.Style><Style TargetType="WrapPanel"><Setter Property="Grid.Column" Value="0" /><Setter Property="Grid.ColumnSpan" Value="2" /><Setter Property="HorizontalAlignment" Value="Left" /><Setter Property="FlowDirection" Value="LeftToRight"/><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Grid.Column" Value="1" /><Setter Property="Grid.ColumnSpan" Value="1" /><Setter Property="HorizontalAlignment" Value="Right" /><Setter Property="FlowDirection" Value="RightToLeft"/></DataTrigger></Style.Triggers></Style></WrapPanel.Style><ui:Button FlowDirection="LeftToRight" x:Name="SaveYoloSettingsButton"
+
+                           IsEnabled="{Binding IsSaveSettingsEnabled}"
+
+
+
+                           ToolTip="{Binding [WpfModelSettings.SaveApplyHint], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                           Command="{Binding SaveSettingsCommand}"  AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}"><ui:Button.Style><Style TargetType="ui:Button" BasedOn="{StaticResource YoloModelSaveButtonStyle}"><Setter Property="Content" Value="{Binding [WpfModelSettings.SaveApply], Source={x:Static local:WpfLocalizationViewModel.Instance}}" /><Setter Property="MinWidth" Value="132" /><Setter Property="Grid.Column" Value="0" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Content" Value="{Binding [WpfTrainingSettings.Save], Source={x:Static local:WpfLocalizationViewModel.Instance}}" /><Setter Property="Height" Value="30" /><Setter Property="MinHeight" Value="30" /><Setter Property="MinWidth" Value="0" /><Setter Property="Grid.Column" Value="2" /><Setter Property="Margin" Value="8,0,0,0" /><Setter Property="KeyboardNavigation.TabIndex" Value="2" /></DataTrigger></Style.Triggers></Style></ui:Button.Style></ui:Button><ui:Button FlowDirection="LeftToRight" x:Name="CancelYoloSettingsChangesButton"
+
+                           IsEnabled="{Binding IsSettingsDirty}"
+                           AutomationProperties.AutomationId="CancelYoloSettingsChangesButton"
+
+
+
+                           ToolTip="{Binding [WpfModelSettings.CancelEditsHint], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                           Command="{Binding CancelChangesCommand}"  AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}"><ui:Button.Style><Style TargetType="ui:Button" BasedOn="{StaticResource YoloModelCommandButtonStyle}"><Setter Property="Content" Value="{Binding [WpfModelSettings.CancelEdits], Source={x:Static local:WpfLocalizationViewModel.Instance}}" /><Setter Property="MinWidth" Value="82" /><Setter Property="Grid.Column" Value="1" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Content" Value="{Binding [WpfTrainingSettings.Cancel], Source={x:Static local:WpfLocalizationViewModel.Instance}}" /><Setter Property="Height" Value="30" /><Setter Property="MinHeight" Value="30" /><Setter Property="MinWidth" Value="0" /><Setter Property="Grid.Column" Value="1" /><Setter Property="Margin" Value="8,0,0,0" /><Setter Property="KeyboardNavigation.TabIndex" Value="1" /></DataTrigger></Style.Triggers></Style></ui:Button.Style></ui:Button><ui:Button FlowDirection="LeftToRight" x:Name="ResetYoloSettingsButton"
+
+                           IsEnabled="{Binding IsResetSettingsEnabled}"
+
+
+                           ToolTip="{Binding [WpfModelSettings.LoadDefaultsHint], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                           Command="{Binding ResetSettingsCommand}"  AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}"><ui:Button.Style><Style TargetType="ui:Button" BasedOn="{StaticResource YoloModelCommandButtonStyle}"><Setter Property="Content" Value="{Binding [WpfModelSettings.LoadDefaults], Source={x:Static local:WpfLocalizationViewModel.Instance}}" /><Setter Property="MinWidth" Value="82" /><Setter Property="Grid.Column" Value="2" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Content" Value="{Binding [WpfTrainingSettings.Defaults], Source={x:Static local:WpfLocalizationViewModel.Instance}}" /><Setter Property="Height" Value="30" /><Setter Property="MinHeight" Value="30" /><Setter Property="MinWidth" Value="0" /><Setter Property="Grid.Column" Value="0" /><Setter Property="Margin" Value="0" /><Setter Property="KeyboardNavigation.TabIndex" Value="0" /></DataTrigger></Style.Triggers></Style></ui:Button.Style></ui:Button></WrapPanel></Grid><Border x:Name="TrainingRuntimeConnectionCard" Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}"><Border.Style><Style TargetType="Border"><Setter Property="Grid.Row" Value="6" /><Setter Property="BorderThickness" Value="0" /><Setter Property="Margin" Value="0" /><Setter Property="Padding" Value="0" /><Setter Property="Background" Value="Transparent" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Grid.Row" Value="4" /><Setter Property="BorderThickness" Value="1" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeBorderBrush}" /><Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}" /><Setter Property="CornerRadius" Value="8" /><Setter Property="Padding" Value="14,12" /></DataTrigger></Style.Triggers></Style></Border.Style><StackPanel><StackPanel><StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></StackPanel.Style><TextBlock Text="{Binding [WpfTrainingSettings.ManagementTitle], Source={x:Static local:WpfLocalizationViewModel.Instance}}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" FontWeight="SemiBold" Foreground="{DynamicResource RecipeMutedTextBrush}" Margin="0,0,0,8" /><TextBlock Text="{Binding [WpfTrainingSettings.ManagementIntroduction], Source={x:Static local:WpfLocalizationViewModel.Instance}}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" /></StackPanel><Expander x:Name="YoloRuntimeDiagnosticsExpander" Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}"
                       AutomationProperties.AutomationId="YoloRuntimeDiagnosticsExpander"
-                      AutomationProperties.Name="실행 환경 및 모델 어댑터 상세"
-                      Header="실행 환경 및 모델 어댑터 상세"
-                      Foreground="{DynamicResource PrimaryTextBrush}"
-                      IsExpanded="False"
-                      Margin="0,0,0,8">
+                      AutomationProperties.Name="{Binding [WpfModelSettings.Diagnostics], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                      Foreground="{DynamicResource RecipeTextBrush}"
+                      IsExpanded="False"><Expander.Style><Style TargetType="Expander" BasedOn="{StaticResource DatasetExpanderStyle}"><Setter Property="Header" Value="{Binding [WpfModelSettings.Diagnostics], Source={x:Static local:WpfLocalizationViewModel.Instance}}"/><Setter Property="Margin" Value="0,0,0,8"/><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Margin" Value="0"/><Setter Property="Header" Value="{Binding [WpfTrainingSettings.ShowInstallPlan], Source={x:Static local:WpfLocalizationViewModel.Instance}}"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Expander"><StackPanel><WrapPanel Margin="0,12,0,0" IsEnabled="{Binding TrainingWorkspace.CanEdit, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}"><Button x:Name="TrainingConnectRuntimeButton" AutomationProperties.AutomationId="TrainingConnectRuntimeButton" Height="30" MinHeight="30" Padding="10,5" Margin="0,0,8,0" Style="{StaticResource RecipeSecondaryButtonStyle}" Command="{Binding TrainingWorkspace.RuntimeStatus.CheckTrainingCommand, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" IsEnabled="{Binding TrainingWorkspace.RuntimeStatus.IsFirstCheckEnabled, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Content="{Binding [WpfTrainingSettings.CheckEnvironment], Source={x:Static local:WpfLocalizationViewModel.Instance}}"/><ToggleButton AutomationProperties.AutomationId="TrainingRuntimeInstallPlanToggle" Height="30" MinHeight="30" Padding="10,5" Style="{StaticResource RecipeFilterToggleStyle}" IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}" Content="{TemplateBinding Header}"/></WrapPanel><ContentPresenter x:Name="RuntimePlanDetail" Content="{TemplateBinding Content}" Visibility="Collapsed" Margin="0,12,0,0"/></StackPanel><ControlTemplate.Triggers><Trigger Property="IsExpanded" Value="True"><Setter TargetName="RuntimePlanDetail" Property="Visibility" Value="Visible"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></DataTrigger></Style.Triggers></Style></Expander.Style>
                 <StackPanel Margin="0,7,0,0">
             <Expander x:Name="ModelAdapterCatalogExpander"
                       AutomationProperties.AutomationId="ModelAdapterCatalogExpander"
-                      Header="&#xBAA8;&#xB378; &#xC5B4;&#xB311;&#xD130; &#xCE74;&#xD0C8;&#xB85C;&#xADF8;"
-                      Foreground="{DynamicResource PrimaryTextBrush}"
+                      Header="{Binding [WpfModelDetails.CatalogHeader], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                      Foreground="{DynamicResource RecipeTextBrush}"
                       IsExpanded="False"
                       Margin="0,0,0,8">
                 <StackPanel Margin="0,7,0,0">
                     <TextBlock x:Name="ModelAdapterCatalogBoundaryText"
                                AutomationProperties.AutomationId="ModelAdapterCatalogBoundaryText"
-                               Text="{Binding ModelAdapterCatalogBoundaryText}"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="10"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                TextWrapping="Wrap"
-                               Margin="0,0,0,6" />
+                               Margin="0,0,0,6">
+                        <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="ModelAdapterCatalogBoundaryText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                    </TextBlock>
                     <ItemsControl x:Name="ModelAdapterCatalogItems"
                                   AutomationProperties.AutomationId="ModelAdapterCatalogItems"
+                                  Grid.IsSharedSizeScope="True"
                                   ItemsSource="{Binding ModelAdapterCatalogItems}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="{DynamicResource CanvasBrush}"
+                                <Border Background="{DynamicResource RecipeSurfaceBrush}"
                                         BorderBrush="{DynamicResource InputBorderBrush}"
                                         BorderThickness="1"
-                                        CornerRadius="3"
+                                        CornerRadius="7"
                                         Padding="7"
                                         Margin="0,0,0,5">
                                     <Grid>
@@ -205,93 +454,107 @@
                                             <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="90" />
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="ModelCatalogLabel" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding DisplayName}"
-                                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="11"
-                                                   FontWeight="SemiBold"
-                                                   TextWrapping="Wrap" />
-                                        <TextBlock Grid.Column="1"
-                                                   Text="{Binding AvailabilityText}"
-                                                   Foreground="{DynamicResource AccentBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="10"
-                                                   FontWeight="SemiBold"
-                                                   TextWrapping="Wrap" />
+                                        <Grid Grid.ColumnSpan="2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Margin="0,0,8,0"
+                                                       Foreground="{DynamicResource RecipeTextBrush}"
+                                                       FontFamily="{DynamicResource UiFontFamily}"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       TextWrapping="Wrap">
+                                                <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="DisplayName" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                            </TextBlock>
+                                            <TextBlock Grid.Column="1"
+                                                       Foreground="{DynamicResource RecipeAccentBrush}"
+                                                       FontFamily="{DynamicResource UiFontFamily}"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       TextWrapping="Wrap">
+                                                <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="AvailabilityText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                            </TextBlock>
+                                        </Grid>
                                         <TextBlock Grid.Row="1"
-                                                   Text="작업"
-                                                   Foreground="{DynamicResource DisabledTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="9"
-                                                   Margin="0,4,4,0" />
+                                                   Text="{Binding [WpfModelDetails.Task], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                                                   Foreground="{DynamicResource RecipeDisabledTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
+                                                   Margin="0,4,4,0"  TextWrapping="Wrap" />
                                         <TextBlock Grid.Row="1"
                                                    Grid.Column="1"
-                                                   Text="{Binding TaskContractText}"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="9.5"
+                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
                                                    TextWrapping="Wrap"
-                                                   Margin="0,4,0,0" />
+                                                   Margin="0,4,0,0">
+                                            <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="TaskContractText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                        </TextBlock>
                                         <TextBlock Grid.Row="2"
-                                                   Text="데이터"
-                                                   Foreground="{DynamicResource DisabledTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="9"
-                                                   Margin="0,3,4,0" />
+                                                   Text="{Binding [WpfModelDetails.Data], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                                                   Foreground="{DynamicResource RecipeDisabledTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
+                                                   Margin="0,3,4,0"  TextWrapping="Wrap" />
                                         <TextBlock Grid.Row="2"
                                                    Grid.Column="1"
-                                                   Text="{Binding DataContractText}"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="9.5"
+                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
                                                    TextWrapping="Wrap"
-                                                   Margin="0,3,0,0" />
+                                                   Margin="0,3,0,0">
+                                            <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="DataContractText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                        </TextBlock>
                                         <TextBlock Grid.Row="3"
-                                                   Text="실행기"
-                                                   Foreground="{DynamicResource DisabledTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="9"
-                                                   Margin="0,3,4,0" />
+                                                   Text="{Binding [WpfModelDetails.Runtime], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                                                   Foreground="{DynamicResource RecipeDisabledTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
+                                                   Margin="0,3,4,0"  TextWrapping="Wrap" />
                                         <TextBlock Grid.Row="3"
                                                    Grid.Column="1"
-                                                   Text="{Binding RuntimeContractText}"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="9.5"
+                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
                                                    TextWrapping="Wrap"
-                                                   Margin="0,3,0,0" />
+                                                   Margin="0,3,0,0">
+                                            <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="RuntimeContractText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                        </TextBlock>
                                         <TextBlock Grid.Row="4"
-                                                   Text="근거"
-                                                   Foreground="{DynamicResource DisabledTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="9"
-                                                   Margin="0,3,4,0" />
+                                                   Text="{Binding [WpfModelDetails.Evidence], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                                                   Foreground="{DynamicResource RecipeDisabledTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
+                                                   Margin="0,3,4,0"  TextWrapping="Wrap" />
                                         <TextBlock Grid.Row="4"
                                                    Grid.Column="1"
-                                                   Text="{Binding EvidenceContractText}"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="9.5"
+                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
                                                    TextWrapping="Wrap"
-                                                   Margin="0,3,0,0" />
+                                                   Margin="0,3,0,0">
+                                            <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="EvidenceContractText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                        </TextBlock>
                                         <TextBlock Grid.Row="5"
-                                                   Text="다음"
-                                                   Foreground="{DynamicResource DisabledTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="9"
-                                                   Margin="0,3,4,0" />
+                                                   Text="{Binding [WpfModelDetails.Next], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                                                   Foreground="{DynamicResource RecipeDisabledTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
+                                                   Margin="0,3,4,0"  TextWrapping="Wrap" />
                                         <TextBlock Grid.Row="5"
                                                    Grid.Column="1"
-                                                   Text="{Binding NextActionText}"
-                                                   Foreground="{DynamicResource AccentBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="9.5"
+                                                   Foreground="{DynamicResource RecipeAccentBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
                                                    FontWeight="SemiBold"
                                                    TextWrapping="Wrap"
-                                                   Margin="0,3,0,0" />
+                                                   Margin="0,3,0,0">
+                                            <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="NextActionText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                        </TextBlock>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
@@ -302,31 +565,32 @@
 
             <Border x:Name="YoloRuntimeProfilePanel"
                     AutomationProperties.AutomationId="YoloRuntimeProfilePanel"
-                    Background="{DynamicResource CanvasBrush}"
-                    BorderBrush="{DynamicResource BorderBrushDark}"
+                    Background="{DynamicResource RecipeSurfaceBrush}"
+                    BorderBrush="{DynamicResource RecipeBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="4"
+                    CornerRadius="7"
                     Padding="7"
                     Margin="0,0,0,8">
                 <StackPanel>
                     <TextBlock x:Name="YoloRuntimeProfileHeaderText"
                                AutomationProperties.AutomationId="YoloRuntimeProfileHeaderText"
-                               Text="{Binding RuntimeProfileHeaderText}"
-                               Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="12"
+                               Foreground="{DynamicResource RecipeTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                FontWeight="SemiBold"
-                               TextWrapping="Wrap" />
+                               TextWrapping="Wrap">
+                        <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="RuntimeProfileHeaderText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                    </TextBlock>
                     <ItemsControl x:Name="YoloRuntimeProfileItems"
                                   AutomationProperties.AutomationId="YoloRuntimeProfileItems"
                                   ItemsSource="{Binding RuntimeProfileItems}"
                                   Margin="0,6,0,0">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="{DynamicResource PanelBrush}"
+                                <Border Background="{DynamicResource RecipeSurfaceBrush}"
                                         BorderBrush="{DynamicResource InputBorderBrush}"
                                         BorderThickness="1"
-                                        CornerRadius="3"
+                                        CornerRadius="7"
                                         Padding="6"
                                         Margin="0,0,0,5">
                                     <Grid>
@@ -341,62 +605,68 @@
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
-                                        <TextBlock Text="{Binding DisplayName}"
-                                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="11"
-                                                   FontWeight="SemiBold"
-                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock
+                                                   Foreground="{DynamicResource RecipeTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"  TextWrapping="Wrap">
+                                            <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="DisplayName" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                        </TextBlock>
                                         <TextBlock Grid.Column="1"
-                                                   Text="{Binding StatusText}"
-                                                   Foreground="{DynamicResource AccentBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="10.5"
+                                                   Foreground="{DynamicResource RecipeAccentBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
                                                    FontWeight="SemiBold"
-                                                   TextWrapping="Wrap" />
+                                                   TextWrapping="Wrap">
+                                            <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="StatusText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                        </TextBlock>
                                         <ui:Button x:Name="RuntimeProfileActionButton"
                                                    AutomationProperties.AutomationId="RuntimeProfileActionButton"
                                                    Grid.Column="2"
                                                    Grid.RowSpan="4"
                                                    Style="{StaticResource YoloRuntimeProfileActionButtonStyle}"
-                                                   Content="{Binding PrimaryActionText}"
                                                    Command="{Binding DataContext.RuntimeProfileActionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                    CommandParameter="{Binding Engine}"
-                                                   IsEnabled="{Binding DataContext.IsRuntimeProfileActionEnabled, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
+                                                   IsEnabled="{Binding DataContext.IsRuntimeProfileActionEnabled, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
+                                            <ui:Button.Content><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="PrimaryActionText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></ui:Button.Content>
+                                        </ui:Button>
                                         <TextBlock Grid.Row="1"
-                                                   Text="{Binding RuntimeFamilyText}"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="10"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   Margin="0,3,0,0" />
+                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
+                                                   Margin="0,3,0,0"  TextWrapping="Wrap">
+                                            <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="RuntimeFamilyText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                        </TextBlock>
                                         <TextBlock Grid.Row="1"
                                                    Grid.Column="1"
-                                                   Text="{Binding DetailText}"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="10"
+                                                   Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
                                                    TextWrapping="Wrap"
-                                                   Margin="0,3,0,0" />
+                                                   Margin="0,3,0,0">
+                                            <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="DetailText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                        </TextBlock>
                                         <TextBlock x:Name="RuntimeProfileCapabilityText"
                                                    AutomationProperties.AutomationId="RuntimeProfileCapabilityText"
                                                    Grid.Row="2"
-                                                   Text="{Binding CapabilityText}"
                                                    Grid.ColumnSpan="2"
-                                                   Foreground="{DynamicResource AccentBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="10"
+                                                   Foreground="{DynamicResource RecipeAccentBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
                                                    FontWeight="SemiBold"
                                                    TextWrapping="Wrap"
-                                                   Margin="0,3,72,0" />
+                                                   Margin="0,3,72,0">
+                                            <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="CapabilityText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                        </TextBlock>
                                         <TextBlock Grid.Row="3"
                                                    Grid.Column="1"
-                                                   Text="{Binding NextActionText}"
-                                                   Foreground="{DynamicResource DisabledTextBrush}"
-                                                   FontFamily="Segoe UI"
-                                                   FontSize="10"
+                                                   Foreground="{DynamicResource RecipeDisabledTextBrush}"
+                                                   FontFamily="{DynamicResource UiFontFamily}"
+                                                   FontSize="13"
                                                    TextWrapping="Wrap"
-                                                   Margin="0,3,0,0" />
+                                                   Margin="0,3,0,0">
+                                            <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}" ConverterParameter="RuntimeProfileNextAction"><Binding Path="NextActionText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                        </TextBlock>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
@@ -404,116 +674,119 @@
                     </ItemsControl>
                     <TextBlock x:Name="YoloRuntimeProfileActionStatusText"
                                AutomationProperties.AutomationId="YoloRuntimeProfileActionStatusText"
-                               Text="{Binding RuntimeProfileActionStatusText}"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="10"
+                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                               FontFamily="{DynamicResource UiFontFamily}"
+                               FontSize="13"
                                FontWeight="SemiBold"
                                TextWrapping="Wrap"
-                               Margin="0,2,0,0" />
+                               Margin="0,2,0,0">
+                        <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}" ConverterParameter="RuntimeConnectionStatusLines"><Binding Path="RuntimeProfileActionStatusText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                    </TextBlock>
                     <Border x:Name="YoloRuntimeExecutionRoutePanel"
                             AutomationProperties.AutomationId="YoloRuntimeExecutionRoutePanel"
-                            Background="{DynamicResource PanelBrush}"
+                            Background="{DynamicResource RecipeSurfaceBrush}"
                             BorderBrush="{DynamicResource InputBorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="3"
+                            CornerRadius="7"
                             Padding="6"
                             Margin="0,7,0,0">
                         <StackPanel>
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="94" />
+                                    <ColumnDefinition Width="Auto" MinWidth="94" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock x:Name="YoloRuntimeExecutionTitleText"
                                            AutomationProperties.AutomationId="YoloRuntimeExecutionTitleText"
-                                           Text="{Binding RuntimeExecutionTitleText}"
-                                           Foreground="{DynamicResource PrimaryTextBrush}"
-                                           FontFamily="Segoe UI"
-                                           FontSize="10.5"
+                                           Foreground="{DynamicResource RecipeTextBrush}"
+                                           FontFamily="{DynamicResource UiFontFamily}"
+                                           FontSize="13"
                                            FontWeight="SemiBold"
-                                           TextTrimming="CharacterEllipsis"
-                                           ToolTip="{Binding RuntimeExecutionTitleText}" />
+                                           ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"  TextWrapping="Wrap">
+                                    <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="RuntimeExecutionTitleText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                </TextBlock>
                                 <TextBlock x:Name="YoloRuntimeExecutionSummaryText"
                                            AutomationProperties.AutomationId="YoloRuntimeExecutionSummaryText"
                                            Grid.Column="1"
-                                           Text="{Binding RuntimeExecutionSummaryText}"
-                                           Foreground="{DynamicResource AccentBrush}"
-                                           FontFamily="Segoe UI"
-                                           FontSize="10"
+                                           Foreground="{DynamicResource RecipeAccentBrush}"
+                                           FontFamily="{DynamicResource UiFontFamily}"
+                                           FontSize="13"
                                            FontWeight="SemiBold"
-                                           TextTrimming="CharacterEllipsis"
-                                           ToolTip="{Binding RuntimeExecutionSummaryText}"
-                                           Margin="4,0,0,0" />
+                                           ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
+                                           Margin="4,0,0,0"  TextWrapping="Wrap">
+                                    <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="RuntimeExecutionSummaryText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                </TextBlock>
                             </Grid>
                             <TextBlock x:Name="YoloRuntimeExecutionWorkerText"
                                        AutomationProperties.AutomationId="YoloRuntimeExecutionWorkerText"
-                                       Text="{Binding RuntimeExecutionWorkerText}"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="9.5"
-                                       TextTrimming="CharacterEllipsis"
-                                       ToolTip="{Binding RuntimeExecutionWorkerText}"
-                                       Margin="0,4,0,0" />
+                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
+                                       ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
+                                       Margin="0,4,0,0"  TextWrapping="Wrap">
+                                <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="RuntimeExecutionWorkerText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                            </TextBlock>
                             <TextBlock x:Name="YoloRuntimeExecutionTrainingText"
                                        AutomationProperties.AutomationId="YoloRuntimeExecutionTrainingText"
-                                       Text="{Binding RuntimeExecutionTrainingText}"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="9.5"
-                                       TextTrimming="CharacterEllipsis"
-                                       ToolTip="{Binding RuntimeExecutionTrainingText}"
-                                       Margin="0,2,0,0" />
+                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
+                                       ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
+                                       Margin="0,2,0,0"  TextWrapping="Wrap">
+                                <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="RuntimeExecutionTrainingText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                            </TextBlock>
                             <TextBlock x:Name="YoloRuntimeExecutionInspectionText"
                                        AutomationProperties.AutomationId="YoloRuntimeExecutionInspectionText"
-                                       Text="{Binding RuntimeExecutionInspectionText}"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="9.5"
-                                       TextTrimming="CharacterEllipsis"
-                                       ToolTip="{Binding RuntimeExecutionInspectionText}"
-                                       Margin="0,2,0,0" />
+                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
+                                       ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
+                                       Margin="0,2,0,0"  TextWrapping="Wrap">
+                                <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="RuntimeExecutionInspectionText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                            </TextBlock>
                         </StackPanel>
                     </Border>
                     <Border x:Name="YoloRuntimeInstallPlanPanel"
                             AutomationProperties.AutomationId="YoloRuntimeInstallPlanPanel"
                             Visibility="{Binding RuntimeInstallPlanVisibility}"
-                            Background="{DynamicResource PanelBrush}"
-                            BorderBrush="{DynamicResource AccentBrush}"
+                            Background="{DynamicResource RecipeSurfaceBrush}"
+                            BorderBrush="{DynamicResource RecipeAccentBrush}"
                             BorderThickness="1"
-                            CornerRadius="3"
+                            CornerRadius="7"
                             Padding="6"
                             Margin="0,7,0,0">
                         <StackPanel>
                             <TextBlock x:Name="YoloRuntimeInstallPlanTitleText"
                                        AutomationProperties.AutomationId="YoloRuntimeInstallPlanTitleText"
-                                       Text="{Binding RuntimeInstallPlanTitleText}"
-                                       Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="11"
+                                       Foreground="{DynamicResource RecipeTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
                                        FontWeight="SemiBold"
-                                       TextWrapping="Wrap" />
+                                       TextWrapping="Wrap">
+                                <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="RuntimeInstallPlanTitleText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                            </TextBlock>
                             <TextBlock x:Name="YoloRuntimeInstallPlanSummaryText"
                                        AutomationProperties.AutomationId="YoloRuntimeInstallPlanSummaryText"
-                                       Text="{Binding RuntimeInstallPlanSummaryText}"
-                                       Foreground="{DynamicResource AccentBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10.5"
+                                       Foreground="{DynamicResource RecipeAccentBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
                                        FontWeight="SemiBold"
                                        TextWrapping="Wrap"
-                                       Margin="0,3,0,0" />
+                                       Margin="0,3,0,0">
+                                <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="RuntimeInstallPlanSummaryText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                            </TextBlock>
                             <WrapPanel Margin="0,6,0,0">
                                 <ui:Button x:Name="YoloRuntimeInstallPackageButton"
                                            AutomationProperties.AutomationId="YoloRuntimeInstallPackageButton"
                                            Style="{StaticResource YoloModelCommandButtonStyle}"
-                                           Content="&#xC124;&#xCE58; &#xC2E4;&#xD589;"
+                                           Content="{Binding [WpfModelDetails.Install], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
                                            MinWidth="84"
                                            IsEnabled="{Binding IsRuntimeInstallPackageEnabled}"
                                            Command="{Binding RuntimeInstallPackageCommand}" />
                                 <ui:Button x:Name="YoloRuntimeUninstallPackageButton"
                                            AutomationProperties.AutomationId="YoloRuntimeUninstallPackageButton"
                                            Style="{StaticResource YoloModelCommandButtonStyle}"
-                                           Content="&#xC81C;&#xAC70;"
+                                           Content="{Binding [WpfModelDetails.Remove], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
                                            MinWidth="58"
                                            IsEnabled="{Binding IsRuntimeUninstallPackageEnabled}"
                                            Command="{Binding RuntimeUninstallPackageCommand}" />
@@ -523,12 +796,12 @@
                                     Background="{DynamicResource InputBrush}"
                                     BorderBrush="{DynamicResource InputBorderBrush}"
                                     BorderThickness="1"
-                                    CornerRadius="3"
+                                    CornerRadius="7"
                                     Padding="5"
                                     Margin="0,6,0,0">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="78" />
+                                        <ColumnDefinition Width="Auto" MinWidth="78" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
@@ -537,49 +810,49 @@
                                     </Grid.RowDefinitions>
                                     <TextBlock x:Name="YoloRuntimePackageResultTitleText"
                                                AutomationProperties.AutomationId="YoloRuntimePackageResultTitleText"
-                                               Text="{Binding RuntimePackageResultTitleText}"
-                                               Foreground="{DynamicResource PrimaryTextBrush}"
-                                               FontFamily="Segoe UI"
-                                               FontSize="9.5"
-                                               FontWeight="SemiBold" />
+                                               Foreground="{DynamicResource RecipeTextBrush}"
+                                               FontFamily="{DynamicResource UiFontFamily}"
+                                               FontSize="13"
+                                               FontWeight="SemiBold"  TextWrapping="Wrap">
+                                    <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="RuntimePackageResultTitleText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                </TextBlock>
                                     <TextBlock x:Name="YoloRuntimePackageResultSummaryText"
                                                AutomationProperties.AutomationId="YoloRuntimePackageResultSummaryText"
                                                Grid.Column="1"
-                                               Text="{Binding RuntimePackageResultSummaryText}"
-                                               Foreground="{DynamicResource AccentBrush}"
-                                               FontFamily="Segoe UI"
-                                               FontSize="9.5"
+                                               Foreground="{DynamicResource RecipeAccentBrush}"
+                                               FontFamily="{DynamicResource UiFontFamily}"
+                                               FontSize="13"
                                                FontWeight="SemiBold"
                                                TextWrapping="Wrap"
-                                               TextTrimming="CharacterEllipsis"
-                                               ToolTip="{Binding RuntimePackageResultSummaryText}"
-                                               Margin="4,0,0,0" />
+                                               ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
+                                               Margin="4,0,0,0">
+                                        <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="RuntimePackageResultSummaryText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                    </TextBlock>
                                     <TextBlock x:Name="YoloRuntimePackageResultDetailText"
                                                AutomationProperties.AutomationId="YoloRuntimePackageResultDetailText"
                                                Grid.Row="1"
                                                Grid.ColumnSpan="2"
-                                               Text="{Binding RuntimePackageResultDetailText}"
-                                               Foreground="{DynamicResource SecondaryTextBrush}"
-                                               FontFamily="Segoe UI"
-                                               FontSize="9.5"
+                                               Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                               FontFamily="{DynamicResource UiFontFamily}"
+                                               FontSize="13"
                                                TextWrapping="Wrap"
-                                               TextTrimming="CharacterEllipsis"
-                                               MaxHeight="34"
-                                               ToolTip="{Binding RuntimePackageResultDetailText}"
-                                               Margin="0,1,0,0" />
+                                               ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
+                                               Margin="0,1,0,0">
+                                        <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="RuntimePackageResultDetailText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                    </TextBlock>
                                 </Grid>
                             </Border>
                             <TextBlock x:Name="YoloRuntimeInstallPlanConfirmHintText"
                                        AutomationProperties.AutomationId="YoloRuntimeInstallPlanConfirmHintText"
-                                       Text="&#xBC84;&#xD2BC;&#xC744; &#xB204;&#xB974;&#xBA74; &#xB300;&#xC0C1; venv&#xC640; &#xBA85;&#xB839;&#xC744; &#xD655;&#xC778;&#xD55C; &#xB4A4; &#xC2E4;&#xD589;&#xD569;&#xB2C8;&#xB2E4;."
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10"
+                                       Text="{Binding [WpfModelDetails.ConfirmHint], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
                                        TextWrapping="Wrap"
                                        Margin="0,4,0,0" />
                             <Grid Margin="0,5,0,0">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="52" />
+                                    <ColumnDefinition Width="Auto" MinWidth="52" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
@@ -587,102 +860,103 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
-                                <TextBlock Text="&#xB300;&#xC0C1;"
-                                           Foreground="{DynamicResource PrimaryTextBrush}"
-                                           FontFamily="Segoe UI"
-                                           FontSize="10"
-                                           FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding [WpfModelDetails.Target], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                                           Foreground="{DynamicResource RecipeTextBrush}"
+                                           FontFamily="{DynamicResource UiFontFamily}"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"  Margin="0,0,8,0"  TextWrapping="Wrap" />
                                 <TextBlock x:Name="YoloRuntimeInstallPlanTargetText"
                                            AutomationProperties.AutomationId="YoloRuntimeInstallPlanTargetText"
                                            Grid.Column="1"
                                            Text="{Binding RuntimeInstallPlanTargetText}"
-                                           Foreground="{DynamicResource SecondaryTextBrush}"
-                                           FontFamily="Segoe UI"
-                                           FontSize="10"
-                                           TextTrimming="CharacterEllipsis"
-                                           ToolTip="{Binding RuntimeInstallPlanTargetText}" />
+                                           Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                           FontFamily="{DynamicResource UiFontFamily}"
+                                           FontSize="13"
+                                           ToolTip="{Binding RuntimeInstallPlanTargetText}"  TextWrapping="Wrap" />
                                 <TextBlock Grid.Row="1"
-                                           Text="&#xBA85;&#xB839;"
-                                           Foreground="{DynamicResource PrimaryTextBrush}"
-                                           FontFamily="Segoe UI"
-                                           FontSize="10"
+                                           Text="{Binding [WpfModelDetails.Command], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                                           Foreground="{DynamicResource RecipeTextBrush}"
+                                           FontFamily="{DynamicResource UiFontFamily}"
+                                           FontSize="13"
                                            FontWeight="SemiBold"
-                                           Margin="0,3,0,0" />
+                                           Margin="0,3,8,0"  TextWrapping="Wrap" />
                                 <TextBlock x:Name="YoloRuntimeInstallPlanCommandText"
                                            AutomationProperties.AutomationId="YoloRuntimeInstallPlanCommandText"
                                            Grid.Row="1"
                                            Grid.Column="1"
                                            Text="{Binding RuntimeInstallPlanCommandText}"
-                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           Foreground="{DynamicResource RecipeTextBrush}"
                                            FontFamily="Consolas"
-                                           FontSize="10"
-                                           TextTrimming="CharacterEllipsis"
+                                           FontSize="13"
                                            ToolTip="{Binding RuntimeInstallPlanCommandText}"
-                                           Margin="0,3,0,0" />
+                                           Margin="0,3,0,0"  TextWrapping="Wrap" />
                                 <TextBlock Grid.Row="2"
-                                           Text="&#xC81C;&#xAC70;"
-                                           Foreground="{DynamicResource PrimaryTextBrush}"
-                                           FontFamily="Segoe UI"
-                                           FontSize="10"
+                                           Text="{Binding [WpfModelDetails.Remove], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                                           Foreground="{DynamicResource RecipeTextBrush}"
+                                           FontFamily="{DynamicResource UiFontFamily}"
+                                           FontSize="13"
                                            FontWeight="SemiBold"
-                                           Margin="0,3,0,0" />
+                                           Margin="0,3,8,0"  TextWrapping="Wrap" />
                                 <TextBlock x:Name="YoloRuntimeInstallPlanUninstallCommandText"
                                            AutomationProperties.AutomationId="YoloRuntimeInstallPlanUninstallCommandText"
                                            Grid.Row="2"
                                            Grid.Column="1"
                                            Text="{Binding RuntimeInstallPlanUninstallCommandText}"
-                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           Foreground="{DynamicResource RecipeMutedTextBrush}"
                                            FontFamily="Consolas"
-                                           FontSize="10"
-                                           TextTrimming="CharacterEllipsis"
+                                           FontSize="13"
                                            ToolTip="{Binding RuntimeInstallPlanUninstallCommandText}"
-                                           Margin="0,3,0,0" />
+                                           Margin="0,3,0,0"  TextWrapping="Wrap" />
                             </Grid>
                             <TextBlock x:Name="YoloRuntimeInstallPlanDetailText"
                                        AutomationProperties.AutomationId="YoloRuntimeInstallPlanDetailText"
-                                       Text="{Binding RuntimeInstallPlanDetailText}"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10"
+                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
                                        TextWrapping="Wrap"
-                                       Margin="0,4,0,0" />
+                                       Margin="0,4,0,0">
+                                <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="RuntimeInstallPlanDetailText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                            </TextBlock>
                         </StackPanel>
                     </Border>
                     <Border x:Name="YoloRuntimeSelfTestPanel"
                             AutomationProperties.AutomationId="YoloRuntimeSelfTestPanel"
-                            Background="{DynamicResource PanelBrush}"
+                            Background="{DynamicResource RecipeSurfaceBrush}"
                             BorderBrush="{DynamicResource InputBorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="3"
+                            CornerRadius="7"
                             Padding="6"
                             Margin="0,7,0,0">
                         <StackPanel>
                             <TextBlock x:Name="YoloRuntimeSelfTestTitleText"
                                        AutomationProperties.AutomationId="YoloRuntimeSelfTestTitleText"
-                                       Text="{Binding RuntimeSelfTestTitleText}"
-                                       Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="11"
+                                       Foreground="{DynamicResource RecipeTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
                                        FontWeight="SemiBold"
-                                       TextWrapping="Wrap" />
+                                       TextWrapping="Wrap">
+                                <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="RuntimeSelfTestTitleText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                            </TextBlock>
                             <TextBlock x:Name="YoloRuntimeSelfTestSummaryText"
                                        AutomationProperties.AutomationId="YoloRuntimeSelfTestSummaryText"
-                                       Text="{Binding RuntimeSelfTestSummaryText}"
-                                       Foreground="{DynamicResource AccentBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10.5"
+                                       Foreground="{DynamicResource RecipeAccentBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
                                        FontWeight="SemiBold"
                                        TextWrapping="Wrap"
-                                       Margin="0,3,0,0" />
+                                       Margin="0,3,0,0">
+                                <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="RuntimeSelfTestSummaryText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                            </TextBlock>
                             <TextBlock x:Name="YoloRuntimeSelfTestDetailText"
                                        AutomationProperties.AutomationId="YoloRuntimeSelfTestDetailText"
-                                       Text="{Binding RuntimeSelfTestDetailText}"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10"
+                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                       FontFamily="{DynamicResource UiFontFamily}"
+                                       FontSize="13"
                                        TextWrapping="Wrap"
-                                       Margin="0,2,0,0" />
-                            <ItemsControl x:Name="YoloRuntimeSelfTestItems"
+                                       Margin="0,2,0,0">
+                                <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="RuntimeSelfTestDetailText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                            </TextBlock>
+                            <ItemsControl x:Name="YoloRuntimeSelfTestItems" Grid.IsSharedSizeScope="True"
                                           AutomationProperties.AutomationId="YoloRuntimeSelfTestItems"
                                           ItemsSource="{Binding RuntimeSelfTestItems}"
                                           Margin="0,5,0,0">
@@ -690,30 +964,31 @@
                                     <DataTemplate>
                                         <Grid Margin="0,0,0,3">
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="58" />
-                                                <ColumnDefinition Width="64" />
+                                                <ColumnDefinition Width="Auto" MinWidth="90" SharedSizeGroup="RuntimeSelfTestLabel" />
+                                                <ColumnDefinition Width="104" />
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Text="{Binding LabelText}"
-                                                       Foreground="{DynamicResource PrimaryTextBrush}"
-                                                       FontFamily="Segoe UI"
-                                                       FontSize="10"
-                                                       FontWeight="SemiBold"
-                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock
+                                                       Foreground="{DynamicResource RecipeTextBrush}"
+                                                       FontFamily="{DynamicResource UiFontFamily}"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"  TextWrapping="Wrap" Margin="0,0,8,0">
+                                                <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="LabelText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                            </TextBlock>
                                             <TextBlock Grid.Column="1"
-                                                       Text="{Binding StatusText}"
-                                                       Foreground="{DynamicResource AccentBrush}"
-                                                       FontFamily="Segoe UI"
-                                                       FontSize="10"
-                                                       FontWeight="SemiBold"
-                                                       TextTrimming="CharacterEllipsis" />
+                                                       Foreground="{DynamicResource RecipeAccentBrush}"
+                                                       FontFamily="{DynamicResource UiFontFamily}"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"  TextWrapping="Wrap" Margin="0,0,8,0">
+                                                <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="StatusText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                            </TextBlock>
                                             <TextBlock Grid.Column="2"
-                                                       Text="{Binding DetailText}"
-                                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                                       FontFamily="Segoe UI"
-                                                       FontSize="10"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       ToolTip="{Binding DetailText}" />
+                                                       Foreground="{DynamicResource RecipeMutedTextBrush}"
+                                                       FontFamily="{DynamicResource UiFontFamily}"
+                                                       FontSize="13"
+                                                       ToolTip="{Binding DetailText}"  TextWrapping="Wrap">
+                                                <TextBlock.Text><MultiBinding Converter="{StaticResource RuntimeDetailText}"><Binding Path="DetailText" /><Binding Path="SelectedLanguage" Source="{x:Static local:WpfLocalizationViewModel.Instance}" /></MultiBinding></TextBlock.Text>
+                                            </TextBlock>
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -723,380 +998,6 @@
                 </StackPanel>
             </Border>
                 </StackPanel>
-            </Expander>
-
-            <Border x:Name="YoloInspectionModelQuickPanel"
-                    AutomationProperties.AutomationId="YoloInspectionModelQuickPanel"
-                    Background="{DynamicResource CanvasBrush}"
-                    BorderBrush="{DynamicResource BorderBrushDark}"
-                    BorderThickness="1"
-                    CornerRadius="4"
-                    Padding="7"
-                    Margin="0,0,0,8">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="82" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-
-                    <TextBlock x:Name="YoloEditingSummaryTitleText"
-                               Grid.ColumnSpan="3"
-                               AutomationProperties.AutomationId="YoloEditingSummaryTitleText"
-                               Text="{Binding EditingSummaryTitleText}"
-                               Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="11"
-                               FontWeight="SemiBold" />
-                    <TextBlock Grid.Row="1"
-                               Text="&#xBAA8;&#xB378; &#xD504;&#xB85C;&#xD544;"
-                               Style="{StaticResource YoloModelLabelStyle}"
-                               Margin="0,6,8,0" />
-                    <ComboBox x:Name="YoloModelEngineQuickBox"
-                              Grid.Row="1"
-                              Grid.Column="1"
-                              Grid.ColumnSpan="2"
-                              AutomationProperties.AutomationId="YoloModelEngineQuickBox"
-                              AutomationProperties.Name="편집 중 모델 프로필"
-                              Height="26"
-                              ItemsSource="{Binding ModelEngineOptions}"
-                              SelectedItem="{Binding SelectedModelEngine, Mode=TwoWay}"
-                              Background="{DynamicResource InputBrush}"
-                              Foreground="{DynamicResource PrimaryTextBrush}"
-                              BorderBrush="{DynamicResource InputBorderBrush}"
-                              FontFamily="Segoe UI"
-                              FontSize="11"
-                              Padding="6,2"
-                              Margin="0,6,0,0" />
-                    <TextBlock Grid.Row="2"
-                               Text="&#xAC80;&#xC0AC; &#xBAA8;&#xB378;"
-                               Style="{StaticResource YoloModelLabelStyle}"
-                               Margin="0,0,8,0" />
-                    <TextBox x:Name="YoloWeightsPathBox"
-                             Grid.Row="2"
-                             Grid.Column="1"
-                             Style="{StaticResource YoloModelTextBoxStyle}"
-                             Text="{Binding WeightsPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTip="{Binding WeightsPath}"
-                             Margin="0" />
-                    <ui:Button x:Name="BrowseYoloWeightsButton"
-                               Grid.Row="2"
-                               Grid.Column="2"
-                               Style="{StaticResource YoloModelBrowseButtonStyle}"
-                               IsEnabled="{Binding IsBrowseWeightsEnabled}"
-                               ToolTip="&#xAC80;&#xC0AC;&#xC5D0; &#xC0AC;&#xC6A9;&#xD560; &#xBAA8;&#xB378; &#xD30C;&#xC77C; &#xC120;&#xD0DD;"
-                               Command="{Binding BrowseWeightsCommand}"
-                               Margin="5,0,0,0">
-                        <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
-                    </ui:Button>
-                    <TextBlock x:Name="YoloEditingStateText"
-                               AutomationProperties.AutomationId="YoloEditingStateText"
-                               AutomationProperties.Name="{Binding EditStateText}"
-                               Grid.Row="3"
-                               Grid.Column="1"
-                               Grid.ColumnSpan="2"
-                               Text="{Binding EditStateText}"
-                               ToolTip="{Binding WeightsPath}"
-                               Foreground="{DynamicResource AccentBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="10"
-                               TextWrapping="Wrap"
-                               Margin="0,4,0,0" />
-                </Grid>
-            </Border>
-
-            <Border x:Name="YoloAnomalyMappingPanel"
-                    AutomationProperties.AutomationId="YoloAnomalyMappingPanel"
-                    Background="{DynamicResource CanvasBrush}"
-                    BorderBrush="{DynamicResource BorderBrushDark}"
-                    BorderThickness="1"
-                    CornerRadius="4"
-                    Padding="7"
-                    Margin="0,0,0,8">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="82" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-
-                    <TextBlock x:Name="YoloAnomalyMappingHeaderText"
-                               AutomationProperties.AutomationId="YoloAnomalyMappingHeaderText"
-                               Grid.ColumnSpan="2"
-                               Text="{Binding AnomalyMappingHeaderText}"
-                               Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="11"
-                               FontWeight="SemiBold"
-                               TextWrapping="Wrap" />
-                    <TextBlock x:Name="YoloAnomalyMappingSummaryText"
-                               AutomationProperties.AutomationId="YoloAnomalyMappingSummaryText"
-                               Grid.Row="1"
-                               Grid.ColumnSpan="2"
-                               Text="{Binding AnomalyMappingSummaryText}"
-                               Foreground="{DynamicResource AccentBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="10"
-                               FontWeight="SemiBold"
-                               TextWrapping="Wrap"
-                               Margin="0,3,0,0" />
-
-                    <TextBlock Grid.Row="2"
-                               Text="&#xC815;&#xC0C1; &#xD074;&#xB798;&#xC2A4;"
-                               Style="{StaticResource YoloModelLabelStyle}" />
-                    <TextBox x:Name="YoloAnomalyNormalClassesBox"
-                             Grid.Row="2"
-                             Grid.Column="1"
-                             Style="{StaticResource YoloModelTextBoxStyle}"
-                             Text="{Binding AnomalyNormalClassNamesText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTip="Normal, OK" />
-
-                    <TextBlock Grid.Row="3"
-                               Text="&#xC774;&#xC0C1; &#xD074;&#xB798;&#xC2A4;"
-                               Style="{StaticResource YoloModelLabelStyle}" />
-                    <TextBox x:Name="YoloAnomalyAbnormalClassesBox"
-                             Grid.Row="3"
-                             Grid.Column="1"
-                             Style="{StaticResource YoloModelTextBoxStyle}"
-                             Text="{Binding AnomalyAbnormalClassNamesText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTip="Abnormal, NG" />
-
-                    <TextBlock Grid.Row="4"
-                               Text="&#xCD5C;&#xC18C; &#xC2E0;&#xB8B0;&#xB3C4;"
-                               Style="{StaticResource YoloModelLabelStyle}" />
-                    <TextBox x:Name="YoloAnomalyMinimumConfidenceBox"
-                             Grid.Row="4"
-                             Grid.Column="1"
-                             Style="{StaticResource YoloModelTextBoxStyle}"
-                             Text="{Binding AnomalyMinimumConfidenceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTip="0~1 &#xC0AC;&#xC774; &#xC2E0;&#xB8B0;&#xB3C4; &#xAC12;"
-                             mvvm:InputCommandBehaviors.TextInputFilter="Decimal" />
-                </Grid>
-            </Border>
-
-            <WrapPanel Margin="0,0,0,8">
-                <ui:Button x:Name="SaveYoloSettingsButton"
-                           Style="{StaticResource YoloModelCommandButtonStyle}"
-                           IsEnabled="{Binding IsSaveSettingsEnabled}"
-                           AutomationProperties.Name="Recipe에 저장 및 적용"
-                           MinWidth="132"
-                           Content="Recipe에 저장 및 적용"
-                           ToolTip="편집 중인 모델 프로필과 검사 모델을 이 Recipe에 저장하고 다음 검사부터 적용"
-                           Command="{Binding SaveSettingsCommand}" />
-                <ui:Button x:Name="CancelYoloSettingsChangesButton"
-                           Style="{StaticResource YoloModelCommandButtonStyle}"
-                           IsEnabled="{Binding IsSettingsDirty}"
-                           AutomationProperties.AutomationId="CancelYoloSettingsChangesButton"
-                           AutomationProperties.Name="편집 취소"
-                           MinWidth="82"
-                           Content="편집 취소"
-                           ToolTip="저장하지 않은 변경을 버리고 현재 Recipe 적용 값 다시 불러오기"
-                           Command="{Binding CancelChangesCommand}" />
-                <ui:Button x:Name="ResetYoloSettingsButton"
-                           Style="{StaticResource YoloModelCommandButtonStyle}"
-                           IsEnabled="{Binding IsResetSettingsEnabled}"
-                           MinWidth="82"
-                           Content="기본값으로 편집"
-                           ToolTip="기본값을 편집란에 불러오기. 저장 및 적용하기 전까지 현재 검사 설정은 유지"
-                           Command="{Binding ResetSettingsCommand}" />
-            </WrapPanel>
-
-            <Expander x:Name="YoloAdvancedModelSettingsExpander"
-                      AutomationProperties.AutomationId="YoloAdvancedModelSettingsExpander"
-                      Header="{Binding AdvancedSettingsHeaderText}"
-                      Foreground="{DynamicResource PrimaryTextBrush}"
-                      Margin="0">
-                <StackPanel Margin="0,8,0,0">
-            <Border x:Name="YoloModelEnginePanel"
-                    Background="{DynamicResource PanelBrush}"
-                    BorderBrush="{DynamicResource BorderBrushDark}"
-                    BorderThickness="1"
-                    CornerRadius="4"
-                    Padding="7"
-                    Margin="0,0,0,8">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="82" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <TextBlock Text="&#xBAA8;&#xB378; &#xD504;&#xB85C;&#xD544;"
-                               Style="{StaticResource YoloModelLabelStyle}"
-                               Margin="0,0,8,0" />
-                    <ComboBox x:Name="YoloModelEngineBox"
-                              Grid.Column="1"
-                              Height="26"
-                              ItemsSource="{Binding ModelEngineOptions}"
-                              SelectedItem="{Binding SelectedModelEngine, Mode=TwoWay}"
-                              mvvm:InputCommandBehaviors.DropDownOpenedCommand="{Binding ModelEngineDropDownOpenedCommand}"
-                              mvvm:InputCommandBehaviors.DropDownClosedCommand="{Binding ModelEngineDropDownClosedCommand}"
-                              Background="{DynamicResource InputBrush}"
-                              Foreground="{DynamicResource PrimaryTextBrush}"
-                              BorderBrush="{DynamicResource InputBorderBrush}"
-                              FontFamily="Segoe UI"
-                              FontSize="11"
-                              Padding="6,2" />
-                    <TextBlock x:Name="YoloModelEngineHintText"
-                               Grid.Row="1"
-                               Grid.Column="1"
-                               Text="{Binding ModelEngineHintText}"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="10"
-                               Margin="0,4,0,0"
-                               TextWrapping="Wrap" />
-                </Grid>
-            </Border>
-
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="132" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-
-                <TextBlock Text="&#xC2E4;&#xD589; &#xD30C;&#xC77C;" Style="{StaticResource YoloModelLabelStyle}" />
-                <TextBox x:Name="YoloPythonPathBox"
-                         Grid.Column="1"
-                         Style="{StaticResource YoloModelTextBoxStyle}"
-                         Text="{Binding PythonExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="{Binding PythonExecutablePath}" />
-                <ui:Button x:Name="BrowseYoloPythonButton"
-                           Grid.Column="2"
-                           Style="{StaticResource YoloModelBrowseButtonStyle}"
-                           IsEnabled="{Binding IsBrowsePythonEnabled}"
-                           ToolTip="&#xCD94;&#xB860; &#xC2E4;&#xD589; &#xD30C;&#xC77C; &#xC120;&#xD0DD;"
-                           Command="{Binding BrowsePythonCommand}">
-                    <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
-                </ui:Button>
-
-                <TextBlock Grid.Row="1" Text="&#xBAA8;&#xB378; &#xC2E4;&#xD589;&#xAE30; &#xD3F4;&#xB354;" Style="{StaticResource YoloModelLabelStyle}" />
-                <TextBox x:Name="YoloProjectRootBox"
-                         Grid.Row="1"
-                         Grid.Column="1"
-                         Style="{StaticResource YoloModelTextBoxStyle}"
-                         Text="{Binding ProjectRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="{Binding ProjectRootPath}" />
-                <ui:Button x:Name="BrowseYoloProjectRootButton"
-                           Grid.Row="1"
-                           Grid.Column="2"
-                           Style="{StaticResource YoloModelBrowseButtonStyle}"
-                           IsEnabled="{Binding IsBrowseProjectRootEnabled}"
-                           ToolTip="&#xBAA8;&#xB378; &#xC2E4;&#xD589;&#xAE30; &#xD3F4;&#xB354; &#xC120;&#xD0DD;"
-                           Command="{Binding BrowseProjectRootCommand}">
-                    <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
-                </ui:Button>
-
-                <TextBlock Grid.Row="2" Text="&#xBAA8;&#xB378; &#xC6CC;&#xCEE4; &#xC2A4;&#xD06C;&#xB9BD;&#xD2B8;" Style="{StaticResource YoloModelLabelStyle}" />
-                <TextBox x:Name="YoloClientScriptBox"
-                         Grid.Row="2"
-                         Grid.Column="1"
-                         Style="{StaticResource YoloModelTextBoxStyle}"
-                         Text="{Binding ClientScriptPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="{Binding ClientScriptPath}" />
-                <ui:Button x:Name="BrowseYoloClientScriptButton"
-                           Grid.Row="2"
-                           Grid.Column="2"
-                           Style="{StaticResource YoloModelBrowseButtonStyle}"
-                           IsEnabled="{Binding IsBrowseClientScriptEnabled}"
-                           ToolTip="&#xBAA8;&#xB378; &#xC6CC;&#xCEE4; &#xC2A4;&#xD06C;&#xB9BD;&#xD2B8; &#xC120;&#xD0DD;"
-                           Command="{Binding BrowseClientScriptCommand}">
-                    <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
-                </ui:Button>
-
-                <TextBlock Grid.Row="4" Text="&#xC774;&#xBBF8;&#xC9C0;" Style="{StaticResource YoloModelLabelStyle}" />
-                <TextBox x:Name="YoloImageRootBox"
-                         Grid.Row="4"
-                         Grid.Column="1"
-                         Style="{StaticResource YoloModelTextBoxStyle}"
-                         Text="{Binding ImageRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="{Binding ImageRootPath}" />
-                <ui:Button x:Name="BrowseYoloImageRootButton"
-                           Grid.Row="4"
-                           Grid.Column="2"
-                           Style="{StaticResource YoloModelBrowseButtonStyle}"
-                           IsEnabled="{Binding IsBrowseImageRootEnabled}"
-                           ToolTip="&#xC774;&#xBBF8;&#xC9C0; &#xB8E8;&#xD2B8; &#xD3F4;&#xB354; &#xC120;&#xD0DD;"
-                           Command="{Binding BrowseImageRootCommand}">
-                    <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
-                </ui:Button>
-
-                <TextBlock Grid.Row="5" Text="&#xC2E0;&#xB8B0;&#xB3C4;" Style="{StaticResource YoloModelLabelStyle}" />
-                <TextBox x:Name="YoloConfidenceBox"
-                         Grid.Row="5"
-                         Grid.Column="1"
-                         Style="{StaticResource YoloModelTextBoxStyle}"
-                         Text="{Binding MinimumConfidenceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="0~1 &#xC0AC;&#xC774; &#xC2E0;&#xB8B0;&#xB3C4; &#xAC12;"
-                         mvvm:InputCommandBehaviors.TextInputFilter="Decimal" />
-
-                <TextBlock Grid.Row="6" Text="&#xC2DC;&#xAC04; &#xC81C;&#xD55C;" Style="{StaticResource YoloModelLabelStyle}" />
-                <TextBox x:Name="YoloTimeoutBox"
-                         Grid.Row="6"
-                         Grid.Column="1"
-                         Style="{StaticResource YoloModelTextBoxStyle}"
-                         Text="{Binding TimeoutSecondsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="1~600&#xCD08;"
-                         mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
-
-                <TextBlock Grid.Row="7" Text="&#xBAA8;&#xB378; &#xC2E4;&#xD589;&#xAE30; &#xC790;&#xB3D9; &#xC2DC;&#xC791;" Style="{StaticResource YoloModelLabelStyle}" />
-                <CheckBox x:Name="YoloAutoStartCheckBox"
-                          Grid.Row="7"
-                          Grid.Column="1"
-                          IsChecked="{Binding AutoStartClient, Mode=TwoWay}"
-                          Foreground="{DynamicResource SecondaryTextBrush}"
-                          FontFamily="Segoe UI"
-                          FontSize="11"
-                          VerticalAlignment="Center"
-                          Margin="0,7,0,0" />
-
-                <TextBlock Grid.Row="8" Text="&#xCD94;&#xB860; &#xC774;&#xBBF8;&#xC9C0; &#xD06C;&#xAE30;" Style="{StaticResource YoloModelLabelStyle}" />
-                <TextBox x:Name="YoloInferenceImageSizeBox"
-                         Grid.Row="8"
-                         Grid.Column="1"
-                         Style="{StaticResource YoloModelTextBoxStyle}"
-                         Text="{Binding InferenceImageSizeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="64~2048"
-                         mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
-
-                <TextBlock Grid.Row="9" Text="&#xCD5C;&#xB300; &#xD6C4;&#xBCF4;" Style="{StaticResource YoloModelLabelStyle}" />
-                <TextBox x:Name="YoloMaxCandidatesBox"
-                         Grid.Row="9"
-                         Grid.Column="1"
-                         Style="{StaticResource YoloModelTextBoxStyle}"
-                         Text="{Binding MaximumCandidatesText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="1~200"
-                         mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
-            </Grid>
-                </StackPanel>
-            </Expander>
-        </StackPanel>
+            </Expander></StackPanel></Border></Grid>
     </Expander>
 </UserControl>

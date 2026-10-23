@@ -20,13 +20,13 @@ namespace MvcVisionSystem._1._Core
 
             PythonModelRuntimeSelfTestReport report = PythonModelRuntimeSelfTestService.BuildReport(settings);
             string summary = report.CanTrain
-                ? "\uD559\uC2B5 \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uD655\uC778"
-                : "YOLOv5 \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uD655\uC778 \uD544\uC694";
+                ? "학습 실행 환경 연결 확인"
+                : "YOLOv5 실행 환경 연결 확인 필요";
             string detail = report.CanInspect
-                ? "\uD559\uC2B5\uACFC \uD604\uC7AC \uAC80\uC0AC\uAC00 \uAC00\uB2A5\uD569\uB2C8\uB2E4. \uC800\uC7A5\uC744 \uB20C\uB7EC recipe\uC5D0 \uBC18\uC601\uD558\uC138\uC694."
+                ? "추론이 가능합니다. 저장을 눌러 레시피에 반영하세요."
                 : report.CanTrain
-                    ? "\uD559\uC2B5\uC740 \uAC00\uB2A5\uD558\uACE0 \uAC80\uC0AC \uBAA8\uB378\uC740 \uC120\uD0DD\uC774 \uD544\uC694\uD569\uB2C8\uB2E4. \uC800\uC7A5\uC744 \uB20C\uB7EC recipe\uC5D0 \uBC18\uC601\uD558\uC138\uC694."
-                    : "\uC810\uAC80 \uBAA9\uB85D\uC758 \uD544\uC694 \uD56D\uBAA9\uC744 \uD655\uC778\uD558\uACE0 \uACBD\uB85C\uB97C \uB2E4\uC2DC \uC120\uD0DD\uD558\uC138\uC694.";
+                    ? "학습이 가능합니다. 검사 모델을 선택한 뒤 저장을 눌러 레시피에 반영하세요."
+                    : "점검 목록의 필요 항목을 확인하고 경로를 다시 선택하세요.";
 
             return new PythonModelRuntimeConnectionResult(settings, report, summary, detail);
         }
@@ -59,11 +59,11 @@ namespace MvcVisionSystem._1._Core
                 _ => "object-detection"
             };
             string summary = report.CanInspect
-                ? "YOLOv8 \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uD655\uC778"
-                : "YOLOv8 \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uD655\uC778 \uD544\uC694";
+                ? "YOLOv8 실행 환경 연결 확인"
+                : "YOLOv8 실행 환경 연결 확인 필요";
             string detail = report.CanInspect
-                ? $"\uB85C\uCEEC Ultralytics worker\uB97C \uC5F0\uACB0\uD588\uC2B5\uB2C8\uB2E4. \uD604\uC7AC \uC774\uBBF8\uC9C0\uC640 \uAC80\uC0AC \uBAA8\uB378\uC740 \uC720\uC9C0\uD588\uC73C\uBA70, {weightPurpose} \uD559\uC2B5 \uC2DC\uC791 \uAC00\uC911\uCE58\uB294 \uD559\uC2B5 \uC124\uC815\uC5D0\uC11C \uC790\uB3D9 \uACB0\uC815\uB429\uB2C8\uB2E4."
-                : $"Python\uACFC worker \uACBD\uB85C\uB97C \uC810\uAC80\uD558\uACE0, \uD604\uC7AC \uAC80\uC0AC\uC5D0 \uC4F8 \uBAA8\uB378\uC744 \uBA85\uC2DC\uC801\uC73C\uB85C \uC120\uD0DD\uD558\uC138\uC694. {weightPurpose} \uD559\uC2B5 \uC2DC\uC791 \uAC00\uC911\uCE58\uB294 \uD559\uC2B5 \uC124\uC815\uC5D0\uC11C \uC790\uB3D9 \uACB0\uC815\uB429\uB2C8\uB2E4.";
+                ? $"로컬 Ultralytics 모델 통신 프로세스를 연결했습니다. 현재 이미지와 검사 모델은 유지했으며, {weightPurpose} 학습 시작 가중치는 학습 설정에서 자동 결정됩니다."
+                : $"Python과 통신 스크립트 경로를 확인하고, 추론에 쓸 모델을 직접 선택하세요. {weightPurpose} 시작 가중치는 학습 설정에서 자동 선택합니다.";
 
             return new PythonModelRuntimeConnectionResult(settings, report, summary, detail);
         }
@@ -89,11 +89,11 @@ namespace MvcVisionSystem._1._Core
             bool hasStartWeight = File.Exists(Path.Combine(projectRootPath, startWeightFileName));
             PythonModelRuntimeSelfTestReport report = PythonModelRuntimeSelfTestService.BuildReport(settings);
             string summary = report.Items.Any(item => string.Equals(item.LabelText, "Ultralytics", StringComparison.Ordinal) && item.IsPassed)
-                ? "YOLO11 실행기 연결 확인"
-                : "YOLO11 실행기 연결 확인 필요";
+                ? "YOLO11 실행 환경 연결 확인"
+                : "YOLO11 실행 환경 연결 확인 필요";
             string detail = hasStartWeight
-                ? $"기존 Ultralytics 폴더와 앱 내 YOLO11 worker를 연결했습니다. 현재 이미지와 검사 모델은 유지하며, {startWeightFileName}은 학습 시작 가중치로만 사용합니다."
-                : $"기존 Ultralytics 폴더와 앱 내 YOLO11 worker를 연결했습니다. 학습 전 {startWeightFileName} 시작 가중치가 이 폴더에 있는지 확인하세요. 현재 이미지와 검사 모델은 바꾸지 않습니다.";
+                ? $"기존 Ultralytics 폴더와 앱 내 YOLO11 모델 통신 프로세스를 연결했습니다. 현재 이미지와 검사 모델은 유지하며, {startWeightFileName}은 학습 시작 가중치로만 사용합니다."
+                : $"기존 Ultralytics 폴더와 앱 내 YOLO11 모델 통신 프로세스를 연결했습니다. 학습 전 {startWeightFileName} 시작 가중치가 이 폴더에 있는지 확인하세요. 현재 이미지와 검사 모델은 바꾸지 않습니다.";
 
             return new PythonModelRuntimeConnectionResult(settings, report, summary, detail);
         }
@@ -114,11 +114,11 @@ namespace MvcVisionSystem._1._Core
 
             PythonModelRuntimeSelfTestReport report = PythonModelRuntimeSelfTestService.BuildReport(settings);
             string summary = report.CanTrain
-                ? "U-Net segmentation runtime ready"
-                : "U-Net segmentation runtime needs setup";
+                ? "U-Net 세그멘테이션 실행 환경 준비 완료"
+                : "U-Net 세그멘테이션 실행 환경 설정 필요";
             string detail = report.CanTrain
-                ? "The app-owned segmentation export is trained from C:\\Git\\unet. Select the produced best.pt only when you want to run inspection."
-                : "C:\\Git\\unet needs its Python environment and the bundled U-Net worker. The recipe labels remain unchanged.";
+                ? "앱에서 내보낸 세그멘테이션 데이터로 학습합니다. 추론을 실행할 때만 학습 결과 best.pt를 선택하세요."
+                : "U-Net을 실행할 Python 환경과 앱에 포함된 통신 스크립트를 확인하세요. 레시피 라벨은 유지됩니다.";
             return new PythonModelRuntimeConnectionResult(settings, report, summary, detail);
         }
 
@@ -137,11 +137,11 @@ namespace MvcVisionSystem._1._Core
 
             PythonModelRuntimeSelfTestReport report = PythonModelRuntimeSelfTestService.BuildReport(settings);
             string summary = report.CanTrain
-                ? "PatchCore normal-only runtime ready"
-                : "PatchCore runtime needs setup";
+                ? "PatchCore 정상 이미지 전용 학습 실행 환경 준비 완료"
+                : "PatchCore 실행 환경 설정 필요";
             string detail = report.CanTrain
-                ? "정상 train 이미지로 메모리 뱅크를 만들고 정상 val 이미지로 임계값을 보정합니다. 결과 위치는 저장 전 검토 후보입니다."
-                : "torch, torchvision, numpy, Pillow가 설치된 Python과 bundled PatchCore worker를 확인하세요.";
+                ? "정상 train 이미지로 메모리 뱅크를 만들고 정상 val 이미지로 임계값을 보정합니다. 결과 위치는 저장 전 확인할 후보입니다."
+                : "torch, torchvision, numpy, Pillow가 설치된 Python과 앱에 포함된 PatchCore 모델 통신 프로세스를 확인하세요.";
             return new PythonModelRuntimeConnectionResult(settings, report, summary, detail);
         }
 
@@ -222,11 +222,11 @@ namespace MvcVisionSystem._1._Core
             PythonModelRuntimeSelfTestReport report = PythonModelRuntimeSelfTestService.BuildReport(settings);
             bool hasUltralytics = report.Items.Any(item => string.Equals(item.LabelText, "Ultralytics", StringComparison.Ordinal) && item.IsPassed);
             string summary = hasUltralytics
-                ? "Ultralytics \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uD655\uC778"
-                : "Ultralytics \uC124\uCE58 \uD544\uC694";
+                ? "Ultralytics 실행 환경 연결 확인"
+                : "Ultralytics 설치 필요";
             string detail = hasUltralytics
-                ? "\uC120\uD0DD\uD55C Python\uC5D0 ultralytics \uD328\uD0A4\uC9C0\uAC00 \uD655\uC778\uB410\uC2B5\uB2C8\uB2E4. \uC800\uC7A5\uC744 \uB20C\uB7EC recipe\uC5D0 \uBC18\uC601\uD558\uC138\uC694."
-                : "\uC120\uD0DD\uD55C Python\uC5D0 ultralytics \uD328\uD0A4\uC9C0\uAC00 \uBCF4\uC774\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uB2E4\uC74C \uB2E8\uACC4\uC5D0\uC11C \uC124\uCE58 \uB610\uB294 \uB2E4\uB978 venv \uC5F0\uACB0\uC774 \uD544\uC694\uD569\uB2C8\uB2E4.";
+                ? "선택한 Python에서 ultralytics 패키지를 확인했습니다. 저장을 눌러 레시피에 반영하세요."
+                : "선택한 Python에서 ultralytics 패키지를 찾지 못했습니다. 다음 단계에서 설치하거나 다른 venv를 연결하세요.";
 
             return new PythonModelRuntimeConnectionResult(settings, report, summary, detail);
         }

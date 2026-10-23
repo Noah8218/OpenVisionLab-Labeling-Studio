@@ -13,7 +13,8 @@ namespace MvcVisionSystem._1._Core
         CandidatesCleared,
         CandidatesConfirmed,
         CandidateSkipped,
-        RequestTimedOut
+        RequestTimedOut,
+        RequestFailed
     }
 
     public sealed class DetectionCandidatesUpdatedEventArgs : EventArgs
@@ -23,11 +24,22 @@ namespace MvcVisionSystem._1._Core
             string imagePath,
             int candidateCount,
             DetectionCandidateUpdateReason reason = DetectionCandidateUpdateReason.CandidatesChanged)
+            : this(imageName, imagePath, candidateCount, reason, string.Empty)
+        {
+        }
+
+        public DetectionCandidatesUpdatedEventArgs(
+            string imageName,
+            string imagePath,
+            int candidateCount,
+            DetectionCandidateUpdateReason reason,
+            string errorMessage)
         {
             ImageName = imageName ?? string.Empty;
             ImagePath = imagePath ?? string.Empty;
             CandidateCount = candidateCount;
             Reason = reason;
+            ErrorMessage = errorMessage ?? string.Empty;
         }
 
         public string ImageName { get; }
@@ -37,6 +49,8 @@ namespace MvcVisionSystem._1._Core
         public int CandidateCount { get; }
 
         public DetectionCandidateUpdateReason Reason { get; }
+        public string ErrorMessage { get; }
+        public MvcVisionSystem._3._Communication.TCP.DetectionResultParseResult RawResult { get; internal set; }
     }
 
     public sealed class DetectionCandidateReviewItem

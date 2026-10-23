@@ -2,6 +2,7 @@ using MvcVisionSystem._1._Core;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading;
@@ -23,7 +24,11 @@ namespace MvcVisionSystem._3._Communication.TCP
         private readonly PythonMessageFramer receiveFramer = new PythonMessageFramer();
         private readonly object statusLock = new object();
         private readonly PythonCommunicationStatus status = new PythonCommunicationStatus();
+        private string trainingStopRunId = string.Empty;
+        private string requestedTrainingRunId = string.Empty;
         private Action<IReadOnlyList<DefectInfo>, string, string> detectionResultSink;
+        private Action<DetectionResultParseResult> rawDetectionResultSink;
+        private Func<string, string, string, bool> detectionFailureSink;
 
         public PythonModelCommunication(bool startListen = true, int port = 5000)
         {
@@ -114,20 +119,23 @@ namespace MvcVisionSystem._3._Communication.TCP
 
         public bool WaitForTrainingStop(TimeSpan timeout, CancellationToken cancellationToken = default)
         {
+            string requestedRunId;
+            lock (statusLock) requestedRunId = trainingStopRunId;
             DateTime deadline = DateTime.UtcNow + (timeout < TimeSpan.Zero ? TimeSpan.Zero : timeout);
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 PythonCommunicationStatus snapshot = GetStatusSnapshot();
                 string state = snapshot.LastTrainingState?.Trim() ?? string.Empty;
-                if (string.Equals(state, "stopped", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(state, "completed", StringComparison.OrdinalIgnoreCase))
+                bool matchesRun = requestedRunId.Length == 0 || string.Equals(snapshot.LastTrainingRunId, requestedRunId, StringComparison.Ordinal);
+                if (matchesRun && (string.Equals(state, "stopped", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(state, "completed", StringComparison.OrdinalIgnoreCase)))
                 {
                     return true;
                 }
 
-                if (string.Equals(state, "failed", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(state, "error", StringComparison.OrdinalIgnoreCase))
+                if (matchesRun && (string.Equals(state, "failed", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(state, "error", StringComparison.OrdinalIgnoreCase)))
                 {
                     return false;
                 }
@@ -141,11 +149,13 @@ namespace MvcVisionSystem._3._Communication.TCP
             }
         }
 
-        public void MarkTrainingStopRequested()
+        public void MarkTrainingStopRequested(string expectedRunId = null)
         {
             UpdateStatus(item =>
             {
+                trainingStopRunId = expectedRunId ?? item.LastTrainingRunId ?? string.Empty;
                 item.LastTrainingState = "stopping";
+                item.LastTrainingResultWeightsPath = string.Empty;
                 item.LastTrainingMessage = "학습 중지 확인을 기다리는 중입니다.";
                 item.LastTrainingStatusAtUtc = DateTime.UtcNow;
             });
@@ -155,7 +165,9 @@ namespace MvcVisionSystem._3._Communication.TCP
         {
             UpdateStatus(item =>
             {
+                if (trainingStopRunId.Length > 0) item.LastTrainingRunId = trainingStopRunId;
                 item.LastTrainingState = "stopped";
+                item.LastTrainingResultWeightsPath = string.Empty;
                 item.LastTrainingMessage = message ?? string.Empty;
                 item.LastTrainingProgressPercent = null;
                 item.LastTrainingStatusAtUtc = DateTime.UtcNow;
@@ -178,7 +190,24 @@ namespace MvcVisionSystem._3._Communication.TCP
         {
             try
             {
-                return SendPacket(command, LearningProtocol.BuildTrainingPacket(command, imgSize, batch, epoch, cfg, weight, dataYaml, model, task, runName, runId));
+                byte[] packet = LearningProtocol.BuildTrainingPacket(command, imgSize, batch, epoch, cfg, weight, dataYaml, model, task, runName, runId);
+                UpdateStatus(item =>
+                {
+                    requestedTrainingRunId = runId ?? string.Empty;
+                    trainingStopRunId = string.Empty;
+                    item.LastTrainingRunId = requestedTrainingRunId;
+                    item.LastTrainingState = string.Empty;
+                    item.LastTrainingMessage = string.Empty;
+                    item.LastTrainingProgressPercent = null;
+                    item.LastTrainingEpoch = null;
+                    item.LastTrainingTotalEpochs = null;
+                    item.LastTrainingWeightsPath = string.Empty;
+                    item.LastTrainingResultWeightsPath = string.Empty;
+                    item.LastTrainingStatusAtUtc = null;
+                    item.LastTrainingMetricsRunId = requestedTrainingRunId;
+                    item.LastTrainingMetrics = Array.Empty<TrainingEpochMetric>();
+                });
+                return SendPacket(command, packet);
             }
             catch (Exception Desc)
             {
@@ -292,6 +321,12 @@ namespace MvcVisionSystem._3._Communication.TCP
         {
             detectionResultSink = sink;
         }
+        internal void SetRawDetectionResultSink(Action<DetectionResultParseResult> sink) => rawDetectionResultSink = sink;
+
+        internal void SetDetectionFailureSink(Func<string, string, string, bool> sink)
+        {
+            detectionFailureSink = sink;
+        }
 
         public void DropActiveClient(string reason)
         {
@@ -392,17 +427,26 @@ namespace MvcVisionSystem._3._Communication.TCP
                 return false;
             }
 
-            if (result.Status == DetectionResultParseStatus.EmptyPayload)
-            {
-                AppLog.COMM(result.ErrorMessage);
-                UpdateStatus(item => item.LastError = result.ErrorMessage);
-                return true;
-            }
-
-            if (result.Status == DetectionResultParseStatus.InvalidPayload)
+            if (result.Status == DetectionResultParseStatus.EmptyPayload || result.Status == DetectionResultParseStatus.InvalidPayload)
             {
                 AppLog.ABNORMAL($"ResultDefect parse failed: {result.ErrorMessage}");
-                UpdateStatus(item => item.LastError = result.ErrorMessage);
+                bool hasIdentity = !string.IsNullOrWhiteSpace(result.RequestId) || !string.IsNullOrWhiteSpace(result.ImageId)
+                    || message.TrimStart().StartsWith(PythonDetectionResultProtocol.ResultDefectCommand, StringComparison.Ordinal);
+                if (hasIdentity && (detectionFailureSink?.Invoke(result.ErrorMessage, result.RequestId, result.ImageId) ?? true))
+                {
+                    UpdateStatus(item =>
+                    {
+                        item.LastDetectionResultAtUtc = DateTime.UtcNow;
+                        item.LastDetectionState = "failed";
+                        item.LastDetectionMessage = result.ErrorMessage;
+                        item.LastDetectionProgressPercent = null;
+                        item.LastError = result.ErrorMessage;
+                    });
+                }
+                else if (!hasIdentity)
+                {
+                    UpdateStatus(item => item.LastError = result.ErrorMessage);
+                }
                 return true;
             }
 
@@ -417,7 +461,8 @@ namespace MvcVisionSystem._3._Communication.TCP
                 item.LastError = "";
             });
 
-            detectionResultSink?.Invoke(result.Defects, result.RequestId, result.ImageId);
+            if (rawDetectionResultSink != null) rawDetectionResultSink(result);
+            else detectionResultSink?.Invoke(result.Defects, result.RequestId, result.ImageId);
             return true;
         }
 
@@ -475,24 +520,12 @@ namespace MvcVisionSystem._3._Communication.TCP
                     UpdateWorkerCapabilities(item, statusMessage);
                     if (statusMessage.HasEmbeddedTrainingStatus)
                     {
-                        item.LastTrainingStatusAtUtc = DateTime.UtcNow;
-                        item.LastTrainingState = statusMessage.EmbeddedTrainingState ?? "";
-                        item.LastTrainingMessage = statusMessage.EmbeddedTrainingMessage ?? "";
-                        item.LastTrainingProgressPercent = statusMessage.EmbeddedTrainingProgressPercent;
-                        item.LastTrainingEpoch = statusMessage.EmbeddedTrainingEpoch;
-                        item.LastTrainingTotalEpochs = statusMessage.EmbeddedTrainingTotalEpochs;
-                        item.LastTrainingWeightsPath = statusMessage.TrainingWeights ?? "";
+                        if (!ApplyTrainingStatus(item, statusMessage, embedded: true)) return;
                     }
                 }
                 else
                 {
-                    item.LastTrainingStatusAtUtc = DateTime.UtcNow;
-                    item.LastTrainingState = statusMessage.State ?? "";
-                    item.LastTrainingMessage = statusMessage.Message ?? "";
-                    item.LastTrainingProgressPercent = statusMessage.ProgressPercent;
-                    item.LastTrainingEpoch = statusMessage.Epoch;
-                    item.LastTrainingTotalEpochs = statusMessage.TotalEpochs;
-                    item.LastTrainingWeightsPath = statusMessage.TrainingWeights ?? "";
+                    if (!ApplyTrainingStatus(item, statusMessage, embedded: false)) return;
                 }
 
                 item.LastError = statusMessage.IsError
@@ -500,6 +533,31 @@ namespace MvcVisionSystem._3._Communication.TCP
                     : "";
             });
 
+            return true;
+        }
+
+        private bool ApplyTrainingStatus(PythonCommunicationStatus item, PythonModelStatusMessage statusMessage, bool embedded)
+        {
+            string runId = (embedded ? statusMessage.EmbeddedTrainingRunId : statusMessage.RunId) ?? string.Empty;
+            string state = (embedded ? statusMessage.EmbeddedTrainingState : statusMessage.State) ?? string.Empty;
+            if (requestedTrainingRunId.Length > 0 && runId.Length > 0 && !string.Equals(runId, requestedTrainingRunId, StringComparison.Ordinal)) return false;
+            // Legacy workers have no Run ID. Keep their progress, but never attach it to a queued Run.
+            bool sameRun = string.Equals(item.LastTrainingRunId, runId, StringComparison.Ordinal);
+            bool wasTerminal = item.LastTrainingState?.ToLowerInvariant() is "completed" or "failed" or "error" or "stopped";
+            if (wasTerminal && (sameRun || requestedTrainingRunId.Length > 0 && runId.Length == 0)
+                && !string.Equals(item.LastTrainingState, state, StringComparison.OrdinalIgnoreCase)) return false;
+            string previousResult = sameRun ? item.LastTrainingResultWeightsPath : string.Empty;
+            item.LastTrainingStatusAtUtc = DateTime.UtcNow;
+            item.LastTrainingRunId = runId;
+            item.LastTrainingState = state;
+            item.LastTrainingMessage = (embedded ? statusMessage.EmbeddedTrainingMessage : statusMessage.Message) ?? string.Empty;
+            item.LastTrainingProgressPercent = embedded ? statusMessage.EmbeddedTrainingProgressPercent : statusMessage.ProgressPercent;
+            item.LastTrainingEpoch = embedded ? statusMessage.EmbeddedTrainingEpoch : statusMessage.Epoch;
+            item.LastTrainingTotalEpochs = embedded ? statusMessage.EmbeddedTrainingTotalEpochs : statusMessage.TotalEpochs;
+            item.LastTrainingWeightsPath = statusMessage.TrainingWeights ?? "";
+            item.LastTrainingResultWeightsPath = string.Equals(state, "completed", StringComparison.OrdinalIgnoreCase)
+                ? (!string.IsNullOrWhiteSpace(previousResult) ? previousResult : statusMessage.TrainingResultWeightsPath) : string.Empty;
+            CollectTrainingMetric(item, runId, statusMessage.Metric);
             return true;
         }
 
@@ -585,6 +643,15 @@ namespace MvcVisionSystem._3._Communication.TCP
                 item.IsClientConnected = false;
                 item.LastDisconnectedAtUtc = DateTime.UtcNow;
             });
+        }
+
+        private static void CollectTrainingMetric(PythonCommunicationStatus item, string runId, TrainingEpochMetric metric)
+        {
+            metric = metric?.Normalize(1000);
+            if (metric == null) return;
+            if (item.LastTrainingMetricsRunId.Length == 0) item.LastTrainingMetricsRunId = runId ?? string.Empty;
+            if (!string.Equals(item.LastTrainingMetricsRunId, runId ?? string.Empty, StringComparison.Ordinal)) return;
+            item.LastTrainingMetrics = Array.AsReadOnly(item.LastTrainingMetrics.Where(value => value.Epoch != metric.Epoch).Append(metric).OrderBy(value => value.Epoch).ToArray());
         }
 
         private void UpdateStatus(Action<PythonCommunicationStatus> update)

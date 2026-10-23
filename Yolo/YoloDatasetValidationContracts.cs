@@ -22,6 +22,8 @@ namespace MvcVisionSystem.Yolo
             new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, int> segmentationObjectCountByClass =
             new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, IReadOnlyDictionary<string, int>> segmentationObjectCountBySplit =
+            new Dictionary<string, IReadOnlyDictionary<string, int>>(StringComparer.OrdinalIgnoreCase);
 
         public int TrainImageCount { get; internal set; }
         public int ValidImageCount { get; internal set; }
@@ -32,6 +34,9 @@ namespace MvcVisionSystem.Yolo
         public int TrainEmptyLabelFileCount { get; internal set; }
         public int ValidEmptyLabelFileCount { get; internal set; }
         public int TestEmptyLabelFileCount { get; internal set; }
+        public int TrainSegmentationBackgroundImageCount { get; internal set; }
+        public int ValidSegmentationBackgroundImageCount { get; internal set; }
+        public int TestSegmentationBackgroundImageCount { get; internal set; }
         public int TrainSegmentFileCount { get; internal set; }
         public int ValidSegmentFileCount { get; internal set; }
         public int TestSegmentFileCount { get; internal set; }
@@ -58,6 +63,20 @@ namespace MvcVisionSystem.Yolo
         public int TotalAnnotationObjectCount => TotalObjectCount + TotalSegmentationObjectCount;
         public IReadOnlyDictionary<string, int> ObjectCountByClass => objectCountByClass;
         public IReadOnlyDictionary<string, int> SegmentationObjectCountByClass => segmentationObjectCountByClass;
+
+        public int? GetSegmentationObjectCount(string split, string className)
+        {
+            return !string.IsNullOrWhiteSpace(split) && !string.IsNullOrWhiteSpace(className)
+                && segmentationObjectCountBySplit.TryGetValue(split, out IReadOnlyDictionary<string, int> counts)
+                && counts != null && counts.TryGetValue(className, out int count)
+                ? count
+                : null;
+        }
+
+        internal void SetSegmentationObjectCounts(string split, IReadOnlyDictionary<string, int> counts)
+        {
+            segmentationObjectCountBySplit[split] = counts;
+        }
 
         internal void AddObject(string className)
         {

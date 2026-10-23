@@ -8,6 +8,8 @@ namespace OpenVisionLab.Wpf.MessageDialogs
 
         public string Details { get; set; } = string.Empty;
 
+        public string DetailsCaption { get; set; } = "상세 정보";
+
         public WpfMessageDialogKind Kind { get; set; } = WpfMessageDialogKind.Info;
 
         public WpfMessageDialogButtons Buttons { get; set; } = WpfMessageDialogButtons.OK;

@@ -256,7 +256,7 @@ namespace MvcVisionSystem.Yolo
             Size imageSize;
             try
             {
-                using var image = new Bitmap(imagePath);
+                using var image = AppImageLoader.LoadBitmap(imagePath);
                 imageSize = image.Size;
             }
             catch (Exception ex) when (ex is ArgumentException || ex is ExternalException || ex is IOException)
@@ -339,7 +339,7 @@ namespace MvcVisionSystem.Yolo
             error = string.Empty;
             try
             {
-                using var source = new Bitmap(maskPath);
+                using var source = AppImageLoader.LoadBitmap(maskPath);
                 if (source.Size != imageSize)
                 {
                     error = $"mask size {source.Width}x{source.Height} does not match image size {imageSize.Width}x{imageSize.Height}";

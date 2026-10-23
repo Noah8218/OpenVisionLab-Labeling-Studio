@@ -63,6 +63,10 @@ namespace MvcVisionSystem
             {
                 CompleteRecipeTransition();
             }
+            else if (m_strNamePrev != "")
+            {
+                EventChagedRecipe?.Invoke(null, null);
+            }
         }
 
         private void SetRecipeIdentity(string recipeName)
@@ -70,6 +74,13 @@ namespace MvcVisionSystem
             string normalizedName = recipeName ?? string.Empty;
             m_strNamePrev = m_strName;
             m_strName = normalizedName;
+
+            if (m_strName.Length == 0)
+            {
+                ModelName = string.Empty;
+                ModelNo = string.Empty;
+                return;
+            }
 
             try
             {

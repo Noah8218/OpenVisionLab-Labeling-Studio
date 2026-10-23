@@ -142,6 +142,7 @@ namespace MvcVisionSystem
                 return new ModelHistoryAdoptionPlan(
                     ModelHistoryAdoptionPlanStatus.Ready,
                     candidateWeightsPath: candidateWeightsPath,
+                    baselineWeightsPath: string.IsNullOrWhiteSpace(request.CurrentWeightsPath) ? Normalize(request.FallbackBaselineWeightsPath) : Normalize(request.CurrentWeightsPath),
                     datasetVersionId: request.DatasetVersionId,
                     datasetContentSha256: request.DatasetContentSha256,
                     weightsSha256: request.CandidateWeightsSha256,
@@ -176,7 +177,8 @@ namespace MvcVisionSystem
             }
 
             string currentWeightsPath = Normalize(request.CurrentWeightsPath);
-            if (string.Equals(currentWeightsPath, candidateWeightsPath, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(currentWeightsPath, candidateWeightsPath, StringComparison.OrdinalIgnoreCase)
+                || (!string.IsNullOrWhiteSpace(request.CandidateArtifactPath) && string.Equals(currentWeightsPath, Normalize(request.CandidateArtifactPath), StringComparison.OrdinalIgnoreCase)))
             {
                 return new ModelHistoryAdoptionPlan(
                     ModelHistoryAdoptionPlanStatus.AlreadyCurrent,

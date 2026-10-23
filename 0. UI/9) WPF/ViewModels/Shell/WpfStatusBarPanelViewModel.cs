@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using OpenVisionLab;
+using MvcVisionSystem._1._Core;
 
 namespace MvcVisionSystem
 {
@@ -11,12 +12,20 @@ namespace MvcVisionSystem
         private string workflowProgressText = "진행: 이미지 없음";
         private string workflowNextActionText = "다음: 이미지 선택";
         private string pythonStatusText = OpenVisionLanguageService.T("WpfShell.Status.InferenceWaiting");
+        private string rawPythonStatusText;
+        private string rawModelStatusText;
+        private string completedPythonModelSourceText;
+        private int? completedPythonCandidateCount;
         private string inspectionModelStatusText = "\uAC80\uC0AC \uBAA8\uB378: \uC5C6\uC74C";
         private string inspectionModelStatusToolTip = "\uD604\uC7AC \uCD94\uB860\uC5D0 \uC0AC\uC6A9\uD560 \uBAA8\uB378\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4.";
         private string modelStatusText = "Model: waiting";
+        private YoloWorkerSmokeCandidate presentedModelCandidate;
+        private System.Drawing.Rectangle presentedModelCandidateBounds;
         private string modelStatusAutomationText = string.Empty;
         private bool disposed;
         private bool isAnnotationDirty;
+        private string annotationSaveStatusKey = "Waiting";
+        private AnomalyImageReviewState? anomalyReviewState;
         private string annotationSaveStatusText = "\uB77C\uBCA8 \uB300\uAE30";
         private string annotationSaveStatusToolTip = "\uC774\uBBF8\uC9C0\uB97C \uC5F4\uBA74 \uB77C\uBCA8 \uC800\uC7A5 \uC0C1\uD0DC\uB97C \uD45C\uC2DC\uD569\uB2C8\uB2E4.";
 
@@ -65,7 +74,8 @@ namespace MvcVisionSystem
 
         public string InspectionModelStatusToolTip
         {
-            get => inspectionModelStatusToolTip;
+            get => TryLocalizeCurrentInferenceModelText(inspectionModelStatusToolTip, true, out string localized)
+                ? localized : LocalizationTextRuntimeService.Translate(inspectionModelStatusToolTip);
             private set => SetProperty(ref inspectionModelStatusToolTip, value ?? string.Empty);
         }
 
@@ -99,11 +109,61 @@ namespace MvcVisionSystem
             private set => SetProperty(ref annotationSaveStatusToolTip, value ?? string.Empty);
         }
 
-        public void SetAnnotationSaveStatus(bool isDirty, string text, string toolTip)
+        public string AnnotationSaveStatusKey => annotationSaveStatusKey;
+
+        private bool IsAnomalySavePresentation => anomalyReviewState.HasValue && !IsAnnotationDirty && annotationSaveStatusKey != "SaveError" && annotationSaveStatusKey != "LoadError";
+
+        public string AnnotationSaveBadgeKey => IsAnomalySavePresentation
+            ? anomalyReviewState == AnomalyImageReviewState.Unreviewed ? "Unreviewed" : "Saved"
+            : annotationSaveStatusKey;
+
+        public string AnnotationSaveBadgeToolTip => IsAnomalySavePresentation ? OpenVisionLanguageService.T("WpfAnomalyGrid.SaveHint") : AnnotationSaveStatusToolTip;
+
+        public string AnnotationSaveBadgeText => AnnotationSaveBadgeKey == "SaveError" || AnnotationSaveBadgeKey == "LoadError"
+            ? LocalizationTextRuntimeService.Translate(AnnotationSaveStatusText)
+            : AnnotationSaveBadgeKey == "Unreviewed"
+                ? OpenVisionLanguageService.T("WpfAnomalyGrid.Unreviewed")
+                : IsAnnotationDirty || AnnotationSaveBadgeKey == "Unlabeled"
+                ? OpenVisionLanguageService.T("WpfShell.SaveBadge.Unsaved")
+                : AnnotationSaveBadgeKey == "NoObjectSaved"
+                    ? OpenVisionLanguageService.T("WpfShell.SaveBadge.NoObject")
+                    : AnnotationSaveBadgeKey == "Saved"
+                    ? OpenVisionLanguageService.T("WpfShell.SaveBadge.Saved")
+                    : LocalizationTextRuntimeService.Translate(AnnotationSaveStatusText);
+
+        public string AnnotationSaveErrorDetailText
         {
+            get
+            {
+                const string preservedPrefix = "원본 라벨을 보존했습니다. ";
+                return annotationSaveStatusKey == "LoadError" && AnnotationSaveStatusToolTip.StartsWith(preservedPrefix, StringComparison.Ordinal)
+                    ? Format("WpfShell.SaveBadge.LoadPreservedDetail", AnnotationSaveStatusToolTip.Substring(preservedPrefix.Length))
+                    : LocalizationTextRuntimeService.Translate(AnnotationSaveStatusToolTip);
+            }
+        }
+
+        public void SetAnnotationSaveStatus(bool isDirty, string text, string toolTip, string statusKey = null)
+        {
+            SetProperty(ref annotationSaveStatusKey, statusKey ?? (isDirty ? "Dirty" : "Waiting"), nameof(AnnotationSaveStatusKey));
             IsAnnotationDirty = isDirty;
             AnnotationSaveStatusText = text;
             AnnotationSaveStatusToolTip = toolTip;
+            NotifySaveBadgeChanged();
+            OnPropertyChanged(nameof(AnnotationSaveErrorDetailText));
+        }
+
+        public void SetAnomalyReviewSaveState(AnomalyImageReviewState? state)
+        {
+            if (anomalyReviewState == state) return;
+            anomalyReviewState = state;
+            NotifySaveBadgeChanged();
+        }
+
+        private void NotifySaveBadgeChanged()
+        {
+            OnPropertyChanged(nameof(AnnotationSaveBadgeKey));
+            OnPropertyChanged(nameof(AnnotationSaveBadgeText));
+            OnPropertyChanged(nameof(AnnotationSaveBadgeToolTip));
         }
 
         public void SetDatasetStatus(string text)
@@ -120,7 +180,17 @@ namespace MvcVisionSystem
 
         public void SetPythonStatus(string text)
         {
-            PythonStatusText = text;
+            completedPythonModelSourceText = null;
+            completedPythonCandidateCount = null;
+            rawPythonStatusText = text ?? string.Empty;
+            PythonStatusText = LocalizePythonStatus(rawPythonStatusText);
+        }
+
+        public void SetPythonCompletedStatus(string modelSourceText, int candidateCount)
+        {
+            completedPythonModelSourceText = modelSourceText;
+            completedPythonCandidateCount = candidateCount;
+            PythonStatusText = InferenceStatusPresentationService.BuildWorkerPythonCompletedStatus(modelSourceText, candidateCount);
         }
 
         public void SetInspectionModelStatus(string text, string toolTip)
@@ -136,7 +206,20 @@ namespace MvcVisionSystem
 
         public void SetModelStatus(string text)
         {
-            ModelStatusText = LocalizeModelStatus(text);
+            presentedModelCandidate = null;
+            rawModelStatusText = text ?? string.Empty;
+            ModelStatusText = LocalizeModelStatus(rawModelStatusText);
+        }
+
+        public void SetCandidateModelStatus(YoloWorkerSmokeCandidate candidate, System.Drawing.Rectangle bounds)
+        {
+            presentedModelCandidate = new YoloWorkerSmokeCandidate
+            {
+                ClassName = candidate.ClassName, CandidateType = candidate.CandidateType,
+                Confidence = candidate.Confidence, ImageLevel = candidate.ImageLevel
+            };
+            presentedModelCandidateBounds = bounds;
+            ModelStatusText = CandidateReviewPresenter.BuildSelectedCandidateStatus(presentedModelCandidate, bounds);
         }
 
         public void SetModelStatusAutomationText(string text)
@@ -148,12 +231,19 @@ namespace MvcVisionSystem
 
         public void RefreshLocalizedPresentation()
         {
-            PythonStatusText = LocalizationTextRuntimeService.Translate(PythonStatusText);
+            DatasetStatusText = LocalizationTextRuntimeService.Translate(DatasetStatusText);
+            PythonStatusText = completedPythonCandidateCount.HasValue
+                ? InferenceStatusPresentationService.BuildWorkerPythonCompletedStatus(completedPythonModelSourceText, completedPythonCandidateCount.Value)
+                : LocalizePythonStatus(rawPythonStatusText ?? PythonStatusText);
             InspectionModelStatusText = LocalizeInspectionModelStatus(InspectionModelStatusText);
             InspectionModelStatusToolTip = LocalizationTextRuntimeService.Translate(InspectionModelStatusToolTip);
-            ModelStatusText = LocalizeModelStatus(ModelStatusText);
+            ModelStatusText = presentedModelCandidate != null
+                ? CandidateReviewPresenter.BuildSelectedCandidateStatus(presentedModelCandidate, presentedModelCandidateBounds)
+                : LocalizeModelStatus(rawModelStatusText ?? ModelStatusText);
             AnnotationSaveStatusText = LocalizationTextRuntimeService.Translate(AnnotationSaveStatusText);
             AnnotationSaveStatusToolTip = LocalizationTextRuntimeService.Translate(AnnotationSaveStatusToolTip);
+            NotifySaveBadgeChanged();
+            OnPropertyChanged(nameof(AnnotationSaveErrorDetailText));
         }
 
         public void Dispose()
@@ -172,6 +262,16 @@ namespace MvcVisionSystem
             RefreshLocalizedPresentation();
         }
 
+        private static string LocalizePythonStatus(string text)
+        {
+            System.Text.RegularExpressions.Match counts = System.Text.RegularExpressions.Regex.Match(text ?? string.Empty,
+                @"\A(?:추론: 대기|Inference: pending) (?<pending>[0-9]+) / (?:확정|accepted) (?<accepted>[0-9]+)\z",
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+            return counts.Success
+                ? Format("WpfShell.Status.CandidateCounts", counts.Groups["pending"].Value, counts.Groups["accepted"].Value)
+                : LocalizationTextRuntimeService.Translate(text);
+        }
+
         private static string LocalizeModelStatus(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
@@ -180,6 +280,16 @@ namespace MvcVisionSystem
             }
 
             string value = text.Trim();
+            System.Text.RegularExpressions.Match added = System.Text.RegularExpressions.Regex.Match(value,
+                @"\A(?:라벨 추가:|Label added:) (?<shape>박스|Box|타원|Ellipse) (?:크기|Size) (?<width>[0-9]+)x(?<height>[0-9]+) / (?:위치|Position) x=(?<x>-?[0-9]+), y=(?<y>-?[0-9]+)\z",
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+            if (added.Success)
+            {
+                string shapeKey = added.Groups["shape"].Value is "박스" or "Box" ? "WpfAnnotationTool.Rectangle" : "WpfObjectReview.Row.Ellipse";
+                string bounds = Format("WpfObjectReview.Bounds.CompactFormat", added.Groups["width"].Value, added.Groups["height"].Value, added.Groups["x"].Value, added.Groups["y"].Value);
+                return Format("WpfShell.Status.LabelAdded", OpenVisionLanguageService.T(shapeKey), bounds);
+            }
+            if (TryLocalizeCurrentInferenceModelText(value, false, out string currentText)) return currentText;
             if (value.StartsWith("검사 모델: ", StringComparison.Ordinal)
                 || value.StartsWith("검사 후보: ", StringComparison.Ordinal)
                 || value.StartsWith("Inspection model: ", StringComparison.Ordinal)
@@ -217,6 +327,7 @@ namespace MvcVisionSystem
             }
 
             string value = text.Trim();
+            if (TryLocalizeCurrentInferenceModelText(value, false, out string currentText)) return currentText;
             if (string.Equals(value, "검사 모델: 없음", StringComparison.Ordinal)
                 || string.Equals(value, "Inspection model: none", StringComparison.Ordinal))
             {
@@ -270,6 +381,34 @@ namespace MvcVisionSystem
             return parts.Length == 2
                 ? Format(key, parts[0], parts[1])
                 : LocalizationTextRuntimeService.Translate(text);
+        }
+
+        private static bool TryLocalizeCurrentInferenceModelText(string text, bool isToolTip, out string localized)
+        {
+            localized = text;
+            if (string.IsNullOrWhiteSpace(text)) return false;
+            string[] keys = isToolTip
+                ? new[] { "WpfInference.Text.InferenceStatusPresentationService.PendingModelToolTip", "WpfInference.Text.InferenceStatusPresentationService.InspectionModelToolTip" }
+                : new[] { "WpfShell.Status.InspectionCandidate" };
+            foreach (string key in keys)
+            {
+                if (!LocalizationTextRuntimeService.TryGetCachedTextPair(key, out string korean, out string english)) continue;
+                foreach (string template in new[] { korean, english })
+                {
+                    int first = template.IndexOf("{0}", StringComparison.Ordinal), second = template.IndexOf("{1}", StringComparison.Ordinal);
+                    if (first < 0 || second <= first || template.IndexOf("{0}", first + 3, StringComparison.Ordinal) >= 0
+                        || template.IndexOf("{1}", second + 3, StringComparison.Ordinal) >= 0) continue;
+                    string prefix = template.Substring(0, first), separator = template.Substring(first + 3, second - first - 3), suffix = template.Substring(second + 3);
+                    if (separator.Length == 0 || !text.StartsWith(prefix, StringComparison.Ordinal) || !text.EndsWith(suffix, StringComparison.Ordinal)
+                        || text.Length < prefix.Length + suffix.Length) continue;
+                    string body = text.Substring(prefix.Length, text.Length - prefix.Length - suffix.Length);
+                    int boundary = body.IndexOf(separator, StringComparison.Ordinal);
+                    if (boundary < 0) continue;
+                    localized = Format(key, body.Substring(0, boundary), body.Substring(boundary + separator.Length));
+                    return true;
+                }
+            }
+            return false;
         }
 
         private static string LocalizeModelState(string value)

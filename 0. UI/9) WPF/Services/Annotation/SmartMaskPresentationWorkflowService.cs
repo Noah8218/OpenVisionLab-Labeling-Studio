@@ -18,13 +18,14 @@ namespace MvcVisionSystem
         private bool isPointActionEnabled;
         private bool isPointUndoEnabled;
         private bool isCancelEnabled;
+        private bool isApplyCandidateEnabled;
         private bool isNextInstanceEnabled;
         private bool isShowInitialCandidateEnabled;
         private bool isShowLatestCandidateEnabled;
         private bool isPositivePointMode;
         private bool isNegativePointMode;
-        private string actionText = "박스 → 스마트 마스크";
-        private string toolTip = "결함 둘레에 박스를 그린 뒤 MobileSAM 후보 마스크를 만듭니다.";
+        private string actionText = "스마트 마스크";
+        private string toolTip = "선택한 폴리곤 또는 박스에서 스마트 마스크 후보를 계산합니다.";
         private string promptSummaryText = "박스를 그려 첫 후보를 만드세요.";
         private string candidateComparisonText = string.Empty;
 
@@ -47,9 +48,9 @@ namespace MvcVisionSystem
                 ? "마스크 생성 중..."
                 : hasSession
                     ? "후보 다시 생성"
-                    : "박스 → 스마트 마스크";
+                    : "스마트 마스크";
             toolTip = string.IsNullOrWhiteSpace(detail)
-                ? "결함 둘레에 박스를 그린 뒤 MobileSAM 후보 마스크를 만듭니다. 결과는 확정 전 후보로만 표시됩니다."
+                ? "선택한 폴리곤 또는 결함 둘레의 박스에서 스마트 마스크 후보를 만듭니다."
                 : detail;
             return BuildSnapshot();
         }
@@ -63,7 +64,8 @@ namespace MvcVisionSystem
             bool hasProducedCandidate,
             bool canMoveToNextInstance,
             bool hasCandidateComparison = false,
-            WpfSmartMaskCandidateVersion selectedCandidateVersion = WpfSmartMaskCandidateVersion.Latest)
+            WpfSmartMaskCandidateVersion selectedCandidateVersion = WpfSmartMaskCandidateVersion.Latest,
+            bool canApplyCandidate = false)
         {
             isSessionVisible = isVisible;
             if (!isVisible)
@@ -74,6 +76,7 @@ namespace MvcVisionSystem
             isPointActionEnabled = isVisible && !isBusy;
             isPointUndoEnabled = isVisible && !isBusy && positivePointCount + negativePointCount > 0;
             isCancelEnabled = isVisible && isBusy;
+            isApplyCandidateEnabled = isVisible && !isBusy && canApplyCandidate;
             isNextInstanceEnabled = isVisible && !isBusy && canMoveToNextInstance;
             isCandidateComparisonVisible = isVisible && hasCandidateComparison;
             isShowInitialCandidateEnabled = isVisible
@@ -87,8 +90,8 @@ namespace MvcVisionSystem
             candidateComparisonText = !isVisible || !hasCandidateComparison
                 ? string.Empty
                 : selectedCandidateVersion == WpfSmartMaskCandidateVersion.Initial
-                    ? "이전 후보를 보고 있음 · 확정하면 이 후보만 저장"
-                    : "현재 후보를 보고 있음 · 확정하면 이 후보만 저장";
+                    ? "이전 후보를 보고 있음 · 적용 후 따로 저장하세요"
+                    : "현재 후보를 보고 있음 · 적용 후 따로 저장하세요";
             isPositivePointMode = inputMode == WpfSmartMaskPointInputMode.Positive;
             isNegativePointMode = inputMode == WpfSmartMaskPointInputMode.Negative;
             promptSummaryText = !isVisible
@@ -97,8 +100,8 @@ namespace MvcVisionSystem
                     ? "자동 후보를 계산하고 있습니다."
                     : positivePointCount + negativePointCount > 0
                         ? $"+ 포함 {positivePointCount} · − 제외 {negativePointCount} · 한 점씩 다시 생성해 비교"
-                        : hasProducedCandidate
-                            ? "자동 후보 준비 · 그대로 확정하거나 필요할 때만 보정"
+                        : hasProducedCandidate || canApplyCandidate
+                            ? "자동 후보 준비 · 그대로 적용하거나 필요할 때만 보정"
                             : "시작 박스로 자동 후보를 준비합니다.";
             return BuildSnapshot();
         }
@@ -122,6 +125,7 @@ namespace MvcVisionSystem
                 isPointActionEnabled,
                 isPointUndoEnabled,
                 isCancelEnabled,
+                isApplyCandidateEnabled,
                 isNextInstanceEnabled,
                 isShowInitialCandidateEnabled,
                 isShowLatestCandidateEnabled,
@@ -147,6 +151,7 @@ namespace MvcVisionSystem
             bool isPointActionEnabled,
             bool isPointUndoEnabled,
             bool isCancelEnabled,
+            bool isApplyCandidateEnabled,
             bool isNextInstanceEnabled,
             bool isShowInitialCandidateEnabled,
             bool isShowLatestCandidateEnabled,
@@ -167,6 +172,7 @@ namespace MvcVisionSystem
             IsPointActionEnabled = isPointActionEnabled;
             IsPointUndoEnabled = isPointUndoEnabled;
             IsCancelEnabled = isCancelEnabled;
+            IsApplyCandidateEnabled = isApplyCandidateEnabled;
             IsNextInstanceEnabled = isNextInstanceEnabled;
             IsShowInitialCandidateEnabled = isShowInitialCandidateEnabled;
             IsShowLatestCandidateEnabled = isShowLatestCandidateEnabled;
@@ -197,6 +203,8 @@ namespace MvcVisionSystem
         public bool IsPointUndoEnabled { get; }
 
         public bool IsCancelEnabled { get; }
+
+        public bool IsApplyCandidateEnabled { get; }
 
         public bool IsNextInstanceEnabled { get; }
 

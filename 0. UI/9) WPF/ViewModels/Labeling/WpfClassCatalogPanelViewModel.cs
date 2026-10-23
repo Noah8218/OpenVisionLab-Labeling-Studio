@@ -20,15 +20,22 @@ namespace MvcVisionSystem
         private static readonly Action<KeyInputCommandArgs> NoOpKeyCommand = _ => { };
         private static readonly Action<object> NoOpSelectionCommand = _ => { };
         private string className = string.Empty;
+        private string newClassName = string.Empty;
         private string outputRootPath = string.Empty;
         private string statusText = T("WpfClassCatalog.Status.Initial");
         private bool hasExplicitStatusText;
+        private bool hasClassAddFailure;
+        private string statusKey;
+        private object[] statusArguments = Array.Empty<object>();
         private WpfClassCatalogListItem selectedClass;
         private ICommand classNamePreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(NoOpKeyCommand);
         private ICommand addClassCommand = new RelayCommand(NoOpCommand);
         private ICommand renameClassCommand = new RelayCommand(NoOpCommand);
         private ICommand archiveClassCommand = new RelayCommand(NoOpCommand);
         private ICommand applyClassColorCommand = new RelayCommand(NoOpCommand);
+        private ICommand renameClassRowCommand = new RelayCommand<WpfClassCatalogListItem>(_ => { });
+        private ICommand archiveClassRowCommand = new RelayCommand<WpfClassCatalogListItem>(_ => { });
+        private ICommand applyClassColorRowCommand = new RelayCommand<WpfClassCatalogListItem>(_ => { });
         private ICommand classSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private WpfClassCatalogColorPreset selectedColorPreset;
         private ClassCatalogWorkflowService mutationWorkflowService;
@@ -88,6 +95,14 @@ namespace MvcVisionSystem
         public string RenameClassToolTipText => T("WpfClassCatalog.Rename.ToolTip");
 
         public string RenameClassButtonText => T("WpfClassCatalog.Rename.Text");
+
+        public string RowRenameButtonText => T("WpfClassCatalog.Row.Rename.Text");
+
+        public string RowColorApplyButtonText => T("WpfClassCatalog.Row.ColorApply.Text");
+
+        public string RowColorInputNameText => T("WpfClassCatalog.Row.ColorInput.Name");
+
+        public string RowColorInputHintText => T("WpfClassCatalog.Row.ColorInput.Hint");
 
         public string ClassColorAutomationNameText => T("WpfClassCatalog.Color.Name");
 
@@ -193,10 +208,34 @@ namespace MvcVisionSystem
             private set => SetProperty(ref classSelectionChangedCommand, value);
         }
 
+        public ICommand RenameClassRowCommand
+        {
+            get => renameClassRowCommand;
+            private set => SetProperty(ref renameClassRowCommand, value);
+        }
+
+        public ICommand ArchiveClassRowCommand
+        {
+            get => archiveClassRowCommand;
+            private set => SetProperty(ref archiveClassRowCommand, value);
+        }
+
+        public ICommand ApplyClassColorRowCommand
+        {
+            get => applyClassColorRowCommand;
+            private set => SetProperty(ref applyClassColorRowCommand, value);
+        }
+
         public string ClassName
         {
             get => className;
             set => SetProperty(ref className, value ?? string.Empty);
+        }
+
+        public string NewClassName
+        {
+            get => newClassName;
+            set => SetProperty(ref newClassName, value ?? string.Empty);
         }
 
         public string OutputRootPath
@@ -207,12 +246,20 @@ namespace MvcVisionSystem
 
         public string StatusText
         {
-            get => statusText;
+            get => statusKey == null ? statusText : Format(statusKey, statusArguments);
             set
             {
                 hasExplicitStatusText = true;
+                statusKey = null;
+                statusArguments = Array.Empty<object>();
                 SetProperty(ref statusText, value ?? string.Empty);
             }
+        }
+
+        public bool HasClassAddFailure
+        {
+            get => hasClassAddFailure;
+            private set => SetProperty(ref hasClassAddFailure, value);
         }
 
         public WpfClassCatalogColorPreset SelectedColorPreset
@@ -231,7 +278,7 @@ namespace MvcVisionSystem
                     if (value != null)
                     {
                         ClassName = value.Text;
-                        SelectedColorPreset = FindColorPreset(value.DrawColor) ?? SelectedColorPreset;
+                        SelectedColorPreset = FindColorPreset(value.DrawColor);
                     }
 
                     NotifyClassCatalogSummaryChanged();
@@ -275,6 +322,13 @@ namespace MvcVisionSystem
             RenameClassCommand = new RelayCommand(ExecuteRenameClass);
             ArchiveClassCommand = new RelayCommand(ExecuteArchiveClass);
             ApplyClassColorCommand = new RelayCommand(ExecuteApplyClassColor);
+            RenameClassRowCommand = new RelayCommand<WpfClassCatalogListItem>(ExecuteRenameClassRow,
+                item => item != null && Classes.Contains(item) && !item.IsArchived);
+            ArchiveClassRowCommand = new RelayCommand<WpfClassCatalogListItem>(ExecuteArchiveClassRow,
+                item => item != null && Classes.Contains(item)
+                    && (item.IsArchived || Classes.Count(candidate => !candidate.IsArchived) > 1));
+            ApplyClassColorRowCommand = new RelayCommand<WpfClassCatalogListItem>(ExecuteApplyClassColorRow,
+                item => item != null && Classes.Contains(item));
         }
 
         private void ExecuteClassNamePreviewKeyDown(KeyInputCommandArgs args)
@@ -284,7 +338,7 @@ namespace MvcVisionSystem
                 return;
             }
 
-            AddClassCommand.Execute(null);
+            if (!args.IsRepeat) AddClassCommand.Execute(null);
             args.Handled = true;
         }
 
@@ -322,6 +376,7 @@ namespace MvcVisionSystem
                 }
 
                 var listItem = new WpfClassCatalogListItem(classItem, currentIndex);
+                listItem.SelectedColorPreset = FindColorPreset(listItem.DrawColor);
                 Classes.Add(listItem);
                 if (!string.IsNullOrWhiteSpace(normalizedSelectedName)
                     && string.Equals(listItem.Text, normalizedSelectedName, StringComparison.OrdinalIgnoreCase))
@@ -336,6 +391,7 @@ namespace MvcVisionSystem
             }
 
             NotifyClassCatalogSummaryChanged();
+            CommandManager.InvalidateRequerySuggested();
         }
 
         public void SelectClass(string name)
@@ -360,6 +416,18 @@ namespace MvcVisionSystem
         public void ClearClassName()
         {
             ClassName = string.Empty;
+        }
+
+        public void ClearNewClassName()
+        {
+            NewClassName = string.Empty;
+        }
+
+        public void PrepareClassAddDialog()
+        {
+            NewClassName = string.Empty;
+            HasClassAddFailure = false;
+            SetLocalizedStatus("WpfClassCatalog.Status.Initial");
         }
 
         public void RefreshLocalizedPresentation()
@@ -419,12 +487,13 @@ namespace MvcVisionSystem
             WpfClassCatalogMutationResult result = mutationWorkflowService.Add(
                 mutationDataProvider(),
                 mutationRecipeNameProvider(),
-                ClassName);
+                NewClassName);
+            HasClassAddFailure = !result.IsSuccess;
             MutationCompleted?.Invoke(WpfClassCatalogMutationKind.Add, result);
             SetMutationStatus(
                 WpfClassCatalogMutationKind.Add,
                 result,
-                string.Format("클래스 추가: {0}", result.ClassItem?.Text));
+                "WpfClassCatalog.Status.Added", result.ClassItem?.Text);
         }
 
         private void ExecuteClassSelectionChanged(object selectedItem)
@@ -448,7 +517,7 @@ namespace MvcVisionSystem
 
             if (selectedClass?.IsArchived == true)
             {
-                StatusText = string.Format("보관된 클래스: {0}. 새 라벨에는 사용하지 않습니다.", className);
+                SetLocalizedStatus("WpfClassCatalog.Status.ArchivedSelection", className);
                 return;
             }
 
@@ -466,7 +535,7 @@ namespace MvcVisionSystem
             string currentName = SelectedClass?.Text ?? string.Empty;
             if (string.IsNullOrWhiteSpace(currentName))
             {
-                StatusText = "클래스를 선택하세요.";
+                SetLocalizedStatus("WpfClassCatalog.Status.SelectClass");
                 return;
             }
 
@@ -479,7 +548,19 @@ namespace MvcVisionSystem
             SetMutationStatus(
                 WpfClassCatalogMutationKind.Rename,
                 result,
-                string.Format("클래스 이름 변경: {0} -> {1}", currentName, result.ClassItem?.Text));
+                "WpfClassCatalog.Status.Renamed", currentName, result.ClassItem?.Text);
+        }
+
+        private void ExecuteRenameClassRow(WpfClassCatalogListItem item)
+        {
+            if (item == null || !Classes.Contains(item))
+            {
+                return;
+            }
+
+            SelectedClass = item;
+            ClassName = item.EditName;
+            ExecuteRenameClass();
         }
 
         private void ExecuteArchiveClass()
@@ -492,7 +573,7 @@ namespace MvcVisionSystem
             string className = SelectedClass?.Text ?? string.Empty;
             if (string.IsNullOrWhiteSpace(className))
             {
-                StatusText = "클래스를 선택하세요.";
+                SetLocalizedStatus("WpfClassCatalog.Status.SelectClass");
                 return;
             }
 
@@ -501,11 +582,21 @@ namespace MvcVisionSystem
                 mutationRecipeNameProvider(),
                 className);
             MutationCompleted?.Invoke(WpfClassCatalogMutationKind.ToggleArchive, result);
-            string action = result.WasArchived ? "클래스 복원" : "클래스 보관";
             SetMutationStatus(
                 WpfClassCatalogMutationKind.ToggleArchive,
                 result,
-                string.Format("{0}: {1}", action, className));
+                result.WasArchived ? "WpfClassCatalog.Status.Restored" : "WpfClassCatalog.Status.Archived", className);
+        }
+
+        private void ExecuteArchiveClassRow(WpfClassCatalogListItem item)
+        {
+            if (item == null || !Classes.Contains(item))
+            {
+                return;
+            }
+
+            SelectedClass = item;
+            ExecuteArchiveClass();
         }
 
         private void ExecuteApplyClassColor()
@@ -518,7 +609,7 @@ namespace MvcVisionSystem
             string className = SelectedClass?.Text ?? string.Empty;
             if (string.IsNullOrWhiteSpace(className))
             {
-                StatusText = "클래스를 선택하세요.";
+                SetLocalizedStatus("WpfClassCatalog.Status.SelectClass");
                 return;
             }
 
@@ -532,7 +623,33 @@ namespace MvcVisionSystem
             SetMutationStatus(
                 WpfClassCatalogMutationKind.SetColor,
                 result,
-                string.Format("클래스 색상 변경: {0}", result.ClassItem?.Text));
+                "WpfClassCatalog.Status.ColorChanged", result.ClassItem?.Text);
+        }
+
+        private void ExecuteApplyClassColorRow(WpfClassCatalogListItem item)
+        {
+            if (item == null || !Classes.Contains(item))
+            {
+                return;
+            }
+
+            string hex = item.ColorHex?.Trim() ?? string.Empty;
+            if (hex.Length != 7 || hex[0] != '#'
+                || !int.TryParse(hex.Substring(1), System.Globalization.NumberStyles.HexNumber,
+                    System.Globalization.CultureInfo.InvariantCulture, out int rgb))
+            {
+                SetLocalizedStatus("WpfClassCatalog.Color.InvalidHex");
+                return;
+            }
+
+            SelectedClass = item;
+            if (IsMutationUnavailable()) return;
+            WpfClassCatalogMutationResult result = mutationWorkflowService.SetColor(
+                mutationDataProvider(), mutationRecipeNameProvider(), item.Text,
+                DrawingColor.FromArgb((rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff));
+            MutationCompleted?.Invoke(WpfClassCatalogMutationKind.SetColor, result);
+            SetMutationStatus(WpfClassCatalogMutationKind.SetColor, result,
+                "WpfClassCatalog.Status.ColorChanged", result.ClassItem?.Text);
         }
 
         private bool IsMutationUnavailable()
@@ -541,45 +658,45 @@ namespace MvcVisionSystem
                 || mutationRecipeNameProvider == null
                 || mutationCloseApprovedProvider?.Invoke() == true;
 
-        private void SetMutationStatus(
-            WpfClassCatalogMutationKind kind,
-            WpfClassCatalogMutationResult result,
-            string successText)
+        private void SetMutationStatus(WpfClassCatalogMutationKind kind, WpfClassCatalogMutationResult result, string successKey, params object[] successArguments)
         {
             if (result?.IsSuccess == true)
             {
-                StatusText = successText;
+                SetLocalizedStatus(successKey, successArguments);
                 return;
             }
 
-            StatusText = kind switch
+            string failureKey = kind switch
             {
                 WpfClassCatalogMutationKind.ToggleArchive when result?.Failure == WpfClassCatalogOperationFailure.LastActiveClass
-                    => "최소 1개의 활성 클래스는 유지해야 합니다.",
-                WpfClassCatalogMutationKind.ToggleArchive when result?.Failure == WpfClassCatalogOperationFailure.Persistence
-                    => string.Format("클래스 저장 실패: {0}", result.ErrorMessage),
+                    => "WpfClassCatalog.Status.LastActiveClass",
                 WpfClassCatalogMutationKind.ToggleArchive when result?.Failure == WpfClassCatalogOperationFailure.ClassNotFound
                     && mutationDataProvider()?.ClassNamedList?.Any(item =>
                         string.Equals(item?.Text, result.ClassName, StringComparison.OrdinalIgnoreCase) && item.IsArchived) == true
-                    => string.Format("복원할 클래스를 찾지 못했습니다: {0}", result.ClassName),
+                    => "WpfClassCatalog.Status.RestoreNotFound",
                 WpfClassCatalogMutationKind.ToggleArchive when result?.Failure == WpfClassCatalogOperationFailure.ClassNotFound
-                    => string.Format("클래스를 찾지 못했습니다: {0}", result.ClassName),
-                WpfClassCatalogMutationKind.SetColor when result?.Failure == WpfClassCatalogOperationFailure.Persistence
-                    => string.Format("클래스 저장 실패: {0}", result.ErrorMessage),
+                    => "WpfClassCatalog.Status.ClassNotFound",
                 WpfClassCatalogMutationKind.SetColor when result?.Failure == WpfClassCatalogOperationFailure.ClassNotFound
-                    => string.Format("삭제할 클래스를 찾지 못했습니다: {0}", result.ClassName),
+                    => "WpfClassCatalog.Status.ColorClassNotFound",
                 _ when result?.Failure == WpfClassCatalogOperationFailure.InvalidClassName
-                    => "새 클래스 이름을 입력하세요.",
+                    => "WpfClassCatalog.Status.EnterName",
                 _ when result?.Failure == WpfClassCatalogOperationFailure.ArchivedClass
-                    => "보관된 클래스는 먼저 복원한 뒤 이름을 바꿀 수 있습니다.",
+                    => "WpfClassCatalog.Status.RestoreBeforeRename",
                 _ when result?.Failure == WpfClassCatalogOperationFailure.InvalidOutputRoot
-                    => "저장 경로를 입력하거나 선택하세요.",
+                    => "WpfClassCatalog.Status.EnterOutputRoot",
                 _ when result?.Failure == WpfClassCatalogOperationFailure.Persistence
-                    => string.Format("클래스 저장 실패: {0}", result.ErrorMessage),
-                _ => string.Format("이미 존재하거나 사용할 수 없는 클래스 이름입니다: {0}", result?.ClassName)
+                    => "WpfClassCatalog.Status.SaveFailed",
+                _ => "WpfClassCatalog.Status.NameUnavailable"
             };
+            SetLocalizedStatus(failureKey, result?.Failure == WpfClassCatalogOperationFailure.Persistence ? result.ErrorMessage : result?.ClassName);
         }
 
+        private void SetLocalizedStatus(string key, params object[] arguments)
+        {
+            StatusText = Format(key, arguments);
+            statusKey = key;
+            statusArguments = arguments;
+        }
         private static string T(string key) => OpenVisionLanguageService.T(key);
 
         private static string Format(string key, params object[] arguments)
@@ -593,12 +710,18 @@ namespace MvcVisionSystem
 
     public sealed class WpfClassCatalogListItem : INotifyPropertyChanged
     {
+        private string editName;
+        private string colorHex;
+        private WpfClassCatalogColorPreset selectedColorPreset;
+
         public WpfClassCatalogListItem(LabelClass classItem, int canonicalIndex = 0)
         {
             Text = ClassCatalogService.NormalizeClassName(classItem?.Text);
+            editName = Text;
             CanonicalIndex = Math.Max(0, canonicalIndex);
             IsArchived = classItem?.IsArchived == true;
             DrawColor = classItem?.DrawColor ?? DrawingColor.LimeGreen;
+            colorHex = $"#{DrawColor.R:X2}{DrawColor.G:X2}{DrawColor.B:X2}";
             var brush = new MediaSolidColorBrush(MediaColor.FromRgb(DrawColor.R, DrawColor.G, DrawColor.B));
             brush.Freeze();
             DrawBrush = brush;
@@ -607,6 +730,52 @@ namespace MvcVisionSystem
         public event PropertyChangedEventHandler PropertyChanged;
 
         public string Text { get; }
+
+        public string EditName
+        {
+            get => editName;
+            set
+            {
+                if (string.Equals(editName, value, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                editName = value ?? string.Empty;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EditName)));
+            }
+        }
+
+        public WpfClassCatalogColorPreset SelectedColorPreset
+        {
+            get => selectedColorPreset;
+            set
+            {
+                if (ReferenceEquals(selectedColorPreset, value))
+                {
+                    return;
+                }
+
+                selectedColorPreset = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedColorPreset)));
+                if (value != null) ColorHex = $"#{value.Color.R:X2}{value.Color.G:X2}{value.Color.B:X2}";
+            }
+        }
+
+        public string ColorHex
+        {
+            get => colorHex;
+            set
+            {
+                if (string.Equals(colorHex, value, StringComparison.Ordinal)) return;
+                colorHex = value ?? string.Empty;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ColorHex)));
+            }
+        }
+
+        public string RowArchiveButtonText => OpenVisionLanguageService.T(IsArchived
+            ? "WpfClassCatalog.Row.Restore.Text"
+            : "WpfClassCatalog.Row.Archive.Text");
 
         public int CanonicalIndex { get; }
 
@@ -634,6 +803,7 @@ namespace MvcVisionSystem
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DisplayText)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ToolTip)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RowArchiveButtonText)));
         }
     }
 

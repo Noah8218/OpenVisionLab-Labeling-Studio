@@ -1,6 +1,8 @@
 using MvcVisionSystem._1._Core;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 
 namespace MvcVisionSystem
 {
@@ -83,6 +85,49 @@ namespace MvcVisionSystem
             return AnomalyImageReviewResult.Applied(status);
         }
 
+        public AnomalyImageReviewChange ApplyReviewStates(IEnumerable<string> imagePaths, AnomalyImageReviewState state, LabelingProjectData data, ImageQualityReviewWorkflowService qualityReview = null)
+        {
+            if (string.IsNullOrWhiteSpace(AnomalyImageReviewStatusService.ResolveReviewStatusFilePath(data)))
+                throw new InvalidDataException("Anomaly review requires a dataset save folder.");
+            IReadOnlyList<AnomalyImageReviewStatus> before = reviewStatus.CaptureReviewStates(imagePaths)
+                .Where(status => status.ReviewState != state).ToArray();
+            if (before.Count == 0)
+            {
+                reviewStatus.SaveReviewStatus(data, throwOnFailure: true);
+                return new AnomalyImageReviewChange(before, before);
+            }
+            try
+            {
+                foreach (AnomalyImageReviewStatus status in before)
+                    ApplyReviewStateCore(new AnomalyImageReviewRequest(status.ImagePath, status.ImageName, state, false));
+                if (qualityReview == null) reviewStatus.SaveReviewStatus(data, throwOnFailure: true);
+                else qualityReview.SaveGroundTruthChanges(before.Select(status => status.ImagePath), data, () => reviewStatus.SaveReviewStatus(data, throwOnFailure: true));
+                return new AnomalyImageReviewChange(before, reviewStatus.CaptureReviewStates(before.Select(status => status.ImagePath)));
+            }
+            catch
+            {
+                reviewStatus.RestoreReviewStates(before);
+                throw;
+            }
+        }
+
+        public IReadOnlyList<AnomalyImageReviewStatus> UndoReview(AnomalyImageReviewChange change, LabelingProjectData data, ImageQualityReviewWorkflowService qualityReview = null)
+        {
+            ArgumentNullException.ThrowIfNull(change);
+            try
+            {
+                reviewStatus.RestoreReviewStates(change.Before);
+                if (qualityReview == null) reviewStatus.SaveReviewStatus(data, throwOnFailure: true);
+                else qualityReview.SaveGroundTruthChanges(change.Before.Select(status => status.ImagePath), data, () => reviewStatus.SaveReviewStatus(data, throwOnFailure: true));
+                return reviewStatus.CaptureReviewStates(change.Before.Select(status => status.ImagePath));
+            }
+            catch
+            {
+                reviewStatus.RestoreReviewStates(change.After);
+                throw;
+            }
+        }
+
         public AnomalyClassificationResult ApplyClassification(
             AnomalyClassificationRequest request,
             LabelingProjectData data)
@@ -113,6 +158,19 @@ namespace MvcVisionSystem
                 _ => reviewStatus.ClearReviewState(request.ImagePath, request.ImageName)
             };
         }
+    }
+
+    public sealed class AnomalyImageReviewChange
+    {
+        internal AnomalyImageReviewChange(IReadOnlyList<AnomalyImageReviewStatus> before, IReadOnlyList<AnomalyImageReviewStatus> after)
+        {
+            Before = before;
+            After = after;
+        }
+
+        public IReadOnlyList<AnomalyImageReviewStatus> Before { get; }
+        public IReadOnlyList<AnomalyImageReviewStatus> After { get; }
+        public bool HasChanges => Before.Count > 0;
     }
 
     [Obsolete("Use AnomalyImageReviewWorkflowService.", false)]

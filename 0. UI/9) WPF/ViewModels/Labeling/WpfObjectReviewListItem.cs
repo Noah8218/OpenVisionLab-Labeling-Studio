@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using OpenVisionLab;
 using OpenVisionLab.Mvvm;
 
 namespace MvcVisionSystem
@@ -23,6 +24,14 @@ namespace MvcVisionSystem
         private string groupDisplayText = string.Empty;
         private string stateBadgeText = string.Empty;
         private IReadOnlyList<string> metadataTags = Array.Empty<string>();
+        private Action<WpfObjectReviewListItem, string> requestClassChange;
+        private System.Windows.Media.Brush classBrush;
+        private readonly string objectKindText;
+        private readonly int displayIndex;
+        private readonly string displayText;
+        private readonly string toolTip;
+        private readonly System.Drawing.Rectangle? manualBounds;
+        private bool isLocalizedEmptyRow;
 
         public WpfObjectReviewListItem(
             string displayText,
@@ -31,22 +40,97 @@ namespace MvcVisionSystem
             int sourceIndex,
             object payload,
             bool isEnabled = true,
-            bool isManualPolygon = false)
+            bool isManualPolygon = false,
+            string className = "",
+            string objectKindText = "",
+            int displayIndex = 0,
+            System.Drawing.Rectangle? manualBounds = null)
         {
-            DisplayText = displayText ?? string.Empty;
-            ToolTip = toolTip ?? string.Empty;
+            this.displayText = displayText ?? string.Empty;
+            this.toolTip = toolTip ?? string.Empty;
+            this.manualBounds = manualBounds;
             SourceKey = sourceKey ?? string.Empty;
             SourceIndex = sourceIndex;
             Payload = payload;
             IsEnabled = isEnabled;
             IsManualPolygon = isManualPolygon;
+            ClassName = className ?? string.Empty;
+            this.objectKindText = objectKindText ?? string.Empty;
+            this.displayIndex = displayIndex;
         }
 
-        public string DisplayText { get; }
+        public string DisplayText => isLocalizedEmptyRow ? ObjectReviewPresenter.EmptyText
+            : manualBounds.HasValue ? ObjectReviewPresenter.FormatManualSummary(displayIndex, ClassName, manualBounds.Value, objectKindText) : displayText;
+
+        public string EmptyHintDisplayText => DisplayText.Replace("Ctrl+I", "Ctrl\u2060+\u2060I");
 
         public string Content => DisplayText;
 
-        public string ToolTip { get; }
+        public string ClassName { get; }
+
+        public string ObjectKindText
+        {
+            get
+            {
+                string kind = ObjectReviewPresenter.FormatShapeName(objectKindText);
+                return displayIndex > 0 ? $"#{displayIndex} {kind}" : kind;
+            }
+        }
+
+        public string SelectedClassName
+        {
+            get => ClassName;
+            set
+            {
+                if (!string.IsNullOrWhiteSpace(value) && !string.Equals(value, ClassName, StringComparison.OrdinalIgnoreCase))
+                {
+                    requestClassChange?.Invoke(this, value);
+                    OnPropertyChanged(nameof(SelectedClassName));
+                }
+            }
+        }
+
+        public System.Windows.Media.Brush ClassBrush
+        {
+            get => classBrush;
+            private set => SetProperty(ref classBrush, value);
+        }
+
+        public bool IsInlineEditEnabled => ObjectReviewActionAvailabilityService.CanEditRow(this);
+
+        public void ConfigureInlineClassChange(Action<WpfObjectReviewListItem, string> request)
+            => requestClassChange = request;
+
+        public void RefreshInlineClassSelection()
+            => OnPropertyChanged(nameof(SelectedClassName));
+
+        public void RefreshLocalizedPresentation()
+        {
+            sessionStateBadgeText = string.Join(" · ", new[]
+            {
+                IsHidden ? OpenVisionLanguageService.T("WpfObjectReview.Row.Hidden") : string.Empty,
+                IsLocked ? OpenVisionLanguageService.T("WpfObjectReview.Row.Locked") : string.Empty,
+                IsPinned ? OpenVisionLanguageService.T("WpfObjectReview.Row.Pinned") : string.Empty
+            }.Where(text => !string.IsNullOrWhiteSpace(text)));
+            RefreshStateBadgeText();
+            ObjectSessionStateText = string.IsNullOrWhiteSpace(sessionStateBadgeText)
+                ? OpenVisionLanguageService.T("WpfObjectReview.Session.None")
+                : $"{sessionStateBadgeText} · {OpenVisionLanguageService.T("WpfObjectReview.Session.CurrentImageOnly")}";
+            OnPropertyChanged(nameof(ObjectKindText));
+            if (isLocalizedEmptyRow || manualBounds.HasValue)
+            {
+                OnPropertyChanged(nameof(DisplayText));
+                OnPropertyChanged(nameof(EmptyHintDisplayText));
+                OnPropertyChanged(nameof(Content));
+                if (manualBounds.HasValue) OnPropertyChanged(nameof(ToolTip));
+            }
+        }
+
+        public void ApplyClassBrush(System.Windows.Media.Brush brush)
+            => ClassBrush = brush;
+
+        public string ToolTip => manualBounds.HasValue
+            ? ObjectReviewPresenter.FormatManualDetail(ClassName, manualBounds.Value, objectKindText) : toolTip;
 
         public string SourceKey { get; }
 
@@ -130,6 +214,8 @@ namespace MvcVisionSystem
             private set => SetProperty(ref stateBadgeText, value ?? string.Empty);
         }
 
+        public string MetadataBadgeText => string.Join(" \u00B7 ", new[] { groupBadgeText, persistentMetadataBadgeText }.Where(text => !string.IsNullOrWhiteSpace(text)));
+
         public double ContentOpacity => IsHidden ? 0.5D : IsLocked ? 0.72D : 1D;
 
         public bool IsOccluded
@@ -168,14 +254,11 @@ namespace MvcVisionSystem
             IsHidden = state.IsHidden;
             IsLocked = state.IsLocked;
             IsPinned = state.IsPinned;
-            sessionStateBadgeText = state.BadgeText;
-            RefreshStateBadgeText();
-            ObjectSessionStateText = state.IsDefault
-                ? "\uC138\uC158 \uC0C1\uD0DC \uC5C6\uC74C \u00B7 \uC800\uC7A5/\uB0B4\uBCF4\uB0B4\uAE30 \uBE44\uC624\uC5FC"
-                : $"{state.BadgeText} \u00B7 \uD604\uC7AC \uC774\uBBF8\uC9C0 \uC138\uC158\uB9CC";
+            RefreshLocalizedPresentation();
             OnPropertyChanged(nameof(ContentOpacity));
             OnPropertyChanged(nameof(CanMergeSelect));
             OnPropertyChanged(nameof(IsMergeSelectionVisible));
+            OnPropertyChanged(nameof(IsInlineEditEnabled));
             if (!CanMergeSelect)
             {
                 IsMergeSelected = false;
@@ -220,12 +303,16 @@ namespace MvcVisionSystem
         {
             StateBadgeText = string.Join(
                 " \u00B7 ",
-                new[] { groupBadgeText, persistentMetadataBadgeText, sessionStateBadgeText }
+                new[] { MetadataBadgeText, sessionStateBadgeText }
                     .Where(text => !string.IsNullOrWhiteSpace(text)));
+            OnPropertyChanged(nameof(MetadataBadgeText));
         }
 
         public static WpfObjectReviewListItem Empty(string text)
-            => new WpfObjectReviewListItem(text, string.Empty, string.Empty, -1, null, isEnabled: false);
+            => new WpfObjectReviewListItem(text, string.Empty, string.Empty, -1, null, isEnabled: false)
+            {
+                isLocalizedEmptyRow = string.Equals(text, ObjectReviewPresenter.EmptyText, StringComparison.Ordinal)
+            };
 
         public override string ToString() => DisplayText;
     }

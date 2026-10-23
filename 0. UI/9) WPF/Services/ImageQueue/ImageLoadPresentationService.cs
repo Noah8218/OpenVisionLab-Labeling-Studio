@@ -54,7 +54,7 @@ namespace MvcVisionSystem
 
         public string BuildLoadFailureDatasetStatus()
         {
-            return "\uB370\uC774\uD130\uC14B: \uC774\uBBF8\uC9C0 \uB85C\uB4DC \uC2E4\uD328";
+            return OpenVisionLanguageService.T("WpfShell.Status.DatasetLoadFailed");
         }
 
         public string BuildLoadFailureLog(string message)

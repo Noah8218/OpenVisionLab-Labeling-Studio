@@ -108,36 +108,36 @@ namespace MvcVisionSystem
             state ??= new ApplicationCloseState();
             if (state.HasUnsavedAnnotations)
             {
-                return Blocked("현재 이미지의 라벨을 먼저 `라벨 저장`으로 반영하세요. 아카이브가 라벨 저장을 대신하지 않습니다.");
+                return Blocked(OpenVisionLab.OpenVisionLanguageService.T("WpfArchive.Status.UnsavedLabels"));
             }
 
             if (state.PendingCandidateCount > 0)
             {
-                return Blocked("미확정 AI 후보를 먼저 확정하거나 스킵하세요. 아카이브가 후보를 자동 확정하지 않습니다.");
+                return Blocked(OpenVisionLab.OpenVisionLanguageService.T("WpfArchive.Status.PendingSuggestions"));
             }
 
             string activeWork = (state.ActiveWorkNames ?? Array.Empty<string>())
                 .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name));
             if (!string.IsNullOrWhiteSpace(activeWork))
             {
-                return Blocked($"진행 중인 작업을 완료하거나 중지한 뒤 다시 시도하세요: {activeWork.Trim()}");
+                return Blocked(string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfArchive.Status.ActiveWork"), activeWork.Trim()));
             }
 
             if (operation == WpfProjectArchiveOperation.Export)
             {
                 if (!ProjectRecipeService.IsValidRecipeName(recipeName))
                 {
-                    return Blocked("내보낼 Recipe를 먼저 선택하세요.");
+                    return Blocked(OpenVisionLab.OpenVisionLanguageService.T("WpfArchive.Status.SelectRecipe"));
                 }
 
                 if (string.IsNullOrWhiteSpace(configPath) || !File.Exists(configPath))
                 {
-                    return Blocked("마지막으로 명시 저장된 Recipe 설정이 없습니다. `설정 저장` 후 다시 시도하세요.");
+                    return Blocked(OpenVisionLab.OpenVisionLanguageService.T("WpfArchive.Status.SettingsMissing"));
                 }
 
                 if (string.IsNullOrWhiteSpace(datasetRootPath) || !Directory.Exists(datasetRootPath))
                 {
-                    return Blocked("저장된 Recipe가 가리키는 데이터셋 폴더를 찾을 수 없습니다.");
+                    return Blocked(OpenVisionLab.OpenVisionLanguageService.T("WpfArchive.Status.DatasetMissing"));
                 }
             }
 
@@ -145,8 +145,8 @@ namespace MvcVisionSystem
             {
                 CanProceed = true,
                 StatusText = operation == WpfProjectArchiveOperation.Export
-                    ? "마지막으로 저장된 Recipe와 데이터셋을 아카이브할 수 있습니다."
-                    : "아카이브를 새 Recipe와 새 데이터셋 폴더로 가져올 수 있습니다."
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfArchive.Status.ExportReady")
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfArchive.Status.ImportReady")
             };
         }
 
@@ -155,7 +155,7 @@ namespace MvcVisionSystem
             if (preflight == null || !preflight.CanProceed)
             {
                 throw new InvalidOperationException(
-                    preflight?.StatusText ?? "프로젝트 아카이브 작업을 시작할 수 없습니다.");
+                    preflight?.StatusText ?? OpenVisionLab.OpenVisionLanguageService.T("WpfArchive.Status.CannotStart"));
             }
         }
 

@@ -3,13 +3,16 @@
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                 xmlns:local="clr-namespace:MvcVisionSystem"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-                 Title="환경 설정 센터"
+                 Title="{Binding [WpfEnvironment.Title], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
                  Width="1120"
                  Height="760"
                  MinWidth="920"
                  MinHeight="620"
-                 Background="{DynamicResource AppBackgroundBrush}"
+                 Background="{DynamicResource RecipePageBrush}"
+                 FontFamily="{DynamicResource UiFontFamily}" FontSize="13"
+                 UseLayoutRounding="True"
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="None"
                  WindowCornerPreference="Round"
@@ -35,241 +38,172 @@
             <SolidColorBrush x:Key="WarningBrush" Color="#F59E0B" />
             <SolidColorBrush x:Key="ProblemBrush" Color="#EF4444" />
 
-            <Style x:Key="EnvironmentSetupActionButtonStyle" TargetType="{x:Type ui:Button}">
-                <Setter Property="Template" Value="{StaticResource WpfUiDarkButtonTemplate}" />
-                <Setter Property="Height" Value="32" />
-                <Setter Property="Padding" Value="12,4" />
-                <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
-                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
-                <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="11" />
+            <Style x:Key="EnvironmentSetupActionButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource RecipeSecondaryButtonStyle}">
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
                 <Setter Property="FontWeight" Value="SemiBold" />
-                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-                <Style.Triggers>
-                    <Trigger Property="IsMouseOver" Value="True">
-                        <Setter Property="Background" Value="#303030" />
-                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                    </Trigger>
-                    <Trigger Property="IsPressed" Value="True">
-                        <Setter Property="Background" Value="#1B1B1B" />
-                    </Trigger>
-                    <Trigger Property="IsKeyboardFocused" Value="True">
-                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                        <Setter Property="BorderThickness" Value="2" />
-                    </Trigger>
-                    <Trigger Property="IsEnabled" Value="False">
-                        <Setter Property="Opacity" Value="0.45" />
-                    </Trigger>
-                </Style.Triggers>
+            </Style>
+            <Style x:Key="EnvironmentSetupPrimaryButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource RecipePrimaryButtonStyle}">
+                <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
             </Style>
         </ResourceDictionary>
     </ui:FluentWindow.Resources>
 
-    <Grid Margin="20,18,20,20">
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-
-        <Grid Grid.Row="0" Margin="0,0,0,12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <Border Width="40" Height="40"
-                    Background="{DynamicResource CanvasBrush}"
-                    BorderBrush="{DynamicResource BorderBrushDark}"
-                    BorderThickness="1" CornerRadius="5" Margin="0,0,11,0">
-                <iconPacks:PackIconMaterial Kind="Tools"
-                                            Width="21" Height="21"
-                                            Foreground="{DynamicResource AccentBrush}"
-                                            HorizontalAlignment="Center"
-                                            VerticalAlignment="Center" />
-            </Border>
-            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                <TextBlock Text="환경 설정 센터"
-                           Foreground="{DynamicResource PrimaryTextBrush}"
-                           FontFamily="Segoe UI" FontSize="17" FontWeight="SemiBold" />
-                <TextBlock Text="설치 후 필요한 앱 파일, 저장 경로, 뷰어 그래픽과 모델 실행 유틸리티를 한곳에서 확인합니다."
-                           Foreground="{DynamicResource SecondaryTextBrush}"
-                           FontFamily="Segoe UI" FontSize="10.5" Margin="0,3,0,0" />
+        <Border Padding="24,22,24,18" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,0,0,1">
+            <StackPanel>
+                <TextBlock x:Name="EnvironmentSetupTitleText" Text="{Binding [WpfEnvironment.Title], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Foreground="{DynamicResource RecipeTextBrush}" FontSize="20" LineHeight="29" LineStackingStrategy="BlockLineHeight" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock x:Name="EnvironmentSetupDescriptionText" Text="{Binding [WpfEnvironment.Description], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" Margin="0,6,0,0" />
             </StackPanel>
-            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                <ui:Button AutomationProperties.AutomationId="EnvironmentSetupRefreshButton"
-                           AutomationProperties.Name="환경 다시 점검"
-                           ToolTip="파일과 경로만 다시 확인합니다. 설치, 학습, 추론은 실행하지 않습니다."
-                           Style="{StaticResource EnvironmentSetupActionButtonStyle}"
-                           Command="{Binding RefreshCommand}" Margin="0,0,7,0">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconMaterial Kind="Refresh" Width="14" Height="14" Margin="0,0,6,0" />
-                        <TextBlock Text="다시 점검" VerticalAlignment="Center" />
-                    </StackPanel>
-                </ui:Button>
-                <ui:Button AutomationProperties.AutomationId="EnvironmentSetupOpenModelSettingsButton"
-                           AutomationProperties.Name="모델 실행기 설정 열기"
-                           ToolTip="모델 센터에서 Python 경로와 패키지 설치 계획을 확인합니다."
-                           Style="{StaticResource EnvironmentSetupActionButtonStyle}"
-                           Command="{Binding OpenModelSettingsCommand}" Margin="0,0,7,0">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconMaterial Kind="Tune" Width="14" Height="14" Margin="0,0,6,0" />
-                        <TextBlock Text="모델 실행기 설정" VerticalAlignment="Center" />
-                    </StackPanel>
-                </ui:Button>
-                <ui:Button AutomationProperties.AutomationId="EnvironmentSetupCloseButton"
-                           AutomationProperties.Name="환경 설정 센터 닫기"
-                           ToolTip="환경 설정 센터 닫기"
-                           Style="{StaticResource EnvironmentSetupActionButtonStyle}"
-                           Click="CloseButton_Click">
-                    <TextBlock Text="닫기" VerticalAlignment="Center" />
-                </ui:Button>
-            </StackPanel>
-        </Grid>
+        </Border>
 
-        <Grid Grid.Row="1" Margin="0,0,0,12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Border Grid.Column="0" Background="{DynamicResource PanelBrush}"
-                    BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1"
-                    CornerRadius="5" Padding="12,10" Margin="0,0,8,0">
-                <StackPanel>
-                    <TextBlock Text="{Binding OverallStatusText}" Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI" FontSize="13" FontWeight="SemiBold" />
-                    <TextBlock Text="{Binding OverallDetailText}" Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI" FontSize="9.5" TextWrapping="Wrap" Margin="0,3,0,0" />
-                    <TextBlock Text="{Binding SelectedRuntimeText}" Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI" FontSize="9.5" Margin="0,5,0,0" />
-                </StackPanel>
-            </Border>
-            <Border Grid.Column="1" Background="{DynamicResource CanvasBrush}"
-                    BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1"
-                    CornerRadius="5" Padding="11,9" Margin="0,0,8,0">
-                <StackPanel>
-                    <TextBlock Text="준비됨" Foreground="{DynamicResource SecondaryTextBrush}" FontFamily="Segoe UI" FontSize="9.5" />
-                    <TextBlock Text="{Binding ReadyCount}" Foreground="{DynamicResource SuccessBrush}" FontFamily="Segoe UI" FontSize="22" FontWeight="SemiBold" />
-                </StackPanel>
-            </Border>
-            <Border Grid.Column="2" Background="{DynamicResource CanvasBrush}"
-                    BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1"
-                    CornerRadius="5" Padding="11,9" Margin="0,0,8,0">
-                <StackPanel>
-                    <TextBlock Text="필수 조치" Foreground="{DynamicResource SecondaryTextBrush}" FontFamily="Segoe UI" FontSize="9.5" />
-                    <TextBlock Text="{Binding AttentionCount}" Foreground="{DynamicResource ProblemBrush}" FontFamily="Segoe UI" FontSize="22" FontWeight="SemiBold" />
-                </StackPanel>
-            </Border>
-            <Border Grid.Column="3" Background="{DynamicResource CanvasBrush}"
-                    BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1"
-                    CornerRadius="5" Padding="11,9">
-                <StackPanel>
-                    <TextBlock Text="선택/권장" Foreground="{DynamicResource SecondaryTextBrush}" FontFamily="Segoe UI" FontSize="9.5" />
-                    <TextBlock Text="{Binding OptionalCount}" Foreground="{DynamicResource WarningBrush}" FontFamily="Segoe UI" FontSize="22" FontWeight="SemiBold" />
-                </StackPanel>
-            </Border>
-        </Grid>
+        <ScrollViewer x:Name="EnvironmentSetupScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="24,20,24,20" PanningMode="VerticalOnly">
+            <StackPanel>
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,12,0">
+                        <StackPanel>
+                            <TextBlock x:Name="EnvironmentSetupOverallText" Text="{Binding OverallStatusText}" Foreground="{DynamicResource RecipeTextBrush}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock x:Name="EnvironmentSetupOverallDetailText" Text="{Binding OverallDetailText}" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" Margin="0,6,0,0" />
+                            <TextBlock x:Name="EnvironmentSetupSelectedRuntimeText" Text="{Binding SelectedRuntimeText}" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="1" Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,12,0">
+                        <StackPanel>
+                            <TextBlock Text="{Binding [WpfEnvironment.Summary.Ready], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" />
+                            <TextBlock x:Name="EnvironmentSetupReadyCountText" Text="{Binding ReadyCount}" Foreground="{DynamicResource RecipeTextBrush}" FontSize="26" FontWeight="SemiBold" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="2" Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,12,0">
+                        <StackPanel>
+                            <TextBlock Text="{Binding [WpfEnvironment.Summary.Required], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" />
+                            <TextBlock x:Name="EnvironmentSetupAttentionCountText" Text="{Binding AttentionCount}" Foreground="{DynamicResource RecipeTextBrush}" FontSize="26" FontWeight="SemiBold" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="3" Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+                        <StackPanel>
+                            <TextBlock Text="{Binding [WpfEnvironment.Summary.Optional], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" />
+                            <TextBlock x:Name="EnvironmentSetupOptionalCountText" Text="{Binding OptionalCount}" Foreground="{DynamicResource RecipeTextBrush}" FontSize="26" FontWeight="SemiBold" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
 
-        <Border Grid.Row="2" Background="{DynamicResource PanelBrush}"
-                BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1"
-                CornerRadius="5" Padding="10">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <ItemsControl ItemsSource="{Binding Items}">
+                <ItemsControl x:Name="EnvironmentSetupItemsControl" ItemsSource="{Binding Items}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Background="{DynamicResource CanvasBrush}"
-                                    BorderBrush="{DynamicResource BorderBrushDark}"
-                                    BorderThickness="1" CornerRadius="4"
-                                    Padding="10,8" Margin="0,0,0,7">
+                            <Border Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,10">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="150" />
-                                        <ColumnDefinition Width="160" />
-                                        <ColumnDefinition Width="92" />
+                                        <ColumnDefinition Width="180" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding CategoryText}" Foreground="{DynamicResource SecondaryTextBrush}"
-                                                   FontFamily="Segoe UI" FontSize="9" />
-                                        <TextBlock Text="{Binding RequirementText}" Foreground="{DynamicResource SecondaryTextBrush}"
-                                                   FontFamily="Segoe UI" FontSize="8.5" Margin="0,2,0,0" />
+                                    <StackPanel Margin="0,0,18,0">
+                                        <TextBlock Text="{Binding CategoryText}" Foreground="{DynamicResource RecipeMutedTextBrush}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding RequirementText}" Foreground="{DynamicResource RecipeMutedTextBrush}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                        <TextBlock Text="{Binding NameText}" Foreground="{DynamicResource RecipeTextBrush}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,6,0,0" />
+                                        <Border CornerRadius="5" Padding="8,4" BorderThickness="1" HorizontalAlignment="Left" Margin="0,10,0,0" MaxWidth="162">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="{DynamicResource DatasetReadyBrush}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource DatasetReadyBorderBrush}" /><Setter Property="TextElement.Foreground" Value="{DynamicResource DatasetReadyTextBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsReady}" Value="False">
+                                                            <Setter Property="Background" Value="#3D1E22" />
+                                                            <Setter Property="BorderBrush" Value="#73343A" /><Setter Property="TextElement.Foreground" Value="#FFB3B3" />
+                                                        </DataTrigger>
+                                                        <MultiDataTrigger>
+                                                            <MultiDataTrigger.Conditions>
+                                                                <Condition Binding="{Binding IsReady}" Value="False" />
+                                                                <Condition Binding="{Binding IsWarning}" Value="True" />
+                                                            </MultiDataTrigger.Conditions>
+                                                            <Setter Property="Background" Value="{DynamicResource DatasetNeededBrush}" />
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource DatasetNeededBorderBrush}" /><Setter Property="TextElement.Foreground" Value="{DynamicResource DatasetNeededTextBrush}" />
+                                                        </MultiDataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <TextBlock Text="{Binding StatusText}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        </Border>
                                     </StackPanel>
-                                    <TextBlock Grid.Column="1" Text="{Binding NameText}"
-                                               Foreground="{DynamicResource PrimaryTextBrush}"
-                                               FontFamily="Segoe UI" FontSize="10.5" FontWeight="SemiBold"
-                                               VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,8,0" />
-                                    <Border Grid.Column="2" CornerRadius="3" Padding="7,3"
-                                            BorderThickness="1" HorizontalAlignment="Left" VerticalAlignment="Center">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Setter Property="Background" Value="#3322C55E" />
-                                                <Setter Property="BorderBrush" Value="{DynamicResource SuccessBrush}" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsReady}" Value="False">
-                                                        <Setter Property="Background" Value="#33EF4444" />
-                                                        <Setter Property="BorderBrush" Value="{DynamicResource ProblemBrush}" />
-                                                    </DataTrigger>
-                                                    <MultiDataTrigger>
-                                                        <MultiDataTrigger.Conditions>
-                                                            <Condition Binding="{Binding IsReady}" Value="False" />
-                                                            <Condition Binding="{Binding IsWarning}" Value="True" />
-                                                        </MultiDataTrigger.Conditions>
-                                                        <Setter Property="Background" Value="#33F59E0B" />
-                                                        <Setter Property="BorderBrush" Value="{DynamicResource WarningBrush}" />
-                                                    </MultiDataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
-                                        <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource PrimaryTextBrush}"
-                                                   FontFamily="Segoe UI" FontSize="9" FontWeight="SemiBold" />
-                                    </Border>
-                                    <StackPanel Grid.Column="3" Margin="8,0,0,0">
-                                        <TextBlock Text="{Binding DetailText}" Foreground="{DynamicResource SecondaryTextBrush}"
-                                                   FontFamily="Segoe UI" FontSize="9.5" TextWrapping="Wrap" />
-                                        <TextBlock Text="{Binding NextActionText}" Foreground="{DynamicResource PrimaryTextBrush}"
-                                                   FontFamily="Segoe UI" FontSize="9.5" FontWeight="SemiBold"
-                                                   TextWrapping="Wrap" Margin="0,3,0,0" />
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="{Binding DetailText}" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" />
+                                        <TextBlock Text="{Binding NextActionText}" Foreground="{DynamicResource RecipeTextBrush}" FontWeight="SemiBold" TextWrapping="Wrap" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" Margin="0,6,0,0" />
                                     </StackPanel>
                                 </Grid>
                             </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-            </ScrollViewer>
-        </Border>
 
-        <Grid Grid.Row="3" Margin="0,12,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Border Grid.Column="0" Background="{DynamicResource CanvasBrush}"
-                    BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1"
-                    CornerRadius="5" Padding="11,9" Margin="0,0,8,0">
-                <StackPanel>
-                    <TextBlock Text="설치 순서" Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI" FontSize="10.5" FontWeight="SemiBold" />
-                    <TextBlock Text="{Binding InstallGuideText}" Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI" FontSize="9.2" TextWrapping="Wrap" Margin="0,4,0,0" />
+                <Grid Margin="0,6,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,12,0">
+                        <StackPanel>
+                            <TextBlock Text="{Binding [WpfEnvironment.Footer.InstallOrder], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Foreground="{DynamicResource RecipeTextBrush}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock x:Name="EnvironmentSetupInstallGuideText" Text="{Binding InstallGuideText}" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" Margin="0,8,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="1" Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+                        <StackPanel>
+                            <TextBlock Text="{Binding [WpfEnvironment.Footer.SafetyBoundary], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Foreground="{DynamicResource RecipeTextBrush}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock x:Name="EnvironmentSetupSafetyText" Text="{Binding SafetyBoundaryText}" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" Margin="0,8,0,0" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,1,0,0" Padding="24,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center" Margin="0,0,18,0">
+                    <TextBlock x:Name="EnvironmentSetupLastCheckedText" Text="{Binding LastCheckedText}" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" />
+                    <TextBlock x:Name="EnvironmentSetupModelSettingsReasonText" AutomationProperties.AutomationId="EnvironmentSetupModelSettingsReasonText" Text="{Binding ModelSettingsUnavailableReason}" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" Margin="0,4,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ModelSettingsUnavailableReason}" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StackPanel>
-            </Border>
-            <Border Grid.Column="1" Background="#201F2937"
-                    BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1"
-                    CornerRadius="5" Padding="11,9">
-                <StackPanel>
-                    <TextBlock Text="안전 경계" Foreground="{DynamicResource WarningBrush}"
-                               FontFamily="Segoe UI" FontSize="10.5" FontWeight="SemiBold" />
-                    <TextBlock Text="{Binding SafetyBoundaryText}" Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI" FontSize="9.2" TextWrapping="Wrap" Margin="0,4,0,0" />
-                    <TextBlock Text="{Binding LastCheckedText}" Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI" FontSize="8.8" Margin="0,5,0,0" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <ui:Button x:Name="EnvironmentSetupRefreshButton" AutomationProperties.AutomationId="EnvironmentSetupRefreshButton" AutomationProperties.Name="{Binding [WpfEnvironment.Action.Refresh.Automation], Source={x:Static local:WpfLocalizationViewModel.Instance}}" ToolTip="{Binding [WpfEnvironment.Action.Refresh.ToolTip], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource EnvironmentSetupActionButtonStyle}" Command="{Binding RefreshCommand}" Margin="0,0,10,0">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconMaterial Kind="Refresh" Width="16" Height="16" Margin="0,0,8,0" />
+                            <TextBlock Text="{Binding [WpfEnvironment.Action.Refresh.Name], Source={x:Static local:WpfLocalizationViewModel.Instance}}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ui:Button>
+                    <ui:Button x:Name="EnvironmentSetupOpenModelSettingsButton" AutomationProperties.AutomationId="EnvironmentSetupOpenModelSettingsButton" AutomationProperties.Name="{Binding [WpfEnvironment.Action.ModelSettings.Automation], Source={x:Static local:WpfLocalizationViewModel.Instance}}" ToolTip="{Binding [WpfEnvironment.Action.ModelSettings.ToolTip], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource EnvironmentSetupPrimaryButtonStyle}" Command="{Binding OpenModelSettingsCommand}" Margin="0,0,10,0">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconMaterial Kind="Tune" Width="16" Height="16" Margin="0,0,8,0" />
+                            <TextBlock Text="{Binding [WpfEnvironment.Action.ModelSettings.Name], Source={x:Static local:WpfLocalizationViewModel.Instance}}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ui:Button>
+                    <ui:Button x:Name="EnvironmentSetupCloseButton" AutomationProperties.AutomationId="EnvironmentSetupCloseButton" AutomationProperties.Name="{Binding [WpfEnvironment.Action.Close.Automation], Source={x:Static local:WpfLocalizationViewModel.Instance}}" ToolTip="{Binding [WpfEnvironment.Action.Close.ToolTip], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource EnvironmentSetupActionButtonStyle}" Click="CloseButton_Click">
+                        <TextBlock Text="{Binding [WpfEnvironment.Action.Close.Name], Source={x:Static local:WpfLocalizationViewModel.Instance}}" VerticalAlignment="Center" />
+                    </ui:Button>
                 </StackPanel>
-            </Border>
-        </Grid>
+            </Grid>
+        </Border>
     </Grid>
 </ui:FluentWindow>

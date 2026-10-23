@@ -64,12 +64,15 @@ namespace MvcVisionSystem
                 removeSelectedFromGroup: null,
                 dissolveSelectedGroup: null,
                 toggleGroupOccluded: null,
-                toggleGroupTag: null);
+                toggleGroupTag: null,
+                applySelectedObjectsClass: context.ExecuteApplySelectedObjectsClassCommand,
+                selectedReferenceClassName: context.SelectedReferenceClassNameProvider);
             context.ObjectReviewViewModel.ConfigureGroupSelectionWorkflow(context.ObjectReviewWorkflowService);
-            context.ObjectReviewViewModel.ConfigureObjectDeleteShortcutWorkflow(context.DeleteSelectedObject);
+            context.ObjectReviewViewModel.ConfigureObjectDeleteShortcutWorkflow(context.DeleteSelectedObject, source => ShellKeyboardShortcutAdapter.IsInteractiveControl(source, allowActionControls: true));
             context.ObjectReviewViewModel.ConfigureObjectSessionStateWorkflow(
                 context.ApplyObjectSessionStateMutation,
-                context.ReportObjectReviewStatus);
+                context.ReportObjectReviewStatus,
+                context.ToggleAllObjectsHidden);
             context.ObjectReviewViewModel.ConfigurePersistentOccludedWorkflow(
                 context.CaptureObjectReviewSnapshots,
                 context.ApplyObjectPersistentOccludedMutation,
@@ -108,6 +111,9 @@ namespace MvcVisionSystem
                 context.ConfirmObjectGroupDissolve,
                 context.ApplyObjectGroupDissolveMutation,
                 context.ReportObjectReviewStatus);
+            context.ObjectReviewViewModel.ConfigureMaskQualityWorkflow(
+                context.AnalyzeMaskQualityCommand,
+                context.RepairSelectedMaskQualityMarkerCommand);
             context.RefreshAttachedCommandBindings(
                 context.ObjectListBox,
                 new[]
@@ -121,8 +127,10 @@ namespace MvcVisionSystem
     internal sealed class ObjectReviewPanelCommandWiringContext
     {
         internal WpfObjectReviewPanelViewModel ObjectReviewViewModel { get; init; }
+        internal Func<string> SelectedReferenceClassNameProvider { get; init; }
         internal Action ExecuteDeleteObjectCommand { get; init; }
         internal Action ExecuteApplyObjectClassCommand { get; init; }
+        internal Action ExecuteApplySelectedObjectsClassCommand { get; init; }
         internal Action ExecuteMarkQualityUnreviewedCommand { get; init; }
         internal Action ExecuteMarkQualityNeedsFixCommand { get; init; }
         internal Action ExecuteMarkQualityReviewedCommand { get; init; }
@@ -152,6 +160,7 @@ namespace MvcVisionSystem
         internal ObjectReviewWorkflowService ObjectReviewWorkflowService { get; init; }
         internal Func<bool> DeleteSelectedObject { get; init; }
         internal Func<WpfObjectReviewItemRef, WpfObjectSessionStateKind, WpfObjectSessionState> ApplyObjectSessionStateMutation { get; init; }
+        internal Action ToggleAllObjectsHidden { get; init; }
         internal Action<string> ReportObjectReviewStatus { get; init; }
         internal Func<IReadOnlyList<WpfObjectReviewObjectSnapshot>> CaptureObjectReviewSnapshots { get; init; }
         internal Func<WpfObjectReviewMutationResult, bool> ApplyObjectPersistentOccludedMutation { get; init; }
@@ -166,6 +175,8 @@ namespace MvcVisionSystem
         internal Func<WpfObjectReviewMutationResult, bool> ApplyObjectGroupTagMutation { get; init; }
         internal Func<int, bool> ConfirmObjectGroupDissolve { get; init; }
         internal Func<WpfObjectReviewMutationResult, bool> ApplyObjectGroupDissolveMutation { get; init; }
+        internal Action AnalyzeMaskQualityCommand { get; init; }
+        internal Action<WpfMaskQualityMarkerItem> RepairSelectedMaskQualityMarkerCommand { get; init; }
         internal ListBox ObjectListBox { get; init; }
         internal Action<DependencyObject, DependencyProperty[]> RefreshAttachedCommandBindings { get; init; }
     }

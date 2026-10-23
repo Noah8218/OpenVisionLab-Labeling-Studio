@@ -155,17 +155,17 @@ namespace MvcVisionSystem
                     : isInvalid
                         ? "라벨 오류"
                         : status.ObjectCount == 0
-                            ? "빈 라벨 검토"
+                            ? DatasetHealthTextFormatter.Translate("WpfDatasetHealth.VisualQa.EmptyLabelReview")
                             : "저장 라벨 표본";
                 string detail = isMissing
-                    ? "이미지와 짝이 되는 저장 annotation이 없습니다."
+                    ? DatasetHealthTextFormatter.Translate("WpfDatasetHealth.VisualQa.MissingAnnotation")
                     : isInvalid
                         ? isSegmentation
-                            ? "저장된 세그먼트 JSON의 geometry 또는 클래스 정보를 해석할 수 없습니다."
+                            ? DatasetHealthTextFormatter.Translate("WpfDatasetHealth.VisualQa.InvalidSegmentation")
                             : $"해석할 수 없는 라벨 {status.InvalidLineCount}줄"
                         : status.ObjectCount == 0
-                            ? "배경 이미지로 의도한 빈 라벨인지 확인하세요."
-                            : "저장된 geometry를 읽기 전용으로 확인합니다.";
+                            ? DatasetHealthTextFormatter.Translate("WpfDatasetHealth.VisualQa.EmptyLabelHint")
+                            : DatasetHealthTextFormatter.Translate("WpfDatasetHealth.VisualQa.ReadOnlyGeometry");
                 return CreateItem(
                     data,
                     imagePath,
@@ -182,7 +182,7 @@ namespace MvcVisionSystem
                     data,
                     imagePath,
                     split,
-                    "파일/annotation 오류",
+                    DatasetHealthTextFormatter.Translate("WpfDatasetHealth.VisualQa.FileLabelError"),
                     ex.Message,
                     0,
                     true,
@@ -264,8 +264,8 @@ namespace MvcVisionSystem
 
         private static WpfDatasetVisualQaCatalog BuildAnomalyCatalog(LabelingProjectData data)
         {
-            string root = data.ProjectSettings?.ResolveImageRootPath();
-            string[] imagePaths = EnumerateImages(root, SearchOption.AllDirectories).ToArray();
+            string[] imagePaths = (data.ProjectSettings?.ResolveImageRootPaths() ?? Array.Empty<string>())
+                .SelectMany(root => EnumerateImages(root, SearchOption.AllDirectories)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
             var review = new AnomalyImageReviewStatusService();
             review.LoadReviewStatus(data, imagePaths);
             List<AnomalyImageReviewStatus> statuses = review.GetItems().ToList();
@@ -277,7 +277,7 @@ namespace MvcVisionSystem
                 .Select(item => new WpfDatasetVisualQaItem(
                     item.ImagePath,
                     "원본",
-                    item.IsReviewed ? FormatAnomalyState(item.ReviewState) : "미검토",
+                    item.IsReviewed ? FormatAnomalyState(item.ReviewState) : DatasetHealthTextFormatter.Translate("WpfDatasetHealth.Metric.Unreviewed"),
                     item.IsReviewed ? "저장된 이미지 판정 표본입니다." : "학습 전에 정상 또는 이상으로 판정하세요.",
                     0,
                     !item.IsReviewed,

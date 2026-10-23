@@ -30,8 +30,9 @@ namespace MvcVisionSystem
 
         internal bool TryLoadStartupSampleImage()
         {
+            string activeImagePath = context.ApplicationState.ImageWorkspace.ActiveImagePath;
             if (context.ApplicationState.ImageWorkspace.ActiveImage != null
-                || !string.IsNullOrWhiteSpace(context.ApplicationState.ImageWorkspace.ActiveImagePath))
+                || (!string.IsNullOrWhiteSpace(activeImagePath) && File.Exists(activeImagePath)))
             {
                 return true;
             }
@@ -50,12 +51,20 @@ namespace MvcVisionSystem
             return TryLoadImage(imagePath, populateQueue: true, refreshQueueDetails: false);
         }
 
+        internal bool ReloadActiveImageDiscardingUnsavedAnnotations()
+        {
+            string imagePath = context.ApplicationState.ImageWorkspace.ActiveImagePath;
+            return !string.IsNullOrWhiteSpace(imagePath)
+                && TryLoadImage(imagePath, populateQueue: false, refreshQueueDetails: false, skipPendingAnnotationSave: true);
+        }
+
         internal bool TryLoadImage(
             string imagePath,
             bool populateQueue = true,
             bool refreshQueueDetails = true,
             bool refreshActiveStatus = true,
-            bool appendLoadLog = true)
+            bool appendLoadLog = true,
+            bool skipPendingAnnotationSave = false)
         {
             if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
             {
@@ -76,11 +85,15 @@ namespace MvcVisionSystem
                 return false;
             }
 
-            if (context.TrySavePendingAnnotationsBeforeImageChange?.Invoke(imagePath) == false)
+            if (!skipPendingAnnotationSave && context.TrySavePendingAnnotationsBeforeImageChange?.Invoke(imagePath) == false)
             {
                 return false;
             }
 
+            context.SaveActiveCandidateDraft?.Invoke();
+
+            context.EndTemporaryOriginalView?.Invoke();
+            context.EndTemporaryPan?.Invoke();
             context.PrepareForImageChange?.Invoke();
             Stopwatch loadStopwatch = Stopwatch.StartNew();
             long stepStartTicks = loadStopwatch.ElapsedTicks;
@@ -113,7 +126,7 @@ namespace MvcVisionSystem
                 decodeMilliseconds = ImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
 
                 string imageName = Path.GetFileNameWithoutExtension(imagePath);
-                context.LoadImageToCanvas?.Invoke(imageMat, Path.GetFileName(imagePath));
+                context.LoadImageToCanvas?.Invoke(imageMat, Path.GetFileName(imagePath), imagePath);
                 canvasUploadMilliseconds = ImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
                 if (!context.ImageViewerLoadOverrideProvider())
                 {
@@ -135,6 +148,8 @@ namespace MvcVisionSystem
                 int loadedSavedBoxCount = context.LoadSavedBoxAnnotationsForActiveImage?.Invoke(imagePath) ?? 0;
                 int loadedSavedSegmentCount = context.LoadSavedSegmentationAnnotationsForActiveImage?.Invoke(imagePath) ?? 0;
                 context.LoadObjectMetadataForActiveImage?.Invoke(imagePath);
+                context.RestoreCandidateDraft?.Invoke(imagePath);
+                context.RefreshLabelSuspicionReview?.Invoke();
                 int loadedSavedAnnotationCount = loadedSavedBoxCount + loadedSavedSegmentCount;
                 annotationResetMilliseconds = ImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
                 if (populateQueue)
@@ -149,8 +164,18 @@ namespace MvcVisionSystem
                 context.SetModelStatus?.Invoke(
                     context.ImageLoadPresentationService.BuildModelStatus(
                         projectData.ProjectSettings?.PythonModel?.WeightsPath));
-                context.MarkAnnotationsSaved?.Invoke(
-                    context.ImageLoadPresentationService.BuildAnnotationLoadedStatus());
+                if (context.MarkAnnotationsLoaded != null)
+                {
+                    context.MarkAnnotationsLoaded(
+                        imagePath,
+                        loadedSavedBoxCount,
+                        loadedSavedSegmentCount);
+                }
+                else
+                {
+                    context.MarkAnnotationsSaved?.Invoke(
+                        context.ImageLoadPresentationService.BuildAnnotationLoadedStatus());
+                }
                 bool deferReviewRefresh = ShouldDeferImageLoadReviewRefresh(
                     populateQueue,
                     refreshQueueDetails,
@@ -283,11 +308,16 @@ namespace MvcVisionSystem
         internal Func<(bool IsReady, string Detail)> EnsureViewerReadyForImageLoad { get; init; }
         internal Func<bool> IsViewerVisible { get; init; }
         internal Action<string> ShowViewerUnavailable { get; init; }
-        internal Action<CvMat, string> LoadImageToCanvas { get; init; }
+        internal Action<CvMat, string, string> LoadImageToCanvas { get; init; }
         internal Action RefreshCanvas { get; init; }
         internal Action EnsureProjectSettings { get; init; }
         internal Func<string, bool> TrySavePendingAnnotationsBeforeImageChange { get; init; }
+        internal Action SaveActiveCandidateDraft { get; init; }
+        internal Action<string> RestoreCandidateDraft { get; init; }
+        internal Action RefreshLabelSuspicionReview { get; init; }
         internal Action PrepareForImageChange { get; init; }
+        internal Action EndTemporaryOriginalView { get; init; }
+        internal Action EndTemporaryPan { get; init; }
         internal Action ResetForImageChange { get; init; }
         internal Action UpdateDetectionResultOverlay { get; init; }
         internal Func<string, int> LoadSavedBoxAnnotationsForActiveImage { get; init; }
@@ -303,6 +333,7 @@ namespace MvcVisionSystem
         internal Func<ImageLoadDiagnostics> LastImageLoadDiagnosticsProvider { get; init; }
         internal Action<string> SetDatasetStatus { get; init; }
         internal Action<string> SetModelStatus { get; init; }
+        internal Action<string, int, int> MarkAnnotationsLoaded { get; init; }
         internal Action<string> MarkAnnotationsSaved { get; init; }
         internal Action<string> AppendLog { get; init; }
     }

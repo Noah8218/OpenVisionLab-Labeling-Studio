@@ -27,6 +27,7 @@ namespace MvcVisionSystem
         public WpfEnvironmentSetupCenterWindow(WpfEnvironmentSetupCenterViewModel viewModel = null)
         {
             InitializeComponent();
+            Resources["ApplicationBackgroundBrush"] = FindResource("RecipePageBrush");
             LocalizationTextRuntimeService.RegisterWindow(this);
             DataContext = viewModel ?? new WpfEnvironmentSetupCenterViewModel();
         }
@@ -56,7 +57,7 @@ namespace MvcVisionSystem
             }
 
             ApplicationThemeManager.Apply(this);
-            if (TryFindResource("AppBackgroundBrush") is MediaBrush background)
+            if (TryFindResource("RecipePageBrush") is MediaBrush background)
             {
                 Background = background;
             }

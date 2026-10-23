@@ -9,8 +9,8 @@ namespace MvcVisionSystem
 {
     public sealed class WpfShellLogPanelViewModel : WpfObservableViewModel, IDisposable
     {
-        private static readonly GridLength ExpandedLogPaneGridLengthValue = new GridLength(180D);
-        private static readonly GridLength CollapsedLogPaneGridLengthValue = new GridLength(42D);
+        private static readonly GridLength ExpandedLogPaneGridLengthValue = new GridLength(300D);
+        private static readonly GridLength CollapsedLogPaneGridLengthValue = new GridLength(44D);
         private static readonly GridLength ExpandedSeparatorGridLengthValue = new GridLength(10D);
         private static readonly GridLength CollapsedSeparatorGridLengthValue = new GridLength(6D);
 

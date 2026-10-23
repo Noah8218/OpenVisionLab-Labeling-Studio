@@ -1,6 +1,8 @@
 using MvcVisionSystem._1._Core;
+using OpenVisionLab;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace MvcVisionSystem
 {
@@ -38,6 +40,17 @@ namespace MvcVisionSystem
             state?.ApplyConfirmation(plan?.ConfirmableCandidates);
         }
 
+        public WpfCandidateConfirmationResult BuildDraftResult(string scope, WpfCandidateConfirmationPlan plan)
+        {
+            int confirmedCount = plan?.ConfirmableCandidates?.Count ?? 0;
+            int skippedDuplicateCount = plan?.SkippedDuplicateCount ?? 0;
+            string message = string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.Draft.Confirmed"), scope ?? string.Empty, confirmedCount);
+            string duplicateMessage = skippedDuplicateCount > 0
+                ? string.Format(CultureInfo.CurrentCulture, OpenVisionLanguageService.T("WpfCandidate.Draft.Duplicates"), skippedDuplicateCount)
+                : string.Empty;
+            return new WpfCandidateConfirmationResult(message, message, duplicateMessage, confirmedCount, skippedDuplicateCount, saved: false, savedCount: 0);
+        }
+
         public WpfCandidateConfirmationResult BuildConfirmedResult(
             string scope,
             WpfCandidateConfirmationPlan plan,
@@ -49,13 +62,13 @@ namespace MvcVisionSystem
             int skippedDuplicateCount = plan?.SkippedDuplicateCount ?? 0;
             string savedReviewText = saved
                 ? $"\uD30C\uC77C \uC800\uC7A5 {savedCount}\uAC1C"
-                : "\uC800\uC7A5 \uAC74\uB108\uB700";
+                : "\uC800\uC7A5 \uC2E4\uD328";
             string duplicateReviewText = skippedDuplicateCount > 0
                 ? $" / \uC911\uBCF5 \uC81C\uC678 {skippedDuplicateCount}\uAC1C"
                 : string.Empty;
             string savedLogText = saved
                 ? $" \uC800\uC7A5 \uB77C\uBCA8 {savedCount}\uAC1C \uD30C\uC77C \uBC18\uC601. {labelPathSummary ?? string.Empty}"
-                : " \uC800\uC7A5 \uAC74\uB108\uB700.";
+                : " \uC800\uC7A5 \uC2E4\uD328. \uC800\uC7A5 \uACBD\uB85C\uB97C \uD655\uC778\uD558고 \uB2E4\uC2DC \uC2DC\uB3C4\uD558\uC138\uC694.";
 
             return new WpfCandidateConfirmationResult(
                 $"\uD655\uC815({scope}): {confirmedCount}\uAC1C / {savedReviewText}{duplicateReviewText}",
@@ -77,7 +90,7 @@ namespace MvcVisionSystem
         private static string BuildUnavailableLogMessage(WpfCandidateConfirmationPlan plan)
         {
             return (plan?.DuplicatePendingCount ?? 0) > 0
-                ? $"\uC911\uBCF5 \uAC00\uB2A5 \uD6C4\uBCF4 {plan.DuplicatePendingCount}\uAC1C\uB294 \uD655\uC815\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4. \uD544\uC694\uD558\uBA74 \uAE30\uC874 \uB77C\uBCA8\uC744 \uD655\uC778\uD558\uAC70\uB098 \uD6C4\uBCF4\uB97C \uC2A4\uD0B5\uD558\uC138\uC694."
+                ? $"\uC911\uBCF5 \uAC00\uB2A5 \uD6C4\uBCF4 {plan.DuplicatePendingCount}\uAC1C\uB294 \uD655\uC815\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4. \uD544\uC694\uD558\uBA74 \uAE30\uC874 \uB77C\uBCA8\uC744 \uD655\uC778\uD558\uAC70\uB098 \uD6C4\uBCF4\uB97C \uAC74\uB108\uB6F0\uC138\uC694."
                 : "\uD655\uC815 \uAC00\uB2A5\uD55C AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
         }
     }

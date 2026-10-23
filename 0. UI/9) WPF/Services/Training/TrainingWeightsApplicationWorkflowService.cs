@@ -129,7 +129,6 @@ namespace MvcVisionSystem
             string baselineWeightsPath = File.Exists(currentWeightsPath)
                 ? currentWeightsPath
                 : string.Empty;
-            settings.WeightsPath = candidateWeightsPath;
             RecordAppliedWeights(
                 data,
                 candidateWeightsPath,

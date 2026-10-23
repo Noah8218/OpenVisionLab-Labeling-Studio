@@ -109,8 +109,9 @@ namespace MvcVisionSystem.Yolo
             {
                 bitmap.UnlockBits(bitmapData);
             }
-            using FileStream output = File.Create(path);
+            using var output = new MemoryStream();
             bitmap.Save(output, ImageFormat.Png);
+            File.WriteAllBytes(path, output.ToArray());
         }
     }
 

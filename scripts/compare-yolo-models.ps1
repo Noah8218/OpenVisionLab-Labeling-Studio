@@ -3,6 +3,8 @@ param(
     [string]$YoloProjectRoot = "",
     [string]$YoloSourceRoot = "",
     [string]$DataYaml = "",
+    [string]$DatasetVersionId = "",
+    [string]$DatasetContentSha256 = "",
     [string]$BaselineWeights = "",
     [string]$CandidateWeights = "",
     [string]$BaselinePythonExe = "",
@@ -1536,6 +1538,7 @@ function New-GroundTruthReview(
 
     $falseNegativeExamples = New-Object System.Collections.Generic.List[object]
     $falsePositiveExamples = New-Object System.Collections.Generic.List[object]
+    $imageReviews = New-Object System.Collections.Generic.List[object]
     $imageCount = 0
     foreach ($imagePath in @(Get-SplitImagePaths $Evidence.imagesPath)) {
         $imageCount++
@@ -1543,6 +1546,9 @@ function New-GroundTruthReview(
         $predictionPath = Join-Path $Model.labelsPath (([System.IO.Path]::GetFileNameWithoutExtension($imagePath)) + ".txt")
         $predictions = @(Read-YoloDetectionBoxes $predictionPath $true $ConfidenceThreshold | Sort-Object confidence -Descending)
         $matchedGroundTruth = New-Object 'System.Collections.Generic.HashSet[int]'
+        $matchedPredictions = New-Object System.Collections.Generic.List[object]
+        $extraPredictions = New-Object System.Collections.Generic.List[object]
+        $missedAnswers = New-Object System.Collections.Generic.List[object]
 
         foreach ($answer in $groundTruth) {
             if ($classStats.ContainsKey([int]$answer.classId)) {
@@ -1582,11 +1588,13 @@ function New-GroundTruthReview(
             if ($bestUnmatchedIndex -ge 0 -and $bestUnmatchedIou -ge $IouThreshold) {
                 [void]$matchedGroundTruth.Add($bestUnmatchedIndex)
                 $stats["truePositiveCount"] = [int]$stats["truePositiveCount"] + 1
+                if ($IncludeExamples) { $matchedPredictions.Add((ConvertTo-GroundTruthReviewBox $prediction $true)) }
                 continue
             }
 
             $stats["falsePositiveCount"] = [int]$stats["falsePositiveCount"] + 1
             if ($IncludeExamples) {
+                $extraPredictions.Add((ConvertTo-GroundTruthReviewBox $prediction $true))
                 $falsePositiveExamples.Add([ordered]@{
                     imagePath = $imagePath
                     imageName = [System.IO.Path]::GetFileName($imagePath)
@@ -1626,6 +1634,7 @@ function New-GroundTruthReview(
             }
 
             if ($IncludeExamples) {
+                $missedAnswers.Add((ConvertTo-GroundTruthReviewBox $answer $false))
                 $falseNegativeExamples.Add([ordered]@{
                     imagePath = $imagePath
                     imageName = [System.IO.Path]::GetFileName($imagePath)
@@ -1638,6 +1647,17 @@ function New-GroundTruthReview(
                     groundTruthBox = ConvertTo-GroundTruthReviewBox $answer $false
                 })
             }
+        }
+        if ($IncludeExamples) {
+            $imageReviews.Add([ordered]@{
+                imagePath = $imagePath
+                imageName = [System.IO.Path]::GetFileName($imagePath)
+                groundTruth = @($groundTruth | Where-Object { $classStats.ContainsKey([int]$_.classId) } | ForEach-Object { ConvertTo-GroundTruthReviewBox $_ $false })
+                imageSha256 = Get-FileSha256 $imagePath
+                truePositives = @($matchedPredictions.ToArray())
+                falsePositives = @($extraPredictions.ToArray())
+                falseNegatives = @($missedAnswers.ToArray())
+            })
         }
     }
 
@@ -1671,6 +1691,7 @@ function New-GroundTruthReview(
         perClass = $perClass
         examples = $examples
         maximumExampleCount = $MaximumGroundTruthErrorExamples
+        imageReviews = @($imageReviews.ToArray())
     }
 
     if ($IncludeThresholdSweep) {
@@ -1952,6 +1973,9 @@ function Write-MarkdownReport($Summary, [string]$Path) {
     if ($null -ne $Summary.runtimePreflight -and @($Summary.runtimePreflight.yoloV5CreatedCacheArtifactsRemoved).Count -gt 0) {
         $lines.Add("- YOLOv5 cache cleanup: removed ``$(@($Summary.runtimePreflight.yoloV5CreatedCacheArtifactsRemoved).Count)`` ``labels.cache`` artifact(s) created by this comparison.")
     }
+    if (-not [string]::IsNullOrWhiteSpace($Summary.runtimePreflight.pythonCompatibilityShimPath)) {
+        $lines.Add("- YOLOv5 NumPy compatibility: run-local startup shim ``$($Summary.runtimePreflight.pythonCompatibilityShimPath)``")
+    }
     if ($null -ne $evidence) {
         $lines.Add("- Data YAML SHA-256: ``$($evidence.dataYamlSha256)``")
         $lines.Add("- Evaluation evidence SHA-256: ``$($evidence.fingerprintSha256)`` (``$($evidence.fingerprintAlgorithm)``)")
@@ -2132,8 +2156,32 @@ $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $runOutputRoot = Join-Path $OutputDirectory $stamp
 New-Item -ItemType Directory -Force -Path $runOutputRoot | Out-Null
     $script:RuntimeDataYaml = New-ComparisonRuntimeDataYaml $DataYaml $runOutputRoot $requiresAsciiRuntimeSource
+$hadPythonPath = Test-Path Env:PYTHONPATH
+$previousPythonPath = $env:PYTHONPATH
+$pythonCompatibilityShimPath = ""
+if ($hasYoloV5Runtime) {
+    $pythonCompatibilityDirectory = Join-Path $runOutputRoot "python-compat"
+    New-Item -ItemType Directory -Force -Path $pythonCompatibilityDirectory | Out-Null
+    $pythonCompatibilityShimPath = Join-Path $pythonCompatibilityDirectory "sitecustomize.py"
+    $pythonCompatibilitySource = @'
+try:
+    import numpy as np
+    if not hasattr(np, "trapz") and hasattr(np, "trapezoid"):
+        np.trapz = np.trapezoid
+except ImportError:
+    pass
+'@
+    [System.IO.File]::WriteAllText($pythonCompatibilityShimPath, $pythonCompatibilitySource, [System.Text.UTF8Encoding]::new($false))
+    $env:PYTHONPATH = if ([string]::IsNullOrWhiteSpace($previousPythonPath)) {
+        $pythonCompatibilityDirectory
+    }
+    else {
+        $pythonCompatibilityDirectory + [System.IO.Path]::PathSeparator + $previousPythonPath
+    }
+}
 
 try {
+    $startingEvidence = New-ComparisonEvidence $DataYaml $Task $ModelTask $segmentationPositiveClass
     $baseline = Invoke-ModelValWithBenchmarkRepeats "baseline" $BaselineWeights $runOutputRoot $BaselinePythonExe $BaselineYoloSourceRoot $BaselineEngine $BenchmarkRepeatCount
     $candidate = Invoke-ModelValWithBenchmarkRepeats "candidate" $CandidateWeights $runOutputRoot $CandidatePythonExe $CandidateYoloSourceRoot $CandidateEngine $BenchmarkRepeatCount
     $evidence = New-ComparisonEvidence $DataYaml $Task $ModelTask $segmentationPositiveClass
@@ -2145,10 +2193,20 @@ try {
         Add-SegmentationPredictionImageEvidence $baseline $evidence $UiConfidence
         Add-SegmentationPredictionImageEvidence $candidate $evidence $UiConfidence
     }
+    $endingEvidence = New-ComparisonEvidence $DataYaml $Task $ModelTask $segmentationPositiveClass
+    if ($startingEvidence.fingerprintSha256 -cne $evidence.fingerprintSha256 -or $evidence.fingerprintSha256 -cne $endingEvidence.fingerprintSha256) {
+        throw "The evaluation dataset changed during model comparison. Rerun with the current dataset."
+    }
 }
 finally {
     if ($hasYoloV5Runtime) {
         $yoloV5CreatedCacheArtifactsRemoved = @(Remove-YoloV5CreatedLabelCacheArtifacts $DataYaml $Task $yoloV5SourceCacheArtifactsBefore)
+    }
+    if ($hadPythonPath) {
+        $env:PYTHONPATH = $previousPythonPath
+    }
+    else {
+        Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
     }
 }
 $promotion = New-PromotionRecommendation $baseline $candidate $evidence $UiConfidence
@@ -2168,6 +2226,8 @@ if ($comparisonKind -ieq "engine-benchmark") {
 $summary = [ordered]@{
     createdAt = (Get-Date).ToString("o")
     dataYaml = $DataYaml
+    datasetVersionId = $DatasetVersionId
+    datasetContentSha256 = $DatasetContentSha256
     runtimeDataYaml = $script:RuntimeDataYaml
     runtimeDatasetRoot = $script:RuntimeDatasetRoot
     runtimeDatasetMaterialized = $script:RuntimeDatasetMaterialized
@@ -2180,6 +2240,7 @@ $summary = [ordered]@{
     uiConfidence = $UiConfidence
     uiNmsIou = $UiNmsIou
     runtimePreflight = [ordered]@{
+        pythonCompatibilityShimPath = $pythonCompatibilityShimPath
         yoloV5SourceCacheArtifactsBefore = @($yoloV5SourceCacheArtifactsBefore)
         yoloV5CreatedCacheArtifactsRemoved = @($yoloV5CreatedCacheArtifactsRemoved)
     }

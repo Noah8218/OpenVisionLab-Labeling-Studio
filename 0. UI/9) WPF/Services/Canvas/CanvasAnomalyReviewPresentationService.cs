@@ -6,13 +6,13 @@ namespace MvcVisionSystem
     /// </summary>
     public sealed class CanvasAnomalyReviewPresentationService
     {
-        public const double StandardAnnotationToolRailWidth = 46D;
-        public const double AnomalyAnnotationToolRailWidth = 0D;
+        public const double StandardAnnotationToolRailWidth = 52D;
+        public const double AnomalyAnnotationToolRailWidth = StandardAnnotationToolRailWidth;
 
         public CanvasAnomalyReviewPresentationSnapshot Build(bool isAnomalyImageReview)
         {
             return new CanvasAnomalyReviewPresentationSnapshot(
-                isWorkspaceVisible: !isAnomalyImageReview,
+                isWorkspaceVisible: true,
                 annotationToolRailWidth: isAnomalyImageReview
                     ? AnomalyAnnotationToolRailWidth
                     : StandardAnnotationToolRailWidth);

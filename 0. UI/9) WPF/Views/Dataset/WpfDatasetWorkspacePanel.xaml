@@ -1,0 +1,389 @@
+<UserControl x:Class="MvcVisionSystem.WpfDatasetWorkspacePanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:MvcVisionSystem"
+             xmlns:mvvm="clr-namespace:OpenVisionLab.Mvvm.Behaviors;assembly=OpenVisionLab.Mvvm"
+             FontFamily="{DynamicResource UiFontFamily}" FontSize="13"
+             Foreground="{DynamicResource RecipeTextBrush}" Background="{DynamicResource RecipePageBrush}"
+             AutomationProperties.AutomationId="DatasetWorkspace">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../../Themes/WpfButtonStateTemplates.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="DatasetBooleanToVisibility" />
+            <local:KoreanWordBoundaryConverter x:Key="KoreanWordBoundaryConverter" />
+            <Style x:Key="DatasetSectionStyle" TargetType="Border">
+                <Setter Property="Padding" Value="14,12" />
+                <Setter Property="BorderThickness" Value="0,0,0,1" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeBorderBrush}" />
+            </Style>
+            <Style x:Key="DatasetCaptionStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="LineHeight" Value="17.4" />
+                <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
+            <Style x:Key="DatasetSelectionButtonStyle" TargetType="Button" BasedOn="{StaticResource RecipeSecondaryButtonStyle}">
+                <Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" />
+            </Style>
+            <Style x:Key="DatasetSelectionQuietButtonStyle" TargetType="Button" BasedOn="{StaticResource RecipeQuietButtonStyle}">
+                <Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" />
+            </Style>
+            <Style x:Key="DatasetSectionTitleStyle" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" />
+                <Setter Property="LineHeight" Value="17.4" />
+                <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Margin" Value="0,0,0,8" />
+            </Style>
+            <Style x:Key="DatasetFilterStyle" TargetType="ListBoxItem">
+                <Setter Property="AutomationProperties.Name" Value="{Binding Text}" />
+                <Setter Property="Foreground" Value="{DynamicResource RecipeTextBrush}" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="8,1" />
+                <Setter Property="Margin" Value="0,0,4,4" />
+                <Setter Property="Height" Value="24" />
+                <Setter Property="MinHeight" Value="24" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeButtonHoverBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                    <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeSelectedBorderBrush}" /><Setter Property="Foreground" Value="#FFFFFF" /></Trigger>
+                    <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger>
+                    <MultiDataTrigger>
+                        <MultiDataTrigger.Conditions><Condition Binding="{Binding Key}" Value="noobj" /><Condition Binding="{Binding DataContext.DatasetWorkspaceViewModel.IsAnomalyPurpose, RelativeSource={RelativeSource AncestorType=local:WpfDatasetWorkspacePanel}}" Value="True" /></MultiDataTrigger.Conditions>
+                        <Setter Property="Visibility" Value="Collapsed" />
+                    </MultiDataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="DatasetTileStyle" TargetType="ListBoxItem">
+                <EventSetter Event="SizeChanged" Handler="OnTileSizeChanged" />
+                <Setter Property="mvvm:EventCommandBehavior.EventName" Value="MouseDoubleClick" />
+                <Setter Property="mvvm:EventCommandBehavior.Command" Value="{Binding DataContext.DatasetWorkspaceViewModel.OpenImageCommand, RelativeSource={RelativeSource AncestorType=local:WpfDatasetWorkspacePanel}}" />
+                <Setter Property="mvvm:EventCommandBehavior.CommandParameter" Value="{Binding}" />
+                <Setter Property="IsSelected" Value="{Binding IsDatasetGridSelected, Mode=OneWay}" />
+                <Setter Property="Background" Value="#11161D" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="2" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Margin" Value="0,0,10,10" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="ToolTip" Value="{Binding LocalizedQueueRowToolTip}" />
+                <Setter Property="AutomationProperties.Name" Value="{Binding LocalizedQueueRowAccessibleName}" />
+                <Setter Property="Width" Value="{Binding TileWidth, RelativeSource={RelativeSource AncestorType=local:WpfDatasetWorkspacePanel}}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" ClipToBounds="True">
+                                <ContentPresenter SizeChanged="OnTileContentSizeChanged" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
+                    <Trigger Property="IsSelected" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource RecipePrimaryBorderBrush}" /></Trigger>
+                    <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5" /></Trigger>
+                </Style.Triggers>
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="300" /><ColumnDefinition Width="*" /><ColumnDefinition Width="330" /></Grid.ColumnDefinitions>
+        <Border Grid.Column="0" Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,0,1,0">
+            <Border.Style><Style TargetType="Border"><Style.Triggers><DataTrigger Binding="{Binding DatasetWorkspaceViewModel.IsSplitSettingsOpen}" Value="True"><Setter Property="IsEnabled" Value="False" /></DataTrigger></Style.Triggers></Style></Border.Style>
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                    <Border Style="{StaticResource DatasetSectionStyle}">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,8">
+                                <Button DockPanel.Dock="Right" Height="24" MinHeight="24" FontSize="12" Padding="8,2" Command="{Binding DatasetWorkspaceViewModel.AddSourceFolderCommand}" Content="{Binding LanguageViewModel[WpfDatasetWorkspace.AddFolder]}" AutomationProperties.AutomationId="DatasetAddSourceFolderButton" AutomationProperties.Name="{Binding LanguageViewModel[WpfDatasetWorkspace.AddFolder]}">
+                                    <Button.Style><Style TargetType="Button" BasedOn="{StaticResource RecipeSecondaryButtonStyle}"><Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" /><Setter Property="FontWeight" Value="SemiBold" /></Style></Button.Style>
+                                </Button>
+                                <TextBlock Style="{StaticResource DatasetSectionTitleStyle}" Text="{Binding LanguageViewModel[WpfDatasetWorkspace.Source]}" Foreground="{DynamicResource RecipeMutedTextBrush}" Margin="0" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" />
+                            </DockPanel>
+                            <TextBlock Text="{Binding DatasetWorkspaceViewModel.SourceRoot}" FontSize="12" TextWrapping="Wrap" Margin="0" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" />
+                            <TextBlock Style="{StaticResource DatasetCaptionStyle}" Text="{Binding DatasetWorkspaceViewModel.SourceSummaryText}" Margin="0" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource DatasetSectionStyle}">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,8">
+                                <Button x:Name="DatasetAddClassButton" DockPanel.Dock="Right" Height="24" MinHeight="24" FontSize="12" Padding="8,2" Command="{Binding ShellViewModel.ShowClassCatalogViewCommand}" CommandParameter="Add" Content="{Binding LanguageViewModel[WpfDatasetWorkspace.AddClass]}">
+                                    <Button.Style><Style TargetType="Button" BasedOn="{StaticResource RecipeSecondaryButtonStyle}"><Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" /><Setter Property="FontWeight" Value="SemiBold" /></Style></Button.Style>
+                                </Button>
+                                <TextBlock Style="{StaticResource DatasetSectionTitleStyle}" Text="{Binding DatasetWorkspaceViewModel.ClassTitleText}" Margin="0" />
+                            </DockPanel>
+                            <ItemsControl x:Name="DatasetClassRows" ItemsSource="{Binding DatasetWorkspaceViewModel.Classes}">
+                                <ItemsControl.ItemTemplate><DataTemplate>
+                                    <Border MinHeight="30" Padding="8,5" BorderThickness="1" BorderBrush="Transparent" CornerRadius="6">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="22" /><ColumnDefinition Width="26" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <Border Background="{Binding DrawBrush}" Width="12" Height="12" CornerRadius="3" HorizontalAlignment="Left" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Number}" FontFamily="Consolas" FontSize="11" Foreground="{DynamicResource RecipeDisabledTextBrush}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Name}" FontSize="13" TextWrapping="Wrap" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{Binding CountText}" Style="{StaticResource DatasetCaptionStyle}" Margin="8,0,0,0" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Typography.NumeralAlignment="Tabular" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate></ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Style="{StaticResource DatasetCaptionStyle}" Text="{Binding LanguageViewModel[WpfDatasetWorkspace.ClassHint]}" Foreground="{DynamicResource RecipeDisabledTextBrush}" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource DatasetSectionStyle}">
+                        <StackPanel>
+                            <DockPanel>
+                                <Button x:Name="DatasetSplitSettingsButton" AutomationProperties.AutomationId="DatasetSplitSettingsButton" DockPanel.Dock="Right" Style="{StaticResource RecipeSecondaryButtonStyle}" Height="24" MinHeight="24" FontSize="12" Padding="8,2" Command="{Binding DatasetWorkspaceViewModel.OpenSplitSettingsCommand}" Content="{Binding LanguageViewModel[WpfDatasetWorkspace.SplitSettings.Open]}" />
+                                <TextBlock Style="{StaticResource DatasetSectionTitleStyle}" Text="{Binding LanguageViewModel[WpfDatasetWorkspace.SplitTitle]}" />
+                            </DockPanel>
+                            <Border Height="10" Background="#262E3A" CornerRadius="3" ClipToBounds="True">
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="{Binding DatasetWorkspaceViewModel.TrainShare}" /><ColumnDefinition Width="{Binding DatasetWorkspaceViewModel.ValidShare}" /><ColumnDefinition Width="{Binding DatasetWorkspaceViewModel.TestShare}" /><ColumnDefinition Width="{Binding DatasetWorkspaceViewModel.ExcludedShare}" /></Grid.ColumnDefinitions><Border Background="#4C8DFF" /><Border Grid.Column="1" Background="#A78BFA" /><Border Grid.Column="2" Background="#F5A524" /></Grid>
+                            </Border>
+                            <TextBlock x:Name="DatasetSplitLegend" AutomationProperties.Name="{Binding DatasetWorkspaceViewModel.SplitSummaryText}" FontSize="12" TextWrapping="Wrap" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Margin="0,6,0,6">
+                                <Run Text="■" Foreground="#8DB4FF" /><Run Text=" " /><Run Text="{Binding LanguageViewModel[WpfDatasetWorkspace.Split.train], Mode=OneWay}" /><Run Text=" " /><Run Text="{Binding DatasetWorkspaceViewModel.TrainCount, Mode=OneWay}" /><Run Text=" · " /><Run Text="■" Foreground="#C4B0FF" /><Run Text=" " /><Run Text="{Binding LanguageViewModel[WpfDatasetWorkspace.Split.valid], Mode=OneWay}" /><Run Text=" " /><Run Text="{Binding DatasetWorkspaceViewModel.ValidCount, Mode=OneWay}" /><Run Text=" · " /><Run Text="■" Foreground="#F5C26B" /><Run Text=" " /><Run Text="{Binding LanguageViewModel[WpfDatasetWorkspace.Split.test], Mode=OneWay}" /><Run Text=" " /><Run Text="{Binding DatasetWorkspaceViewModel.TestCount, Mode=OneWay}" /><Run Text="{Binding DatasetWorkspaceViewModel.ExcludedSummaryText, Mode=OneWay}" />
+                            </TextBlock>
+                            <TextBlock Style="{StaticResource DatasetCaptionStyle}" Text="{Binding LanguageViewModel[WpfDatasetWorkspace.SplitHint]}" Foreground="{DynamicResource RecipeDisabledTextBrush}" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource DatasetSectionStyle}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource DatasetSectionTitleStyle}" Text="{Binding LanguageViewModel[WpfDatasetWorkspace.Version]}" />
+                            <Border Background="{DynamicResource RecipeSelectedBrush}" BorderBrush="{DynamicResource RecipeSelectedBorderBrush}" BorderThickness="1" SizeChanged="OnDatasetVersionBadgeSizeChanged" Padding="8,1" HorizontalAlignment="Left">
+                                <TextBlock Text="{Binding ProjectConfigViewModel.DatasetVersionText}" FontFamily="{DynamicResource UiFontFamily}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Foreground="#B9D3FF" Typography.NumeralAlignment="Tabular" TextWrapping="Wrap" />
+                            </Border>
+                            <TextBlock Style="{StaticResource DatasetCaptionStyle}" Text="{Binding LanguageViewModel[WpfDatasetWorkspace.VersionHint]}" Foreground="{DynamicResource RecipeDisabledTextBrush}" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+        <Grid Grid.Column="1" MinWidth="0">
+            <Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding DatasetWorkspaceViewModel.IsSplitSettingsOpen}" Value="True"><Setter Property="IsEnabled" Value="False" /></DataTrigger></Style.Triggers></Style></Grid.Style>
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+            <Border Background="{DynamicResource RecipePageBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,0,0,1" Padding="12,10">
+                <Grid VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <Grid Margin="0,0,8,0">
+                        <TextBox x:Name="DatasetSearchBox" AutomationProperties.AutomationId="DatasetSearchBox" AutomationProperties.Name="{Binding LanguageViewModel[WpfDatasetWorkspace.Search]}" Width="220" Style="{StaticResource RecipeInputStyle}" Height="31" Padding="8,5" Text="{Binding DatasetWorkspaceViewModel.SearchText, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding LanguageViewModel[WpfDatasetWorkspace.Search]}" />
+                        <TextBlock x:Name="DatasetSearchPlaceholder" Text="{Binding LanguageViewModel[WpfDatasetWorkspace.Search]}" Margin="9,0" VerticalAlignment="Center" Foreground="{DynamicResource RecipeMutedTextBrush}" IsHitTestVisible="False">
+                            <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=DatasetSearchBox}" Value=""><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                    <ComboBox x:Name="DatasetSplitFilter" Grid.Column="1" AutomationProperties.AutomationId="DatasetSplitFilter" AutomationProperties.Name="{Binding LanguageViewModel[WpfDatasetWorkspace.SplitFilter]}" Margin="0,0,8,0" Style="{StaticResource RecipeComboBoxStyle}" Height="31" Padding="8,5,28,5" ItemsSource="{Binding DatasetWorkspaceViewModel.SplitChoices}" DisplayMemberPath="Text" SelectedItem="{Binding DatasetWorkspaceViewModel.SelectedSplit}" />
+                    <TextBlock x:Name="DatasetShownText" Grid.Column="3" Text="{Binding DatasetWorkspaceViewModel.ShownText}" Style="{StaticResource DatasetCaptionStyle}" VerticalAlignment="Center" />
+                </Grid>
+            </Border>
+            <Border x:Name="DatasetFilterFrame" Grid.Row="1" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,0,0,1">
+                <ListBox x:Name="DatasetStatusFilters" AutomationProperties.AutomationId="DatasetStatusFilters" Background="Transparent" BorderThickness="0" Padding="12,8,8,4"
+                         ItemsSource="{Binding DatasetWorkspaceViewModel.Filters}" SelectedItem="{Binding DatasetWorkspaceViewModel.SelectedFilter}" ItemContainerStyle="{StaticResource DatasetFilterStyle}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate><DataTemplate>
+                        <TextBlock LineHeight="17.4" LineStackingStrategy="BlockLineHeight"><Run Text="{Binding Caption, Mode=OneWay}" /><Run Text=" " /><Run Text="{Binding Count, Mode=OneWay}" Foreground="{DynamicResource RecipeDisabledTextBrush}" /></TextBlock>
+                    </DataTemplate></ListBox.ItemTemplate>
+                    <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel Margin="{Binding Padding, RelativeSource={RelativeSource AncestorType=ListBox}}" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                </ListBox>
+            </Border>
+            <ListBox x:Name="DatasetGrid" Grid.Row="2" AutomationProperties.AutomationId="DatasetGrid" Background="Transparent" BorderThickness="0" Padding="12" SelectionMode="Extended"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="False"
+                     ItemsSource="{Binding DatasetWorkspaceViewModel.Items}" ItemContainerStyle="{StaticResource DatasetTileStyle}"
+                     mvvm:EventCommandBehavior.EventName="SelectionChanged" mvvm:EventCommandBehavior.Command="{Binding DatasetWorkspaceViewModel.SelectionChangedCommand}" mvvm:EventCommandBehavior.CommandParameter="{Binding SelectedItems, RelativeSource={RelativeSource Self}}">
+                <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel Margin="{Binding Padding, RelativeSource={RelativeSource AncestorType=ListBox}}" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                <ListBox.ItemTemplate><DataTemplate>
+                    <StackPanel>
+                        <Grid Height="{Binding TileImageHeight, RelativeSource={RelativeSource AncestorType=local:WpfDatasetWorkspacePanel}}">
+                            <Image Source="{Binding GridThumbnailSource}" Stretch="Uniform" />
+                            <Grid VerticalAlignment="Top" Margin="5">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <Border Background="{DynamicResource RecipeButtonBrush}" BorderBrush="{DynamicResource RecipeButtonBorderBrush}" BorderThickness="1" CornerRadius="7.75" Padding="6,0" Margin="0,0,4,0" HorizontalAlignment="Left"><TextBlock Text="{Binding DatasetSplitText}" FontSize="10" LineHeight="14.5" LineStackingStrategy="BlockLineHeight" /></Border>
+                                <Border Grid.Column="1" Background="{DynamicResource RecipeButtonBrush}" BorderBrush="{DynamicResource RecipeButtonBorderBrush}" BorderThickness="1" CornerRadius="7.75" Padding="6,0">
+                                    <Border.Style><Style TargetType="Border"><Style.Triggers><DataTrigger Binding="{Binding HasAnomalyVerdict}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Border.Style>
+                                    <TextBlock Text="{Binding DatasetAnnotationCountText}" FontSize="10" LineHeight="14.5" LineStackingStrategy="BlockLineHeight" />
+                                </Border>
+                                <Border Grid.Column="1" CornerRadius="4" Padding="6,0" Visibility="{Binding HasAnomalyVerdict, Converter={StaticResource DatasetBooleanToVisibility}}">
+                                    <Border.Style><Style TargetType="Border">
+                                        <Setter Property="Background" Value="{Binding QueueBadgeBackgroundBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding AnomalyReviewState}" Value="Normal"><Setter Property="Background" Value="#CC17402F" /></DataTrigger>
+                                            <DataTrigger Binding="{Binding AnomalyReviewState}" Value="Abnormal"><Setter Property="Background" Value="#CC46202A" /></DataTrigger>
+                                        </Style.Triggers>
+                                    </Style></Border.Style>
+                                    <TextBlock Text="{Binding LocalizedAnomalyVerdictText}" FontSize="11" FontWeight="Bold" LineHeight="15.95" LineStackingStrategy="BlockLineHeight">
+                                        <TextBlock.Style><Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{Binding QueueIconBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding AnomalyReviewState}" Value="Normal"><Setter Property="Foreground" Value="#9BE8C4" /></DataTrigger>
+                                                <DataTrigger Binding="{Binding AnomalyReviewState}" Value="Abnormal"><Setter Property="Foreground" Value="#FFB3B3" /></DataTrigger>
+                                            </Style.Triggers>
+                                        </Style></TextBlock.Style>
+                                    </TextBlock>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                        <Border Background="#151A21" Padding="7,4">
+                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding FileName}" FontSize="11" LineHeight="15.95" LineStackingStrategy="BlockLineHeight" TextTrimming="CharacterEllipsis" ToolTip="{Binding FileName}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{Binding DatasetReviewStatusText, StringFormat='● {0}'}" Foreground="{Binding DatasetReviewStatusBrush}" FontSize="11" LineHeight="15.95" LineStackingStrategy="BlockLineHeight" Margin="6,0,0,0" VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </DataTemplate></ListBox.ItemTemplate>
+                <ListBox.InputBindings><KeyBinding Key="Enter" Command="{Binding DatasetWorkspaceViewModel.OpenSelectedCommand}" /></ListBox.InputBindings>
+            </ListBox>
+            <Border x:Name="DatasetEmptyCell" Grid.Row="2" Width="{Binding TileWidth, RelativeSource={RelativeSource AncestorType=local:WpfDatasetWorkspacePanel}}"
+                    Margin="{Binding Padding, ElementName=DatasetGrid}" Padding="16,28" HorizontalAlignment="Left" VerticalAlignment="Top"
+                    Visibility="{Binding DatasetWorkspaceViewModel.IsEmpty, Converter={StaticResource DatasetBooleanToVisibility}}" IsHitTestVisible="False">
+                <TextBlock x:Name="DatasetEmptyText" Text="{Binding LanguageViewModel[WpfDatasetWorkspace.Empty], Mode=OneWay, Converter={StaticResource KoreanWordBoundaryConverter}}"
+                           AutomationProperties.Name="{Binding LanguageViewModel[WpfDatasetWorkspace.Empty], Mode=OneWay}" FontSize="13" Foreground="{DynamicResource RecipeMutedTextBrush}"
+                           TextWrapping="Wrap" TextAlignment="Center" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" />
+            </Border>
+            <Border Grid.Row="3" Background="{DynamicResource RecipePageBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,1,0,0" Padding="12,8"
+                    Visibility="{Binding DatasetWorkspaceViewModel.HasSelection, Converter={StaticResource DatasetBooleanToVisibility}}">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <WrapPanel Grid.Column="0" Margin="0,0,8,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding DatasetWorkspaceViewModel.SelectionText}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource RecipeMutedTextBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding LanguageViewModel[WpfDatasetWorkspace.Assign]}" Style="{StaticResource DatasetCaptionStyle}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <ItemsControl ItemsSource="{Binding DatasetWorkspaceViewModel.AssignmentChoices}">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate><DataTemplate>
+                                <Button Style="{StaticResource DatasetSelectionButtonStyle}" Content="{Binding Text}" Height="24" MinHeight="24" FontSize="12" Padding="8,2" Margin="0,0,8,0"
+                                        Command="{Binding DataContext.DatasetWorkspaceViewModel.AssignSplitCommand, RelativeSource={RelativeSource AncestorType=local:WpfDatasetWorkspacePanel}}" CommandParameter="{Binding Key}" />
+                            </DataTemplate></ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </WrapPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="DatasetOpenSelectedButton" Style="{StaticResource DatasetSelectionButtonStyle}" Content="{Binding LanguageViewModel[WpfDatasetWorkspace.OpenLabeling]}" Height="24" MinHeight="24" FontSize="12" Padding="8,2" Margin="0,0,8,0" Command="{Binding DatasetWorkspaceViewModel.OpenSelectedCommand}" />
+                        <Button x:Name="DatasetClearSelectionButton" Style="{StaticResource DatasetSelectionQuietButtonStyle}" Content="{Binding LanguageViewModel[WpfDatasetWorkspace.Clear]}" Height="24" MinHeight="24" FontSize="12" Padding="8,2" Margin="0" Command="{Binding DatasetWorkspaceViewModel.ClearSelectionCommand}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <TextBlock x:Name="DatasetOperationStatus" Grid.Row="4" Text="{Binding DatasetWorkspaceViewModel.OperationStatus}" Margin="12,0,12,6">
+                <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource DatasetCaptionStyle}"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed" /></Trigger></Style.Triggers></Style></TextBlock.Style>
+            </TextBlock>
+        </Grid>
+        <Border Grid.Column="2" Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1,0,0,0">
+            <Border.Style><Style TargetType="Border"><Style.Triggers><DataTrigger Binding="{Binding DatasetWorkspaceViewModel.IsSplitSettingsOpen}" Value="True"><Setter Property="IsEnabled" Value="False" /></DataTrigger></Style.Triggers></Style></Border.Style>
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                <Border Style="{StaticResource DatasetSectionStyle}" Padding="12,10"><TextBlock Text="{Binding LanguageViewModel[WpfDatasetWorkspace.CheckTitle]}" FontSize="15" FontWeight="SemiBold" LineHeight="21.75" LineStackingStrategy="BlockLineHeight" /></Border>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
+                        <Border Style="{StaticResource DatasetSectionStyle}">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,6">
+                                    <TextBlock Width="18" FontSize="12" Margin="0,0,6,0" LineHeight="17.4" LineStackingStrategy="BlockLineHeight"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="✓" /><Setter Property="Foreground" Value="#3CCF8E" /><Style.Triggers><DataTrigger Binding="{Binding DatasetWorkspaceViewModel.HasUnworked}" Value="True"><Setter Property="Text" Value="!" /><Setter Property="Foreground" Value="#F2B84B" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                                    <TextBlock Style="{StaticResource DatasetCaptionStyle}" Text="{Binding DatasetWorkspaceViewModel.UnworkedCheckText}" Foreground="{DynamicResource RecipeTextBrush}" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" />
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,6">
+                                    <TextBlock Width="18" FontSize="12" Margin="0,0,6,0" LineHeight="17.4" LineStackingStrategy="BlockLineHeight"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="✓" /><Setter Property="Foreground" Value="#3CCF8E" /><Style.Triggers><DataTrigger Binding="{Binding DatasetWorkspaceViewModel.HasRejected}" Value="True"><Setter Property="Text" Value="✕" /><Setter Property="Foreground" Value="#F06A6A" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                                    <TextBlock Style="{StaticResource DatasetCaptionStyle}" Text="{Binding DatasetWorkspaceViewModel.RejectedCheckText}" Foreground="{DynamicResource RecipeTextBrush}" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" />
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,6">
+                                    <TextBlock Width="18" FontSize="12" Margin="0,0,6,0" LineHeight="17.4" LineStackingStrategy="BlockLineHeight"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="✓" /><Setter Property="Foreground" Value="#3CCF8E" /><Style.Triggers><DataTrigger Binding="{Binding DatasetWorkspaceViewModel.HasSmallClasses}" Value="True"><Setter Property="Text" Value="!" /><Setter Property="Foreground" Value="#F2B84B" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                                    <TextBlock Style="{StaticResource DatasetCaptionStyle}" Text="{Binding DatasetWorkspaceViewModel.ClassCheckText}" Foreground="{DynamicResource RecipeTextBrush}" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" />
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,6">
+                                    <TextBlock Width="18" FontSize="12" Margin="0,0,6,0" LineHeight="17.4" LineStackingStrategy="BlockLineHeight"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="✓" /><Setter Property="Foreground" Value="#3CCF8E" /><Style.Triggers><DataTrigger Binding="{Binding DatasetWorkspaceViewModel.HasInsufficientTest}" Value="True"><Setter Property="Text" Value="!" /><Setter Property="Foreground" Value="#F2B84B" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                                    <TextBlock Style="{StaticResource DatasetCaptionStyle}" Text="{Binding DatasetWorkspaceViewModel.TestCheckText}" Foreground="{DynamicResource RecipeTextBrush}" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" />
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Width="18" FontSize="12" Margin="0,0,6,0" LineHeight="17.4" LineStackingStrategy="BlockLineHeight"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="✓" /><Setter Property="Foreground" Value="#3CCF8E" /><Style.Triggers><DataTrigger Binding="{Binding DatasetWorkspaceViewModel.HasSplitCheckWarning}" Value="True"><Setter Property="Text" Value="!" /><Setter Property="Foreground" Value="#F2B84B" /></DataTrigger><DataTrigger Binding="{Binding DatasetWorkspaceViewModel.HasSplitOverlap}" Value="True"><Setter Property="Text" Value="✕" /><Setter Property="Foreground" Value="#F06A6A" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                                    <TextBlock x:Name="DatasetSplitCheckText" Style="{StaticResource DatasetCaptionStyle}" Text="{Binding DatasetWorkspaceViewModel.SplitCheckText}" Foreground="{DynamicResource RecipeTextBrush}" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" ToolTip="{Binding DatasetWorkspaceViewModel.SplitCheckDetail}" />
+                                </DockPanel>
+                                <Button Style="{StaticResource RecipeSecondaryButtonStyle}" Height="24" MinHeight="24" FontSize="12" Padding="8,2" HorizontalAlignment="Left" Command="{Binding ShellViewModel.OpenDatasetHealthCommand}" Content="{Binding LanguageViewModel[WpfDatasetWorkspace.CheckDetails]}" />
+                                <StackPanel Visibility="{Binding DatasetWorkspaceViewModel.HasLabelSuspicionImages, Converter={StaticResource DatasetBooleanToVisibility}}" Margin="0,10,0,0">
+                                    <TextBlock Text="{Binding DatasetWorkspaceViewModel.LabelSuspicionCheckText}" Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" FontSize="12" />
+                                    <Button x:Name="DatasetLabelSuspicionReviewButton" AutomationProperties.AutomationId="DatasetLabelSuspicionReviewButton" Command="{Binding DatasetWorkspaceViewModel.OpenLabelSuspicionReviewCommand}" Content="{Binding DatasetWorkspaceViewModel.LabelSuspicionReviewText}" Style="{StaticResource RecipeSecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,6,0,0" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource DatasetSectionStyle}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource DatasetSectionTitleStyle}" Text="{Binding LanguageViewModel[WpfDatasetWorkspace.Exchange]}" />
+                                <WrapPanel>
+                                    <Button Style="{StaticResource RecipeSecondaryButtonStyle}" Height="24" MinHeight="24" FontSize="12" Padding="8,2" Margin="0,0,8,0" Command="{Binding ShellViewModel.OpenDatasetInterchangeCommand}" CommandParameter="Import" Content="{Binding LanguageViewModel[WpfDatasetWorkspace.Import]}" />
+                                    <Button Style="{StaticResource RecipeSecondaryButtonStyle}" Height="24" MinHeight="24" FontSize="12" Padding="8,2" Margin="0" Command="{Binding ShellViewModel.OpenDatasetInterchangeCommand}" CommandParameter="Export" Content="{Binding LanguageViewModel[WpfDatasetWorkspace.Export]}" />
+                                </WrapPanel>
+                                <TextBlock Style="{StaticResource DatasetCaptionStyle}" Text="{Binding LanguageViewModel[WpfDatasetWorkspace.ExchangeHint]}" Foreground="{DynamicResource RecipeDisabledTextBrush}" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Margin="0,6,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+                <Border Grid.Row="2" Background="{DynamicResource PanelHeaderBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,1,0,0" Padding="14,12">
+                    <StackPanel>
+                        <Button x:Name="DatasetContinueButton" AutomationProperties.AutomationId="DatasetContinueButton" Style="{StaticResource RecipePrimaryButtonStyle}" Height="40" MinHeight="40" FontSize="14" Padding="10,5" FontWeight="SemiBold" Command="{Binding DatasetWorkspaceViewModel.ContinueLabelingCommand}" Content="{Binding DatasetWorkspaceViewModel.ContinueText}" Margin="0,0,0,8" />
+                        <Button Style="{StaticResource RecipeSecondaryButtonStyle}" Height="30" MinHeight="30" Padding="10,5" Command="{Binding ShellViewModel.TrainingModelCenterCommand}" Content="{Binding LanguageViewModel[WpfDatasetWorkspace.Training]}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+        <Grid x:Name="DatasetSplitSettingsOverlay" AutomationProperties.AutomationId="DatasetSplitSettingsOverlay" Grid.ColumnSpan="3" Panel.ZIndex="10" Background="#B305080C"
+              Visibility="{Binding DatasetWorkspaceViewModel.IsSplitSettingsOpen, Converter={StaticResource DatasetBooleanToVisibility}}" KeyboardNavigation.TabNavigation="Cycle" IsVisibleChanged="OnSplitSettingsVisibilityChanged">
+            <Grid.InputBindings><KeyBinding Key="Escape" Command="{Binding DatasetWorkspaceViewModel.CancelSplitSettingsCommand}" /></Grid.InputBindings>
+            <Border x:Name="DatasetSplitSettingsSurface" Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeButtonBorderBrush}" BorderThickness="1" CornerRadius="11.5" Padding="0" Margin="20" Width="520" MaxHeight="650" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <DockPanel x:Name="DatasetSplitSettingsHeader" Grid.Row="0" LastChildFill="True" Margin="20,16,20,10">
+                        <Button x:Name="DatasetSplitClose" AutomationProperties.AutomationId="DatasetSplitClose" AutomationProperties.Name="{Binding LanguageViewModel[Common.Close]}" ToolTip="{Binding LanguageViewModel[Common.Close]}" Style="{StaticResource RecipeQuietButtonStyle}" DockPanel.Dock="Right" Content="✕" MinWidth="30" MinHeight="30" Padding="4" Margin="10,0,0,0" IsTabStop="False" Command="{Binding DatasetWorkspaceViewModel.CancelSplitSettingsCommand}" />
+                        <TextBlock Text="{Binding LanguageViewModel[WpfDatasetWorkspace.SplitSettings.Title]}" FontSize="15" FontWeight="SemiBold" LineHeight="21.75" LineStackingStrategy="BlockLineHeight" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <ScrollViewer x:Name="DatasetSplitSettingsScrollViewer" Grid.Row="1" Margin="17,3,17,13" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" KeyboardNavigation.TabNavigation="Continue" Focusable="False">
+                        <StackPanel Margin="3">
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <StackPanel><TextBlock Text="{Binding LanguageViewModel[WpfDatasetWorkspace.SplitSettings.TrainPercent]}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Foreground="{DynamicResource RecipeMutedTextBrush}" Margin="0,0,0,4" /><TextBox Style="{StaticResource RecipeInputStyle}" FontSize="12" Text="{Binding DatasetWorkspaceViewModel.SplitTrainPercent, Mode=OneWay}" IsReadOnly="True" /></StackPanel>
+                                <StackPanel Grid.Column="2"><TextBlock Text="{Binding LanguageViewModel[WpfDatasetWorkspace.SplitSettings.ValidPercent]}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Foreground="{DynamicResource RecipeMutedTextBrush}" Margin="0,0,0,4" /><TextBox Style="{StaticResource RecipeInputStyle}" FontSize="12" x:Name="DatasetSplitValidationPercent" AutomationProperties.AutomationId="DatasetSplitValidationPercent" Text="{Binding DatasetWorkspaceViewModel.SplitValidationPercent, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" /></StackPanel>
+                                <StackPanel Grid.Column="4"><TextBlock Text="{Binding LanguageViewModel[WpfDatasetWorkspace.SplitSettings.TestPercent]}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Foreground="{DynamicResource RecipeMutedTextBrush}" Margin="0,0,0,4" /><TextBox Style="{StaticResource RecipeInputStyle}" FontSize="12" x:Name="DatasetSplitTestPercent" AutomationProperties.AutomationId="DatasetSplitTestPercent" Text="{Binding DatasetWorkspaceViewModel.SplitTestPercent, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" /></StackPanel>
+                            </Grid>
+                            <StackPanel Margin="0,0,0,12">
+                                <TextBlock Text="{Binding LanguageViewModel[WpfDatasetWorkspace.SplitSettings.Seed]}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Foreground="{DynamicResource RecipeMutedTextBrush}" Margin="0,0,0,4" />
+                                <TextBox Style="{StaticResource RecipeInputStyle}" FontSize="12" x:Name="DatasetSplitSeed" AutomationProperties.AutomationId="DatasetSplitSeed" Text="{Binding DatasetWorkspaceViewModel.SplitSeed, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" />
+                            </StackPanel>
+                            <CheckBox x:Name="DatasetSplitStratify" AutomationProperties.AutomationId="DatasetSplitStratify" Style="{StaticResource RecipeCheckBoxStyle}" FontSize="12" MinHeight="17.4" IsChecked="{Binding DatasetWorkspaceViewModel.StratifySplit}" Margin="0,0,0,12"><TextBlock Text="{Binding LanguageViewModel[WpfDatasetWorkspace.SplitSettings.Stratify]}" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" /></CheckBox>
+                            <CheckBox x:Name="DatasetSplitFreeze" AutomationProperties.AutomationId="DatasetSplitFreeze" FontSize="12" MinHeight="17.4" IsChecked="{Binding DatasetWorkspaceViewModel.FreezeTestSplit}" Margin="0,0,0,12">
+                                <CheckBox.Style><Style TargetType="CheckBox" BasedOn="{StaticResource RecipeCheckBoxStyle}"><Style.Triggers><DataTrigger Binding="{Binding DatasetWorkspaceViewModel.IsTestSplitLocked}" Value="True"><Setter Property="IsEnabled" Value="False" /></DataTrigger></Style.Triggers></Style></CheckBox.Style>
+                                <TextBlock Text="{Binding LanguageViewModel[WpfDatasetWorkspace.SplitSettings.Freeze]}" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" />
+                            </CheckBox>
+                            <Button x:Name="DatasetSplitUnlock" AutomationProperties.AutomationId="DatasetSplitUnlock" HorizontalAlignment="Left" Style="{StaticResource RecipeSecondaryButtonStyle}" Command="{Binding DatasetWorkspaceViewModel.UnlockTestSplitCommand}" Content="{Binding LanguageViewModel[WpfDatasetWorkspace.SplitSettings.Unlock]}" Visibility="{Binding DatasetWorkspaceViewModel.IsTestSplitLocked, Converter={StaticResource DatasetBooleanToVisibility}}" Margin="0,0,0,12" />
+                            <TextBlock Text="{Binding LanguageViewModel[WpfDatasetWorkspace.SplitSettings.PersistenceHint]}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" Foreground="{DynamicResource RecipeMutedTextBrush}" Margin="0,0,0,12" />
+                            <Border Background="{DynamicResource RecipeSelectedBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="10">
+                                <TextBlock x:Name="DatasetSplitPreviewText" AutomationProperties.AutomationId="DatasetSplitPreviewText" Text="{Binding DatasetWorkspaceViewModel.SplitPreviewText}" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" />
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                    <Border x:Name="DatasetSplitSettingsFooter" Grid.Row="2" Background="{DynamicResource PanelHeaderBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,1,0,0" CornerRadius="0,0,11,11" Padding="20,12">
+                        <WrapPanel HorizontalAlignment="Right" TextBlock.LineHeight="18.85" TextBlock.LineStackingStrategy="BlockLineHeight">
+                            <Button x:Name="DatasetSplitCancel" AutomationProperties.AutomationId="DatasetSplitCancel" Style="{StaticResource RecipeSecondaryButtonStyle}" Command="{Binding DatasetWorkspaceViewModel.CancelSplitSettingsCommand}" Content="{Binding LanguageViewModel[WpfDatasetWorkspace.SplitSettings.Cancel]}" Margin="0,0,8,0" />
+                            <Button x:Name="DatasetSplitPreview" AutomationProperties.AutomationId="DatasetSplitPreview" Style="{StaticResource RecipeSecondaryButtonStyle}" Command="{Binding DatasetWorkspaceViewModel.PreviewSplitCommand}" Content="{Binding LanguageViewModel[WpfDatasetWorkspace.SplitSettings.Preview]}" Margin="0,0,8,0" />
+                            <Button x:Name="DatasetSplitApply" AutomationProperties.AutomationId="DatasetSplitApply" MinHeight="30" Command="{Binding DatasetWorkspaceViewModel.ApplySplitSettingsCommand}" Content="{Binding LanguageViewModel[WpfDatasetWorkspace.SplitSettings.Apply]}" Margin="0">
+                                <Button.Style><Style TargetType="Button" BasedOn="{StaticResource RecipePrimaryButtonStyle}"><Style.Triggers>
+                                    <DataTrigger Binding="{Binding (Validation.HasError), ElementName=DatasetSplitValidationPercent}" Value="True"><Setter Property="IsEnabled" Value="False" /></DataTrigger>
+                                    <DataTrigger Binding="{Binding (Validation.HasError), ElementName=DatasetSplitTestPercent}" Value="True"><Setter Property="IsEnabled" Value="False" /></DataTrigger>
+                                    <DataTrigger Binding="{Binding (Validation.HasError), ElementName=DatasetSplitSeed}" Value="True"><Setter Property="IsEnabled" Value="False" /></DataTrigger>
+                                </Style.Triggers></Style></Button.Style>
+                            </Button>
+                        </WrapPanel>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

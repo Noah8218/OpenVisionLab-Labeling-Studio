@@ -48,7 +48,8 @@ namespace MvcVisionSystem
             IReadOnlyDictionary<string, List<LabelingSegmentationObject>> segments,
             LabelingProjectData data,
             string sourceImagePath,
-            Func<bool> saveAdditionalArtifacts = null)
+            Func<bool> saveAdditionalArtifacts = null,
+            bool keepEmptyLabels = true)
         {
             if (image == null || data == null || string.IsNullOrWhiteSpace(imageName))
             {
@@ -78,6 +79,14 @@ namespace MvcVisionSystem
                         data.ClassNamedList,
                         data,
                         sourceImagePath);
+                    if (!keepEmptyLabels && normalizedRois.Count == 0 && (segments == null || segments.Count == 0))
+                    {
+                        string fileStem = Path.GetFileNameWithoutExtension(imageName);
+                        foreach (string mode in YoloDatasetSplitService.AnnotationModes)
+                        {
+                            AnnotationFilePersistence.Delete(Path.Combine(data.OutputRootPath, "data", mode, "labels", fileStem + ".txt"));
+                        }
+                    }
                     bool additionalArtifactsSaved = saveAdditionalArtifacts?.Invoke() ?? true;
                     AppLog.COMM(
                         $"Annotation save additional artifacts: {additionalArtifactsSaved} / {imageName}");

@@ -39,7 +39,7 @@ namespace MvcVisionSystem
         public string RecipeClassName { get; }
 
         public string WorkerMappingText =>
-            $"className \"{RecipeClassName}\" \u2192 Recipe \"{RecipeClassName}\"";
+            string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfBatch.ClassMapping.Display"), RecipeClassName, RecipeClassName);
     }
 
     public sealed class WpfBatchDetectionPreflightReport
@@ -75,7 +75,7 @@ namespace MvcVisionSystem
         public string ExistingLabelPolicyText { get; init; } = string.Empty;
 
         public string DestinationPolicyText { get; init; } =
-            "\uACB0\uACFC\uB294 Candidate Review \uB300\uAE30 \uD6C4\uBCF4\uB85C\uB9CC \uC804\uB2EC\uB429\uB2C8\uB2E4. \uC790\uB3D9 \uC2B9\uC778\u00B7\uC790\uB3D9 \uC800\uC7A5\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
+            OpenVisionLab.OpenVisionLanguageService.T("WpfBatch.DestinationPolicy");
 
         public bool CanStart => Issues.Count == 0 && RunnableItems.Count > 0;
     }
@@ -130,17 +130,17 @@ namespace MvcVisionSystem
 
             if (requested.Count == 0)
             {
-                issues.Add("\uC0AC\uC804\uAC80\uC0AC\uD560 \uC774\uBBF8\uC9C0\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.");
+                issues.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfBatch.Finding.NoImages"));
             }
 
             if (missingImageCount > 0)
             {
-                issues.Add($"\uD30C\uC77C\uC744 \uC5F4 \uC218 \uC5C6\uB294 \uC774\uBBF8\uC9C0 {missingImageCount}\uAC1C\uAC00 \uD3EC\uD568\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
+                issues.Add(string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfBatch.Finding.MissingImages"), missingImageCount));
             }
 
             if (runnable.Count == 0 && requested.Count > 0)
             {
-                issues.Add("\uD604\uC7AC \uAE30\uC874 \uB77C\uBCA8 \uCC98\uB9AC \uC815\uCC45\uC73C\uB85C \uC2E4\uD589\uD560 \uC774\uBBF8\uC9C0\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.");
+                issues.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfBatch.Finding.NoRunnable"));
             }
 
             PythonModelSettings snapshot = CopySettings(settings);
@@ -149,21 +149,20 @@ namespace MvcVisionSystem
             warnings.AddRange(validation.Warnings);
             if (string.IsNullOrWhiteSpace(snapshot.WeightsPath))
             {
-                issues.Add("\uAC80\uC0AC \uAC00\uC911\uCE58 \uD30C\uC77C\uC774 \uC120\uD0DD\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.");
+                issues.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfBatch.Finding.MissingWeights"));
             }
 
             IReadOnlyList<WpfBatchClassMappingItem> mappings = BuildClassMappings(data, issues);
             if (mappings.Count > 0)
             {
                 warnings.Add(
-                    "\uAC00\uC911\uCE58 \uD074\uB798\uC2A4 \uBAA9\uB85D\uC740 \uC0AC\uC804 \uCD94\uCD9C\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. "
-                    + "worker className\uC744 Recipe\uC758 \uB3D9\uC77C \uC774\uB984\uC5D0 \uB9E4\uD551\uD558\uBA70 \uBAA8\uB4E0 \uACB0\uACFC\uB294 Candidate Review\uC5D0\uC11C \uD655\uC778\uD569\uB2C8\uB2E4.");
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfBatch.Finding.MappingWarning"));
             }
 
             if (request.ExistingLabelPolicy == WpfBatchExistingLabelPolicy.IncludeAndKeep
                 && existingLabelCount > 0)
             {
-                warnings.Add($"\uAE30\uC874 \uB77C\uBCA8\uC774 \uC788\uB294 {existingLabelCount}\uAC1C \uC774\uBBF8\uC9C0\uB3C4 \uAC80\uC0AC\uD569\uB2C8\uB2E4. \uAE30\uC874 \uB77C\uBCA8\uC740 \uBCF4\uC874\uB429\uB2C8\uB2E4.");
+                warnings.Add(string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfBatch.Finding.IncludeExisting"), existingLabelCount));
             }
 
             return new WpfBatchDetectionPreflightReport
@@ -197,20 +196,20 @@ namespace MvcVisionSystem
                 .ToList() ?? new List<string>();
             if (names.Count == 0 || names.All(string.IsNullOrWhiteSpace))
             {
-                issues.Add("\uD604\uC7AC Recipe\uC5D0 \uB4F1\uB85D\uB41C \uD074\uB798\uC2A4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.");
+                issues.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfBatch.Finding.NoClasses"));
                 return Array.Empty<WpfBatchClassMappingItem>();
             }
 
             if (names.Any(string.IsNullOrWhiteSpace))
             {
-                issues.Add("\uC774\uB984\uC774 \uBE48 \uD074\uB798\uC2A4\uAC00 \uC788\uC2B5\uB2C8\uB2E4.");
+                issues.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfBatch.Finding.EmptyClass"));
             }
 
             if (names.Where(name => !string.IsNullOrWhiteSpace(name))
                 .GroupBy(name => name, StringComparer.OrdinalIgnoreCase)
                 .Any(group => group.Count() > 1))
             {
-                issues.Add("\uB300\uC18C\uBB38\uC790\uB9CC \uB2E4\uB978 \uC911\uBCF5 \uD074\uB798\uC2A4 \uC774\uB984\uC774 \uC788\uC2B5\uB2C8\uB2E4.");
+                issues.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfBatch.Finding.DuplicateClass"));
             }
 
             return names
@@ -240,9 +239,9 @@ namespace MvcVisionSystem
         private static string FormatPurpose(LabelingDatasetPurpose purpose)
             => purpose switch
             {
-                LabelingDatasetPurpose.Segmentation => "\uC138\uADF8\uBA58\uD14C\uC774\uC158",
-                LabelingDatasetPurpose.AnomalyDetection => "\uC774\uC0C1 \uAC80\uCD9C",
-                _ => "\uAC1D\uCCB4 \uAC80\uCD9C"
+                LabelingDatasetPurpose.Segmentation => OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Dataset.Purpose.Segmentation"),
+                LabelingDatasetPurpose.AnomalyDetection => OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Dataset.Purpose.AnomalyDetection"),
+                _ => OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Dataset.Purpose.ObjectDetection")
             };
     }
 

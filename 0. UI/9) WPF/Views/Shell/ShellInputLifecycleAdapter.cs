@@ -1,6 +1,7 @@
 using MvcVisionSystem._1._Core;
 using MvcVisionSystem.Yolo;
 using OpenVisionLab;
+using OpenVisionLab.Logging;
 using OpenVisionLab.Mvvm;
 using System;
 using System.Collections.Generic;
@@ -31,6 +32,15 @@ namespace MvcVisionSystem
         // Shell-level keyboard shortcuts stay behind one explicit adapter boundary.
         private void ExecuteShellPreviewKeyDownCommand(KeyInputCommandArgs e)
             => context.ShellKeyboardShortcutAdapter?.Execute(e);
+
+        private void ExecuteShellPreviewKeyUpCommand(KeyInputCommandArgs e)
+            => context.ShellKeyboardShortcutAdapter?.ExecuteKeyUp(e);
+
+        private void ExecuteShellDeactivatedCommand()
+        {
+            context.EndTemporaryOriginalView?.Invoke();
+            context.EndTemporaryPan?.Invoke();
+        }
         #endregion
 
         #region ShellLifecycle
@@ -54,7 +64,7 @@ namespace MvcVisionSystem
             }
 
             context.SetPythonStatus?.Invoke(context.InferenceWaitingTextProvider?.Invoke() ?? string.Empty);
-            context.AppendLog?.Invoke("시작 완료. 추론은 사용자가 명시적으로 실행할 때만 시작합니다.");
+            context.AppendLog?.Invoke("시작했습니다. 추론은 직접 실행할 때만 동작합니다.");
         }
 
         private void LanguageViewModel_LanguageChanged(object sender, EventArgs e)
@@ -85,12 +95,15 @@ namespace MvcVisionSystem
 
         private bool TryApproveApplicationClose()
         {
+            OVLog.Write(LogCategory.Main, LogLevel.Info, $"종료 정책 진입: PromptOpen={isApplicationClosePromptOpen}");
             if (isApplicationClosePromptOpen)
             {
+                OVLog.Write(LogCategory.Main, LogLevel.Info, "종료 요청 보류: 종료 확인 중 재진입");
                 return false;
             }
 
             ApplicationClosePlan plan = BuildApplicationClosePlan();
+            OVLog.Write(LogCategory.Main, LogLevel.Info, $"종료 정책 판단: RequiresPrompt={plan.RequiresPrompt}");
             if (!plan.RequiresPrompt)
             {
                 ApproveCrashRecoveryClose();
@@ -100,7 +113,9 @@ namespace MvcVisionSystem
             isApplicationClosePromptOpen = true;
             try
             {
+                OVLog.Write(LogCategory.Main, LogLevel.Info, "종료 확인 대화상자 요청");
                 WpfApplicationCloseDecision decision = ShowApplicationClosePrompt(plan);
+                OVLog.Write(LogCategory.Main, LogLevel.Info, $"종료 확인 결과: Decision={decision}");
                 return ApplyApplicationCloseDecision(decision);
             }
             finally
@@ -121,7 +136,8 @@ namespace MvcVisionSystem
                 PendingCandidateCount = context.CandidateReviewState.PendingCount,
                 ActiveWorkNames = context.ApplicationClosePolicyService.GetActiveWorkNames(
                     context.ActiveWorkStateProvider?.Invoke() ?? new ApplicationCloseWorkState()),
-                ActiveImagePath = context.ActiveImagePathProvider?.Invoke() ?? string.Empty
+                ActiveImagePath = context.ActiveImagePathProvider?.Invoke() ?? string.Empty,
+                PendingTrainingWeightsPath = context.PendingTrainingWeightsPathProvider?.Invoke() ?? string.Empty
             };
         }
 
@@ -132,6 +148,7 @@ namespace MvcVisionSystem
         {
             if (decision == WpfApplicationCloseDecision.Cancel)
             {
+                OVLog.Write(LogCategory.Main, LogLevel.Info, "종료 요청 보류: 종료 확인 취소");
                 return false;
             }
 
@@ -151,6 +168,7 @@ namespace MvcVisionSystem
 
                 if (!saved)
                 {
+                    OVLog.Write(LogCategory.Main, LogLevel.Info, "종료 요청 보류: 라벨 저장 실패");
                     context.ShowSaveFailure?.Invoke(failureDetails);
                     return false;
                 }
@@ -162,6 +180,7 @@ namespace MvcVisionSystem
 
         private void ApproveCrashRecoveryClose()
         {
+            OVLog.Write(LogCategory.Main, LogLevel.Info, "종료 승인 및 실행 작업 해제 시작");
             context.SetApplicationCloseApproved?.Invoke();
             context.ModelComparisonWorkflowService?.ApproveClose();
             context.ExternalYoloDatasetIntakeWorkflowService?.ApproveClose();
@@ -171,12 +190,15 @@ namespace MvcVisionSystem
             // Close approval ends batch application immediately, before child-window cleanup.
             context.BatchDetectionWorkflowService?.Dispose();
             context.CrashRecoveryJournalWorkflowService?.ApproveClose();
+            OVLog.Write(LogCategory.Main, LogLevel.Info, "종료 승인 및 실행 작업 해제 반환");
         }
         #endregion
 
         #region Dispose
         private void ExecuteClosedCommand()
         {
+            context.EndTemporaryOriginalView?.Invoke();
+            context.EndTemporaryPan?.Invoke();
             // Invalidate queued queue-status workers before disposing the Shell-owned state.
             // A worker may still finish its label scan, but it must not persist or marshal
             // its result after the owning Shell has closed.
@@ -208,8 +230,11 @@ namespace MvcVisionSystem
         {
             context.StopInferenceStatusPulse?.Invoke();
             context.StopTrainingStatusPolling?.Invoke();
+            context.ResetSmartMaskCandidateEditBuffer?.Invoke();
             context.MaskStrokeWorkflowAdapter?.Dispose();
             context.ShellTimers?.Dispose();
+            context.ModelComparisonWorkflowAdapter?.Dispose();
+            context.TrainingWorkspaceWorkflowAdapter?.Dispose();
             context.ImageDecodePreloadService?.CancelAndWait(TimeSpan.FromSeconds(2));
             context.CancelImageQueueCatalogLoad?.Invoke(true);
             context.ImageQueueCatalogLoadAdapter?.Dispose();
@@ -231,6 +256,7 @@ namespace MvcVisionSystem
             context.AnomalyClassificationEvaluationWorkflowService?.Cancel();
             context.YoloEnvironmentWorkflowService?.Dispose();
             context.TrainingCommandLifecycleService?.Dispose();
+            context.TrainingRuntimeWorkflowService?.Dispose();
         }
 
         private void ResetShellOperationState()
@@ -242,6 +268,7 @@ namespace MvcVisionSystem
 
         private void DisposeShellVisualState()
         {
+            context.DisposeReferenceDisplay?.Invoke();
             context.ImageDecodeCacheService?.Clear();
             context.ImageLoadResourceService?.Clear(context.ActiveImageBitmapProvider?.Invoke());
             context.ApplicationState?.ImageWorkspace.SetActiveImage(string.Empty, string.Empty, null);
@@ -252,6 +279,8 @@ namespace MvcVisionSystem
         // These wrappers keep the existing Shell command and reflection contracts while
         // the concrete lifecycle implementation remains outside the Window partial.
         internal void ExecuteShellPreviewKeyDown(KeyInputCommandArgs e) => ExecuteShellPreviewKeyDownCommand(e);
+        internal void ExecuteShellPreviewKeyUp(KeyInputCommandArgs e) => ExecuteShellPreviewKeyUpCommand(e);
+        internal void ExecuteShellDeactivated() => ExecuteShellDeactivatedCommand();
         internal void ExecuteLoaded() => ExecuteLoadedCommand();
         internal void ApplyDeferredStartup() => ApplyDeferredShellStartup();
         internal void HandleLanguageChanged(object sender, EventArgs e) => LanguageViewModel_LanguageChanged(sender, e);
@@ -274,6 +303,8 @@ namespace MvcVisionSystem
         internal CandidateReviewStateService CandidateReviewState { get; init; }
         internal AnnotationDirtyState AnnotationDirtyState { get; init; }
         internal ShellKeyboardShortcutAdapter ShellKeyboardShortcutAdapter { get; init; }
+        internal Action EndTemporaryOriginalView { get; init; }
+        internal Action EndTemporaryPan { get; init; }
         internal Func<bool> IsApplicationCloseApproved { get; init; }
         internal Action<Action> ScheduleDeferredStartup { get; init; }
         internal Action RefreshYoloStatus { get; init; }
@@ -289,12 +320,15 @@ namespace MvcVisionSystem
         internal Func<bool> HasUnsavedAnnotations { get; init; }
         internal Func<string> UnsavedAnnotationReasonProvider { get; init; }
         internal Func<ApplicationCloseWorkState> ActiveWorkStateProvider { get; init; }
+        internal Func<string> PendingTrainingWeightsPathProvider { get; init; }
         internal Func<string> ActiveImagePathProvider { get; init; }
         internal Func<ApplicationClosePlan, WpfApplicationCloseDecision> ShowApplicationClosePrompt { get; init; }
         internal TrySaveCurrentAnnotationsDelegate TrySaveCurrentAnnotations { get; init; }
         internal Action<string> ShowSaveFailure { get; init; }
         internal Action SetApplicationCloseApproved { get; init; }
         internal ModelComparisonWorkflowService ModelComparisonWorkflowService { get; init; }
+        internal ModelComparisonWorkflowAdapter ModelComparisonWorkflowAdapter { get; init; }
+        internal TrainingWorkspaceWorkflowAdapter TrainingWorkspaceWorkflowAdapter { get; init; }
         internal ExternalYoloDatasetIntakeWorkflowService ExternalYoloDatasetIntakeWorkflowService { get; init; }
         internal ExternalAuditWorkflowService ExternalAuditWorkflowService { get; init; }
         internal YoloEnvironmentWorkflowService YoloEnvironmentWorkflowService { get; init; }
@@ -312,6 +346,7 @@ namespace MvcVisionSystem
         internal Action StopInferenceStatusPulse { get; init; }
         internal Action StopTrainingStatusPolling { get; init; }
         internal MaskStrokeWorkflowAdapter MaskStrokeWorkflowAdapter { get; init; }
+        internal Action ResetSmartMaskCandidateEditBuffer { get; init; }
         internal ShellTimerSet ShellTimers { get; init; }
         internal ImageDecodePreloadService ImageDecodePreloadService { get; init; }
         internal Action<bool> CancelImageQueueCatalogLoad { get; init; }
@@ -325,6 +360,7 @@ namespace MvcVisionSystem
         internal TrainingCommandLifecycleService TrainingCommandLifecycleService { get; init; }
         internal AnomalyImageReviewSession AnomalyImageReviewSession { get; init; }
         internal TrainingRuntimeWorkflowService TrainingRuntimeWorkflowService { get; init; }
+        internal Action DisposeReferenceDisplay { get; init; }
         internal ImageDecodeCacheService ImageDecodeCacheService { get; init; }
         internal ImageLoadResourceService ImageLoadResourceService { get; init; }
         internal Func<DrawingBitmap> ActiveImageBitmapProvider { get; init; }

@@ -763,10 +763,18 @@ class PatchCoreDetector:
                 "x": 0.0, "y": 0.0, "width": 0.0, "height": 0.0,
                 "candidateType": "imageClassification", "predictionType": "patchcore", "imageLevel": True,
             })
+        if getattr(self, "decision_evaluation", False):
+            # Part decisions require the image maximum, independent of region limits.
+            candidates = [{"className": "abnormal" if is_anomalous else "normal", "confidence": decision_confidence,
+                           "imageLevel": True, "candidateType": "imageClassification", "predictionType": "patchcore",
+                           "anomalyScore": score, "anomalyThreshold": threshold, "heatmapPath": str(heatmap_output.resolve()),
+                           "x": 0.0, "y": 0.0, "width": 0.0, "height": 0.0}]
         return candidates, {
             "path": str(image_path.resolve()), "width": width, "height": height,
             "anomalyScore": score, "anomalyThreshold": threshold, "isAnomalous": is_anomalous,
             "heatmapPath": str(heatmap_output.resolve()),
+            "captureConfidenceFloor": 0.0, "hasCompletePredictions": True,
+            "captureCandidateLimit": None,
         }
 
 
@@ -985,7 +993,7 @@ def parse_messages(buffer: bytearray) -> Iterable[IncomingMessage]:
 
 def build_detector(args: argparse.Namespace) -> PatchCoreDetector:
     backbone_path = str(args.backbone_path).strip()
-    return PatchCoreDetector(
+    detector = PatchCoreDetector(
         Path(args.weights).expanduser().resolve(),
         Path(args.model_root).expanduser().resolve(),
         Path(args.image_root).expanduser().resolve(),
@@ -995,6 +1003,8 @@ def build_detector(args: argparse.Namespace) -> PatchCoreDetector:
         Path(backbone_path).expanduser().resolve() if backbone_path else None,
         args.backbone_sha256,
     )
+    detector.decision_evaluation = getattr(args, "decision_evaluation", False)
+    return detector
 
 
 def run_client(args: argparse.Namespace) -> int:
@@ -1168,6 +1178,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--prepare-backbone", action="store_true")
     parser.add_argument("--allow-backbone-download", action="store_true")
     parser.add_argument("--smoke-test", action="store_true")
+    parser.add_argument("--decision-evaluation", action="store_true")
     parser.add_argument("--detect-file", default="")
     parser.add_argument("--image", default="")
     parser.add_argument("--heatmap-output", default="")

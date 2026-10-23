@@ -8,9 +8,10 @@ namespace MvcVisionSystem
 {
     public sealed class WpfYoloStatusPanelViewModel : WpfObservableViewModel
     {
+        private const string RuntimeCheckWaitingText = "실행 환경 확인 대기";
         private string summaryText = "\uBAA8\uB378 \uC2E4\uD589 \uD658\uACBD \uBBF8\uD655\uC778";
         private string detailText = string.Empty;
-        private string commandStatusText = "\uBAA8\uB378 \uC2E4\uD589\uAE30 \uB300\uAE30";
+        private string commandStatusText = RuntimeCheckWaitingText;
         private bool isRecoveryVisible;
         private string recoveryTitleText = string.Empty;
         private string recoveryDetailText = string.Empty;
@@ -24,6 +25,7 @@ namespace MvcVisionSystem
         private bool isRestartWorkerEnabled = true;
         private bool isStopWorkerEnabled = true;
         private ICommand checkCommand = new RelayCommand(NoOpCommand);
+        private ICommand checkTrainingCommand = new RelayCommand(NoOpCommand);
         private ICommand installRequirementsCommand = new RelayCommand(NoOpCommand);
         private ICommand runSmokeCommand = new RelayCommand(NoOpCommand);
         private ICommand restartWorkerCommand = new RelayCommand(NoOpCommand);
@@ -37,6 +39,12 @@ namespace MvcVisionSystem
         {
             get => checkCommand;
             private set => SetProperty(ref checkCommand, value);
+        }
+
+        public ICommand CheckTrainingCommand
+        {
+            get => checkTrainingCommand;
+            private set => SetProperty(ref checkTrainingCommand, value);
         }
 
         public ICommand InstallRequirementsCommand
@@ -77,7 +85,7 @@ namespace MvcVisionSystem
 
         public string CommandStatusText
         {
-            get => commandStatusText;
+            get => commandStatusText == RuntimeCheckWaitingText ? OpenVisionLab.OpenVisionLanguageService.T("WpfTrainingWorkspace.RuntimeWaiting") : commandStatusText;
             set => SetProperty(ref commandStatusText, value ?? string.Empty);
         }
 
@@ -162,6 +170,7 @@ namespace MvcVisionSystem
         {
             // Keep this compatibility entry point for callers that supply a complete command surface.
             CheckCommand = new RelayCommand(check ?? NoOpCommand);
+            CheckTrainingCommand = new RelayCommand(check ?? NoOpCommand);
             InstallRequirementsCommand = new RelayCommand(installRequirements ?? NoOpCommand);
             RunSmokeCommand = new RelayCommand(runSmoke ?? NoOpCommand);
             RestartWorkerCommand = new RelayCommand(restartWorker ?? NoOpCommand);
@@ -177,6 +186,7 @@ namespace MvcVisionSystem
             runtimeCallbacksProvider = callbacksProvider
                 ?? throw new ArgumentNullException(nameof(callbacksProvider));
             CheckCommand = new RelayCommand(() => _ = ExecuteCheckAsync());
+            CheckTrainingCommand = new RelayCommand(() => _ = ExecuteTrainingCheckAsync());
             InstallRequirementsCommand = new RelayCommand(() => _ = ExecuteInstallRequirementsAsync());
             RestartWorkerCommand = new RelayCommand(() => _ = ExecuteRestartWorkerAsync());
             StopWorkerCommand = new RelayCommand(() => _ = ExecuteStopWorkerAsync());
@@ -190,7 +200,7 @@ namespace MvcVisionSystem
 
         public void SetCommandStatus(string text, bool isBusy)
         {
-            CommandStatusText = string.IsNullOrWhiteSpace(text) ? "\uBAA8\uB378 \uC2E4\uD589\uAE30 \uB300\uAE30" : text;
+            CommandStatusText = string.IsNullOrWhiteSpace(text) ? RuntimeCheckWaitingText : text;
             SetCommandBusy(isBusy);
         }
 
@@ -231,6 +241,9 @@ namespace MvcVisionSystem
 
         private Task ExecuteCheckAsync()
             => runtimeWorkflowService?.CheckAsync(runtimeCallbacksProvider?.Invoke()) ?? Task.CompletedTask;
+
+        private Task ExecuteTrainingCheckAsync()
+            => runtimeWorkflowService?.CheckTrainingAsync(runtimeCallbacksProvider?.Invoke()) ?? Task.CompletedTask;
 
         private Task ExecuteInstallRequirementsAsync()
             => runtimeWorkflowService?.InstallRequirementsAsync(runtimeCallbacksProvider?.Invoke()) ?? Task.CompletedTask;

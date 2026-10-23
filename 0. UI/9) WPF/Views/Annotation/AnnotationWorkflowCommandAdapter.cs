@@ -11,6 +11,8 @@ namespace MvcVisionSystem
     internal sealed class AnnotationWorkflowCommandAdapter
     {
         private readonly AnnotationWorkflowCommandAdapterContext context;
+        private bool isNoObjectCompletionRunning;
+        private bool isSaveAndNextRunning;
 
         internal AnnotationWorkflowCommandAdapter(AnnotationWorkflowCommandAdapterContext context)
         {
@@ -62,13 +64,22 @@ namespace MvcVisionSystem
         }
 
         internal void ExecuteSaveAnnotationsCommand()
+            => SaveAnnotations();
+
+        internal bool SaveAnnotationsForReview()
+        {
+            if (IsCloseApproved() || context.IsLabelingStageActive?.Invoke() == false) return false;
+            context.CompletePendingAnnotationEdits?.Invoke();
+            return SaveAnnotations().Succeeded;
+        }
+
+        private AnnotationSaveOutcome SaveAnnotations()
         {
             if (IsCloseApproved())
             {
-                return;
+                return AnnotationSaveOutcome.Failed;
             }
 
-            string completedImagePath = context.ActiveImagePathProvider?.Invoke() ?? string.Empty;
             context.AppendLog?.Invoke("라벨 저장 명령 호출");
             AnnotationSaveOutcome save = context.SaveCurrentAnnotations?.Invoke()
                 ?? AnnotationSaveOutcome.Failed;
@@ -76,40 +87,92 @@ namespace MvcVisionSystem
                 $"라벨 저장 결과: 성공:{save.Succeeded} 객체:{save.SavedCount}");
             if (save.Succeeded)
             {
-                context.MarkActiveImageConfirmed?.Invoke();
-                if (context.GetSelectedImageQueueFilter?.Invoke() == WpfImageQueueFilter.Unlabeled)
+                if (save.SavedCount > 0)
                 {
-                    context.ScheduleOpenNextIncompleteQueueImageAfterSave?.Invoke(completedImagePath);
+                    context.MarkActiveImageConfirmed?.Invoke();
+                }
+                else if ((context.PendingCandidateCountProvider?.Invoke() ?? 0) == 0)
+                {
+                    context.MarkActiveImageNoCandidate?.Invoke();
                 }
 
-                context.AppendLog?.Invoke(
-                    $"YOLO 라벨 저장. 객체:{save.SavedCount}  {context.BuildLabelPathSummary?.Invoke()}");
-                return;
+                context.AppendLog?.Invoke(save.SavedCount == 0
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfCanvas.Save.EmptyState.Log")
+                    : $"YOLO 라벨 저장. 객체:{save.SavedCount}  {context.BuildLabelPathSummary?.Invoke()}");
+                return save;
             }
 
+            context.MarkAnnotationSaveFailed?.Invoke(
+                "라벨 파일을 저장하지 못했습니다. 저장 경로 상태를 확인한 뒤 다시 시도하세요.");
             context.AppendLog?.Invoke(
                 "라벨 저장이 완료되지 않았습니다. 저장 상태를 확인하고 다시 시도하세요.");
+            return save;
         }
 
-        internal void OpenNextIncompleteQueueImageAfterSave(string completedImagePath)
+        internal void ExecuteSaveAndNextCommand()
         {
-            if (IsCloseApproved())
+            if (IsCloseApproved() || isSaveAndNextRunning || context.IsLabelingStageActive?.Invoke() == false)
             {
                 return;
             }
 
-            if (!(context.TryOpenNextIncompleteQueueImage?.Invoke(completedImagePath) ?? false))
+            isSaveAndNextRunning = true;
+            try
             {
-                context.FinishQueueCompletionAndGuideDatasetCheck?.Invoke();
+                context.SetSaveAndNextGuidance?.Invoke(string.Empty);
+                if (!(context.HasActiveImage?.Invoke() ?? false)) return;
+                context.CompletePendingAnnotationEdits?.Invoke();
+                if (!(context.HasCanvasLabelObjects?.Invoke() ?? false))
+                {
+                    if (context.IsNoObjectSelected?.Invoke() == true)
+                    {
+                        ExecuteCompleteNoObjectAndNextCommand();
+                        return;
+                    }
+                    context.SetSaveAndNextGuidance?.Invoke("라벨이 없습니다. 객체가 없는 이미지면 ‘객체 없음’을 선택하세요.");
+                    return;
+                }
+
+                AnnotationSaveOutcome save = SaveAnnotations();
+                if (!save.Succeeded || IsCloseApproved()) return;
+                if (!(context.TryOpenNextIncompleteQueueImageWithoutPath?.Invoke() ?? false))
+                {
+                    context.FinishQueueCompletionAndGuideDatasetCheck?.Invoke();
+                }
             }
+            finally
+            {
+                isSaveAndNextRunning = false;
+            }
+        }
+
+        internal void ExecuteNoObjectSelectionChanged(bool selected)
+        {
+            if (IsCloseApproved() || context.IsLabelingStageActive?.Invoke() == false || context.HasActiveImage?.Invoke() != true) return;
+            context.MarkAnnotationsDirty?.Invoke(selected ? "객체 없음 선택" : "객체 없음 해제");
+            context.SetSaveAndNextGuidance?.Invoke(selected ? "객체 없음으로 표시 · Ctrl+Enter로 저장하고 다음" : string.Empty);
         }
 
         internal void ExecuteCompleteNoObjectAndNextCommand()
         {
-            if (IsCloseApproved())
+            if (IsCloseApproved() || isNoObjectCompletionRunning)
             {
                 return;
             }
+
+            isNoObjectCompletionRunning = true;
+            try
+            {
+                ExecuteCompleteNoObjectAndNextCore();
+            }
+            finally
+            {
+                isNoObjectCompletionRunning = false;
+            }
+        }
+
+        private void ExecuteCompleteNoObjectAndNextCore()
+        {
 
             if (!(context.HasActiveImage?.Invoke() ?? false))
             {
@@ -136,11 +199,14 @@ namespace MvcVisionSystem
 
             if (!(context.SaveCurrentEmptyAnnotations?.Invoke() ?? false))
             {
+                context.MarkAnnotationSaveFailed?.Invoke(
+                    "객체 없음 라벨을 저장하지 못했습니다. 저장 경로 상태를 확인한 뒤 다시 시도하세요.");
                 context.AppendLog?.Invoke(
-                    "객체 없음 라벨을 저장하지 못했습니다. 이미지와 저장 경로를 확인하세요.");
+                    "객체 없음 라벨 저장이 완료되지 않았습니다. 저장 상태를 확인하고 다시 시도하세요.");
                 return;
             }
 
+            if (IsCloseApproved()) return;
             context.MarkActiveImageNoCandidate?.Invoke();
             context.RefreshYoloTrainingStepCompletion?.Invoke();
             context.AppendLog?.Invoke(
@@ -189,11 +255,14 @@ namespace MvcVisionSystem
         internal Action RefreshObjectList { get; init; }
         internal Action ShowSavedLabelsWorkflowView { get; init; }
         internal Func<AnnotationSaveOutcome> SaveCurrentAnnotations { get; init; }
+        internal Action<string> MarkAnnotationSaveFailed { get; init; }
         internal Action MarkActiveImageConfirmed { get; init; }
-        internal Func<WpfImageQueueFilter> GetSelectedImageQueueFilter { get; init; }
-        internal Action<string> ScheduleOpenNextIncompleteQueueImageAfterSave { get; init; }
-        internal Func<string, bool> TryOpenNextIncompleteQueueImage { get; init; }
         internal Func<bool> HasActiveImage { get; init; }
+        internal Func<bool> IsLabelingStageActive { get; init; }
+        internal Action CompletePendingAnnotationEdits { get; init; }
+        internal Action<string> SetSaveAndNextGuidance { get; init; }
+        internal Func<bool> IsNoObjectSelected { get; init; }
+        internal Action<string> MarkAnnotationsDirty { get; init; }
         internal Func<int> PendingCandidateCountProvider { get; init; }
         internal Action ShowCandidateReviewWorkflowView { get; init; }
         internal Func<bool> HasCanvasLabelObjects { get; init; }

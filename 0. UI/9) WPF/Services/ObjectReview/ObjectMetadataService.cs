@@ -565,12 +565,7 @@ namespace MvcVisionSystem
         private const string BoxKind = "Box";
         private const string SegmentKind = "Segment";
 
-        private static readonly string[] DatasetModes =
-        {
-            Yolo.YoloDatasetSplitService.TrainMode,
-            Yolo.YoloDatasetSplitService.ValidMode,
-            Yolo.YoloDatasetSplitService.TestMode
-        };
+        private static readonly IReadOnlyList<string> DatasetModes = Yolo.YoloDatasetSplitService.AnnotationModes;
 
         public WpfObjectMetadataLoadResult LoadForImage(
             string imagePath,
@@ -706,7 +701,7 @@ namespace MvcVisionSystem
 
             foreach (string mode in DatasetModes)
             {
-                string path = BuildMetadataPath(data.OutputRootPath, mode, fileStem);
+                string path = BuildMetadataPath(data.OutputRootPath, mode, imageName);
                 if (!targetModes.Contains(mode) || records.Count == 0)
                 {
                     if (File.Exists(path))

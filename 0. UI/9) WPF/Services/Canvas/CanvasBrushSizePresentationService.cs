@@ -17,5 +17,19 @@ namespace MvcVisionSystem
 
         public static string Format(int size)
             => $"{Normalize(size)}px";
+
+        /// <summary>
+        /// Formats the source-pixel brush diameter using the image-relative
+        /// percentage shown by the reference labeling workflow. Editing and
+        /// persistence continue to use source pixels.
+        /// </summary>
+        public static string FormatReferencePercent(int size)
+        {
+            double percent = Normalize(size) / 2048D * 100D;
+            return $"{percent:0.##}%";
+        }
+
+        public static int GetSourceImageRadius(int size)
+            => Math.Max(1, (int)Math.Round(Normalize(size) / 2D));
     }
 }

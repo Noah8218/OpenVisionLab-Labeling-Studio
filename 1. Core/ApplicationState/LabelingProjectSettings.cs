@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 
 namespace MvcVisionSystem
 {
@@ -17,11 +18,31 @@ namespace MvcVisionSystem
         FourPointExtreme
     }
 
+    public enum RecipeImageSelectionMode
+    {
+        Automatic,
+        Selected,
+        Hidden
+    }
+
     public class LabelingProjectSettings
     {
+        public const int RecipeProductCodeMaxLength = 60;
+        public const int RecipeDescriptionMaxLength = 400;
+
+        public string ProductCode { get; set; } = string.Empty;
+
+        public string RecipeDescription { get; set; } = string.Empty;
+
+        public RecipeImageSelectionMode RecipeListPreviewImageMode { get; set; } = RecipeImageSelectionMode.Automatic;
+
+        public string RecipeListPreviewImageRelativePath { get; set; } = string.Empty;
+
         public LabelingDatasetPurpose DatasetPurpose { get; set; } = LabelingDatasetPurpose.ObjectDetection;
 
         public bool SmartMaskAutoContourEnabled { get; set; }
+
+        public bool AnomalyAutoAdvanceAfterDecision { get; set; } = true;
 
         public LabelingBoxDrawingMethod BoxDrawingMethod { get; set; } = LabelingBoxDrawingMethod.TwoPointDrag;
 
@@ -77,6 +98,21 @@ namespace MvcVisionSystem
             }
         }
 
+        public List<string> AdditionalImageRootPaths { get; set; } = new List<string>();
+
+        public IReadOnlyList<string> ResolveImageRootPaths(string activeRoot = null)
+        {
+            string[] roots = new[] { ResolveImageRootPath() }.Concat(AdditionalImageRootPaths ?? new List<string>())
+                .Where(path => !string.IsNullOrWhiteSpace(path)).Select(path => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)))
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            if (!string.IsNullOrWhiteSpace(activeRoot))
+            {
+                string fullActiveRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(activeRoot));
+                if (!roots.Contains(fullActiveRoot, StringComparer.OrdinalIgnoreCase)) return new[] { fullActiveRoot };
+            }
+            return roots;
+        }
+
         [System.Xml.Serialization.XmlElement("TrainingGuide")]
         public YoloTrainingGuideHistory TrainingGuide
         {
@@ -100,6 +136,15 @@ namespace MvcVisionSystem
 
         public void EnsureDefaults()
         {
+            ProductCode ??= string.Empty;
+            RecipeDescription ??= string.Empty;
+            RecipeListPreviewImageRelativePath ??= string.Empty;
+            if (!Enum.IsDefined(typeof(RecipeImageSelectionMode), RecipeListPreviewImageMode))
+            {
+                RecipeListPreviewImageMode = RecipeImageSelectionMode.Automatic;
+                RecipeListPreviewImageRelativePath = string.Empty;
+            }
+
             if (!Enum.IsDefined(typeof(LabelingDatasetPurpose), DatasetPurpose))
             {
                 DatasetPurpose = LabelingDatasetPurpose.ObjectDetection;
@@ -118,6 +163,7 @@ namespace MvcVisionSystem
                 .Take(16)
                 .ToList();
 
+            AdditionalImageRootPaths ??= new List<string>();
             YoloDataset ??= new YoloDatasetSettings();
             LegacyModelProjectSettings legacyModel = EnsureLegacyModel();
             legacyModel.EnsureDefaults();

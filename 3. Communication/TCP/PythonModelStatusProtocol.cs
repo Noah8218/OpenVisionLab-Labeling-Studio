@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using MvcVisionSystem._1._Core;
 
 namespace MvcVisionSystem._3._Communication.TCP
 {
@@ -19,13 +20,17 @@ namespace MvcVisionSystem._3._Communication.TCP
         public string Type { get; set; } = "";
         public int Version { get; set; } = 1;
         public string RequestId { get; set; } = "";
+        public string RunId { get; set; } = "";
         public string State { get; set; } = "";
         public string Message { get; set; } = "";
         public int? ProgressPercent { get; set; }
         public int? Epoch { get; set; }
         public int? TotalEpochs { get; set; }
+        [JsonIgnore] public TrainingEpochMetric Metric { get; set; }
         public string TrainingWeights { get; set; } = "";
+        [JsonIgnore] public string TrainingResultWeightsPath { get; set; } = "";
         public string EmbeddedTrainingState { get; set; } = "";
+        public string EmbeddedTrainingRunId { get; set; } = "";
         public string EmbeddedTrainingMessage { get; set; } = "";
         public int? EmbeddedTrainingProgressPercent { get; set; }
         public int? EmbeddedTrainingEpoch { get; set; }
@@ -126,6 +131,7 @@ namespace MvcVisionSystem._3._Communication.TCP
                     return PythonModelStatusParseResult.NotStatus();
                 }
 
+                if (string.Equals(type, TrainingStatusType, StringComparison.OrdinalIgnoreCase)) root["error"] = FormatError(root["error"]);
                 PythonModelStatusMessage status = string.Equals(type, HealthCheckResultType, StringComparison.OrdinalIgnoreCase)
                     ? ParseHealthCheckResult(root)
                     : string.Equals(type, ModelStatusResultType, StringComparison.OrdinalIgnoreCase)
@@ -138,6 +144,18 @@ namespace MvcVisionSystem._3._Communication.TCP
                 if (status == null)
                 {
                     return PythonModelStatusParseResult.NotStatus();
+                }
+
+                JObject metrics = string.Equals(type, ModelStatusResultType, StringComparison.OrdinalIgnoreCase) ? root["training"] as JObject : root;
+                if (metrics != null && new[] { "trainLoss", "validationLoss", "validationMetricValue" }.Any(name => metrics[name] != null))
+                    status.Metric = new TrainingEpochMetric(metrics["epoch"]?.Value<int?>() ?? 0, ReadMetric(metrics, "trainLoss"), ReadMetric(metrics, "validationLoss"),
+                        metrics["validationMetricKey"]?.Type == JTokenType.String ? metrics["validationMetricKey"].Value<string>() : "", ReadMetric(metrics, "validationMetricValue"));
+
+                if (metrics != null && (string.Equals(status.Type, TrainingStatusType, StringComparison.OrdinalIgnoreCase) || status.HasEmbeddedTrainingStatus))
+                {
+                    string trainingState = status.HasEmbeddedTrainingStatus ? status.EmbeddedTrainingState : status.State;
+                    if (string.Equals(trainingState, "completed", StringComparison.OrdinalIgnoreCase))
+                        status.TrainingResultWeightsPath = metrics["weightsPath"]?.Value<string>() ?? string.Empty;
                 }
 
                 return PythonModelStatusParseResult.Parsed(status);
@@ -175,6 +193,14 @@ namespace MvcVisionSystem._3._Communication.TCP
             };
         }
 
+        private static double? ReadMetric(JObject root, string name)
+        {
+            JToken value = root[name];
+            if (value?.Type is not (JTokenType.Integer or JTokenType.Float)) return null;
+            double number = value.Value<double>();
+            return double.IsFinite(number) ? number : null;
+        }
+
         private static PythonModelStatusMessage ParseTaskStatus(JObject root)
         {
             string taskType = root["taskType"]?.Value<string>() ?? string.Empty;
@@ -192,6 +218,7 @@ namespace MvcVisionSystem._3._Communication.TCP
             {
                 Type = TrainingStatusType,
                 Version = root["version"]?.Value<int?>() ?? 1,
+                RunId = root["runId"]?.Value<string>() ?? string.Empty,
                 State = state,
                 Message = message,
                 ProgressPercent = root["progressPercent"]?.Value<int?>(),
@@ -218,6 +245,7 @@ namespace MvcVisionSystem._3._Communication.TCP
             {
                 Type = TrainingStatusType,
                 Version = root["version"]?.Value<int?>() ?? 1,
+                RunId = root["runId"]?.Value<string>() ?? string.Empty,
                 State = state,
                 Message = ok ? "YOLO training accepted by worker." : "YOLO training could not start.",
                 ProgressPercent = root["progressPercent"]?.Value<int?>(),
@@ -260,6 +288,7 @@ namespace MvcVisionSystem._3._Communication.TCP
                 ModelEngine = model?["engine"]?.Value<string>() ?? string.Empty,
                 ModelWeightsPath = weights ?? string.Empty,
                 EmbeddedTrainingState = training?["state"]?.Value<string>() ?? string.Empty,
+                EmbeddedTrainingRunId = training?["runId"]?.Value<string>() ?? string.Empty,
                 EmbeddedTrainingMessage = training?["message"]?.Value<string>() ?? string.Empty,
                 EmbeddedTrainingProgressPercent = training?["progressPercent"]?.Value<int?>(),
                 EmbeddedTrainingEpoch = training?["epoch"]?.Value<int?>(),

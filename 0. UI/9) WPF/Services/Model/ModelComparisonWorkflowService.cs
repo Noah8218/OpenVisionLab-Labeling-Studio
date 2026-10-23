@@ -52,6 +52,30 @@ namespace MvcVisionSystem
         public bool IsModelComparisonRunning { get; private set; }
         public bool IsSegmentationComparisonRunning { get; private set; }
 
+        public async Task RunDecisionEvaluationAsync(Func<CancellationToken, Task<ModelDecisionEvaluationCache>> evaluate,
+            Func<bool> isCurrent, Action<ModelDecisionEvaluationCache> apply, Action<string> failed, Action refreshCommands)
+        {
+            if (isClosed || IsModelComparisonRunning || IsSegmentationComparisonRunning) return;
+            ArgumentNullException.ThrowIfNull(evaluate); ArgumentNullException.ThrowIfNull(isCurrent); ArgumentNullException.ThrowIfNull(apply);
+            IsModelComparisonRunning = true;
+            var cancellation = new CancellationTokenSource();
+            modelCancellation = cancellation;
+            refreshCommands?.Invoke();
+            try
+            {
+                ModelDecisionEvaluationCache cache = await evaluate(cancellation.Token).ConfigureAwait(true);
+                if (!isClosed && !cancellation.IsCancellationRequested && isCurrent()) apply(cache);
+            }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+            catch (Exception ex) { if (!isClosed && isCurrent()) failed?.Invoke(ex.Message); }
+            finally
+            {
+                if (ReferenceEquals(modelCancellation, cancellation)) modelCancellation = null;
+                cancellation.Dispose(); IsModelComparisonRunning = false;
+                if (!isClosed) refreshCommands?.Invoke();
+            }
+        }
+
         public async Task RunCandidateAsync(ModelComparisonCallbacks view)
         {
             if (isClosed || IsModelComparisonRunning)
@@ -65,10 +89,10 @@ namespace MvcVisionSystem
             IReadOnlyList<string> validationErrors = validateModelRequest(request);
             if (validationErrors.Count > 0)
             {
-                string message = "\uBAA8\uB378 \uBE44\uAD50 \uC2E4\uD589 \uBD88\uAC00: " + string.Join(" / ", validationErrors.Take(3));
+                string message = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.Unavailable") + " " + string.Join(" / ", validationErrors.Take(3));
                 view.SetComparisonTexts(
                     comparisonText: message,
-                    adoptionDecisionText: "\uAD50\uCCB4 \uD310\uB2E8: \uBCF4\uB958 - \uCD5C\uC885 \uAC80\uC99D \uBE44\uAD50 \uBD88\uAC00");
+                    adoptionDecisionText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.BlockedDecision"));
                 view.SetCommandStatus(message, false);
                 view.AppendLog(message);
                 return;
@@ -80,10 +104,10 @@ namespace MvcVisionSystem
             CancellationToken modelComparisonToken = cancellation.Token;
             view.RefreshCommands();
             view.SetComparisonTexts(
-                comparisonText: "\uBAA8\uB378 \uBE44\uAD50 \uC2E4\uD589 \uC911: \uCD5C\uC885 \uAC80\uC99D \uC774\uBBF8\uC9C0\uB85C \uAE30\uC874 \uBAA8\uB378\uACFC \uC0C8 \uD559\uC2B5 \uBAA8\uB378\uC744 \uBE44\uAD50\uD569\uB2C8\uB2E4.",
-                adoptionDecisionText: "\uAD50\uCCB4 \uD310\uB2E8: \uBE44\uAD50 \uC2E4\uD589 \uC911");
-            view.SetCommandStatus("\uBAA8\uB378 \uBE44\uAD50 \uC2E4\uD589 \uC911...", true);
-            view.AppendLog($"\uBAA8\uB378 \uBE44\uAD50 \uC2DC\uC791: \uAE30\uC874={Path.GetFileName(request.BaselineWeightsPath)}, \uC0C8 \uBAA8\uB378={Path.GetFileName(request.CandidateWeightsPath)}, \uB300\uC0C1={request.Task}");
+                comparisonText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.RunningHelp"),
+                adoptionDecisionText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.RunningDecision"));
+            view.SetCommandStatus(OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.Running"), true);
+            view.AppendLog(string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.StartLog"), Path.GetFileName(request.BaselineWeightsPath), Path.GetFileName(request.CandidateWeightsPath), request.Task));
 
             try
             {
@@ -99,24 +123,44 @@ namespace MvcVisionSystem
                     string errorText = BuildModelComparisonFailureText(result);
                     view.SetComparisonTexts(
                         comparisonText: errorText,
-                        adoptionDecisionText: "\uAD50\uCCB4 \uD310\uB2E8: \uBCF4\uB958 - \uBAA8\uB378 \uBE44\uAD50 \uC2E4\uD328");
+                        adoptionDecisionText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.FailedDecision"));
                     view.SetCommandStatus(errorText, false);
                     view.AppendLog(errorText);
                     return;
                 }
 
-                view.RefreshCandidateComparison();
+                WpfModelComparisonReviewReport reviewReport = buildEngineReview(result, request);
+                if (!reviewReport.HasComparison)
+                {
+                    string errorText = string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.ReadFailure"), Path.GetFileName(request.BaselineWeightsPath), Path.GetFileName(request.CandidateWeightsPath));
+                    view.SetComparisonTexts(
+                        comparisonText: errorText,
+                        adoptionDecisionText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.ReadFailedDecision"));
+                    view.SetCommandStatus(errorText, false);
+                    view.AppendLog(errorText);
+                    return;
+                }
+
+                if (view.ApplyCandidateComparisonResult != null)
+                {
+                    view.ApplyCandidateComparisonResult(result, request, reviewReport);
+                }
+                else
+                {
+                    view.RefreshCandidateComparison();
+                }
 
                 string summaryName = string.IsNullOrWhiteSpace(result.SummaryPath)
                     ? "comparison-summary.json"
                     : Path.GetFileName(Path.GetDirectoryName(result.SummaryPath) ?? result.SummaryPath);
-                string completeText = $"\uBAA8\uB378 \uBE44\uAD50 \uC644\uB8CC: {summaryName}. Candidate Review\uC758 \uBAA8\uB378 \uCC28\uC774 \uC608\uC2DC\uB97C \uD074\uB9AD\uD574 \uC774\uBBF8\uC9C0 \uC704\uCE58\uB97C \uD655\uC778\uD558\uC138\uC694.";
+                string completeText = string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.Completed"), summaryName);
                 view.SetComparisonTexts(comparisonText: completeText);
-                if (!view.AdoptionDecisionText().Contains("\uAD50\uCCB4 \uD310\uB2E8:", StringComparison.Ordinal)
+                if (!view.AdoptionDecisionText().Contains(OpenVisionLab.OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfLearningWorkflow.TrainingComparison.Term.InspectionDecisionPrefix")[0], StringComparison.Ordinal)
+                    && !view.AdoptionDecisionText().Contains(OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.DecisionPrefix"), StringComparison.Ordinal)
                     && !view.AdoptionDecisionText().Contains("Adoption decision:", StringComparison.OrdinalIgnoreCase))
                 {
                     view.SetComparisonTexts(
-                        adoptionDecisionText: "\uAD50\uCCB4 \uD310\uB2E8: \uCC28\uC774 \uC608\uC2DC \uD655\uC778 \uD544\uC694");
+                        adoptionDecisionText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.ExamplesNeeded"));
                 }
 
                 view.AddReviewHistory(completeText);
@@ -128,10 +172,10 @@ namespace MvcVisionSystem
             {
                 if (!isClosed)
                 {
-                    string errorText = $"\uBAA8\uB378 \uBE44\uAD50 \uC2E4\uD328: {ex.Message}";
+                    string errorText = string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.Failed"), ex.Message);
                     view.SetComparisonTexts(
                         comparisonText: errorText,
-                        adoptionDecisionText: "\uAD50\uCCB4 \uD310\uB2E8: \uBCF4\uB958 - \uBAA8\uB378 \uBE44\uAD50 \uC2E4\uD328");
+                        adoptionDecisionText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.FailedDecision"));
                     view.SetCommandStatus(errorText, false);
                     view.AppendLog(errorText);
                 }
@@ -166,7 +210,7 @@ namespace MvcVisionSystem
             }
             if (view.DatasetPurpose() != LabelingDatasetPurpose.ObjectDetection)
             {
-                const string purposeError = "YOLO 엔진 비교는 객체탐지 데이터셋에서만 실행할 수 있습니다.";
+                string purposeError = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.PurposeError");
                 view.SetComparisonTexts(comparisonText: purposeError);
                 view.SetCommandStatus(purposeError, false);
                 view.AppendLog(purposeError);
@@ -180,15 +224,15 @@ namespace MvcVisionSystem
             ModelComparisonRunRequest request = buildEngineRequest(compareYoloV8ToYolo11);
             string enginePair = BuildEnginePairLabel(request);
             string comparisonBasisText = string.Equals(request.Task, "val", StringComparison.OrdinalIgnoreCase)
-                ? "학습 검증(val, 교체 판단 아님)"
-                : "최종 검증(test)";
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.ValidationBasis")
+                : OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.TestBasis");
             IReadOnlyList<string> validationErrors = validateModelRequest(request);
             if (validationErrors.Count > 0)
             {
-                string message = enginePair + " 분석 실행 불가: " + string.Join(" / ", validationErrors.Take(4));
+                string message = enginePair + " " + OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.AnalysisUnavailable") + " " + string.Join(" / ", validationErrors.Take(4));
                 view.SetComparisonTexts(
                     comparisonText: message,
-                    adoptionDecisionText: "엔진 비교: 준비 필요");
+                    adoptionDecisionText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.EngineReady"));
                 view.SetCommandStatus(message, false);
                 view.AppendLog(message);
                 return;
@@ -200,11 +244,11 @@ namespace MvcVisionSystem
             CancellationToken modelComparisonToken = cancellation.Token;
             view.RefreshCommands();
             view.SetComparisonTexts(
-                summaryText: enginePair + " 객체탐지 분석 중",
-                comparisonText: $"동일한 {comparisonBasisText} 이미지에서 정확도와 모델 Takt를 측정하는 중입니다.",
-                adoptionDecisionText: "엔진 비교: 실행 중");
-            view.SetCommandStatus(enginePair + " 객체탐지 분석 중...", true);
-            view.AppendLog($"YOLO 엔진 비교 시작: {enginePair}; baseline={Path.GetFileName(request.BaselineWeightsPath)}, candidate={Path.GetFileName(request.CandidateWeightsPath)}, batch=1, task={request.Task}");
+                summaryText: enginePair + " " + OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.EngineAnalyzing"),
+                comparisonText: string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.Timing"), comparisonBasisText),
+                adoptionDecisionText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.EngineRunning"));
+            view.SetCommandStatus(enginePair + " " + OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.EngineAnalyzingStatus"), true);
+            view.AppendLog(string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.EngineStartLog"), enginePair, Path.GetFileName(request.BaselineWeightsPath), Path.GetFileName(request.CandidateWeightsPath), request.Task));
 
             try
             {
@@ -219,7 +263,7 @@ namespace MvcVisionSystem
                     string errorText = BuildModelComparisonFailureText(result);
                     view.SetComparisonTexts(
                         comparisonText: errorText,
-                        adoptionDecisionText: "엔진 비교: 실패");
+                        adoptionDecisionText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.EngineFailed"));
                     view.SetCommandStatus(errorText, false);
                     view.AppendLog(errorText);
                     return;
@@ -228,17 +272,17 @@ namespace MvcVisionSystem
                 WpfModelComparisonReviewReport report = buildEngineReview(result, request);
                 if (!report.HasComparison)
                 {
-                    string errorText = enginePair + " 분석 결과를 읽지 못했습니다.";
+                    string errorText = enginePair + " " + OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.EngineReadFailed");
                     view.SetComparisonTexts(
                         comparisonText: errorText,
-                        adoptionDecisionText: "엔진 비교: 결과 확인 필요");
+                        adoptionDecisionText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.EngineResult"));
                     view.SetCommandStatus(errorText, false);
                     view.AppendLog(errorText);
                     return;
                 }
 
                 string dataYamlName = Path.GetFileName(request.DataYamlPath);
-                string sourceText = $"비교 대상: {enginePair}; baseline={Path.GetFileName(request.BaselineWeightsPath)}, candidate={Path.GetFileName(request.CandidateWeightsPath)} / 데이터: {dataYamlName} / 기준: {comparisonBasisText}";
+                string sourceText = string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.SourceSummary"), enginePair, Path.GetFileName(request.BaselineWeightsPath), Path.GetFileName(request.CandidateWeightsPath), dataYamlName, comparisonBasisText);
                 WpfModelComparisonHistoryItem historyItem = view.RefreshHistory(
                     request.BaselineWeightsPath,
                     request.CandidateWeightsPath,
@@ -249,15 +293,15 @@ namespace MvcVisionSystem
                     historyItem?.IsLatest == false);
                 view.ClearCandidateDecision();
                 view.SetComparisonTexts(
-                    summaryText: enginePair + " 객체탐지 분석 완료",
+                    summaryText: enginePair + " " + OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.EngineAnalysisCompleted"),
                     comparisonText: string.IsNullOrWhiteSpace(report.BenchmarkText)
                         ? report.DetailText
                         : report.BenchmarkText + Environment.NewLine + report.DetailText,
                     adoptionDecisionText: string.IsNullOrWhiteSpace(report.RecommendationText)
-                        ? "엔진 비교: 예시 확인 필요"
+                        ? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.EngineExamples")
                         : report.RecommendationText);
 
-                string completeText = $"{enginePair} 객체탐지 분석 완료 ({comparisonBasisText}): Candidate Review에서 정확도, 모델 Takt, 이미지별 차이를 확인하세요.";
+                string completeText = string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.EngineCompleted"), enginePair, comparisonBasisText);
                 view.AddReviewHistory(completeText);
                 view.ShowReview();
                 view.SetCommandStatus(completeText, false);
@@ -267,10 +311,10 @@ namespace MvcVisionSystem
             {
                 if (!isClosed)
                 {
-                    string errorText = $"{enginePair} 분석 실패: {ex.Message}";
+                    string errorText = string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.EngineFailure"), enginePair, ex.Message);
                     view.SetComparisonTexts(
                         comparisonText: errorText,
-                        adoptionDecisionText: "엔진 비교: 실패");
+                        adoptionDecisionText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.EngineFailed"));
                     view.SetCommandStatus(errorText, false);
                     view.AppendLog(errorText);
                 }
@@ -301,12 +345,12 @@ namespace MvcVisionSystem
             IReadOnlyList<string> validationErrors = validateSegmentationRequest(request);
             if (validationErrors.Count > 0)
             {
-                string message = "U-Net vs YOLO-seg 비교 실행 불가: " + string.Join(" / ", validationErrors.Take(3));
+                string message = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.MaskUnavailable") + " " + string.Join(" / ", validationErrors.Take(3));
                 view.SetSegmentationState(
                     isRunning: false,
-                    statusText: "준비 필요",
+                    statusText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.Preparation"),
                     detailText: message,
-                    actionText: "checkpoint와 각 실행기의 Python 경로를 확인한 뒤 다시 실행하세요.");
+                    actionText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.CheckpointHelp"));
                 view.SetCommandStatus(message, false);
                 view.AppendLog(message);
                 return;
@@ -318,11 +362,11 @@ namespace MvcVisionSystem
             CancellationToken cancellationToken = cancellation.Token;
             view.SetSegmentationState(
                 isRunning: true,
-                statusText: "공통 마스크 비교 실행 중",
-                detailText: "recipe 원본은 읽기 전용으로 유지합니다. canonical export와 두 raw prediction artifact를 생성하고 있습니다.",
-                actionText: "완료 후 macro Dice/IoU와 결함 component TP/FP/FN을 확인하세요. 검사 모델 자동 교체는 하지 않습니다.");
+                statusText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.MaskRunning"),
+                detailText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.MaskRunningDetail"),
+                actionText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.MaskNext"));
             view.RefreshCommands();
-            view.SetCommandStatus("U-Net vs YOLO-seg 공통 마스크 비교 실행 중...", true);
+            view.SetCommandStatus(OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.MaskStatus"), true);
             view.AppendLog($"Segmentation adapter comparison started: unet={Path.GetFileName(request.UnetSettings.WeightsPath)}, yolo={Path.GetFileName(request.YoloSettings.WeightsPath)}, engine={request.YoloEngine}");
 
             try
@@ -336,26 +380,26 @@ namespace MvcVisionSystem
 
                 if (!result.Succeeded)
                 {
-                    string errorText = "U-Net vs YOLO-seg 비교 실패: " + FirstLine(result.Error);
+                    string errorText = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.MaskFailed") + " " + FirstLine(result.Error);
                     view.SetSegmentationState(
                         isRunning: false,
-                        statusText: "결과 확인 필요",
+                        statusText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.ResultNeeded"),
                         detailText: errorText,
-                        actionText: "원본 레시피와 현재 검사 모델은 변경되지 않았습니다. 실행기, checkpoint, canonical export 조건을 확인하세요.");
+                        actionText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.MaskRecover"));
                     view.SetCommandStatus(errorText, false);
                     view.AppendLog(errorText);
                     return;
                 }
 
                 SegmentationMaskComparisonResult comparison = result.Comparison;
-                string resultText = $"test {comparison.Baseline.ImageCount}장 / macro Dice U-Net {comparison.Baseline.MeanDice:0.000} · {request.YoloEngine} {comparison.Candidate.MeanDice:0.000} / macro IoU U-Net {comparison.Baseline.MeanIoU:0.000} · {request.YoloEngine} {comparison.Candidate.MeanIoU:0.000}";
+                string resultText = string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.MaskMetricSummary"), comparison.Baseline.ImageCount, comparison.Baseline.MeanDice, request.YoloEngine, comparison.Candidate.MeanDice, comparison.Baseline.MeanIoU, comparison.Candidate.MeanIoU);
                 string reportPath = comparison.ReportPath ?? string.Empty;
-                string completeText = "U-Net vs YOLO-seg 비교 완료";
+                string completeText = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.MaskCompleted");
                 view.SetSegmentationState(
                     isRunning: false,
                     statusText: completeText,
                     detailText: resultText,
-                    actionText: "결과 artifact: " + reportPath + " / 이 결과만으로 검사 모델을 자동 교체하지 않습니다. 클래스별 Dice/IoU와 component FP/FN을 검토한 뒤 별도로 채택하세요.");
+                    actionText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.Artifact") + " " + reportPath + " " + OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.MaskResultNext"));
                 view.SetCommandStatus(completeText, false);
                 view.AppendLog(completeText + ": " + reportPath);
             }
@@ -368,12 +412,12 @@ namespace MvcVisionSystem
                 // Match the close contract for late non-cancellation failures as well.
                 if (isClosed) return;
 
-                string errorText = "U-Net vs YOLO-seg 비교 실패: " + FirstLine(ex.Message);
+                string errorText = OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.MaskFailed") + " " + FirstLine(ex.Message);
                 view.SetSegmentationState(
                     isRunning: false,
-                    statusText: "결과 확인 필요",
+                    statusText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.ResultNeeded"),
                     detailText: errorText,
-                    actionText: "원본 레시피와 현재 검사 모델은 변경되지 않았습니다. 실행 로그와 각 checkpoint를 확인하세요.");
+                    actionText: OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.MaskLogRecover"));
                 view.SetCommandStatus(errorText, false);
                 view.AppendLog(errorText);
             }
@@ -410,20 +454,20 @@ namespace MvcVisionSystem
 
             if (string.IsNullOrWhiteSpace(detail))
             {
-                return "\uBAA8\uB378 \uBE44\uAD50 \uC2E4\uD328: \uC2E4\uD589 \uACB0\uACFC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
+                return OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.ResultMissing");
             }
 
             string firstLine = detail
                 .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                 .FirstOrDefault() ?? detail.Trim();
-            return $"\uBAA8\uB378 \uBE44\uAD50 \uC2E4\uD328: {firstLine}";
+            return string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.FailureLine"), firstLine);
         }
 
         private static string FirstLine(string value)
         {
             return (value ?? string.Empty)
                 .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                .FirstOrDefault()?.Trim() ?? "실행 상세가 없습니다.";
+                .FirstOrDefault()?.Trim() ?? OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Text.ModelComparisonWorkflowService.NoDetails");
         }
 
         // Close approval suppresses work/results; process cancellation stays at cleanup.
@@ -459,6 +503,7 @@ namespace MvcVisionSystem
         public Action<string, string, string> SetComparisonResult { get; init; }
         public Func<string> AdoptionDecisionText { get; init; }
         public Action RefreshCandidateComparison { get; init; }
+        public Action<ModelComparisonRunResult, ModelComparisonRunRequest, WpfModelComparisonReviewReport> ApplyCandidateComparisonResult { get; init; }
         public Func<string, string, string, WpfModelComparisonHistoryItem> RefreshHistory { get; init; }
         public Action<string> SetComparisonSource { get; init; }
         public Action<WpfModelComparisonReviewReport, bool> ApplyReview { get; init; }

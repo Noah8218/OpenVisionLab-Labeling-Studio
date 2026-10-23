@@ -18,6 +18,8 @@ namespace MvcVisionSystem._3._Communication.TCP
 
     public sealed class DefectInfo
     {
+        [JsonProperty("classId")]
+        public int? ClassId { get; set; }
         public string ClassName { get; set; } = "";
         public float Confidence { get; set; } = 0;
         public float X { get; set; } = 0;
@@ -81,6 +83,10 @@ namespace MvcVisionSystem._3._Communication.TCP
         public string ErrorMessage { get; }
         public string RequestId { get; }
         public string ImageId { get; }
+        public double? CaptureConfidenceFloor { get; internal set; }
+        public bool HasCompletePredictions { get; internal set; }
+        public int? CaptureCandidateLimit { get; internal set; }
+        public double? CaptureAnomalyScore { get; internal set; }
         public bool IsDetectionResult => Status != DetectionResultParseStatus.NotDetectionResult;
 
         public static DetectionResultParseResult NotDetectionResult()
@@ -161,11 +167,20 @@ namespace MvcVisionSystem._3._Communication.TCP
                 {
                     return DetectionResultParseResult.InvalidPayload(error, envelope.RequestId, envelope.ImageId);
                 }
+                if (envelope.Ok == false)
+                {
+                    return DetectionResultParseResult.InvalidPayload("Detection failed.", envelope.RequestId, envelope.ImageId);
+                }
 
                 List<DefectInfo> defects = string.Equals(envelope.Type, DetectImageResultType, StringComparison.OrdinalIgnoreCase)
                     ? envelope.Candidates ?? new List<DefectInfo>()
                     : envelope.Items ?? new List<DefectInfo>();
-                return DetectionResultParseResult.Parsed(defects, envelope.RequestId, envelope.ImageId);
+                DetectionResultParseResult result = DetectionResultParseResult.Parsed(defects, envelope.RequestId, envelope.ImageId);
+                result.CaptureConfidenceFloor = envelope.Image?["captureConfidenceFloor"]?.Value<double?>();
+                result.HasCompletePredictions = envelope.Image?["hasCompletePredictions"]?.Value<bool>() == true;
+                result.CaptureCandidateLimit = envelope.Image?["captureCandidateLimit"]?.Value<int?>();
+                result.CaptureAnomalyScore = envelope.Image?["anomalyScore"]?.Value<double?>();
+                return result;
             }
             catch (JsonException ex)
             {
@@ -288,9 +303,11 @@ namespace MvcVisionSystem._3._Communication.TCP
             public int Version { get; set; }
             public string RequestId { get; set; } = "";
             public string ImageId { get; set; } = "";
+            public bool? Ok { get; set; }
             public JToken Error { get; set; }
             public List<DefectInfo> Items { get; set; } = new List<DefectInfo>();
             public List<DefectInfo> Candidates { get; set; } = new List<DefectInfo>();
+            public JObject Image { get; set; }
         }
     }
 }

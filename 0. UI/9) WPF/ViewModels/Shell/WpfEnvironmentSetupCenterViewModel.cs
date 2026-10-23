@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Windows.Input;
 
 namespace MvcVisionSystem
@@ -49,11 +50,12 @@ namespace MvcVisionSystem
         private readonly RuntimeDiagnosticsService diagnosticsService;
         private readonly Func<PythonModelSettings> pythonSettingsProvider;
         private readonly Action openModelSettingsAction;
+        private readonly Func<string> modelSettingsUnavailableReasonProvider;
         private bool disposed;
-        private string overallStatusText = "환경 확인 전";
-        private string overallDetailText = "앱과 모델 실행 유틸리티를 읽기 전용으로 확인합니다.";
-        private string selectedRuntimeText = "선택된 모델 실행기: 미설정";
-        private string lastCheckedText = "마지막 확인: 없음";
+        private string overallStatusText = "점검 전";
+        private string overallDetailText = "앱과 모델 실행 환경을 읽기 전용으로 점검합니다.";
+        private string selectedRuntimeText = "선택한 실행 환경: 미설정";
+        private string lastCheckedText = "마지막 점검: 없음";
         private int readyCount;
         private int attentionCount;
         private int optionalCount;
@@ -71,12 +73,22 @@ namespace MvcVisionSystem
             RuntimeDiagnosticsService diagnosticsService,
             Func<PythonModelSettings> pythonSettingsProvider,
             Action openModelSettingsAction)
+            : this(diagnosticsService, pythonSettingsProvider, openModelSettingsAction, null)
+        {
+        }
+
+        public WpfEnvironmentSetupCenterViewModel(
+            RuntimeDiagnosticsService diagnosticsService,
+            Func<PythonModelSettings> pythonSettingsProvider,
+            Action openModelSettingsAction,
+            Func<string> modelSettingsUnavailableReasonProvider)
         {
             this.diagnosticsService = diagnosticsService ?? throw new ArgumentNullException(nameof(diagnosticsService));
             this.pythonSettingsProvider = pythonSettingsProvider ?? throw new ArgumentNullException(nameof(pythonSettingsProvider));
             this.openModelSettingsAction = openModelSettingsAction;
+            this.modelSettingsUnavailableReasonProvider = modelSettingsUnavailableReasonProvider;
             RefreshCommand = new RelayCommand(Refresh, () => !IsBusy && !disposed);
-            OpenModelSettingsCommand = new RelayCommand(OpenModelSettings, () => !IsBusy && !disposed && this.openModelSettingsAction != null);
+            OpenModelSettingsCommand = new RelayCommand(OpenModelSettings, () => !IsBusy && !disposed && this.openModelSettingsAction != null && ModelSettingsUnavailableReason.Length == 0);
             OpenVisionLanguageService.LanguageChanged += OpenVisionLanguageService_LanguageChanged;
             Refresh();
         }
@@ -89,25 +101,25 @@ namespace MvcVisionSystem
 
         public string OverallStatusText
         {
-            get => overallStatusText;
+            get => LocalizeEnvironmentText(overallStatusText);
             private set => SetProperty(ref overallStatusText, value);
         }
 
         public string OverallDetailText
         {
-            get => overallDetailText;
+            get => LocalizeEnvironmentText(overallDetailText);
             private set => SetProperty(ref overallDetailText, value);
         }
 
         public string SelectedRuntimeText
         {
-            get => selectedRuntimeText;
+            get => LocalizeEnvironmentText(selectedRuntimeText);
             private set => SetProperty(ref selectedRuntimeText, value);
         }
 
         public string LastCheckedText
         {
-            get => lastCheckedText;
+            get => LocalizeEnvironmentText(lastCheckedText);
             private set => SetProperty(ref lastCheckedText, value);
         }
 
@@ -141,6 +153,8 @@ namespace MvcVisionSystem
             }
         }
 
+        public string ModelSettingsUnavailableReason => modelSettingsUnavailableReasonProvider?.Invoke() ?? string.Empty;
+
         public string InstallGuideText
             => T("WpfEnvironment.InstallGuide");
 
@@ -167,6 +181,7 @@ namespace MvcVisionSystem
             }
 
             IsBusy = true;
+            SelectedRuntimeText = string.Empty;
             try
             {
                 Items.Clear();
@@ -180,15 +195,13 @@ namespace MvcVisionSystem
                 AddOptionalUtilityItems();
 
                 SelectedRuntimeText = Format("WpfEnvironment.SelectedRuntime", FormatEngine(settings.ModelEngine));
-                ReadyCount = Items.Count(item => item.IsReady);
-                AttentionCount = Items.Count(item => !item.IsReady && item.IsRequired);
-                OptionalCount = Items.Count(item => !item.IsRequired);
-                OverallStatusText = AttentionCount > 0
-                    ? Format("WpfEnvironment.Overall.Required", AttentionCount)
+                int requiredAttentionCount = Items.Count(item => !item.IsReady && item.IsRequired);
+                OverallStatusText = requiredAttentionCount > 0
+                    ? Format("WpfEnvironment.Overall.Required", requiredAttentionCount)
                     : Items.Any(item => !item.IsReady)
                         ? T("WpfEnvironment.Overall.Optional")
                         : T("WpfEnvironment.Overall.Ready");
-                OverallDetailText = AttentionCount > 0
+                OverallDetailText = requiredAttentionCount > 0
                     ? T("WpfEnvironment.Overall.Detail.Required")
                     : T("WpfEnvironment.Overall.Detail.Ready");
                 LastCheckedText = Format(
@@ -202,13 +215,17 @@ namespace MvcVisionSystem
             }
             finally
             {
+                ReadyCount = Items.Count(item => item.IsReady);
+                AttentionCount = Items.Count(item => !item.IsReady && item.IsRequired);
+                OptionalCount = Items.Count(item => !item.IsRequired);
+                OnPropertyChanged(nameof(ModelSettingsUnavailableReason));
                 IsBusy = false;
             }
         }
 
         private void OpenModelSettings()
         {
-            if (disposed)
+            if (!OpenModelSettingsCommand.CanExecute(null))
             {
                 return;
             }
@@ -222,12 +239,18 @@ namespace MvcVisionSystem
             {
                 bool ready = string.Equals(check.Status, "pass", StringComparison.Ordinal);
                 bool warning = string.Equals(check.Status, "warning", StringComparison.Ordinal);
+                string detailText = LocalizeApplicationDetail(check.Name, check.Detail);
+                if (string.Equals(check.Name, "releaseManifest", StringComparison.Ordinal)
+                    && !detailText.Contains(RuntimeDiagnosticsService.ReleaseManifestFileName, StringComparison.Ordinal))
+                {
+                    detailText += " · " + RuntimeDiagnosticsService.ReleaseManifestFileName;
+                }
                 Items.Add(new WpfEnvironmentSetupCenterItem(
                     T("WpfEnvironment.Category.Application"),
                     FormatApplicationCheckName(check.Name),
                     warning ? T("WpfEnvironment.Requirement.Recommended") : T("WpfEnvironment.Requirement.Required"),
                     ready ? T("WpfEnvironment.Status.Ready") : warning ? T("WpfEnvironment.Status.ReviewNeeded") : T("WpfEnvironment.Status.ActionNeeded"),
-                    LocalizeApplicationDetail(check.Name, check.Detail),
+                    detailText,
                     ready ? T("WpfEnvironment.NextAction.None") : FormatApplicationNextAction(check.Name),
                     ready,
                     warning,
@@ -375,16 +398,104 @@ namespace MvcVisionSystem
                 arguments ?? Array.Empty<object>());
 
         private static string LocalizeEnvironmentText(string value)
-            => LocalizationTextRuntimeService.Translate(value ?? string.Empty);
+        {
+            value ??= string.Empty;
+            IReadOnlyList<OpenVisionLocalizationEntry> entries = OpenVisionLanguageService.GetEntries();
+            foreach (string key in new[]
+            {
+                "WpfEnvironment.Initial.Status",
+                "WpfEnvironment.Initial.Detail",
+                "WpfEnvironment.Initial.LastChecked",
+                "WpfEnvironment.SelectedRuntime",
+                "WpfEnvironment.LastChecked",
+                "WpfEnvironment.Detail.ProductDllFound",
+                "WpfEnvironment.Detail.ProductDllMissing",
+                "WpfEnvironment.Detail.ExecutableFound",
+                "WpfEnvironment.Detail.ExecutableMissing",
+                "WpfEnvironment.Detail.ReleaseManifestMissing",
+                "WpfEnvironment.Detail.PathExistsReadOnly",
+                "WpfEnvironment.Detail.PathMissingReadOnly",
+                "WpfEnvironment.Detail.LogIsolated",
+                "WpfEnvironment.Detail.LogInsideApplication",
+                "WpfEnvironment.Detail.ViewerGraphicsNotConnected",
+                "WpfEnvironment.Detail.ViewerGraphicsNoResult",
+                "WpfEnvironment.Detail.UnetVenvMissing",
+                "WpfEnvironment.Detail.UnetPackageMissing",
+                "WpfEnvironment.Detail.ReleaseManifestMatch",
+                "WpfEnvironment.Detail.ReleaseManifestMismatch",
+                "WpfEnvironment.Detail.ReleaseManifestReadFailed",
+                "WpfEnvironment.Detail.UltralyticsPackageMissing",
+                "WpfModelDetails.Runtime.109",
+                "WpfModelDetails.Runtime.112",
+                "WpfModelDetails.Runtime.117",
+                "WpfModelDetails.Runtime.120",
+                "WpfModelDetails.Runtime.137",
+                "WpfModelDetails.Runtime.138",
+                "WpfModelDetails.Runtime.170",
+                "WpfModelDetails.Runtime.172",
+                "WpfModelDetails.Runtime.174",
+                "WpfModelDetails.Runtime.182",
+                "WpfModelDetails.Runtime.183",
+                "WpfModelDetails.Runtime.187",
+                "WpfModelDetails.Runtime.190",
+                "WpfModelDetails.Runtime.193",
+                "WpfModelDetails.Runtime.196",
+                "WpfModelDetails.Runtime.199",
+                "WpfModelDetails.Path.124Empty",
+                "WpfModelDetails.Path.124Missing",
+                "WpfModelDetails.Path.126Empty",
+                "WpfModelDetails.Path.126Missing",
+                "WpfModelDetails.Path.128Empty",
+                "WpfModelDetails.Path.128Missing",
+                "WpfModelDetails.Path.129Empty",
+                "WpfModelDetails.Path.129Missing",
+                "WpfModelDetails.Path.133Empty",
+                "WpfModelDetails.Path.133Missing",
+                "WpfModelDetails.Path.135Empty",
+                "WpfModelDetails.Path.135Missing",
+                "WpfModelDetails.Path.136Empty",
+                "WpfModelDetails.Path.136Missing",
+                "WpfModelDetails.Support.Flags205",
+                "WpfModelDetails.Support.Flags206",
+                "WpfModelDetails.Support.Flags207",
+                "WpfModelDetails.Support.Flags208",
+            })
+            {
+                OpenVisionLocalizationEntry entry = entries.FirstOrDefault(item => string.Equals(item.Key, key, StringComparison.Ordinal));
+                if (entry == null) continue;
+                string korean = entry.Korean;
+                string english = entry.English;
+                string target = OpenVisionLanguageService.CurrentLanguage == OpenVisionLanguage.Korean ? korean : english;
+                IEnumerable<string> previousDefaults = OpenVisionLanguageService.GetPreviousKoreanDefaults(key);
+                if (key == "WpfEnvironment.Detail.ReleaseManifestMatch"
+                    || key == "WpfEnvironment.Detail.ReleaseManifestMismatch"
+                    || key == "WpfEnvironment.Detail.ReleaseManifestReadFailed")
+                {
+                    previousDefaults = previousDefaults.Skip(1);
+                }
+                foreach (string source in new[] { korean, english }.Concat(previousDefaults))
+                {
+                    if (string.IsNullOrWhiteSpace(source)) continue;
+                    if (string.Equals(value, source, StringComparison.Ordinal)) return string.IsNullOrWhiteSpace(target) ? value : target;
+                    string[] parts = source.Split(new[] { "{0}" }, StringSplitOptions.None);
+                    if (parts.Length < 2) continue;
+                    string pattern = @"\A" + Regex.Escape(parts[0]) + "(?<argument>.*?)"
+                        + string.Concat(parts.Skip(1).Select((part, index) => Regex.Escape(part) + (index < parts.Length - 2 ? @"\k<argument>" : string.Empty))) + @"\z";
+                    Match match;
+                    try { match = Regex.Match(value, pattern, RegexOptions.CultureInvariant | RegexOptions.Singleline, TimeSpan.FromMilliseconds(250)); }
+                    catch (RegexMatchTimeoutException) { return value; }
+                    if (!match.Success) continue;
+                    if (string.IsNullOrWhiteSpace(target)) return value;
+                    try { return string.Format(System.Globalization.CultureInfo.InvariantCulture, target, match.Groups["argument"].Value); }
+                    catch (FormatException) { return value; }
+                }
+            }
+            return LocalizationTextRuntimeService.Translate(value);
+        }
 
         private static string LocalizeApplicationDetail(string name, string detail)
         {
             string value = detail ?? string.Empty;
-            if (OpenVisionLanguageService.CurrentLanguage == OpenVisionLanguage.Korean)
-            {
-                return value;
-            }
-
             string translated = LocalizeEnvironmentText(value);
             if (!string.Equals(translated, value, StringComparison.Ordinal))
             {
@@ -393,29 +504,29 @@ namespace MvcVisionSystem
 
             if (string.Equals(name, "releaseManifest", StringComparison.Ordinal))
             {
-                const string matchPrefix = "배포 manifest 제품/버전 일치 (";
-                const string mismatchPrefix = "배포 manifest 불일치 (";
-                const string readFailurePrefix = "배포 manifest 읽기 실패: ";
+                string matchPrefix = OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfEnvironment.Detail.ReleaseManifestMatch")[0].Split(new[] { "{0}" }, StringSplitOptions.None)[0];
+                string mismatchPrefix = OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfEnvironment.Detail.ReleaseManifestMismatch")[0].Split(new[] { "{0}" }, StringSplitOptions.None)[0];
+                string readFailurePrefix = OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfEnvironment.Detail.ReleaseManifestReadFailed")[0].Split(new[] { "{0}" }, StringSplitOptions.None)[0];
                 if (value.StartsWith(matchPrefix, StringComparison.Ordinal)
                     && value.EndsWith(")", StringComparison.Ordinal))
                 {
-                    return "Release manifest product/version match ("
-                        + value.Substring(matchPrefix.Length, value.Length - matchPrefix.Length - 1)
-                        + ")";
+                    return Format("WpfEnvironment.Detail.ReleaseManifestMatch", value.Substring(matchPrefix.Length, value.Length - matchPrefix.Length - 1));
                 }
 
                 if (value.StartsWith(mismatchPrefix, StringComparison.Ordinal))
                 {
-                    return "Release manifest mismatch ("
-                        + value.Substring(mismatchPrefix.Length);
+                    return value.EndsWith(")", StringComparison.Ordinal)
+                        ? Format("WpfEnvironment.Detail.ReleaseManifestMismatch", value.Substring(mismatchPrefix.Length, value.Length - mismatchPrefix.Length - 1))
+                        : value;
                 }
 
                 if (value.StartsWith(readFailurePrefix, StringComparison.Ordinal))
                 {
-                    return "Release manifest read failed: "
-                        + value.Substring(readFailurePrefix.Length);
+                    return Format("WpfEnvironment.Detail.ReleaseManifestReadFailed", value.Substring(readFailurePrefix.Length));
                 }
             }
+
+            if (OpenVisionLanguageService.CurrentLanguage == OpenVisionLanguage.Korean) return value;
 
             if (string.Equals(name, RuntimeDiagnosticsService.ViewerGraphicsCheckName, StringComparison.Ordinal))
             {
@@ -481,78 +592,6 @@ namespace MvcVisionSystem
         }
 
         private static string LocalizeRuntimeDetail(string label, string detail)
-        {
-            string value = detail ?? string.Empty;
-            if (OpenVisionLanguageService.CurrentLanguage == OpenVisionLanguage.Korean)
-            {
-                return value;
-            }
-
-            string translated = LocalizeEnvironmentText(value);
-            if (!string.Equals(translated, value, StringComparison.Ordinal))
-            {
-                return translated;
-            }
-
-            const string missingPathPrefix = "경로 미설정 / ";
-            const string missingFilePrefix = "찾을 수 없음: ";
-            if (value.StartsWith(missingPathPrefix, StringComparison.Ordinal))
-            {
-                return Format(
-                    "WpfEnvironment.Detail.RuntimePathMissing",
-                    GetRuntimePathGuidance(label));
-            }
-
-            if (value.StartsWith(missingFilePrefix, StringComparison.Ordinal))
-            {
-                int separatorIndex = value.IndexOf(" / ", missingFilePrefix.Length, StringComparison.Ordinal);
-                string path = separatorIndex >= 0
-                    ? value.Substring(missingFilePrefix.Length, separatorIndex - missingFilePrefix.Length)
-                    : value.Substring(missingFilePrefix.Length);
-                return Format("WpfEnvironment.Detail.RuntimePathNotFound", path);
-            }
-
-            if (value.StartsWith("ultralytics 패키지 없음: ", StringComparison.Ordinal))
-            {
-                int separatorIndex = value.IndexOf(" / ", StringComparison.Ordinal);
-                string path = separatorIndex >= 0
-                    ? value.Substring("ultralytics 패키지 없음: ".Length, separatorIndex - "ultralytics 패키지 없음: ".Length)
-                    : value.Substring("ultralytics 패키지 없음: ".Length);
-                return Format("WpfEnvironment.Detail.UltralyticsPackageMissing", path);
-            }
-
-            if (value.StartsWith("torch, torchvision, numpy 또는 Pillow가 없습니다: ", StringComparison.Ordinal))
-            {
-                return Format(
-                    "WpfEnvironment.Detail.PyTorchPackageMissing",
-                    value.Substring("torch, torchvision, numpy 또는 Pillow가 없습니다: ".Length));
-            }
-
-            if (string.Equals(label, "실행 연결", StringComparison.Ordinal)
-                && value.StartsWith("PatchCore 학습과 검사는 ", StringComparison.Ordinal))
-            {
-                return T("WpfEnvironment.Detail.RuntimeExecutionBlocked");
-            }
-
-            if (string.Equals(label, "실행 연결", StringComparison.Ordinal)
-                && value.StartsWith("YOLOv5 TCP worker로 학습과 현재 검사를 실행합니다.", StringComparison.Ordinal))
-            {
-                return T("WpfEnvironment.Detail.YoloV5ExecutionReady");
-            }
-
-            return value;
-        }
-
-        private static string GetRuntimePathGuidance(string label)
-            => label switch
-            {
-                "프로젝트" => "Connect the YOLO project folder in Model Runtime Settings.",
-                "모델 루트" => "Connect the YOLOv5 folder or review the model root path.",
-                "실행 스크립트" => "Connect the script path used to run the model worker.",
-                "검사 모델" => "Select a .pt/.onnx inspection model or save a training result as the inspection model.",
-                "이미지" => "Select the image folder to inspect. Labeling can continue, but inspection requires an image folder.",
-                "Python" => "Connect the Python executable or the venv Scripts folder.",
-                _ => "Review the path in Model Runtime Settings."
-            };
+            => LocalizeEnvironmentText(detail ?? string.Empty);
     }
 }

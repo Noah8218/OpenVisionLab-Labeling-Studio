@@ -55,13 +55,14 @@ namespace MvcVisionSystem
     public sealed class WpfBatchDetectionPreflightViewModel : WpfObservableViewModel, IDisposable
     {
         private readonly BatchDetectionPreflightService preflightService;
+        private readonly bool inspectionOnlyPurpose;
         private bool disposed;
         private LabelingProjectData data;
         private IReadOnlyList<WpfImageQueueItem> items = Array.Empty<WpfImageQueueItem>();
         private string scopeText = string.Empty;
         private WpfBatchExistingLabelPolicyOption selectedExistingLabelPolicy;
         private WpfBatchDetectionPreflightReport currentReport;
-        private string statusText = "\uC0AC\uC804\uAC80\uC0AC \uB300\uAE30";
+        private string statusText = OpenVisionLab.OpenVisionLanguageService.T("WpfBatch.Status.Initial");
         private string countText = "\uC694\uCCAD 0 \u00B7 \uC2E4\uD589 0";
         private string modelText = string.Empty;
         private string classContractText = string.Empty;
@@ -71,9 +72,11 @@ namespace MvcVisionSystem
             LabelingProjectData data,
             IReadOnlyList<WpfImageQueueItem> items,
             string scopeText,
-            BatchDetectionPreflightService preflightService = null)
+            BatchDetectionPreflightService preflightService = null,
+            bool inspectionOnlyPurpose = false)
         {
             this.preflightService = preflightService ?? new BatchDetectionPreflightService();
+            this.inspectionOnlyPurpose = inspectionOnlyPurpose;
             OpenVisionLanguageService.LanguageChanged += OpenVisionLanguageService_LanguageChanged;
             ExistingLabelPolicies.Add(new WpfBatchExistingLabelPolicyOption(
                 WpfBatchExistingLabelPolicy.SkipLabeled,
@@ -104,12 +107,17 @@ namespace MvcVisionSystem
             get => selectedExistingLabelPolicy;
             set
             {
-                if (SetProperty(ref selectedExistingLabelPolicy, value))
+                WpfBatchExistingLabelPolicyOption requested = inspectionOnlyPurpose
+                    ? ExistingLabelPolicies.FirstOrDefault(option => option.Policy == WpfBatchExistingLabelPolicy.IncludeAndKeep)
+                    : value;
+                if (SetProperty(ref selectedExistingLabelPolicy, requested))
                 {
                     RunDryRun();
                 }
             }
         }
+
+        public bool IsExistingLabelPolicyEnabled => !inspectionOnlyPurpose;
 
         public string ScopeText => scopeText;
 
@@ -173,7 +181,9 @@ namespace MvcVisionSystem
             OnPropertyChanged(nameof(ScopeText));
             if (SelectedExistingLabelPolicy == null)
             {
-                SelectedExistingLabelPolicy = ExistingLabelPolicies.First();
+                SelectedExistingLabelPolicy = inspectionOnlyPurpose
+                    ? ExistingLabelPolicies.First(option => option.Policy == WpfBatchExistingLabelPolicy.IncludeAndKeep)
+                    : ExistingLabelPolicies.First();
             }
             else
             {
@@ -193,8 +203,7 @@ namespace MvcVisionSystem
                 Data = data,
                 Items = items,
                 ScopeText = scopeText,
-                ExistingLabelPolicy = SelectedExistingLabelPolicy?.Policy
-                    ?? WpfBatchExistingLabelPolicy.SkipLabeled
+                ExistingLabelPolicy = ResolveExistingLabelPolicy()
             });
 
             Findings.Clear();
@@ -260,10 +269,18 @@ namespace MvcVisionSystem
 
         private string LocalizeFinding(string text)
         {
-            if (OpenVisionLanguageService.CurrentLanguage == OpenVisionLanguage.Korean
-                || string.IsNullOrWhiteSpace(text))
+            if (string.IsNullOrWhiteSpace(text))
             {
                 return text ?? string.Empty;
+            }
+
+            foreach (string key in new[] { "WpfBatch.Finding.NoImages", "WpfBatch.Finding.NoRunnable", "WpfBatch.Finding.MissingWeights",
+                "WpfBatch.Finding.MappingWarning", "WpfBatch.Finding.NoClasses", "WpfBatch.Finding.EmptyClass", "WpfBatch.Finding.DuplicateClass" })
+            {
+                foreach (string previous in OpenVisionLanguageService.GetPreviousKoreanDefaults(key))
+                {
+                    if (string.Equals(text, previous, StringComparison.Ordinal)) return T(key);
+                }
             }
 
             if (TryLocalizePathFinding(
@@ -362,7 +379,12 @@ namespace MvcVisionSystem
                 new WpfBatchDetectionPlan(
                     currentReport.RunnableItems,
                     currentReport.ScopeText,
-                    SelectedExistingLabelPolicy.Policy));
+                    ResolveExistingLabelPolicy()));
         }
+
+        private WpfBatchExistingLabelPolicy ResolveExistingLabelPolicy()
+            => inspectionOnlyPurpose
+                ? WpfBatchExistingLabelPolicy.IncludeAndKeep
+                : SelectedExistingLabelPolicy?.Policy ?? WpfBatchExistingLabelPolicy.SkipLabeled;
     }
 }

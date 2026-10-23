@@ -57,6 +57,11 @@ namespace MvcVisionSystem.Yolo
 
                 foreach (string split in splits)
                 {
+                    if (split == YoloDatasetSplitService.ExcludedMode)
+                    {
+                        result.SkippedImageCount++;
+                        continue;
+                    }
                     string targetDirectory = Path.Combine(rootPath, NormalizeSplit(split), classFolderName);
                     Directory.CreateDirectory(targetDirectory);
                     string targetPath = ResolveUniqueTargetPath(targetDirectory, item.ImagePath);

@@ -38,9 +38,9 @@ namespace MvcVisionSystem._1._Core
                 detectionModels);
 
             return new PythonModelRuntimeExecutionSummary(
-                "\uC2E4\uC81C \uD559\uC2B5/\uAC80\uC0AC \uC2E4\uD589 \uACBD\uB85C",
+                "\ud559\uc2b5\u00b7\ucd94\ub860 \uc2e4\ud589 \uacbd\ub85c",
                 $"{engineText} / adapter={adapterKey} / {FormatRuntimeState(runtimeState)}",
-                $"Worker: {FormatPathLeaf(pythonExecutablePath)} -> {FormatPathLeaf(clientScriptPath)} / \uC791\uC5C5 \uD3F4\uB354 {FormatPathLeaf(projectRootPath)}",
+                $"\uc2e4\ud589 \uacbd\ub85c: {FormatPathLeaf(pythonExecutablePath)} -> {FormatPathLeaf(clientScriptPath)} / \uc791\uc5c5 \ud3f4\ub354 {FormatPathLeaf(projectRootPath)}",
                 BuildTrainingText(engine, adapterKey, modelRootPath, adapterSupport),
                 BuildInspectionText(adapterKey, weightsPath, imageRootPath, adapterSupport));
         }
@@ -49,7 +49,7 @@ namespace MvcVisionSystem._1._Core
         {
             if (string.Equals(PythonModelSettings.NormalizeModelEngine(engine), PythonModelSettings.EngineOnnx, StringComparison.Ordinal))
             {
-                return "\uD559\uC2B5: ONNX\uB294 \uCD94\uB860 \uC804\uC6A9 \uD504\uB85C\uD544 / \uD559\uC2B5 \uC694\uCCAD \uC5C6\uC74C";
+                return "\ud559\uc2b5: ONNX\ub294 \ucd94\ub860 \uc804\uc6a9 / \ud559\uc2b5 \uc694\uccad \uc5c6\uc74c";
             }
 
             string model = string.IsNullOrWhiteSpace(adapterKey) ? "yolov5" : adapterKey;
@@ -57,20 +57,20 @@ namespace MvcVisionSystem._1._Core
             {
                 if (adapterSupport?.CanInspect == true)
                 {
-                    return $"\uD559\uC2B5: \uBBF8\uC9C0\uC6D0 / \uD604\uC7AC \uC5F0\uACB0\uB41C worker\uB294 \uAC80\uC0AC\uB9CC \uC9C0\uC6D0 - TCP StartTraining(model={model}) \uC694\uCCAD\uD558\uC9C0 \uC54A\uC74C";
+                    return $"\ud559\uc2b5: \ubbf8\uc9c0\uc6d0 / \uc5f0\uacb0\ud55c \uc2e4\ud589 \ud658\uacbd\uc740 \ucd94\ub860\ub9cc \uc9c0\uc6d0\ud558\uba70 TCP StartTraining(model={model})\ub97c \uc694\uccad\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.";
                 }
 
-                return $"\uD559\uC2B5: \uC2E4\uD589 \uCC28\uB2E8 / TCP StartTraining(model={model}) \uC5F0\uACB0 \uD544\uC694 - YOLOv5 worker\uB85C \uB300\uCCB4 \uC2E4\uD589\uD558\uC9C0 \uC54A\uC74C";
+                return $"\ud559\uc2b5: \uc2e4\ud589 \ucc28\ub2e8 / TCP StartTraining(model={model}) \uc5f0\uacb0 \ud544\uc694 - YOLOv5 \ud658\uacbd\uc73c\ub85c \ub300\uccb4 \uc2e4\ud589\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.";
             }
 
             if (string.Equals(PythonModelSettings.NormalizeModelEngine(engine), PythonModelSettings.EngineUnet, StringComparison.Ordinal))
             {
-                return $"\uD559\uC2B5: TCP StartTraining(model={model}) -> app-owned U-Net segmentation export / \uBAA8\uB378 \uB8E8\uD2B8 {FormatPathLeaf(modelRootPath)}";
+                return $"\ud559\uc2b5: TCP StartTraining(model={model}) -> \uc571\uc5d0\uc11c \uc900\ube44\ud55c U-Net \uc138\uadf8\uba58\ud14c\uc774\uc158 \ub9c8\uc2a4\ud06c / \ubaa8\ub378 \ub8e8\ud2b8 {FormatPathLeaf(modelRootPath)}";
             }
 
             if (string.Equals(PythonModelSettings.NormalizeModelEngine(engine), PythonModelSettings.EnginePatchCore, StringComparison.Ordinal))
             {
-                return $"학습: TCP StartTraining(model={model}, task=anomaly) -> 검토 완료 정상 train/val 이미지 / 메모리 뱅크 {FormatPathLeaf(modelRootPath)}";
+                return $"학습: TCP StartTraining(model={model}, task=anomaly) -> 정상으로 판정한 train/val 이미지 / 메모리 뱅크 {FormatPathLeaf(modelRootPath)}";
             }
 
             return $"\uD559\uC2B5: TCP StartTraining(model={model}) -> \uBAA8\uB378 \uB8E8\uD2B8 {FormatPathLeaf(modelRootPath)} / data.yaml + \uD559\uC2B5 \uC124\uC815";
@@ -81,10 +81,10 @@ namespace MvcVisionSystem._1._Core
             string model = string.IsNullOrWhiteSpace(adapterKey) ? "yolov5" : adapterKey;
             if (adapterSupport?.CanInspect != true)
             {
-                return $"\uD604\uC7AC \uAC80\uC0AC: \uC2E4\uD589 \uCC28\uB2E8 / TCP DetectImage(model={model}) \uC5F0\uACB0 \uD544\uC694 - YOLOv5 worker\uB85C \uB300\uCCB4 \uC2E4\uD589\uD558\uC9C0 \uC54A\uC74C";
+                return $"\ud604\uc7ac \uc774\ubbf8\uc9c0 \ucd94\ub860: \uc2e4\ud589 \ucc28\ub2e8 / TCP DetectImage(model={model}) \uc5f0\uacb0 \ud544\uc694 - YOLOv5 \ud658\uacbd\uc73c\ub85c \ub300\uccb4 \uc2e4\ud589\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.";
             }
 
-            return $"\uD604\uC7AC \uAC80\uC0AC: TCP DetectImage(model={model}) -> \uAC00\uC911\uCE58 {FormatPathLeaf(weightsPath)} / \uC774\uBBF8\uC9C0 {FormatPathLeaf(imageRootPath)}";
+            return $"\ud604\uc7ac \uc774\ubbf8\uc9c0 \ucd94\ub860: TCP DetectImage(model={model}) -> \ubaa8\ub378 \ud30c\uc77c {FormatPathLeaf(weightsPath)} / \uc774\ubbf8\uc9c0 {FormatPathLeaf(imageRootPath)}";
         }
 
         private static string FormatEngineName(string engine)
@@ -102,14 +102,14 @@ namespace MvcVisionSystem._1._Core
         {
             if (state == null)
             {
-                return "\uC0C1\uD0DC \uD655\uC778 \uD544\uC694";
+                return "\uc2e4\ud589 \ud658\uacbd \ud655\uc778 \ud544\uc694";
             }
 
             return state.State switch
             {
-                PythonModelRuntimeStateKind.Ready => "\uD559\uC2B5/\uAC80\uC0AC \uAC00\uB2A5",
+                PythonModelRuntimeStateKind.Ready => "\ud559\uc2b5\u00b7\ucd94\ub860 \uac00\ub2a5",
                 PythonModelRuntimeStateKind.Incomplete => FormatIncompleteRuntimeState(state),
-                _ => "\uC124\uCE58/\uC5F0\uACB0 \uD544\uC694"
+                _ => "\uc124\uce58\u00b7\uc5f0\uacb0 \ud544\uc694"
             };
         }
 
@@ -117,7 +117,7 @@ namespace MvcVisionSystem._1._Core
         {
             if (state?.CanRunInference == true && state.CanRunTraining != true)
             {
-                return "\uD604\uC7AC \uAC80\uC0AC \uAC00\uB2A5 / \uD559\uC2B5 \uBBF8\uC9C0\uC6D0";
+                return "\ucd94\ub860 \uac00\ub2a5 / \ud559\uc2b5 \ubbf8\uc9c0\uc6d0";
             }
 
             if (state?.CanRunTraining == true)

@@ -120,6 +120,14 @@ namespace OpenVisionLab.Logging.Controls.ViewModel
 
         public string AreaText => T("Log.Area");
 
+        public string SearchLabelText => T("Log.SearchLabel");
+
+        public string TimeLabelText => T("Log.TimeLabel");
+
+        public string MessageLabelText => T("Log.MessageLabel");
+
+        public string ClearHintText => T("Log.ClearHint");
+
         public string EmptyText => T("Log.Empty");
 
         public string ModeToolTip => T("Log.Tooltip.Mode");
@@ -252,6 +260,10 @@ namespace OpenVisionLab.Logging.Controls.ViewModel
             OnPropertyChanged(nameof(AllLogsText));
             OnPropertyChanged(nameof(LevelText));
             OnPropertyChanged(nameof(AreaText));
+            OnPropertyChanged(nameof(SearchLabelText));
+            OnPropertyChanged(nameof(TimeLabelText));
+            OnPropertyChanged(nameof(MessageLabelText));
+            OnPropertyChanged(nameof(ClearHintText));
             OnPropertyChanged(nameof(EmptyText));
             OnPropertyChanged(nameof(ModeToolTip));
             OnPropertyChanged(nameof(ClearToolTip));

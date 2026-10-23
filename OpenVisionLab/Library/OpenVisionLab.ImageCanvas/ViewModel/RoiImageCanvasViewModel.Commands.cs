@@ -36,6 +36,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			MeasureCommand = new RelayCommand(ExecuteMeasure);
 			PreviewKeyDownCommand = new RelayCommand<KeyEventArgs>(x => OnPreviewKeyDown(x));
 			KeyUpCommand = new RelayCommand<KeyEventArgs>(x => OnPreviewKeyUp(x));
+			ZoomInCommand = new RelayCommand(() => ZoomAtCenter(120), () => CanZoom);
+			ZoomOutCommand = new RelayCommand(() => ZoomAtCenter(-120), () => CanZoom);
 		}
 
 		private void OnSaveIamge()

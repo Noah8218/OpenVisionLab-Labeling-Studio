@@ -56,6 +56,7 @@ namespace MvcVisionSystem
     {
         private const double PreferredInitialShellWidth = 1920D;
         private const double PreferredInitialShellHeight = 1080D;
+        private IInputElement commandPalettePreviousFocus;
         private readonly LabelingApplicationState applicationState = LabelingApplicationState.Inst;
         private readonly BulkObservableCollection<WpfImageQueueItem> imageQueueItems = new BulkObservableCollection<WpfImageQueueItem>();
         private readonly Dictionary<string, WpfImageQueueItem> imageQueueItemsByPath = new Dictionary<string, WpfImageQueueItem>(StringComparer.OrdinalIgnoreCase);
@@ -119,6 +120,8 @@ namespace MvcVisionSystem
         private readonly ImageQueueReviewAdapter imageQueueReviewAdapter;
         private readonly ImageQueueDetailRefreshAdapter imageQueueDetailRefreshAdapter;
         private readonly ImageQueueCatalogProjectionAdapter imageQueueCatalogProjectionAdapter;
+        private readonly DatasetWorkspaceWorkflowAdapter datasetWorkspaceWorkflowAdapter;
+        private readonly TrainingWorkspaceWorkflowAdapter trainingWorkspaceWorkflowAdapter;
         private readonly ImageQueueCatalogLoadAdapter imageQueueCatalogLoadAdapter;
         private readonly ImageChangeStateAdapter imageChangeStateAdapter;
         private readonly ImageQueueRootCommandAdapter imageQueueRootCommandAdapter;
@@ -149,6 +152,10 @@ namespace MvcVisionSystem
         private readonly ProjectArchiveWorkflowService projectArchiveWorkflowService = new ProjectArchiveWorkflowService();
         private readonly ClassCatalogWorkflowService classCatalogWorkflowService;
         private readonly AnnotationClassRenameService annotationClassRenameService = new AnnotationClassRenameService();
+        private readonly MaskQualityAnalysisService maskQualityAnalysisService = new MaskQualityAnalysisService();
+        private readonly MaskQualityRepairService maskQualityRepairService = new MaskQualityRepairService();
+        private readonly Dictionary<WpfMaskQualityMarkerItem, (LabelingSegmentationObject Segment, byte[] Mask)> maskQualitySources = new Dictionary<WpfMaskQualityMarkerItem, (LabelingSegmentationObject, byte[])>();
+        private LabelingImageSnapshot maskQualityImageSnapshot;
         private readonly TrainingWeightsService trainingWeightsService = new TrainingWeightsService();
         private readonly ModelCenterDashboardWorkflowService modelCenterDashboardWorkflowService;
         private readonly TrainingWeightsApplicationWorkflowService trainingWeightsApplicationWorkflowService = new TrainingWeightsApplicationWorkflowService();
@@ -204,6 +211,7 @@ namespace MvcVisionSystem
         private readonly ClassCatalogWorkflowAdapter classCatalogWorkflowAdapter;
         private readonly TrainingGuideWorkflowAdapter trainingGuideWorkflowAdapter;
         private readonly WorkflowNavigationAdapter workflowNavigationAdapter;
+        private readonly WorkflowTransitionAdapter workflowTransitionAdapter;
         private readonly WorkflowPanelFocusAdapter workflowPanelFocusAdapter;
         private readonly DatasetPurposeWorkflowAdapter datasetPurposeWorkflowAdapter;
         private readonly ProjectSettingsWorkflowAdapter projectSettingsWorkflowAdapter;
@@ -251,6 +259,10 @@ namespace MvcVisionSystem
             detectionWorkflowAdapter = new DetectionWorkflowAdapter(
                 new DetectionWorkflowAdapterContext
                 {
+                    TrainingRunIdentityAccessor = settings => ModelRegistryService.FindInspectionModelByPath(applicationState.Data?.ProjectSettings?.ModelRegistry, settings?.WeightsPath)?.TrainingRunId ?? string.Empty,
+                    ModelIdentityAccessor = settings => ModelRegistryService.FindInspectionModelByPath(applicationState.Data?.ProjectSettings?.ModelRegistry, settings?.WeightsPath)?.CandidateId ?? string.Empty,
+                    SupportedClassesAccessor = () => applicationState.Data?.ClassNamedList,
+                    EvidenceOutputDirectoryProvider = () => Path.Combine(applicationState.Data.OutputRootPath, "RESULT", "inference-capture"),
                     SettingsAccessor = () =>
                     {
                         EnsureProjectSettings();
@@ -279,12 +291,25 @@ namespace MvcVisionSystem
                     ActiveImageSizeProvider = () => applicationState.ImageWorkspace.ActiveImageSize,
                     TryLoadImage = (path, populateQueue) => TryLoadImage(path, populateQueue: populateQueue),
                     ApplyCandidates = (candidates, succeeded) => ApplyDetectionCandidates(candidates, succeeded),
+                    IsResultOnly = () => ShellViewModel?.IsInferenceInspectionOnly == true,
+                    BeginInferenceReference = (path, requestSettings) => displayWorkspaceAdapter?.BeginInferenceReference(path, requestSettings),
+                    FinishInferenceReference = path => displayWorkspaceAdapter?.FinishInferenceReference(path),
+                    RecordResult = result =>
+                    {
+                        displayWorkspaceAdapter?.AcceptInferenceReference(result);
+                        ShellViewModel?.RecordInferenceResult(result);
+                        batchDetectionWorkflowAdapter?.AttachActiveCandidateResult(result);
+                        batchDetectionWorkflowAdapter?.RefreshCandidateQueueState(verifyContent: true, updatedImagePath: result.Source?.ImagePath);
+                        imageQueueReviewAdapter?.RefreshLabelSuspicionReview();
+                        ImageQueuePanelControl?.RefreshQueueView();
+                    },
                     RefreshActions = () =>
                     {
                         UpdateYoloCommandButtons();
                         UpdateCandidateActionState();
                     },
                     SetPythonStatus = SetPythonStatus,
+                    SetPythonCompletedStatus = StatusBarViewModel.SetPythonCompletedStatus,
                     SetCommandStatus = (text, busy) => SetYoloCommandStatus(text, busy),
                     SetInferenceStatus = (text, busy, warning) => SetGlobalInferenceStatus(text, busy, warning),
                     AppendLog = AppendLog,
@@ -388,12 +413,17 @@ namespace MvcVisionSystem
                     GetPythonModelRuntimeState = GetPythonModelRuntimeState,
                     IsDetecting = () => imageDetectionWorkflowService.IsDetecting,
                     IsBatchDetectionRunning = () => batchDetectionWorkflowService.IsRunning,
-                    IsTrainingCommandRunning = () => trainingCommandLifecycleService.IsRunning,
+                    IsTrainingCommandRunning = () => trainingCommandLifecycleService.IsRunning || trainingRuntimeWorkflowService.IsQueueBusy || trainingRuntimeWorkflowService.HasPendingQueueCandidate,
                     IsInferenceWorkflowActive = () => IsInferenceWorkflowActive,
-                    SetWorkflowMode = isInference => workflowNavigationAdapter?.SetWorkflowMode(isInference),
+                    SetWorkflowMode = isInference => workflowNavigationAdapter?.SetWorkflowMode(isInference) == true,
                     EnsureModelRuntimeForInference = EnsureModelRuntimeForInference,
                     EnsureInferenceModeForDetection = EnsureInferenceModeForDetection,
                     RunInteractiveDetectionAsync = allowSmokeFallback => RunInteractiveDetectionAsync(allowSmokeFallback: allowSmokeFallback),
+                    CreateTrialModelSettings = model => DetectionWorkflowAdapter.CreateTrialModelSettings(
+                        applicationState.Data?.ProjectSettings?.PythonModel,
+                        model),
+                    RunTrialModelDetectionAsync = (settings, candidateId) =>
+                        detectionWorkflowAdapter.RunTrialModelInteractiveDetectionAsync("", settings, candidateId),
                     EnsureProjectSettings = EnsureProjectSettings,
                     NotifyYoloPathSelected = NotifyYoloPathSelected,
                     RefreshYoloStatus = RefreshYoloStatus,
@@ -404,6 +434,7 @@ namespace MvcVisionSystem
                     PopulateYoloEditorFields = PopulateYoloEditorFields,
                     PopulateTrainingEditorFields = PopulateTrainingEditorFields,
                     UpdateYoloTrainingHistoryText = UpdateYoloTrainingHistoryText,
+                    RefreshTrainingWorkspaceAfterSettingsSave = () => trainingWorkspaceWorkflowAdapter.Refresh(),
                     SetGlobalInferenceStatus = (text, busy, warning) => SetGlobalInferenceStatus(text, busy, warning),
                     SetProjectConfigStatus = SetProjectConfigStatus,
                     SetYoloCommandStatus = SetYoloCommandStatus,
@@ -412,9 +443,9 @@ namespace MvcVisionSystem
                     UpdateYoloCommandButtons = UpdateYoloCommandButtons,
                     ShowYoloModelCenterWorkflowView = ShowYoloModelCenterWorkflowView,
                     ShowModelRuntimeUnavailable = ShowModelRuntimeUnavailable,
-                    FocusYoloPythonPath = () => YoloPythonPathBox?.Focus(),
-                    FocusYoloProjectRoot = () => YoloProjectRootBox?.Focus(),
-                    FocusYoloWeightsPath = () => YoloWeightsPathBox?.Focus(),
+                    FocusYoloPythonPath = () => { ShowYoloModelCenterWorkflowView(); viewModels.TrainingWorkspaceViewModel.SelectedSettingsTabIndex = 1; UpdateLayout(); YoloPythonPathBox?.Focus(); },
+                    FocusYoloProjectRoot = () => { ShowYoloModelCenterWorkflowView(); viewModels.TrainingWorkspaceViewModel.SelectedSettingsTabIndex = 1; UpdateLayout(); YoloProjectRootBox?.Focus(); },
+                    FocusYoloWeightsPath = () => { ShowYoloModelCenterWorkflowView(); viewModels.TrainingWorkspaceViewModel.SelectedSettingsTabIndex = 2; UpdateLayout(); YoloWeightsPathBox?.Focus(); },
                     ExpandYoloAdvancedSettings = () =>
                     {
                         if (YoloModelSettingsPanelControl?.AdvancedSettingsExpander != null)
@@ -453,6 +484,7 @@ namespace MvcVisionSystem
                 new ModelCenterWorkflowAdapterContext
                 {
                     DataProvider = () => applicationState.Data,
+                    RuntimeStateProvider = GetPythonModelRuntimeState,
                     ModelCandidateLifecycleWorkflowService = modelCandidateLifecycleWorkflowService,
                     ModelCenterDashboardWorkflowService = modelCenterDashboardWorkflowService,
                     AnomalyClassificationEvaluationWorkflowService = anomalyClassificationEvaluationWorkflowService,
@@ -478,7 +510,7 @@ namespace MvcVisionSystem
                     AppendLog = AppendLog,
                     SetProjectConfigStatus = SetProjectConfigStatus,
                     SetModelStatus = SetModelStatus,
-                    UpdateCommandState = UpdateYoloCommandButtons,
+                    UpdateCommandState = () => { batchDetectionWorkflowAdapter?.RefreshCandidateQueueState(); UpdateYoloCommandButtons(); },
                     SaveYoloEditorFields = SaveYoloEditorFields,
                     SaveTrainingEditorFields = SaveTrainingEditorFields,
                     SelectFile = (title, filter, initialPath) =>
@@ -499,19 +531,36 @@ namespace MvcVisionSystem
                     TrainingSettingsViewModelProvider = () => viewModels.TrainingSettingsViewModel,
                     LearningWorkflowViewModelProvider = () => viewModels.LearningWorkflowViewModel,
                     CandidateReviewViewModelProvider = () => viewModels.CandidateReviewViewModel,
+                    SelectedInferenceModelProvider = () => ShellViewModel?.SelectedInferenceModelHistoryItem,
+                    IsInferenceStageActiveProvider = () => ShellViewModel?.IsInferenceStageActive == true,
+                    IsComparisonStageActiveProvider = () => ShellViewModel?.IsModelComparisonStageActive == true,
+                    WorkspaceViewModelProvider = () => viewModels.ModelComparisonWorkspaceViewModel,
+                    IsWorkspaceBusyProvider = IsWorkflowOperationRunning,
+                    IsApplicationCloseApproved = () => isApplicationCloseApproved,
+                    RepositoryRootProvider = () => ModelBenchmarkCatalogService.FindRepositoryRoot(),
+                    AdoptWorkspaceModel = (model, evaluation, reason) => modelCenterWorkflowAdapter.AdoptWorkspaceModel(model, reason, evaluation),
+                    UndoWorkspaceAdoption = adoptionId => modelCenterWorkflowAdapter.UndoWorkspaceAdoption(adoptionId),
+                    UiDispatcher = Dispatcher,
+                    ReviewWorkspaceLabels = path => { if (!IsWorkflowOperationRunning() && TryLoadImage(path)) workflowNavigationAdapter.EnterLabelingWorkbenchStartView(); },
                     PendingTrainingBaselineWeightsPathProvider = () => pendingTrainingBaselineWeightsPath,
                     LastAutoAppliedTrainingWeightsPathProvider = () => lastAutoAppliedTrainingWeightsPath,
                     BuildCurrentTrainingWeightsComparison = () => modelCenterWorkflowAdapter.BuildCurrentTrainingWeightsComparison(),
                     EnsureProjectSettings = EnsureProjectSettings,
                     SaveTrainingEditorFields = SaveTrainingEditorFields,
+                    SaveDecisionRuleMetadata = SaveModelMetadataConfigFromPanel,
+                    EvaluateDecisionRule = run => _ = modelComparisonWorkflowAdapter.RunDecisionEvaluationAsync(run, modelComparisonWorkflowService),
                     RefreshTrainingReadinessPanel = refreshYaml => RefreshTrainingReadinessPanel(refreshYaml),
-                    RefreshCommands = UpdateYoloCommandButtons,
+                    RefreshCommands = () => { ShellViewModel?.InvalidateInferenceDecisionProjections(); UpdateYoloCommandButtons(); },
                     RefreshModelCenterDashboard = comparison => modelCenterWorkflowAdapter.RefreshModelCenterDashboard(comparison),
                     UpdateCandidateModelDecisionPanel = comparison => modelCenterWorkflowAdapter.UpdateCandidateModelDecisionPanel(comparison),
                     ShowCandidateReviewWorkflowView = ShowCandidateReviewWorkflowView,
                     SetCommandStatus = SetYoloCommandStatus,
                     AppendLog = AppendLog,
-                    LoadYoloSettings = settings => viewModels.YoloModelSettingsViewModel?.LoadFrom(settings),
+                    LoadYoloSettings = (settings, candidateWeightsPath) =>
+                    {
+                        viewModels.YoloModelSettingsViewModel?.LoadFrom(settings);
+                        if (viewModels.YoloModelSettingsViewModel != null) viewModels.YoloModelSettingsViewModel.WeightsPath = candidateWeightsPath;
+                    },
                     SetPendingTrainingBaselineWeightsPath = path => pendingTrainingBaselineWeightsPath = path ?? string.Empty,
                     SetHasPendingTrainingWeightsRecipeSave = value => hasPendingTrainingWeightsRecipeSave = value,
                     SetLastAutoAppliedTrainingWeightsPath = path => lastAutoAppliedTrainingWeightsPath = path ?? string.Empty,
@@ -579,12 +628,16 @@ namespace MvcVisionSystem
                     },
                     RedrawReviewRois = RedrawReviewRois,
                     RefreshPolygonOverlays = RefreshPolygonOverlays,
+                    RefreshSmartMaskCommandState = () => RefreshSmartMaskCommandState(),
                     ConfirmObjectGroupDissolve = ConfirmObjectGroupDissolve,
                     EnsureProjectSettings = EnsureProjectSettings
                 });
             objectReviewInteractionAdapter = new ObjectReviewInteractionAdapter(
                 new ObjectReviewInteractionAdapterContext
                 {
+                    CanEditLabelSuspicion = () => imageQueueReviewAdapter?.CanEditLabelSuspicion() == true,
+                    PreviewAnomalySuspicionVerdict = candidate => imageQueueReviewAdapter?.PreviewAnomalySuspicionVerdict(candidate) == true,
+                    RefreshLabelSuspicionReview = () => imageQueueReviewAdapter?.RefreshLabelSuspicionReview(),
                     DataProvider = () => applicationState.Data,
                     ObjectReviewPresentationService = objectReviewPresentationService,
                     ObjectSessionStateService = objectSessionStateService,
@@ -600,6 +653,7 @@ namespace MvcVisionSystem
                     ActiveImageSizeProvider = () => applicationState.ImageWorkspace.ActiveImageSize,
                     PendingDetectionCandidatesProvider = () => pendingDetectionCandidates,
                     ObjectReviewViewModelProvider = () => ObjectReviewViewModel,
+                    LabelClassesProvider = () => CanvasPanelViewModel?.LabelClasses,
                     MainCanvasViewModelProvider = () => MainCanvasViewModel,
                     ActiveAnnotationToolProvider = () => activeAnnotationTool,
                     PendingSegmentationSplitOrientationProvider = () => pendingSegmentationSplitOrientation,
@@ -615,6 +669,7 @@ namespace MvcVisionSystem
                     SetYoloCommandStatus = SetYoloCommandStatus,
                     AppendLog = AppendLog,
                     RefreshObjectListWithSelection = selection => RefreshObjectListWithSelection(selection),
+                    RefreshSmartMaskCommandState = () => RefreshSmartMaskCommandState(),
                     MarkAnnotationsDirty = MarkAnnotationsDirty,
                     ApplyObjectPersistentMetadata = ApplyObjectPersistentMetadata,
                     CancelObjectGroupSelection = updateStatus => CancelObjectGroupSelection(updateStatus),
@@ -677,8 +732,8 @@ namespace MvcVisionSystem
                     ScheduleCrashRecoveryJournalWrite = () => ScheduleCrashRecoveryJournalWrite(),
                     SetQualityReviewState = (state, hasActiveImage, canMarkReviewed) =>
                         ObjectReviewViewModel?.SetQualityReviewState(state, hasActiveImage, canMarkReviewed),
-                    SetStatusBarSaveStatus = (isDirty, text, toolTip) =>
-                        StatusBarViewModel?.SetAnnotationSaveStatus(isDirty, text, toolTip),
+                    SetStatusBarSaveStatus = (isDirty, text, toolTip, statusKey) =>
+                        StatusBarViewModel?.SetAnnotationSaveStatus(isDirty, text, toolTip, statusKey),
                     ApplyCanvasSaveState = presentation =>
                         CanvasPanelViewModel?.ApplyAnnotationSaveStatePresentation(presentation),
                     ApplyObjectReviewSaveState = presentation =>
@@ -698,6 +753,16 @@ namespace MvcVisionSystem
                     DataProvider = () => applicationState.Data,
                     TrySaveCurrentObjectMetadata = TrySaveCurrentObjectMetadata,
                     MarkAnnotationsSaved = MarkAnnotationsSaved,
+                    MarkAnnotationsNoObjectSaved = reason => annotationSaveStateAdapter.MarkAnnotationsNoObjectSaved(reason),
+                    MarkAnnotationsUnlabeled = () => annotationSaveStateAdapter.MarkAnnotationsUnlabeled(),
+                    OnAnnotationsSaved = hadChanges =>
+                    {
+                        displayWorkspaceAdapter?.InvalidateSavedGroundTruth();
+                        imageQueueReviewAdapter?.OnAnnotationsSaved(hadChanges);
+                        if (!isApplicationCloseApproved) candidateReviewStateAdapter?.UpdateCandidateActionState();
+                    },
+                    ExplicitNoObjectSelectionProvider = () => ShellViewModel.IsLabelingStageActive && ShellViewModel.IsAnnotationWorkflowVisible
+                        ? CanvasPanelViewModel.IsNoObjectSelected : (bool?)null,
                     AppendLog = AppendLog,
                     DiscardCrashRecoveryJournal = DiscardCrashRecoveryJournal,
                     UpdateApplicationData = () => applicationState.System?.UpdateData(),
@@ -854,10 +919,79 @@ namespace MvcVisionSystem
                 new ShellKeyboardShortcutAdapterContext
                 {
                     CanvasPanelViewModel = viewModels.CanvasPanelViewModel,
+                    ObjectReviewViewModel = viewModels.ObjectReviewViewModel,
+                    ImageQueueViewModel = viewModels.ImageQueueViewModel,
+                    IsLabelingStageActive = () => viewModels.ShellViewModel.IsLabelingStageActive && !viewModels.ShellViewModel.IsRecipeLibraryVisible,
+                    IsRecipeLibraryVisible = () => viewModels.ShellViewModel.IsRecipeLibraryVisible,
+                    FocusRecipeSearch = () => RecipeLibraryPanelControl.FocusSearch(),
+                    IsComparisonStageActive = () => viewModels.ShellViewModel.IsModelComparisonStageActive && !viewModels.ShellViewModel.IsRecipeLibraryVisible,
+                    CancelComparisonConfirmation = viewModels.ModelComparisonWorkspaceViewModel.CancelAdoptionCommand,
+                    ExecuteMenuShortcut = id =>
+                    {
+                        if (id == "Undo" || id == "Redo")
+                            AppendLog($"SHELL_HISTORY_SHORTCUT id={id} reason={viewModels.MenuViewModel.GetReason(id)} draft={HasWorkflowDraft()} pendingMask={HasPendingMaskStrokeCommitWork()} undo={viewModels.CanvasPanelViewModel.UndoAnnotationTool?.IsActionEnabled} redo={viewModels.CanvasPanelViewModel.RedoAnnotationTool?.IsActionEnabled}");
+                        viewModels.MenuViewModel.Execute(id);
+                    },
+                    IsCommandPaletteOpen = () => viewModels.MenuViewModel.IsCommandPaletteOpen,
+                    IsShellDialogOpen = () => viewModels.MenuViewModel.IsShellDialogOpen,
+                    CloseShellDialog = viewModels.MenuViewModel.CloseShellDialogCommand,
+                    OpenCommandPalette = viewModels.MenuViewModel.OpenCommandPaletteCommand,
+                    CloseCommandPalette = viewModels.MenuViewModel.CloseCommandPaletteCommand,
+                    NextPaletteCommand = viewModels.MenuViewModel.NextCommand,
+                    PreviousPaletteCommand = viewModels.MenuViewModel.PreviousCommand,
+                    ExecutePaletteCommand = viewModels.MenuViewModel.ExecuteSelectedCommand,
                     CancelFourPointBoxDraft = () => CancelFourPointBoxDraft(updateStatus: true),
+                    CancelPolygonDraft = () => annotationInputAdapter?.TryCancelPolygonDraft() == true,
+                    CancelSmartMaskGeneration = () =>
+                    {
+                        if (smartMaskWorkflowService?.IsRunning != true)
+                        {
+                            return false;
+                        }
+
+                        ExecuteCancelSmartMaskGenerationCommand();
+                        return true;
+                    },
+                    CompletePolygonDraft = () => annotationInputAdapter?.TryCompletePolygonDraft() == true,
+                    ApplySmartMaskCandidate = () =>
+                    {
+                        if (viewModels.CanvasPanelViewModel?.IsApplySmartMaskCandidateEnabled != true)
+                        {
+                            return false;
+                        }
+
+                        ExecuteApplySmartMaskCandidateCommand();
+                        return true;
+                    },
+                    ConfirmSelectedCandidate = () =>
+                    {
+                        if (ShellViewModel?.IsLabelingStageActive != true && ShellViewModel?.IsInferenceModeActive != true
+                            || CandidateReviewViewModel?.IsConfirmSelectedEnabled != true)
+                        {
+                            return false;
+                        }
+
+                        ExecuteConfirmSelectedCandidateCommand();
+                        return true;
+                    },
+                    ConfirmAllCandidates = () =>
+                    {
+                        if (ShellViewModel?.IsLabelingStageActive != true || CandidateReviewViewModel?.IsConfirmAllEnabled != true) return false;
+                        CandidateReviewViewModel.ConfirmAllCommand.Execute(null);
+                        return true;
+                    },
+                    AcceptAnomalyPrediction = () => imageQueueReviewAdapter.TryAcceptAnomalyPrediction(),
+                    CopySelectedAnnotation = () => annotationProductivityAdapter.TryCopySelectedAnnotation(),
+                    PasteAnnotation = () => annotationProductivityAdapter.TryPasteAnnotation(),
+                    BeginTemporaryPan = () => workflowNavigationAdapter?.BeginTemporaryPan() == true,
+                    EndTemporaryPan = () => workflowNavigationAdapter?.EndTemporaryPan() == true,
+                    IsTemporaryPanActive = () => workflowNavigationAdapter?.IsTemporaryPanActive == true,
                     RemoveLastFourPointBoxPoint = RemoveLastFourPointBoxPoint,
+                    RemoveLastPolygonDraftPoint = () => annotationInputAdapter?.TryRemoveLastPolygonDraftPoint() == true,
                     UndoAnnotationHistory = UndoWpfAnnotationHistory,
                     RedoAnnotationHistory = RedoWpfAnnotationHistory,
+                    UndoSmartMaskCandidateEdit = () => smartMaskWorkflowAdapter?.UndoSmartMaskCandidateEdit() == true,
+                    RedoSmartMaskCandidateEdit = () => smartMaskWorkflowAdapter?.RedoSmartMaskCandidateEdit() == true,
                     TryDuplicateSelectedAnnotation = TryDuplicateSelectedAnnotation,
                     ResolveSelectableAnnotationTool = ResolveSelectableAnnotationTool,
                     ApplyAnnotationToolSelection = ApplyAnnotationToolSelection,
@@ -879,9 +1013,11 @@ namespace MvcVisionSystem
 
                     Activate();
                 },
-                modelCenterWorkflowAdapter.ResolveModelComparisonSummaryPath);
+                modelCenterWorkflowAdapter.ResolveModelComparisonSummaryPath,
+                () => viewModels.MenuViewModel.GetReason("Model"));
             datasetTransferWindowHost = new DatasetTransferWindowHost(
                 this,
+                ShellViewRoot,
                 fileDialogService,
                 () => applicationState.Data,
                 GetCurrentRecipeName,
@@ -894,7 +1030,7 @@ namespace MvcVisionSystem
                 CanvasPanelViewModel,
                 LearningWorkflowViewModel,
                 () => RefreshSmartMaskCommandState(),
-                CaptureCanvasWorkflowContext);
+                CaptureCanvasWorkflowContext, MainCanvasViewModel);
             canvasAnnotationToolScopePresenter = new CanvasAnnotationToolScopePresenter(
                 ShellViewModel,
                 CanvasPanelViewModel,
@@ -928,7 +1064,17 @@ namespace MvcVisionSystem
                 CanvasPanelViewModel,
                 MainCanvasViewModel,
                 MainCanvasView,
-                new ImageDisplayAdjustmentService());
+                new ImageDisplayAdjustmentService(),
+                () => applicationState.Data,
+                () => projectSettingsWorkflowAdapter?.GetCurrentRecipeName() ?? string.Empty,
+                () => ShellViewModel.IsInferenceStageActive,
+                path =>
+                {
+                    bool success = annotationLoadAdapter.TryReadSavedGroundTruth(path, out var outlines, out string statusKey, out var polygonFills);
+                    return (success, outlines, polygonFills, statusKey);
+                },
+                () => ShellViewModel.IsLabelingStageActive && !ShellViewModel.IsRecipeLibraryVisible,
+                () => viewModels.LabelingPreferencesViewModel.KeepZoomOnImageMove);
             statusPresentationAdapter = new ShellStatusPresentationAdapter(
                 StatusBarViewModel,
                 () => new ShellWorkflowStatusContext(
@@ -948,6 +1094,9 @@ namespace MvcVisionSystem
                     ProjectConfigViewModel = viewModels.ProjectConfigViewModel,
                     ProjectRecipeSessionService = projectRecipeSessionService,
                     ProjectRecipeApplyWorkflowService = projectRecipeApplyWorkflowService,
+                    WorkflowTransitionAdapterProvider = () => workflowTransitionAdapter,
+                    CompleteDatasetRecipeSwitch = () => datasetSetupWorkflowAdapter?.CompleteSelectedDatasetRecipeSwitch(),
+                    RefreshRecipeLibrary = recipeName => datasetSetupWorkflowAdapter?.RefreshRecipeLibrary(recipeName),
                     IsApplicationCloseApproved = () => isApplicationCloseApproved,
                     BuildApplicationCloseState = BuildApplicationCloseState,
                     DefaultDatasetParentDirectory = datasetTransferWindowHost.ResolveProjectArchiveDatasetParent,
@@ -974,6 +1123,7 @@ namespace MvcVisionSystem
                     AppendLog = AppendLog,
                     UpdateYoloCommandButtons = UpdateYoloCommandButtons,
                     CancelFourPointBoxDraft = () => CancelFourPointBoxDraft(updateStatus: false),
+                    ResetSmartMaskPromptSession = ResetSmartMaskPromptSession,
                     RememberLastOpenedDatasetRecipe = RememberLastOpenedDatasetRecipe,
                     ApplyProjectDatasetPurposeToWorkflow = ApplyProjectDatasetPurposeToWorkflow,
                     PopulateYoloEditorFields = PopulateYoloEditorFields,
@@ -983,6 +1133,8 @@ namespace MvcVisionSystem
                     RefreshCandidateList = RefreshCandidateList,
                     RefreshObjectList = RefreshObjectList,
                     RefreshTrainingReadinessPanel = refreshYaml => RefreshTrainingReadinessPanel(refreshYaml),
+                    RefreshModelCenterDashboard = () => RefreshModelCenterDashboard(),
+                    RefreshYoloStatus = RefreshYoloStatus,
                     OpenFolder = directoryPath => Process.Start(new ProcessStartInfo
                      {
                          FileName = directoryPath,
@@ -1001,10 +1153,12 @@ namespace MvcVisionSystem
                 {
                     ApplicationState = applicationState,
                     DataProvider = () => applicationState.Data,
+                    WorkflowTransitionAdapterProvider = () => workflowTransitionAdapter,
                     ProjectSettingsWorkflowAdapter = projectSettingsWorkflowAdapter,
                     ProjectConfigViewModel = viewModels.ProjectConfigViewModel,
                     LearningWorkflowViewModel = viewModels.LearningWorkflowViewModel,
                     ShellViewModel = viewModels.ShellViewModel,
+                    RecipeSelectionViewModel = viewModels.DatasetSelectionViewModel,
                     SelectedPurposeProvider = () => DatasetPurposeListBox?.SelectedItem,
                     IsApplicationCloseApproved = () => isApplicationCloseApproved,
                     CreateWizardWindow = wizardViewModel => new WpfDatasetSetupWizardWindow
@@ -1019,6 +1173,12 @@ namespace MvcVisionSystem
                     },
                     LoadImageQueueFromRootAsync = (imageRoot, selectedImagePath, loadFirstImage, refreshDetails) =>
                         LoadImageQueueFromRootAsync(imageRoot, selectedImagePath, loadFirstImage, refreshDetails),
+                    ImageQueueDetailRefreshTask = () => imageQueueDetailRefreshAdapter?.CurrentTask ?? Task.CompletedTask,
+                    ContinueLabeling = () =>
+                    {
+                        var command = viewModels.DatasetWorkspaceViewModel.ContinueLabelingCommand;
+                        if (command.CanExecute(null)) command.Execute(null);
+                    },
                     CurrentImageRootProvider = () => ImageQueueViewModel?.CurrentImageFolderPath ?? string.Empty,
                     SetCurrentImageRoot = path => ImageQueueViewModel?.SetCurrentImageFolder(
                         path,
@@ -1069,7 +1229,9 @@ namespace MvcVisionSystem
                     RefreshYoloTrainingStepCompletion = () => RefreshYoloTrainingStepCompletion(),
                     EnterLabelingWorkbenchStartView = EnterLabelingWorkbenchStartView,
                     GetCurrentDatasetPurpose = GetCurrentDatasetPurpose,
-                    CompleteProjectRecipeApply = CompleteProjectRecipeApply
+                    CompleteProjectRecipeApply = CompleteProjectRecipeApply,
+                    RefreshShellDatasetContext = RefreshShellDatasetContext,
+                    RefreshDatasetWorkspace = () => datasetWorkspaceWorkflowAdapter?.Refresh()
                 });
             externalYoloDatasetIntakeAdapter = new ExternalYoloDatasetIntakeAdapter(
                 new ExternalYoloDatasetIntakeAdapterContext
@@ -1107,10 +1269,14 @@ namespace MvcVisionSystem
                     CandidateReviewViewModel = CandidateReviewViewModel,
                     CandidateReviewState = candidateReviewState,
                     CandidateReviewPresentationService = candidateReviewPresentationService,
+                    ClassCatalogProvider = () => ClassCatalogViewModel.Classes.ToArray(),
+                    IsSmartMaskCandidate = smartMaskPromptSession.IsSelectedCandidate,
                     CandidateReviewCompletionPresentationService = candidateReviewCompletionPresentationService,
                     ImageDetectionWorkflowService = imageDetectionWorkflowService,
                     PatchCoreHeatmapReviewService = patchCoreHeatmapReviewService,
                     PatchCoreHeatmapWindowHost = patchCoreHeatmapWindowHost,
+                    RefreshInferenceResultPresentation = () => ShellViewModel?.RefreshInferenceResultPresentation(),
+                    HasDisplayedInferenceResult = () => ShellViewModel?.HasDisplayedInferenceResult == true,
                     AnnotationDirtyState = annotationDirtyState,
                     ActiveImagePathProvider = () => applicationState.ImageWorkspace.ActiveImagePath,
                     ActiveImageSizeProvider = () => applicationState.ImageWorkspace.ActiveImageSize,
@@ -1120,7 +1286,10 @@ namespace MvcVisionSystem
                     GetManualRoiClassName = GetManualRoiClassName,
                     GetCanvasLabelObjectCount = GetCanvasLabelObjectCount,
                     IsApplicationCloseApproved = () => isApplicationCloseApproved,
+                    IsCandidateMutationBlocked = () => imageDetectionWorkflowService.IsDetecting || batchDetectionWorkflowService.IsRunning || trainingCommandLifecycleService.IsRunning || trainingRuntimeWorkflowService.IsTrainingWorkflowRunning,
+                    IsInferenceInspectionOnly = () => ShellViewModel?.IsInferenceResultReadOnly == true,
                     IsModelWorkflowCreated = () => viewModels.IsModelWorkflowCreated,
+                    IsInferenceWorkspaceStage = () => ShellViewModel.IsInferenceStageActive,
                     IsTopmostProvider = () => Topmost,
                     ShowCandidateReviewWorkflowView = ShowCandidateReviewWorkflowView,
                     RedrawReviewRois = RedrawReviewRois,
@@ -1137,6 +1306,16 @@ namespace MvcVisionSystem
             imageQueueReviewAdapter = new ImageQueueReviewAdapter(
                 new ImageQueueReviewAdapterContext
                 {
+                    SavedGroundTruthChanged = () => ShellViewModel.InvalidateInferenceDecisionProjections(),
+                    ResultCache = ShellViewModel.InferenceResultReview,
+                    CandidateReviewViewModel = CandidateReviewViewModel,
+                    ReviewScopeIdentityProvider = () => GetCurrentRecipeName() + "|" + applicationState.Data?.OutputRootPath,
+                    CurrentRecipeDirectoryProvider = () => ProjectRecipeService.BuildConfigDirectory(ProjectRecipeService.GetRecipeRootDirectory(), GetCurrentRecipeName()),
+                    SavedAnomalyThresholdProvider = (artifact, runId) => modelComparisonWorkflowAdapter.GetSavedAnomalyThreshold(artifact, runId),
+                    ApplyLabelSuspicionFix = item => objectReviewInteractionAdapter.ApplyLabelSuspicionFix(item),
+                    CaptureLabelSuspicionPreview = () => objectReviewInteractionAdapter.CaptureLabelSuspicionPreview(),
+                    RedrawReviewOverlays = RedrawReviewRois,
+                    ShowLabelSuspicionPanel = () => { if (workflowNavigationAdapter.EnterLabelingWorkbenchStartView()) ShowCandidateReviewWorkflowView(); },
                     DataProvider = () => applicationState.Data,
                     ImageQualityReviewWorkflowService = imageQualityReviewWorkflowService,
                     AnomalyImageReviewSession = anomalyImageReviewSession,
@@ -1144,8 +1323,20 @@ namespace MvcVisionSystem
                     ImageQueueItems = imageQueueItems,
                     ImageQueueItemsByPath = imageQueueItemsByPath,
                     ImageQueueViewProvider = () => imageQueueView,
+                    IsLabelingStageActive = () => ShellViewModel.IsLabelingStageActive && !ShellViewModel.IsRecipeLibraryVisible,
+                    IsOperationRunning = IsWorkflowOperationRunning,
+                    HasWorkflowDraft = HasWorkflowDraft,
+                    IsAnnotationLoadBlocked = () => annotationLoadState.IsSaveBlocked,
+                    HasCanvasLabelObjects = HasCanvasLabelObjects,
+                    IsNoObjectSelected = () => CanvasPanelViewModel.IsNoObjectSelected,
+                    SaveAnnotationsForReview = () => annotationWorkflowCommandAdapter.SaveAnnotationsForReview(),
+                    DiscardUnsavedAnnotations = () => imageLoadWorkflowAdapter.ReloadActiveImageDiscardingUnsavedAnnotations(),
+                    SelectReviewTool = () => SelectAnnotationTool(WpfAnnotationTool.Select, revealInGuide: false),
+                    ShowRejectionDialog = ShowImageReviewRejection,
+                    TryOpenNextReviewPendingImage = (path, order) => imageQueueNavigationAdapter.TryOpenNextReviewPendingImage(path, order),
                     ImageQueueViewModel = ImageQueueViewModel,
                     ObjectReviewViewModel = ObjectReviewViewModel,
+                    SetAnomalyReviewSaveState = state => StatusBarViewModel.SetAnomalyReviewSaveState(state),
                     ImageQueueFilterBox = ImageQueueFilterBox,
                     ImageQueueSearchBox = ImageQueueSearchBox,
                     ImageQueueGrid = ImageQueueGrid,
@@ -1162,10 +1353,16 @@ namespace MvcVisionSystem
                     SetDatasetStatus = SetDatasetStatus,
                     SetModelStatus = SetModelStatus,
                     RefreshImageQueueViewAfterItemStateChange = RefreshImageQueueViewAfterItemStateChange,
+                    ClearActiveImageAfterSearchNoMatch = ClearActiveImageAfterQueueReset,
+                    HasDisplayedInferenceResult = () => ShellViewModel.IsInferenceStageActive && ShellViewModel.HasDisplayedInferenceResult,
+                    RefreshInferenceResultPresentation = () => ShellViewModel.RefreshInferenceResultPresentation(),
                     TryOpenNextIncompleteQueueImage = () => TryOpenNextIncompleteQueueImage(),
                     CanOpenQueueItem = item => imageQueueNavigationAdapter?.CanOpenQueueItem(item) == true,
                     SetOpenSelectedImageEnabled = canOpen => SetControlEnabled(OpenSelectedQueueImageButton, canOpen),
                     OpenSelectedQueueImage = (item, skipIfAlreadyActive) => imageQueueNavigationAdapter?.TryOpenSelectedQueueImage(item, skipIfAlreadyActive),
+                    OpenAnomalyGridImage = item => imageQueueNavigationAdapter?.TryOpenSelectedQueueImage(item, skipIfAlreadyActive: true) == true,
+                    CurrentRecipeNameProvider = GetCurrentRecipeName,
+                    SaveCurrentRecipeConfiguration = recipeName => projectSettingsWorkflowAdapter.SaveCurrentRecipeConfiguration(recipeName),
                     RefreshYoloTrainingStepCompletion = () => RefreshYoloTrainingStepCompletion()
                 });
             imageQueueDetailRefreshAdapter = new ImageQueueDetailRefreshAdapter(
@@ -1179,6 +1376,7 @@ namespace MvcVisionSystem
                     ActiveImagePathProvider = () => applicationState.ImageWorkspace.ActiveImagePath,
                     QueueItemCountProvider = () => imageQueueItems.Count,
                     ApplyStandardReviewStatus = (item, status) => imageQueueReviewAdapter.ApplyReviewStatusToItemCore(item, status, refreshTrainingStepCompletion: false),
+                    ApplyItemUpdates = viewModels.DatasetWorkspaceViewModel.ApplyItemUpdates,
                     AppendLog = AppendLog,
                     SetDatasetStatus = SetDatasetStatus,
                     UpdateImageQueueStatusText = () => UpdateImageQueueStatusText(),
@@ -1186,6 +1384,50 @@ namespace MvcVisionSystem
                     ImageQueuePanelControl = ImageQueuePanelControl,
                     Dispatcher = Dispatcher
                 });
+            datasetWorkspaceWorkflowAdapter = new DatasetWorkspaceWorkflowAdapter(new DatasetWorkspaceWorkflowAdapterContext
+            {
+                AddSourceFolder = () => { _ = imageQueueRootCommandAdapter.ExecuteAddImageFolderCommandAsync(); },
+                OpenLabelSuspicionReview = () => imageQueueReviewAdapter.OpenLabelSuspicionReview(),
+                CanOpenLabelSuspicionReview = () => !isApplicationCloseApproved && !IsWorkflowOperationRunning(),
+                ViewModels = viewModels,
+                ImageQueueItems = imageQueueItems,
+                DataProvider = () => applicationState.Data,
+                ImageRootProvider = () => ImageQueueViewModel.CurrentImageFolderPath,
+                PersistRecipe = data => projectRecipeSessionService.SaveConfiguration(data, projectSettingsWorkflowAdapter.GetCurrentRecipeName(), updateYoloDataYaml: false).IsSuccess,
+                IsCloseApproved = () => isApplicationCloseApproved,
+                TryLoadImage = path => TryLoadImage(path),
+                EnterLabeling = () => workflowNavigationAdapter.EnterLabelingWorkbenchStartView(),
+                RefreshTrainingReadiness = () => RefreshTrainingReadinessPanel(refreshYaml: false),
+                DatasetChanged = () => ShellViewModel.InvalidateInferenceDecisionProjections(),
+                SetDatasetStatus = SetDatasetStatus,
+                AppendLog = AppendLog
+            });
+            trainingWorkspaceWorkflowAdapter = new TrainingWorkspaceWorkflowAdapter(new TrainingWorkspaceWorkflowAdapterContext
+            {
+                ViewModels = viewModels,
+                Runtime = trainingRuntimeWorkflowService,
+                ImageQueueItems = imageQueueItems,
+                DataProvider = () => applicationState.Data,
+                RecipeNameProvider = GetCurrentRecipeName,
+                StatusProvider = applicationState.GetPythonCommunicationStatusSnapshot,
+                RuntimeStateProvider = GetPythonModelRuntimeState,
+                IsCloseApproved = () => isApplicationCloseApproved,
+                SaveMetadata = (data, name) => projectRecipeSessionService.SaveConfiguration(data, name, updateYoloDataYaml: false, refreshDatasetVersion: false).IsSuccess,
+                UpdateCommandState = UpdateYoloCommandButtons,
+                RefreshComparison = () => modelComparisonWorkflowAdapter.RefreshWorkspace(),
+                OpenDataset = () => viewModels.ShellViewModel.DatasetHomeCommand.Execute(null),
+                OpenEnvironment = () => viewModels.RuntimeDiagnosticsViewModel.OpenSetupCenterCommand.Execute(null),
+                OpenComparison = item =>
+                {
+                    viewModels.ShellViewModel.ModelComparisonCommand.Execute(null);
+                    viewModels.ModelComparisonWorkspaceViewModel.SelectedB = viewModels.ModelComparisonWorkspaceViewModel.Models.FirstOrDefault(row => row.History.TrainingRunId == item.TrainingRunId);
+                },
+                OpenInference = item =>
+                {
+                    viewModels.ShellViewModel.SelectedInferenceModelHistoryItem = item;
+                    viewModels.ShellViewModel.InferenceReviewCommand.Execute(null);
+                }
+            });
             imageQueueCatalogProjectionAdapter = new ImageQueueCatalogProjectionAdapter(
                 new ImageQueueCatalogProjectionAdapterContext
                 {
@@ -1196,11 +1438,17 @@ namespace MvcVisionSystem
                     ImageQueueItems = imageQueueItems,
                     ImageQueueItemsByPath = imageQueueItemsByPath,
                     ImageQueueViewModel = ImageQueueViewModel,
+                    AdoptDatasetWorkspace = datasetWorkspaceWorkflowAdapter.AdoptCatalog,
                     IsCurrentCatalogRequest = IsCurrentImageQueueCatalogLoad,
                     IsAnomalyDatasetPurpose = IsAnomalyDatasetPurpose,
                     SetImageQueueSelectionSuppressed = value => suppressImageQueueSelection = value,
                     SelectImageQueueItem = SelectImageQueueItem,
-                    RefreshImageQueueView = () => ImageQueuePanelControl?.RefreshQueueView(),
+                    RefreshImageQueueView = () =>
+                    {
+                        imageQueueReviewAdapter?.RefreshAllLabelSuspicions();
+                        batchDetectionWorkflowAdapter?.RefreshCandidateQueueState(verifyContent: true, refreshDisagreement: false);
+                        ImageQueuePanelControl?.RefreshQueueView();
+                    },
                     UpdateImageQueueStatusText = () => UpdateImageQueueStatusText(),
                     BeginDetailRefresh = (paths, lookup, data) => imageQueueDetailRefreshAdapter.Begin(paths, lookup, data),
                     TryLoadImage = path => TryLoadImage(path),
@@ -1246,7 +1494,12 @@ namespace MvcVisionSystem
                     LoadImageQueueAsync = (imageRoot, selectedImagePath, loadFirstImage) =>
                         LoadImageQueueFromRootAsync(imageRoot, selectedImagePath, loadFirstImage),
                     QueueItemCountProvider = () => imageQueueItems.Count,
-                    RefreshShellDatasetContext = RefreshShellDatasetContext,
+                    RefreshShellDatasetContext = () =>
+                    {
+                        RefreshShellDatasetContext();
+                        ShellViewModel.InvalidateInferenceDecisionProjections();
+                        RefreshTrainingReadinessPanel(refreshYaml: false);
+                    },
                     SetCurrentImageFolder = (path, canOpenFolder) => ImageQueueViewModel?.SetCurrentImageFolder(path, canOpenFolder),
                     OpenFolder = directoryPath => Process.Start(new ProcessStartInfo
                     {
@@ -1254,6 +1507,10 @@ namespace MvcVisionSystem
                         UseShellExecute = true
                     }),
                     CurrentRecipeNameProvider = GetCurrentRecipeName,
+                    ImageQueueSelectionService = imageQueueSelectionService,
+                    QueueImagePathsProvider = () => imageQueueItems.Select(item => item.ImagePath).ToArray(),
+                    SetAddingSourceFolder = value => viewModels.DatasetWorkspaceViewModel.SetAddingSourceFolder(value),
+                    ShowSourceFolderStatus = (key, arguments) => viewModels.DatasetWorkspaceViewModel.ShowSourceFolderStatus(key, arguments),
                     PopulateYoloEditorFields = PopulateYoloEditorFields,
                     PopulateProjectConfigPanelFields = PopulateProjectConfigPanelFields,
                     AppendLog = AppendLog
@@ -1315,6 +1572,14 @@ namespace MvcVisionSystem
             annotationProductivityAdapter = new AnnotationProductivityAdapter(
                 new AnnotationProductivityAdapterContext
                 {
+                    DataProvider = () => applicationState.Data,
+                    PreviousImagePathProvider = () => imageQueueNavigationAdapter.GetPreviousImagePath(),
+                    IsLabelingStageActive = () => ShellViewModel.IsLabelingStageActive && ShellViewModel.IsAnnotationWorkflowVisible,
+                    IsOperationRunning = IsWorkflowOperationRunning,
+                    HasWorkflowDraft = HasWorkflowDraft,
+                    IsAnnotationLoadBlocked = () => annotationLoadState.IsSaveBlocked,
+                    IsAnomalyDatasetPurpose = IsAnomalyDatasetPurpose,
+                    IsSegmentationDatasetPurpose = IsSegmentationDatasetPurposeActive,
                     SelectedObjectReviewItemProvider = () => TryGetSelectedObjectReviewItem(out WpfObjectReviewItemRef item)
                         ? item
                         : null,
@@ -1495,8 +1760,9 @@ namespace MvcVisionSystem
                     EndPolygonAnnotationMode = clearDraft => EndPolygonAnnotationMode(clearDraft),
                     EndMaskAnnotationMode = EndMaskAnnotationMode,
                     FocusAnnotationToolsTab = FocusAnnotationToolsTab,
+                    ActiveAnnotationToolProvider = () => activeAnnotationTool,
                     SetActiveAnnotationTool = tool => activeAnnotationTool = tool,
-                    SetLabelingWorkflowMode = () => SetWorkflowMode(WorkflowMode.Labeling),
+                    SetLabelingWorkflowMode = () => workflowNavigationAdapter?.SetWorkflowMode(isInferenceMode: false) == true,
                     FocusLabelingSidePanelForTool = FocusLabelingSidePanelForTool,
                     ApplyRectangleDrawingInputMode = ApplyRectangleDrawingInputMode,
                     BeginPolygonAnnotationMode = BeginPolygonAnnotationMode,
@@ -1509,6 +1775,7 @@ namespace MvcVisionSystem
                     SetModelStatus = SetModelStatus,
                     SetYoloCommandStatus = (text, busy) => SetYoloCommandStatus(text, busy),
                     AppendLog = AppendLog,
+                    ActivateSmartMaskTool = () => smartMaskWorkflowAdapter?.ActivateSmartMaskTool(),
                     ShowAnnotationToolPalette = () =>
                     {
                         LearningWorkflowViewModel?.ShowLabelingTask();
@@ -1530,14 +1797,24 @@ namespace MvcVisionSystem
                     ActiveImageSizeProvider = () => applicationState.ImageWorkspace.ActiveImageSize,
                     ActiveImagePathProvider = () => applicationState.ImageWorkspace.ActiveImagePath,
                     ActiveAnnotationToolProvider = () => activeAnnotationTool,
+                    CandidateBrushRadiusProvider = () => maskStrokeWorkflowAdapter?.GetMaskBrushRadius()
+                        ?? MaskAnnotationService.DefaultBrushRadius,
+                    SelectedObjectProvider = () => TryGetSelectedObjectReviewItem(out WpfObjectReviewItemRef item)
+                        ? item
+                        : null,
+                    CanEditManualSegment = CanEditManualSegment,
                     ManualRois = manualRois,
                     ManualRoiClassNames = manualRoiClassNames,
                     ManualRoiShapeKinds = manualRoiShapeKinds,
                     ManualRoiOverlayIds = manualRoiOverlayIds,
+                    ManualSegments = manualSegments,
+                    EnsureClassItem = className => classCatalogWorkflowService.EnsureClassItem(applicationState.Data, className),
                     GetManualRoiClassName = GetManualRoiClassName,
                     EnsureManualRoiMetadataCount = EnsureManualRoiMetadataCount,
                     ApplyDetectionCandidatesPreservingConfirmed = (candidates, succeeded) =>
                         ApplyDetectionCandidatesPreservingConfirmed(candidates, succeeded),
+                    ApplyDetectionCandidatesPreservingConfirmedInCurrentWorkflow = (candidates, succeeded) =>
+                        ApplyDetectionCandidatesPreservingConfirmedInCurrentWorkflow(candidates, succeeded),
                     RegisterAnnotationHistoryBeforeChange = (actionName, markDirty) =>
                         RegisterAnnotationHistoryBeforeChange(actionName, markDirty),
                     SelectAnnotationTool = (tool, reveal) => SelectAnnotationTool(tool, reveal),
@@ -1547,6 +1824,7 @@ namespace MvcVisionSystem
                     RefreshObjectList = RefreshObjectList,
                     RefreshPolygonOverlays = RefreshPolygonOverlays,
                     RefreshCanvasWorkflowContext = RefreshCanvasWorkflowContext,
+                    QueueActiveImageQueueStatusRefresh = QueueActiveImageQueueStatusRefresh,
                     AddCandidateReviewHistory = AddCandidateReviewHistory,
                     SetYoloCommandStatus = (text, busy) => SetYoloCommandStatus(text, busy),
                     AppendLog = AppendLog
@@ -1556,6 +1834,8 @@ namespace MvcVisionSystem
                 {
                     DataProvider = () => applicationState.Data,
                     ClassCatalogWorkflowService = classCatalogWorkflowService,
+                    ShowTrainingModelCenter = () => { workflowNavigationAdapter.ExecuteTrainingModelCenterCommand(); YoloModelCenterTaskTabs.SelectedIndex = 2; },
+                    RefreshInferenceResultPresentation = () => ShellViewModel?.RefreshInferenceResultPresentation(),
                     CandidateReviewState = candidateReviewState,
                     CandidateConfirmationService = candidateConfirmationService,
                     SmartMaskPromptSession = smartMaskPromptSession,
@@ -1563,6 +1843,8 @@ namespace MvcVisionSystem
                     CanvasPanelViewModel = CanvasPanelViewModel,
                     MainCanvasViewModel = MainCanvasViewModel,
                     IsApplicationCloseApproved = () => isApplicationCloseApproved,
+                    IsInferenceInspectionOnly = () => ShellViewModel?.IsInferenceResultReadOnly == true,
+                    IsCandidateMutationBlocked = () => imageDetectionWorkflowService.IsDetecting || batchDetectionWorkflowService.IsRunning || trainingCommandLifecycleService.IsRunning || trainingRuntimeWorkflowService.IsTrainingWorkflowRunning,
                     ActiveImageBitmapProvider = () => applicationState.ImageWorkspace.ActiveImage,
                     ActiveImageSizeProvider = () => applicationState.ImageWorkspace.ActiveImageSize,
                     GetSelectedCandidate = GetSelectedCandidate,
@@ -1573,6 +1855,7 @@ namespace MvcVisionSystem
                     AddCandidateReviewHistory = AddCandidateReviewHistory,
                     SetPythonStatus = SetPythonStatus,
                     SetModelStatus = SetModelStatus,
+                    SetCandidateModelStatus = StatusBarViewModel.SetCandidateModelStatus,
                     ShowCandidateReviewWorkflowView = ShowCandidateReviewWorkflowView,
                     ShowSavedLabelsWorkflowView = ShowSavedLabelsWorkflowView,
                     RedrawReviewRois = RedrawReviewRois,
@@ -1600,14 +1883,17 @@ namespace MvcVisionSystem
                         return new AnnotationSaveOutcome(succeeded, savedCount);
                     },
                     SaveCurrentEmptyAnnotations = SaveCurrentEmptyAnnotations,
+                    MarkAnnotationSaveFailed = reason => annotationSaveStateAdapter.MarkAnnotationSaveFailed(reason),
+                    UndoAnnotationHistory = UndoWpfAnnotationHistory,
                     TryOpenNextIncompleteQueueImageWithoutPath = () => TryOpenNextIncompleteQueueImage(),
                     FinishQueueCompletionAndGuideDatasetCheck = FinishQueueCompletionAndGuideDatasetCheck,
                     BuildLabelPathSummary = BuildLabelPathSummary,
                     BuildCandidateFocusRect = BuildCandidateFocusRect,
                     FocusCandidateListItem = item =>
                     {
-                        CandidateListBox?.ScrollIntoView(item);
-                        CandidateListBox?.Focus();
+                        ListBox list = ShellViewModel.IsLabelingStageActive ? ObjectReviewPanelControl.InlineCandidateList : CandidateListBox;
+                        list?.ScrollIntoView(item);
+                        list?.Focus();
                     },
                     CanOpenModelComparisonImage = path => File.Exists(path),
                     TryLoadModelComparisonImage = path => TryLoadImage(
@@ -1647,6 +1933,11 @@ namespace MvcVisionSystem
                     IsApplicationCloseApproved = () => isApplicationCloseApproved,
                     IsAnnotationDirty = () => annotationDirtyState.IsDirty,
                     CanEditManualSegment = CanEditManualSegment,
+                    EraserScopeProvider = () => CanvasPanelViewModel?.SelectedMaskEraserScope?.Scope
+                        ?? MaskEraserScope.VisibleEditable,
+                    SelectedObjectProvider = () => TryGetSelectedObjectReviewItem(out WpfObjectReviewItemRef item)
+                        ? item
+                        : null,
                     MaskAnnotationService = maskAnnotationService,
                     MainCanvasViewModelProvider = () => MainCanvasViewModel,
                     CanvasPanelViewModelProvider = () => CanvasPanelViewModel,
@@ -1691,6 +1982,8 @@ namespace MvcVisionSystem
                 new AnnotationHistoryAdapterContext
                 {
                     AnnotationHistoryWorkflowService = new AnnotationHistoryWorkflowService(),
+                    NoObjectSelectionProvider = () => CanvasPanelViewModel.IsNoObjectSelected,
+                    RestoreNoObjectSelection = CanvasPanelViewModel.RestoreNoObjectSelection,
                     ManualRois = manualRois,
                     ManualRoiClassNames = manualRoiClassNames,
                     ManualRoiShapeKinds = manualRoiShapeKinds,
@@ -1714,6 +2007,7 @@ namespace MvcVisionSystem
                     PopulateClassList = () => PopulateClassList(),
                     UpdateDetectionResultOverlay = UpdateDetectionResultOverlay,
                     RefreshActiveImageQueueStatus = hasActiveCandidates => RefreshActiveImageQueueStatus(hasActiveCandidates),
+                    RefreshSmartMaskCommandState = () => RefreshSmartMaskCommandState(),
                     SetPythonStatus = SetPythonStatus,
                     SetYoloCommandStatus = (text, busy) => SetYoloCommandStatus(text, busy),
                     AppendLog = AppendLog,
@@ -1722,7 +2016,8 @@ namespace MvcVisionSystem
                         toolState.CanUndo,
                         toolState.CanRedo,
                         toolState.UndoActionName,
-                        toolState.RedoActionName)
+                        toolState.RedoActionName),
+                    ApplyRecentHistory = actionNames => ObjectReviewViewModel?.SetEditHistory(actionNames)
                 });
             annotationHistoryWorkflowService = annotationHistoryAdapter.WorkflowService;
             annotationVisibilityAdapter = new AnnotationVisibilityAdapter(
@@ -1792,7 +2087,12 @@ namespace MvcVisionSystem
             annotationRenderingAdapter = new AnnotationRenderingAdapter(
                 new AnnotationRenderingAdapterContext
                 {
+                    IsLabelingStageActiveProvider = () => ShellViewModel.IsLabelingStageActive,
+                    IsInferenceStageActiveProvider = () => ShellViewModel.IsInferenceStageActive,
+                    ClassCatalogProvider = () => ClassCatalogViewModel.Classes.ToArray(),
+                    LabelSuspicionOverlaysProvider = () => imageQueueReviewAdapter.GetLabelSuspicionOverlays(),
                     DataProvider = () => applicationState.Data,
+                    ShowLabelNamesProvider = () => viewModels.LabelingPreferencesViewModel.ShowLabelNames,
                     ManualRois = manualRois,
                     ManualRoiClassNames = manualRoiClassNames,
                     ManualRoiShapeKinds = manualRoiShapeKinds,
@@ -1804,15 +2104,24 @@ namespace MvcVisionSystem
                     MainCanvasViewModelProvider = () => MainCanvasViewModel,
                     LearningWorkflowViewModelProvider = () => LearningWorkflowViewModel,
                     ObjectReviewViewModelProvider = () => ObjectReviewViewModel,
+                    MaskQualityMarkersProvider = () => ObjectReviewViewModel?.MaskQualityMarkers,
                     PolygonAnnotationService = polygonAnnotationService,
                     HolePolygonAnnotationService = segmentationEditAdapter.HolePolygonAnnotationService,
                     PolygonBoundaryEditWorkflowService = polygonBoundaryEditWorkflowService,
                     SmartMaskPromptSession = smartMaskPromptSession,
+                    SmartMaskCandidateEditSnapshotProvider = () =>
+                    {
+                        smartMaskWorkflowAdapter.TryGetCandidateEditSnapshot(out MaskCandidateEditSnapshot snapshot);
+                        return snapshot;
+                    },
+                    SmartMaskCandidateEditAvailableProvider = () => smartMaskWorkflowAdapter.IsCandidateEditAvailableForRendering(),
+                    SmartMaskCandidateRegionOperationProvider = () => smartMaskWorkflowAdapter.GetSmartMaskCandidateRegionOperation(),
                     FourPointBoxService = fourPointBoxService,
                     ClassCatalogWorkflowService = classCatalogWorkflowService,
                     AnnotationSegmentEditAdapter = annotationSegmentEditAdapter,
                     PendingSegmentationHoleEditModeProvider = () => segmentationEditAdapter.PendingSegmentationHoleEditMode,
                     PendingDetectionCandidatesProvider = () => pendingDetectionCandidates,
+                    VisibleDetectionCandidatesProvider = GetVisibleCandidateList,
                     ConfirmedDetectionCandidatesProvider = () => confirmedDetectionCandidates,
                     SelectedCandidateProvider = GetSelectedCandidate,
                     IsCandidateConfirmableProvider = IsCandidateConfirmable,
@@ -1854,10 +2163,15 @@ namespace MvcVisionSystem
                     TryHandlePendingIntelligentScissors = polygonBoundaryEditAdapter.TryHandlePendingIntelligentScissors,
                     TryApplyPendingSegmentationSplit = TryApplyPendingSegmentationSplit,
                     TryApplyPendingSegmentationHoleEdit = TryApplyPendingSegmentationHoleEdit,
+                    TryApplySmartMaskCandidatePolygonInput = smartMaskWorkflowAdapter.TryApplySmartMaskCandidatePolygonInput,
+                    TryCompleteSmartMaskCandidatePolygonDraft = smartMaskWorkflowAdapter.TryCompleteSmartMaskCandidatePolygonDraft,
+                    TryCancelSmartMaskCandidatePolygonDraft = smartMaskWorkflowAdapter.TryCancelSmartMaskCandidatePolygonDraft,
                     TryApplySmartMaskPointInput = smartMaskWorkflowAdapter.TryApplySmartMaskPointInput,
                     ActiveAnnotationToolProvider = () => activeAnnotationTool,
                     TryBeginSelectedSegmentEdit = annotationSegmentEditAdapter.TryBeginSelectedSegmentEdit,
                     TryMoveSelectedSegmentEdit = annotationSegmentEditAdapter.TryMoveSelectedSegmentEdit,
+                    TryApplySmartMaskCandidateStroke = smartMaskWorkflowAdapter.TryApplySmartMaskCandidateStroke,
+                    CompleteSmartMaskCandidateStroke = smartMaskWorkflowAdapter.CompleteSmartMaskCandidateStroke,
                     ApplyMaskAnnotationStroke = maskStrokeWorkflowAdapter.ApplyMaskAnnotationStroke,
                     CompleteMaskAnnotationStroke = maskStrokeWorkflowAdapter.CompleteMaskAnnotationStroke,
                     CompleteSelectedSegmentEdit = annotationSegmentEditAdapter.CompleteSelectedSegmentEdit,
@@ -1868,7 +2182,6 @@ namespace MvcVisionSystem
                     RefreshPolygonOverlays = RefreshPolygonOverlays,
                     SetYoloCommandStatus = (text, busy) => SetYoloCommandStatus(text, busy),
                     EnsureSegmentationDatasetPurposeForSegmentationTool = EnsureSegmentationDatasetPurposeForSegmentationTool,
-                    SetLabelingWorkflowMode = () => SetWorkflowMode(WorkflowMode.Labeling),
                     SetActiveAnnotationTool = tool => activeAnnotationTool = tool,
                     SetCanvasTeachingMode = value =>
                     {
@@ -1884,6 +2197,14 @@ namespace MvcVisionSystem
                             MainCanvasViewModel.IsImagePointInputMode = value;
                         }
                     },
+                    SetCanvasCrossLine = value =>
+                    {
+                        if (MainCanvasViewModel != null)
+                        {
+                            MainCanvasViewModel.IsShowCrossLine = value;
+                        }
+                    },
+                    SetPolygonProgress = count => CanvasPanelViewModel?.SetPolygonProgress(count),
                     SetCanvasInteractionMode = mode => MainCanvasViewModel?.ImageViewer?.SetViewMode(mode),
                     SetModelStatus = SetModelStatus,
                     AppendLog = AppendLog,
@@ -1910,6 +2231,7 @@ namespace MvcVisionSystem
             imageChangeStateAdapter = new ImageChangeStateAdapter(
                 new ImageChangeStateAdapterContext
                 {
+                    ClearReferenceImage = () => displayWorkspaceAdapter?.ClearReferenceImage(),
                     ApplicationState = applicationState,
                     ObjectSessionStateService = objectSessionStateService,
                     ObjectMetadataStateService = objectMetadataStateService,
@@ -1917,6 +2239,7 @@ namespace MvcVisionSystem
                     CandidateReviewState = candidateReviewState,
                     SmartMaskPromptSession = smartMaskPromptSession,
                     PolygonAnnotationService = polygonAnnotationService,
+                    ClearAnomalyPrediction = () => imageQueueReviewAdapter.ClearAnomalyPrediction(),
                     ManualRois = manualRois,
                     ManualRoiClassNames = manualRoiClassNames,
                     ManualRoiShapeKinds = manualRoiShapeKinds,
@@ -1931,6 +2254,8 @@ namespace MvcVisionSystem
                     CancelPendingIntelligentScissors = () => CancelPendingIntelligentScissors(updateStatus: false),
                     CancelObjectGroupSelection = () => CancelObjectGroupSelection(updateStatus: false),
                     ResetMaskStrokeStateForImageChange = ResetMaskStrokeStateForImageChange,
+                    ResetSmartMaskCandidateEditBuffer = smartMaskWorkflowAdapter.ResetSmartMaskCandidateEditBuffer,
+                    RefreshSmartMaskPresentation = () => smartMaskWorkflowAdapter.RefreshSmartMaskCommandState(OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Status.SmartMask.ImageChanged")),
                     ClearAnnotationHistory = ClearAnnotationHistory,
                     ClearCanvasImage = () => MainCanvasViewModel?.ClearImage(),
                     RefreshCandidateList = RefreshCandidateList,
@@ -1950,6 +2275,11 @@ namespace MvcVisionSystem
                     ActiveImageBitmapProvider = () => applicationState.ImageWorkspace.ActiveImage,
                     HasPendingMaskStrokeCommitWork = HasPendingMaskStrokeCommitWork,
                     SaveCurrentAnnotations = (out int savedCount) => SaveCurrentAnnotations(out savedCount),
+                    AutoSaveOnImageMove = () => viewModels.LabelingPreferencesViewModel.AutoSaveOnImageMove,
+                    ConfirmPendingAnnotationSave = () => ShowWorkflowTransitionPrompt(
+                        OpenVisionLanguageService.T("ShellTransition.Title"),
+                        OpenVisionLanguageService.T("ShellSettings.ImageMovePrompt"),
+                        OpenVisionLanguageService.T("ShellTransition.AnnotationDirty")),
                     ScheduleBackground = action => Dispatcher.BeginInvoke(
                         new Action(action),
                         System.Windows.Threading.DispatcherPriority.Background),
@@ -1967,11 +2297,16 @@ namespace MvcVisionSystem
                     QueueImagePathsProvider = () => imageQueueItems.Select(item => item.ImagePath),
                     IsImageQueued = imagePath => imageQueueItemsByPath.ContainsKey(imagePath),
                     IsSameImageRoot = imageQueueSelectionService.IsSameRoot,
-                    CurrentImageRootProvider = () => ImageQueueViewModel?.CurrentImageFolderPath ?? string.Empty
+                    CurrentImageRootProvider = () => ImageQueueViewModel?.CurrentImageFolderPath ?? string.Empty,
+                    AvailableConfiguredImageRootProvider = () => applicationState.Data?.ProjectSettings?.AdditionalImageRootPaths?.Count > 0
+                        ? datasetSetupWorkflowAdapter.ResolveActiveDatasetImageRoot() : string.Empty
                 });
             imageLoadWorkflowAdapter = new ImageLoadWorkflowAdapter(
                 new ImageLoadWorkflowAdapterContext
                 {
+                    SaveActiveCandidateDraft = () => batchDetectionWorkflowAdapter?.SaveActiveCandidateDraft(),
+                    RestoreCandidateDraft = path => batchDetectionWorkflowAdapter?.RestoreCandidateDraft(path),
+                    RefreshLabelSuspicionReview = () => imageQueueReviewAdapter?.RefreshLabelSuspicionReview(),
                     ApplicationState = applicationState,
                     DataProvider = () => applicationState.Data,
                     ImageDecodeCacheService = imageDecodeCacheService,
@@ -1993,6 +2328,8 @@ namespace MvcVisionSystem
                     EnsureProjectSettings = EnsureProjectSettings,
                     TrySavePendingAnnotationsBeforeImageChange = imageQueueLoadingAdapter.TrySavePendingAnnotationsBeforeImageChange,
                     PrepareForImageChange = imageChangeStateAdapter.PrepareForImageChange,
+                    EndTemporaryOriginalView = () => CanvasPanelViewModel?.EndTemporaryOriginalView(),
+                    EndTemporaryPan = () => workflowNavigationAdapter?.EndTemporaryPan(),
                     ResetForImageChange = imageChangeStateAdapter.ResetForImageChange,
                     UpdateDetectionResultOverlay = UpdateDetectionResultOverlay,
                     LoadSavedBoxAnnotationsForActiveImage = LoadSavedBoxAnnotationsForActiveImage,
@@ -2006,19 +2343,23 @@ namespace MvcVisionSystem
                     PreloadAdjacentQueueImages = imageQueueLoadingAdapter.PreloadAdjacentQueueImages,
                     SetLastImageLoadDiagnostics = value => lastImageLoadDiagnostics = value,
                     LastImageLoadDiagnosticsProvider = () => lastImageLoadDiagnostics,
-                    SetDatasetStatus = SetDatasetStatus,
-                    SetModelStatus = SetModelStatus,
-                    MarkAnnotationsSaved = MarkAnnotationsSaved,
+                     SetDatasetStatus = SetDatasetStatus,
+                     SetModelStatus = SetModelStatus,
+                     MarkAnnotationsLoaded = MarkAnnotationsLoaded,
+                     MarkAnnotationsSaved = MarkAnnotationsSaved,
                     AppendLog = AppendLog
                 });
             shellInputLifecycleAdapter = new ShellInputLifecycleAdapter(
                 new ShellInputLifecycleAdapterContext
                 {
                     ApplicationClosePolicyService = applicationClosePolicyService,
+                    DisposeReferenceDisplay = () => displayWorkspaceAdapter?.Dispose(),
                     ApplicationState = applicationState,
                     CandidateReviewState = candidateReviewState,
                     AnnotationDirtyState = annotationDirtyState,
                     ShellKeyboardShortcutAdapter = shellKeyboardShortcutAdapter,
+                    EndTemporaryOriginalView = () => CanvasPanelViewModel?.EndTemporaryOriginalView(),
+                    EndTemporaryPan = () => workflowNavigationAdapter?.EndTemporaryPan(),
                     IsApplicationCloseApproved = () => isApplicationCloseApproved,
                     ScheduleDeferredStartup = action => Dispatcher.BeginInvoke(
                         new Action(action),
@@ -2047,6 +2388,7 @@ namespace MvcVisionSystem
                         IsHistoricalSegmentationRemediationAuditRunning = externalAuditWorkflowService.IsHistoricalSegmentationRemediationAuditRunning,
                         IsTrainingRunning = trainingCommandLifecycleService.IsRunning
                             || trainingRuntimeWorkflowService.IsTrainingWorkflowRunning
+                            || trainingRuntimeWorkflowService.IsQueueBusy
                             || TrainingProgressPresentationService.IsTrainingStopAvailable(applicationState.GetPythonCommunicationStatusSnapshot()),
                         IsYoloEnvironmentCommandRunning = yoloEnvironmentWorkflowService.IsRunning,
                         IsModelComparisonRunning = modelComparisonWorkflowService.IsModelComparisonRunning,
@@ -2055,6 +2397,7 @@ namespace MvcVisionSystem
                     },
                     ActiveImagePathProvider = () => applicationState.ImageWorkspace.ActiveImagePath,
                     ShowApplicationClosePrompt = ShowApplicationClosePromptForAdapter,
+                    PendingTrainingWeightsPathProvider = () => trainingRuntimeWorkflowService.PendingQueueCandidateWeightsPath,
                     TrySaveCurrentAnnotations = (out string failureDetails) =>
                     {
                         failureDetails = string.Empty;
@@ -2069,6 +2412,8 @@ namespace MvcVisionSystem
                     ShowSaveFailure = ShowSaveFailureForAdapter,
                     SetApplicationCloseApproved = () => isApplicationCloseApproved = true,
                     ModelComparisonWorkflowService = modelComparisonWorkflowService,
+                    ModelComparisonWorkflowAdapter = modelComparisonWorkflowAdapter,
+                    TrainingWorkspaceWorkflowAdapter = trainingWorkspaceWorkflowAdapter,
                     ExternalYoloDatasetIntakeWorkflowService = externalYoloDatasetIntakeWorkflowService,
                     ExternalAuditWorkflowService = externalAuditWorkflowService,
                     YoloEnvironmentWorkflowService = yoloEnvironmentWorkflowService,
@@ -2090,6 +2435,7 @@ namespace MvcVisionSystem
                     StopInferenceStatusPulse = StopInferenceStatusPulse,
                     StopTrainingStatusPolling = StopTrainingStatusPolling,
                     MaskStrokeWorkflowAdapter = maskStrokeWorkflowAdapter,
+                    ResetSmartMaskCandidateEditBuffer = smartMaskWorkflowAdapter.ResetSmartMaskCandidateEditBuffer,
                     ShellTimers = shellTimers,
                     ImageDecodePreloadService = imageDecodePreloadService,
                     CancelImageQueueCatalogLoad = waitForCompletion => CancelImageQueueCatalogLoad(waitForCompletion),
@@ -2133,6 +2479,8 @@ namespace MvcVisionSystem
                     AnnotationDirtyState = annotationDirtyState,
                     IsApplicationCloseApproved = () => isApplicationCloseApproved,
                     IsDatasetStageActive = () => ShellViewModel?.IsDatasetStageActive == true,
+                    IsClassAddDialogOpen = () => ShellViewModel?.IsClassAddDialogOpen == true,
+                    CloseClassCatalogDialog = () => ShellViewModel?.CloseClassCatalogDialogCommand.Execute(null),
                     ShowClassCatalogWorkflowView = ShowClassCatalogWorkflowView,
                     UpdateLayout = UpdateLayout,
                     SelectOutputRootFolder = (title, initialPath) => TryPickFolder(
@@ -2193,6 +2541,26 @@ namespace MvcVisionSystem
             batchDetectionWorkflowAdapter = new BatchDetectionWorkflowAdapter(
                 new BatchDetectionWorkflowAdapterContext
                 {
+                    InferenceResultReviewServiceProvider = () => ShellViewModel.InferenceResultReview,
+                    CandidateRecipeIdentityProvider = () => GetCurrentRecipeName() + "|" + applicationState.Data?.OutputRootPath,
+                    CandidateModelIdentityProvider = () => ModelRegistryService.FindCurrentInspectionModel(applicationState.Data?.ProjectSettings?.ModelRegistry)?.CandidateId ?? string.Empty,
+                    CandidateTrainingRunIdentityProvider = () => ModelRegistryService.FindCurrentInspectionModel(applicationState.Data?.ProjectSettings?.ModelRegistry)?.TrainingRunId ?? string.Empty,
+                    CandidateArtifactIdentityProvider = () => ModelRegistryService.FindCurrentInspectionModel(applicationState.Data?.ProjectSettings?.ModelRegistry)?.WeightsSha256 ?? string.Empty,
+                    CandidateModelSettingsProvider = () => applicationState.Data?.ProjectSettings?.PythonModel,
+                    CanGenerateCandidateBatch = () => !isApplicationCloseApproved && ShellViewModel.IsLabelingStageActive && !IsWorkflowOperationRunning(),
+                    CandidateLabelingStageProvider = () => ShellViewModel.IsLabelingStageActive,
+                    CandidateEvidenceOutputDirectoryProvider = () => Path.Combine(applicationState.Data.OutputRootPath, "RESULT", "ai-candidates"),
+                    HasUnsavedCandidateEditorChanges = () => annotationDirtyState.IsDirty || HasPendingMaskStrokeCommitWork(),
+                    ImageQueueViewModelProvider = () => ImageQueueViewModel,
+                    QueueCollectionViewProvider = () => imageQueueView,
+                    CandidateSavedAnomalyThresholdProvider = artifact => modelComparisonWorkflowAdapter.GetSavedAnomalyThreshold(artifact),
+                    CandidatePredictionsProvider = path => imageQueueReviewAdapter.GetCurrentLabelSuspicionPredictions(path),
+                    CandidateSourceSettingsProvider = entry => DetectionWorkflowAdapter.CreateCandidateSourceSettings(applicationState.Data, entry),
+                    CandidateAnomalyRestored = (result, threshold) => ImageQueueViewModel.SetCandidateAnomalyPrediction(result, threshold),
+                    CandidateBatchCompleted = _ => imageQueueReviewAdapter.RefreshAllLabelSuspicions(),
+                    BeginInferenceReference = (path, requestSettings) => displayWorkspaceAdapter?.BeginInferenceReference(path, requestSettings),
+                    FinishInferenceReference = path => displayWorkspaceAdapter?.FinishInferenceReference(path),
+                    AcceptInferenceReference = result => displayWorkspaceAdapter?.AcceptInferenceReference(result),
                     DataProvider = () => applicationState.Data,
                     BatchDetectionWorkflowService = batchDetectionWorkflowService,
                     BatchDetectionProgressService = batchDetectionProgressService,
@@ -2207,18 +2575,28 @@ namespace MvcVisionSystem
                         ? imageQueueItems.ToList()
                         : imageQueueView.Cast<object>().OfType<WpfImageQueueItem>().ToList(),
                     SelectedQueueItemProvider = () => ImageQueueGrid?.SelectedItem as WpfImageQueueItem,
+                    SelectedInferenceModelProvider = () => ShellViewModel?.SelectedInferenceModelHistoryItem,
+                    HasCompletedInferenceResult = path => ShellViewModel.HasCompletedInferenceResult(path),
+                    IsInferenceWorkspaceStage = () => ShellViewModel.IsInferenceStageActive,
                     FindQueueItem = FindImageQueueItem,
                     ActiveImagePathProvider = () => applicationState.ImageWorkspace.ActiveImagePath,
                     IsApplicationCloseApproved = () => isApplicationCloseApproved,
                     EnsureInferenceModeForDetection = EnsureInferenceModeForDetection,
                     RunInteractiveDetectionAsync = (path, allowSmokeFallback) =>
                         RunInteractiveDetectionAsync(path, allowSmokeFallback),
+                    RunTrialModelInteractiveDetectionAsync = (path, settings, candidateId) =>
+                        detectionWorkflowAdapter.RunTrialModelInteractiveDetectionAsync(path, settings, candidateId),
+                    CreateTrialModelSettings = model => DetectionWorkflowAdapter.CreateTrialModelSettings(
+                        applicationState.Data?.ProjectSettings?.PythonModel,
+                        model),
                     ShowBatchDetectionPreflight = ShowBatchDetectionPreflight,
                     RunWorkerDetectionAsync = (path, token) => RunWorkerDetectionForImageAsync(
                         path,
                         applyToCanvas: false,
                         token,
                         workerReadyAlreadyChecked: true),
+                    RunTrialModelDetectionForImageAsync = (path, settings, candidateId, token) =>
+                        detectionWorkflowAdapter.RunTrialModelDetectionForImageAsync(path, settings, candidateId, token),
                     YieldBatchDetectionResultFrameAsync = YieldBatchDetectionResultFrameOnUiAsync,
                     EnsurePythonModelClientReadyAsync = (timeoutMilliseconds, cancellationToken) =>
                         applicationState.ModelRuntime.EnsurePythonModelClientReadyAsync(timeoutMilliseconds, cancellationToken),
@@ -2288,7 +2666,7 @@ namespace MvcVisionSystem
                     IsYoloEnvironmentRunning = () => yoloEnvironmentWorkflowService.IsRunning,
                     IsImageDetectionRunning = () => imageDetectionWorkflowService.IsDetecting,
                     IsBatchDetectionRunning = () => batchDetectionWorkflowService.IsRunning,
-                    IsTrainingCommandRunning = () => trainingCommandLifecycleService.IsRunning,
+                    IsTrainingCommandRunning = () => trainingCommandLifecycleService.IsRunning || trainingRuntimeWorkflowService.IsQueueBusy || trainingRuntimeWorkflowService.HasPendingQueueCandidate,
                     CurrentProgressValueProvider = () => viewModels.TrainingSettingsViewModel?.TrainingProgressValue ?? 0D,
                     LastTrainingReadinessReportProvider = () => lastYoloTrainingReadinessReport,
                     CurrentRecipeNameProvider = GetCurrentRecipeName,
@@ -2298,6 +2676,14 @@ namespace MvcVisionSystem
                     StartTrainingStatusTimer = () => shellTimers.TrainingStatusPoll.Start(),
                     StopTrainingStatusTimer = () => shellTimers.TrainingStatusPoll.Stop(),
                     SetModelCenterTrainingState = (progressText, detailText) => ShellViewModel?.SetModelCenterTrainingState(progressText, detailText),
+                    RecordModelCenterTrainingProjection = () =>
+                    {
+                        if (ShellViewModel != null)
+                            viewModels.ModelWorkflowViewModels.ExistingTrainingSettingsViewModel?.RecordShellTrainingProjection(ShellViewModel.ModelCenterTrainingStatusText, ShellViewModel.ModelCenterTrainingDetailText);
+                    },
+                    IsModelCenterTrainingProjectionCurrent = (statusText, detailText) => ShellViewModel != null
+                        && string.Equals(ShellViewModel.ModelCenterTrainingStatusText, statusText, StringComparison.Ordinal)
+                        && string.Equals(ShellViewModel.ModelCenterTrainingDetailText, detailText, StringComparison.Ordinal),
                     UpdateTrainingGuideTrainingHistory = UpdateYoloTrainingGuideTrainingHistory,
                     TryApplyLatestTrainingWeightsFromProject = logIfUnchanged => TryApplyLatestTrainingWeightsFromProject(logIfUnchanged),
                     UpdateTrainingChecklist = UpdateYoloTrainingChecklist,
@@ -2332,13 +2718,14 @@ namespace MvcVisionSystem
                         bool succeeded = SaveCurrentAnnotations(out int savedCount);
                         return new AnnotationSaveOutcome(succeeded, savedCount);
                     },
+                    MarkAnnotationSaveFailed = reason => annotationSaveStateAdapter.MarkAnnotationSaveFailed(reason),
                     MarkActiveImageConfirmed = MarkActiveImageConfirmed,
-                    GetSelectedImageQueueFilter = GetSelectedImageQueueFilter,
-                    ScheduleOpenNextIncompleteQueueImageAfterSave = completedImagePath => Dispatcher.BeginInvoke(
-                        new Action(() => OpenNextIncompleteQueueImageAfterSave(completedImagePath)),
-                        System.Windows.Threading.DispatcherPriority.Background),
-                    TryOpenNextIncompleteQueueImage = path => TryOpenNextIncompleteQueueImage(path),
                     HasActiveImage = () => applicationState.ImageWorkspace.ActiveImage != null && !applicationState.ImageWorkspace.ActiveImageSize.IsEmpty,
+                    IsLabelingStageActive = () => ShellViewModel.IsLabelingStageActive && !ShellViewModel.IsRecipeLibraryVisible,
+                    CompletePendingAnnotationEdits = () => { CompleteMaskAnnotationStroke(); FlushQueuedMaskStrokeCommits(); },
+                    SetSaveAndNextGuidance = text => CanvasPanelViewModel.SetSaveAndNextGuidance(text),
+                    IsNoObjectSelected = () => CanvasPanelViewModel.IsNoObjectSelected,
+                    MarkAnnotationsDirty = MarkAnnotationsDirty,
                     PendingCandidateCountProvider = () => pendingDetectionCandidates.Count,
                     ShowCandidateReviewWorkflowView = ShowCandidateReviewWorkflowView,
                     HasCanvasLabelObjects = HasCanvasLabelObjects,
@@ -2363,7 +2750,7 @@ namespace MvcVisionSystem
                     ExecuteAddSampleRoiCommand = ExecuteAddSampleRoiCommand,
                     ExecuteSaveAnnotationsCommand = ExecuteSaveAnnotationsCommand,
                     ExecuteHistoricalSegmentationRemediationAudit = () => LearningWorkflowViewModel?.HistoricalSegmentationRemediationAuditCommand?.Execute(null),
-                    SetInferenceMode = isInference => SetWorkflowMode(isInference ? WorkflowMode.Inference : WorkflowMode.Labeling),
+                    SetInferenceMode = isInference => workflowNavigationAdapter?.SetWorkflowMode(isInference) == true,
                     SelectAnnotationTool = (tool, revealInGuide) => SelectAnnotationTool(tool, revealInGuide),
                     SetCanvasTeachingMode = value => MainCanvasViewModel.IsTeachingMode = value,
                     FocusMainCanvas = () => MainCanvasView?.Focus(),
@@ -2372,7 +2759,7 @@ namespace MvcVisionSystem
                     FocusAnnotationToolsTab = FocusAnnotationToolsTab,
                     FocusYoloTrainingSettingsTab = FocusYoloTrainingSettingsTab,
                     FocusStartTrainingButton = () => StartTrainingButton?.Focus(),
-                    FocusDetectButton = () => DetectButton?.Focus(),
+                    FocusDetectButton = () => RightWorkflowTrainingInspectButton?.Focus(),
                     RefreshTrainingReadinessPanel = refreshYaml => RefreshTrainingReadinessPanel(refreshYaml),
                     TryApplyLatestTrainingWeightsFromProject = logIfUnchanged => TryApplyLatestTrainingWeightsFromProject(logIfUnchanged),
                     ShowCandidateReviewWorkflowView = ShowCandidateReviewWorkflowView,
@@ -2392,10 +2779,31 @@ namespace MvcVisionSystem
                     MarkActiveImageConfirmed = MarkActiveImageConfirmed,
                     BuildLabelPathSummary = BuildLabelPathSummary
                 });
+            workflowTransitionAdapter = CreateWorkflowTransitionAdapter();
             workflowNavigationAdapter = new WorkflowNavigationAdapter(
                 new WorkflowNavigationAdapterContext
                 {
+                    IsComparisonConfirmationOpen = () => viewModels.ModelComparisonWorkspaceViewModel.IsAdoptionConfirmationOpen || viewModels.MenuViewModel.IsCommandPaletteOpen,
+                    RefreshModelErrorReviewCommands = () => ExistingCandidateReviewViewModel?.RefreshModelErrorReviewCommands(),
+                    RefreshReviewModeCommandState = () => imageQueueReviewAdapter?.RefreshReviewModeCommandState(),
+                    RefreshInferenceQueuePresentation = () =>
+                    {
+                        ImageQueueViewModel.RefreshInferencePresentation(ShellViewModel.IsInferenceStageActive, imageQueueItems,
+                            ShellViewModel.SelectedInferenceModelHistoryItem?.ModelEngine ?? applicationState.Data?.ProjectSettings?.PythonModel?.ModelEngine ?? string.Empty);
+                        CanvasPanelViewModel.RefreshInferenceImageNavigation();
+                    },
+                    OpenModelComparisonWorkspace = () =>
+                    {
+                        EnsureModelWorkflowPanelsComposed();
+                        RefreshTrainingReadinessPanel(refreshYaml: false);
+                        UpdateYoloCommandButtons();
+                        modelComparisonWorkflowAdapter.RefreshWorkspace();
+                    },
+                    RefreshReferenceDisplay = () => displayWorkspaceAdapter?.RefreshReferenceDisplay(),
+                    TryFitInferenceCanvas = () => displayWorkspaceAdapter?.TryApplyInferenceFit() == true,
+                    TryFitLabelingCanvas = () => displayWorkspaceAdapter?.TryApplyLabelingFit() == true,
                     DataProvider = () => applicationState.Data,
+                    WorkflowTransitionAdapter = workflowTransitionAdapter,
                     CommunicationStatusProvider = applicationState.GetPythonCommunicationStatusSnapshot,
                     ShellViewModel = viewModels.ShellViewModel,
                     LearningWorkflowViewModel = viewModels.LearningWorkflowViewModel,
@@ -2417,6 +2825,12 @@ namespace MvcVisionSystem
                     CanvasLabelObjectCountProvider = GetCanvasLabelObjectCount,
                     PendingCandidateCountProvider = () => pendingDetectionCandidates.Count,
                     ActiveImageAvailableProvider = () => applicationState.ImageWorkspace.ActiveImage != null && !applicationState.ImageWorkspace.ActiveImageSize.IsEmpty,
+                    ActiveImagePathProvider = () => applicationState.ImageWorkspace.ActiveImagePath,
+                    LabelingStartUnavailableHintProvider = () => DatasetContextPresentationService.BuildLabelingStartUnavailableHint(
+                        viewModels.ImageQueueViewModel.DatasetImageCount,
+                        viewModels.ImageQueueViewModel.IsImageFolderUnavailable,
+                        viewModels.ImageQueueViewModel.SelectedQueueItem != null && applicationState.ImageWorkspace.ActiveImage != null && !applicationState.ImageWorkspace.ActiveImageSize.IsEmpty,
+                        viewModels.ClassCatalogViewModel.Classes.Count),
                     IsApplicationCloseApproved = () => isApplicationCloseApproved,
                     SelectedAnnotationToolProvider = () => LearningWorkflowViewModel?.SelectedTool,
                     SetGlobalInferenceStatus = (text, isBusy, isWarning) => SetGlobalInferenceStatus(text, isBusy, isWarning),
@@ -2449,7 +2863,7 @@ namespace MvcVisionSystem
                     RefreshAnnotationVisibilityForDatasetPurpose = notifyOperator => RefreshAnnotationVisibilityForDatasetPurpose(notifyOperator),
                     RefreshTrainingReadinessPanel = refreshYaml => RefreshTrainingReadinessPanel(refreshYaml),
                     RefreshYoloTrainingStepCompletion = () => RefreshYoloTrainingStepCompletion(),
-                    DetectButton = DetectButton,
+                    DetectButton = RightWorkflowInferenceInspectButton,
                     DetectSelectedQueueButton = DetectSelectedQueueButton,
                     BatchDetectQueueButton = BatchDetectQueueButton,
                     RetryFailedQueueButton = RetryFailedQueueButton,
@@ -2459,6 +2873,7 @@ namespace MvcVisionSystem
                 new WorkflowPanelFocusAdapterContext
                 {
                     ShowYoloModelCenterWorkflowView = ShowYoloModelCenterWorkflowView,
+                    SelectTrainingRuntimeTab = () => viewModels.TrainingWorkspaceViewModel.SelectedSettingsTabIndex = 1,
                     ShowGuideToolsWorkflowView = ShowGuideToolsWorkflowView,
                     ShowSavedLabelsWorkflowView = ShowSavedLabelsWorkflowView,
                     UpdateLayout = UpdateLayout,
@@ -2486,7 +2901,7 @@ namespace MvcVisionSystem
                     YoloModelCenterOverviewTaskTab = YoloModelCenterOverviewTaskTab,
                     YoloModelCenterDataTaskTab = YoloModelCenterDataTaskTab,
                     YoloModelCenterTrainingTaskTab = YoloModelCenterTrainingTaskTab,
-                    YoloModelCenterRuntimeTaskTab = YoloModelCenterRuntimeTaskTab,
+                    TrainingEnvironmentDetailsExpander = TrainingEnvironmentDetailsExpander,
                     YoloSettingsScrollViewer = YoloSettingsScrollViewer,
                     YoloDatasetReadinessQuickPanel = YoloDatasetReadinessQuickPanel,
                     YoloRuntimeDetailsExpander = YoloStatusPanelControl?.RuntimeDetailsExpander,
@@ -2510,12 +2925,14 @@ namespace MvcVisionSystem
                     EnsureProjectSettings = EnsureProjectSettings,
                     RestoreBoxDrawingMethodFromProject = RestoreBoxDrawingMethodFromProject,
                     CancelFourPointBoxDraft = () => CancelFourPointBoxDraft(updateStatus: false),
+                    ResetSmartMaskPromptSession = ResetSmartMaskPromptSession,
                     RefreshCanvasAnnotationToolScope = RefreshCanvasAnnotationToolScope,
                     ApplyAnnotationToolSelection = ApplyAnnotationToolSelection,
                     RefreshCanvasWorkflowContext = RefreshCanvasWorkflowContext,
                     RefreshAnnotationVisibilityForDatasetPurpose = () => RefreshAnnotationVisibilityForDatasetPurpose(),
                     RefreshYoloTrainingStepCompletion = () => RefreshYoloTrainingStepCompletion(),
                     RefreshShellDatasetContext = RefreshShellDatasetContext,
+                    IsLabelingStageActive = () => ShellViewModel?.IsLabelingStageActive == true,
                     GetCurrentDatasetPurpose = GetCurrentDatasetPurpose,
                     IsApplicationCloseApproved = () => isApplicationCloseApproved,
                     AppendLog = AppendLog
@@ -2528,6 +2945,8 @@ namespace MvcVisionSystem
             ConfigureImageQueuePanelCommands();
             ConfigureCanvasPanelCommands();
             ConfigureObjectReviewPanelCommands();
+            ObjectReviewViewModel.ConfigureMaskQualityRepairAdmission(CanRepairMaskQualityMarker);
+            ObjectReviewViewModel.PropertyChanged += ObjectReviewViewModel_MaskQualityPropertyChanged;
             ConfigureClassCatalogPanelCommands();
             ConfigureProjectConfigPanelCommands();
             EnsureModelWorkflowPanelsComposed();
@@ -2563,15 +2982,48 @@ namespace MvcVisionSystem
             RefreshAnnotationHistoryToolState();
             RefreshShellDatasetContext();
             FocusDatasetOnboardingTabIfNoActiveImage();
+            AnomalyDecisionNoticePopup.CustomPopupPlacementCallback = PlaceAnomalyDecisionNotice;
+            AnomalyDecisionNoticePopup.Opened += AnomalyDecisionNoticePlacementChanged;
+            LocationChanged += AnomalyDecisionNoticePlacementChanged;
+            StateChanged += AnomalyDecisionNoticePlacementChanged;
+            MainWorkspaceGrid.SizeChanged += AnomalyDecisionNoticePlacementChanged;
         }
+
+        #region AnomalyDecisionNoticePresentation
+        private System.Windows.Controls.Primitives.CustomPopupPlacement[] PlaceAnomalyDecisionNotice(Size popupSize, Size targetSize, Point offset)
+        {
+            Thickness margin = AnomalyDecisionNotice.Margin;
+            double outerWidth = popupSize.Width + margin.Left + margin.Right;
+            bool rightToLeft = (AnomalyDecisionNoticePopup.PlacementTarget as FrameworkElement)?.FlowDirection == FlowDirection.RightToLeft;
+            Point placement = new Point(rightToLeft ? -(targetSize.Width + outerWidth) / 2D : (targetSize.Width - outerWidth) / 2D,
+                targetSize.Height - 48D - popupSize.Height - margin.Top);
+            var target = AnomalyDecisionNoticePopup.PlacementTarget as FrameworkElement;
+            if (AnomalyDecisionNoticePopup.IsOpen && target != null && PresentationSource.FromVisual(target) != null)
+                AppendLog(FormattableString.Invariant($"ANOMALY_NOTICE_PLACEMENT mode={AnomalyDecisionNoticePopup.Placement} target={target.Name} actual={target.ActualWidth},{target.ActualHeight} origin={target.PointToScreen(new Point())} popupSize={popupSize} targetSize={targetSize} callbackOffset={offset} point={placement} offsets={AnomalyDecisionNoticePopup.HorizontalOffset},{AnomalyDecisionNoticePopup.VerticalOffset}"));
+            return new[] { new System.Windows.Controls.Primitives.CustomPopupPlacement(placement, System.Windows.Controls.Primitives.PopupPrimaryAxis.Horizontal) };
+        }
+
+        private void AnomalyDecisionNoticePlacementChanged(object sender, EventArgs e)
+        {
+            if (MainWorkspaceGrid.ActualWidth > 0D) AnomalyDecisionNotice.SetCurrentValue(MaxWidthProperty, Math.Max(0D, MainWorkspaceGrid.ActualWidth - 48D));
+            if (!AnomalyDecisionNoticePopup.IsOpen) return;
+            if (ReferenceEquals(sender, AnomalyDecisionNoticePopup) && PresentationSource.FromVisual(AnomalyDecisionNotice) != null)
+                AppendLog(FormattableString.Invariant($"ANOMALY_NOTICE_OPENED placement={AnomalyDecisionNoticePopup.Placement} childOrigin={AnomalyDecisionNotice.PointToScreen(new Point())} childActual={AnomalyDecisionNotice.ActualWidth},{AnomalyDecisionNotice.ActualHeight} offsets={AnomalyDecisionNoticePopup.HorizontalOffset},{AnomalyDecisionNoticePopup.VerticalOffset}"));
+            double currentOffset = AnomalyDecisionNoticePopup.HorizontalOffset;
+            AnomalyDecisionNoticePopup.SetCurrentValue(System.Windows.Controls.Primitives.Popup.HorizontalOffsetProperty, currentOffset + 1D);
+            AnomalyDecisionNoticePopup.SetCurrentValue(System.Windows.Controls.Primitives.Popup.HorizontalOffsetProperty, currentOffset);
+        }
+        #endregion
 
         #region ShellInputLifecycleAdapterFacade
         // The Window keeps framework lifecycle hooks and dialog presentation. The
         // adapter owns startup, close policy, and ordered disposal decisions.
         protected override void OnClosing(CancelEventArgs e)
         {
+            OVLog.Write(LogCategory.Main, LogLevel.Info, $"종료 요청 수신: Loaded={IsLoaded} / Approved={isApplicationCloseApproved} / Cancel={e.Cancel} / Stage={ShellViewModel?.WorkflowStageTitleText} / Home={ShellViewModel?.IsRecipeLibraryVisible} / Grid={ImageQueueViewModel?.IsAnomalyGridActive} / Dirty={annotationDirtyState?.IsDirty} / InlineDialog={viewModels?.MenuViewModel?.IsShellDialogOpen}");
             if (!IsLoaded)
             {
+                OVLog.Write(LogCategory.Main, LogLevel.Info, "종료 승인 경로: 창 로드 전");
                 ApproveCrashRecoveryClose();
                 base.OnClosing(e);
                 return;
@@ -2579,18 +3031,30 @@ namespace MvcVisionSystem
 
             if (!isApplicationCloseApproved && !TryApproveApplicationClose())
             {
+                OVLog.Write(LogCategory.Main, LogLevel.Info, "종료 요청 보류: 종료 정책 미승인");
                 e.Cancel = true;
                 return;
             }
 
             base.OnClosing(e);
+            OVLog.Write(LogCategory.Main, LogLevel.Info, $"Closing 처리 반환: Cancel={e.Cancel}");
         }
 
         private void ExecuteShellPreviewKeyDownCommand(KeyInputCommandArgs e)
             => shellInputLifecycleAdapter?.ExecuteShellPreviewKeyDown(e);
 
+        private void ExecuteShellPreviewKeyUpCommand(KeyInputCommandArgs e)
+            => shellInputLifecycleAdapter?.ExecuteShellPreviewKeyUp(e);
+
+        private void ExecuteShellDeactivatedCommand()
+            => shellInputLifecycleAdapter?.ExecuteShellDeactivated();
+
         private void ExecuteLoadedCommand()
-            => shellInputLifecycleAdapter?.ExecuteLoaded();
+        {
+            // IsLoaded is a non-notifying CLR property; refresh its View-only DP bridge at the real lifecycle event.
+            AnomalyDecisionNoticePopup.GetBindingExpression(TagProperty)?.UpdateTarget();
+            shellInputLifecycleAdapter?.ExecuteLoaded();
+        }
 
         private void ApplyDeferredShellStartup()
             => shellInputLifecycleAdapter?.ApplyDeferredStartup();
@@ -2630,9 +3094,16 @@ namespace MvcVisionSystem
             }
 
             ShellViewModel?.RefreshLocalizedPresentation();
+            viewModels.MenuViewModel.Refresh();
             ClassCatalogViewModel?.RefreshLocalizedPresentation();
+            ObjectReviewViewModel?.RefreshLocalizedPresentation();
             ImageQueueViewModel?.RefreshLocalizedPresentation(imageQueueItems);
             StatusBarViewModel?.RefreshLocalizedPresentation();
+            yoloRuntimeStatusAdapter?.RefreshLocalizedInferenceStatus();
+            viewModels.ModelWorkflowViewModels.ExistingYoloModelSettingsViewModel?.RefreshLocalizedPresentation();
+            viewModels.ModelWorkflowViewModels.ExistingTrainingSettingsViewModel?.RefreshLocalizedPresentation();
+            trainingRuntimeAdapter?.RefreshLocalizedPresentation(viewModels.ModelWorkflowViewModels.ExistingTrainingSettingsViewModel);
+            projectSettingsWorkflowAdapter?.RefreshDatasetVersionPresentation();
             CanvasPanelControl?.RefreshLocalizedViewerStatus();
             if (ImageQueueFilterBox?.ItemsSource is IEnumerable<WpfImageQueueFilterOption> filterOptions)
             {
@@ -2644,6 +3115,7 @@ namespace MvcVisionSystem
 
             RefreshShellDatasetContext();
             UpdateImageQueueStatusText();
+            if (viewModels.IsModelWorkflowCreated && !CandidateReviewViewModel.IsModelComparisonEvidence) RefreshCandidateListWithPreferred(candidateReviewStateAdapter.GetSelectedCandidate());
             UpdateYoloCommandButtons();
             LocalizationTextRuntimeService.RefreshAll();
             CanvasPanelControl?.RefreshLocalizedViewerStatus();
@@ -2698,11 +3170,23 @@ namespace MvcVisionSystem
             });
         }
 
+        private string ShowImageReviewRejection(string imagePath, bool hasUnsavedChanges)
+        {
+            var viewModel = new ImageReviewRejectionViewModel(imagePath, hasUnsavedChanges, IsAnomalyDatasetPurpose()) { SelectedReasonKey = imageQueueReviewAdapter.LabelSuspicionRejectionReasonKey };
+            var window = new WpfImageReviewRejectionWindow(viewModel, this);
+            using var backdrop = new DialogBackdropScope(window, ShellViewRoot, managesOwnerInput: false);
+            return window.ShowDialog() == true ? viewModel.RejectionNote : null;
+        }
+
         private WpfBatchDetectionPlan ShowBatchDetectionPreflight(
             IReadOnlyList<WpfImageQueueItem> items,
             string scopeText)
         {
-            var viewModel = new WpfBatchDetectionPreflightViewModel(applicationState.Data, items, scopeText);
+            var viewModel = new WpfBatchDetectionPreflightViewModel(
+                applicationState.Data,
+                items,
+                scopeText,
+                inspectionOnlyPurpose: ShellViewModel.IsInferenceInspectionOnly);
             var window = new WpfBatchDetectionPreflightWindow(viewModel)
             {
                 Owner = this
@@ -2716,9 +3200,7 @@ namespace MvcVisionSystem
             }
 
             AppendLog(
-                $"AI 배치 사전점검 통과: {scopeText} · "
-                + $"실행 {window.SelectedPlan.Items.Count}개 · "
-                + "결과는 Candidate Review 대기, 자동 저장 없음");
+                string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Status.BatchPreflightPassed"), scopeText, window.SelectedPlan.Items.Count));
             return window.SelectedPlan;
         }
 
@@ -2749,6 +3231,12 @@ namespace MvcVisionSystem
 
         private void DetachShellEventSubscriptions()
         {
+            AnomalyDecisionNoticePopup.SetCurrentValue(System.Windows.Controls.Primitives.Popup.IsOpenProperty, false);
+            AnomalyDecisionNoticePopup.CustomPopupPlacementCallback = null;
+            AnomalyDecisionNoticePopup.Opened -= AnomalyDecisionNoticePlacementChanged;
+            LocationChanged -= AnomalyDecisionNoticePlacementChanged;
+            StateChanged -= AnomalyDecisionNoticePlacementChanged;
+            MainWorkspaceGrid.SizeChanged -= AnomalyDecisionNoticePlacementChanged;
             viewModels.LanguageViewModel.LanguageChanged -= LanguageViewModel_LanguageChanged;
             ShellViewModel.WorkspaceLayoutSaveFailed -= ShellViewModel_WorkspaceLayoutSaveFailed;
             ShellViewModel.WorkspaceLayoutReset -= ShellViewModel_WorkspaceLayoutReset;
@@ -2758,6 +3246,9 @@ namespace MvcVisionSystem
             ProjectConfigViewModel.ProjectRecipeApplied -= HandleProjectRecipeApplied;
             ProjectConfigViewModel.WorkflowError -= HandleProjectConfigWorkflowError;
             ObjectReviewViewModel.WorkflowStatusChanged -= HandleObjectReviewWorkflowStatusChanged;
+            ObjectReviewViewModel.PropertyChanged -= ObjectReviewViewModel_MaskQualityPropertyChanged;
+            maskQualitySources.Clear();
+            maskQualityImageSnapshot = null;
             MainCanvasViewModel.RoiAdded -= MainCanvasViewModel_RoiAdded;
             MainCanvasViewModel.RoiEditingCompleted -= MainCanvasViewModel_RoiEditingCompleted;
             MainCanvasViewModel.RoiMouseUp -= MainCanvasViewModel_RoiMouseUp;
@@ -2818,6 +3309,11 @@ namespace MvcVisionSystem
             IReadOnlyList<YoloWorkerSmokeCandidate> candidates,
             bool succeeded)
             => detectionResultProjectionAdapter?.ApplyDetectionCandidatesPreservingConfirmed(candidates, succeeded);
+
+        private void ApplyDetectionCandidatesPreservingConfirmedInCurrentWorkflow(
+            IReadOnlyList<YoloWorkerSmokeCandidate> candidates,
+            bool succeeded)
+            => detectionResultProjectionAdapter?.ApplyDetectionCandidatesPreservingConfirmedInCurrentWorkflow(candidates, succeeded);
 
         private void AddCandidateReviewHistory(string message)
             => detectionResultProjectionAdapter?.AddCandidateReviewHistory(message);
@@ -3014,6 +3510,9 @@ namespace MvcVisionSystem
         private Task ExecuteChangeDatasetCommandAsync()
             => datasetSetupWorkflowAdapter?.ExecuteChangeDatasetCommandAsync() ?? Task.CompletedTask;
 
+        private void ExecuteCloseRecipeCommand()
+            => datasetSetupWorkflowAdapter?.CloseCurrentRecipe();
+
         private DatasetSetupWizardPathCallbacks CreateDatasetSetupPathSelectionCallbacks()
             => datasetSetupWorkflowAdapter?.CreateDatasetSetupPathSelectionCallbacks();
 
@@ -3205,6 +3704,162 @@ namespace MvcVisionSystem
         private void ExecuteApplyObjectClassCommand()
             => objectReviewInteractionAdapter?.ExecuteApplyObjectClassCommand();
 
+        private void ExecuteApplySelectedObjectsClassCommand()
+            => objectReviewInteractionAdapter?.ExecuteApplySelectedObjectsClassCommand();
+
+        private void ExecuteAnalyzeMaskQualityCommand()
+        {
+            int smallComponentMaximumArea = ObjectReviewViewModel?.SmallComponentMaximumArea ?? 0;
+            int holeMaximumArea = ObjectReviewViewModel?.HoleMaximumArea ?? 0;
+            var markers = new List<WpfMaskQualityMarkerItem>();
+            maskQualitySources.Clear();
+            maskQualityImageSnapshot = applicationState.ImageWorkspace.CaptureSnapshot();
+            if (smallComponentMaximumArea > 0 || holeMaximumArea > 0)
+            {
+                for (int index = 0; index < manualSegments.Count; index++)
+                {
+                    LabelingSegmentationObject segment = manualSegments[index];
+                    if (segment == null
+                        || !SegmentationMaskGeometryService.TryRasterize(
+                            segment,
+                            applicationState.ImageWorkspace.ActiveImageSize,
+                            out byte[] maskData,
+                            out _))
+                    {
+                        continue;
+                    }
+
+                    MaskQualityAnalysisResult result = maskQualityAnalysisService.Analyze(
+                        maskData,
+                        applicationState.ImageWorkspace.ActiveImageSize,
+                        smallComponentMaximumArea,
+                        holeMaximumArea);
+                    foreach (MaskQualityMarker marker in result.Markers)
+                    {
+                        var item = new WpfMaskQualityMarkerItem(index, marker);
+                        markers.Add(item);
+                        maskQualitySources.Add(item, (segment, maskData));
+                    }
+                }
+            }
+
+            ObjectReviewViewModel?.SetMaskQualityMarkers(markers);
+            RefreshPolygonOverlays();
+            string summary = markers.Count == 0
+                ? "QA 마커가 없습니다. 임계값을 확인하거나 현재 마스크를 다시 분석하세요."
+                : $"QA 마커 {markers.Count}개를 표시했습니다. 자동 수정하지 않았습니다.";
+            SetYoloCommandStatus(summary, false);
+            AppendLog(summary);
+        }
+
+        private bool IsMaskQualitySourceCurrent(WpfMaskQualityMarkerItem item)
+        {
+            return item != null && maskQualitySources.TryGetValue(item, out var source)
+                && ReferenceEquals(maskQualityImageSnapshot, applicationState.ImageWorkspace.CaptureSnapshot())
+                && item.SegmentIndex >= 0 && item.SegmentIndex < manualSegments.Count
+                && ReferenceEquals(source.Segment, manualSegments[item.SegmentIndex])
+                && SegmentationMaskGeometryService.TryRasterize(source.Segment, applicationState.ImageWorkspace.ActiveImageSize, out byte[] mask, out _)
+                && source.Mask.SequenceEqual(mask);
+        }
+
+        private bool CanRepairMaskQualityMarker(WpfMaskQualityMarkerItem item)
+            => IsMaskQualitySourceCurrent(item)
+                && CanMutateSelectedObject(WpfObjectReviewItemRef.ManualSegment(item.SegmentIndex), requireVisible: true, out _)
+                && segmentationEditAdapter?.HasPendingSegmentationSplit != true
+                && segmentationEditAdapter?.HasPendingSegmentationHoleEdit != true
+                && segmentationEditAdapter?.HasPendingSegmentationRemoveUnderlyingPlan != true
+                && !polygonBoundaryEditWorkflowService.IsPolygonVertexEditPending
+                && !polygonBoundaryEditWorkflowService.IsIntelligentScissorsPending;
+
+        private void ObjectReviewViewModel_MaskQualityPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(WpfObjectReviewPanelViewModel.IsRepairSelectedMaskQualityMarkerEnabled)
+                && ObjectReviewViewModel.MaskQualityMarkers.GroupBy(item => item.SegmentIndex).Any(group => !IsMaskQualitySourceCurrent(group.First())))
+            {
+                ObjectReviewViewModel.SetMaskQualityMarkers(Array.Empty<WpfMaskQualityMarkerItem>());
+                maskQualitySources.Clear();
+                maskQualityImageSnapshot = null;
+                RefreshPolygonOverlays();
+            }
+            else if (e.PropertyName == nameof(WpfObjectReviewPanelViewModel.SelectedMaskQualityMarker))
+            {
+                RefreshPolygonOverlays();
+            }
+        }
+
+        private void ExecuteRepairSelectedMaskQualityMarkerCommand(WpfMaskQualityMarkerItem item)
+        {
+            if (item == null
+                || item.SegmentIndex < 0
+                || item.SegmentIndex >= manualSegments.Count
+                || applicationState.ImageWorkspace.ActiveImageSize.IsEmpty)
+            {
+                SetYoloCommandStatus("적용할 QA 마커가 없습니다.", false);
+                return;
+            }
+
+            if (!CanRepairMaskQualityMarker(item))
+            {
+                SetYoloCommandStatus(OpenVisionLanguageService.T("WpfObjectReview.MaskQuality.RepairUnavailable"), false);
+                return;
+            }
+
+            LabelingSegmentationObject segment = manualSegments[item.SegmentIndex];
+            if (segment == null
+                || !SegmentationMaskGeometryService.TryRasterize(
+                    segment,
+                    applicationState.ImageWorkspace.ActiveImageSize,
+                    out byte[] maskData,
+                    out _)
+                || !maskQualityRepairService.TryApply(
+                    maskData,
+                    applicationState.ImageWorkspace.ActiveImageSize,
+                    item.Marker,
+                    out byte[] repairedMask,
+                    out _))
+            {
+                SetYoloCommandStatus("선택한 QA 마커를 적용할 수 없습니다.", false);
+                return;
+            }
+
+            RegisterAnnotationHistoryBeforeChange("QA 선택 마커 복구", markDirty: true);
+            DrawingRectangle repairedBounds = SegmentationGeometry.GetMaskBounds(
+                repairedMask,
+                applicationState.ImageWorkspace.ActiveImageSize);
+            if (repairedBounds.IsEmpty)
+            {
+                manualSegments.RemoveAt(item.SegmentIndex);
+            }
+            else
+            {
+                manualSegments[item.SegmentIndex] = new LabelingSegmentationObject
+                {
+                    ClassName = segment.ClassName,
+                    ClassItem = segment.ClassItem,
+                    ObjectId = segment.ObjectId,
+                    ComponentIndex = segment.ComponentIndex,
+                    ZOrder = segment.ZOrder,
+                    LastStructuralOperation = item.Marker.Kind == MaskQualityMarkerKind.Hole
+                        ? "MaskQualityFillHole"
+                        : "MaskQualityRemoveSmallComponent",
+                    MaskData = repairedMask,
+                    MaskSize = applicationState.ImageWorkspace.ActiveImageSize,
+                    MaskBounds = repairedBounds,
+                    RenderVersion = segment.RenderVersion + 1,
+                    RenderDirtyBounds = DrawingRectangle.Union(segment.Bounds, repairedBounds),
+                    Selected = segment.Selected
+                };
+            }
+
+            ObjectReviewViewModel?.SetMaskQualityMarkers(Array.Empty<WpfMaskQualityMarkerItem>());
+            RefreshObjectListWithSelection(
+                repairedBounds.IsEmpty ? null : WpfObjectReviewItemRef.ManualSegment(item.SegmentIndex));
+            RefreshPolygonOverlays();
+            MarkAnnotationsDirty("QA 선택 마커 복구");
+            SetYoloCommandStatus("선택한 QA 마커를 적용했습니다. 실행 취소로 되돌릴 수 있습니다.", false);
+            AppendLog("QA 선택 마커 복구를 저장 라벨에 반영했습니다.");
+        }
+
         private void ExecuteDeleteObjectCommand()
             => objectReviewInteractionAdapter?.ExecuteDeleteObjectCommand();
 
@@ -3240,10 +3895,33 @@ namespace MvcVisionSystem
             => projectSettingsWorkflowAdapter.HandleProjectConfigSaved(configPath);
 
         private void HandleProjectRecipeApplied(string recipeName, ProjectRecipeApplyResult result)
-            => projectSettingsWorkflowAdapter.HandleProjectRecipeApplied(recipeName, result);
+        {
+            imageQueueReviewAdapter?.ResetLabelSuspicionReview();
+            projectSettingsWorkflowAdapter.HandleProjectRecipeApplied(recipeName, result);
+            if (result?.IsApplied == true) displayWorkspaceAdapter?.BeginReferenceSession();
+            batchDetectionWorkflowAdapter?.RefreshCandidateQueueState();
+            imageQueueReviewAdapter?.RefreshAllLabelSuspicions();
+        }
 
         private void HandleProjectConfigWorkflowError(string message)
             => projectSettingsWorkflowAdapter.HandleProjectConfigWorkflowError(message);
+
+        private void OnCommandPaletteVisibilityChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if ((bool)e.NewValue)
+            {
+                commandPalettePreviousFocus = Keyboard.FocusedElement;
+                Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+                {
+                    if (CommandPaletteOverlay.IsVisible) CommandPaletteSearchBox.Focus();
+                }));
+            }
+            else
+            {
+                commandPalettePreviousFocus?.Focus();
+                commandPalettePreviousFocus = null;
+            }
+        }
 
         private string GetCurrentRecipeName()
             => projectSettingsWorkflowAdapter.GetCurrentRecipeName();
@@ -3284,11 +3962,11 @@ namespace MvcVisionSystem
         private bool SaveProjectConfigFromPanelCore(Func<string, string> saveRecipe)
             => projectSettingsWorkflowAdapter.SaveProjectConfigFromPanelCore(saveRecipe);
 
-        private Task<bool> ApplyProjectRecipeFromPanelAsync()
-            => projectSettingsWorkflowAdapter.ApplyProjectRecipeFromPanelAsync();
-
         private void CompleteProjectRecipeApply(string previousRecipeName, string recipeName)
-            => projectSettingsWorkflowAdapter.CompleteProjectRecipeApply(previousRecipeName, recipeName);
+        {
+            projectSettingsWorkflowAdapter.CompleteProjectRecipeApply(previousRecipeName, recipeName);
+            displayWorkspaceAdapter?.BeginReferenceSession();
+        }
 
         private string BuildLabelPathSummary()
             => projectSettingsWorkflowAdapter.BuildLabelPathSummary();
@@ -3307,8 +3985,8 @@ namespace MvcVisionSystem
         private void ExecuteSaveAnnotationsCommand()
             => annotationWorkflowCommandAdapter.ExecuteSaveAnnotationsCommand();
 
-        private void OpenNextIncompleteQueueImageAfterSave(string completedImagePath)
-            => annotationWorkflowCommandAdapter.OpenNextIncompleteQueueImageAfterSave(completedImagePath);
+        private void ExecuteSaveAndNextCommand()
+            => annotationWorkflowCommandAdapter.ExecuteSaveAndNextCommand();
 
         private void ExecuteCompleteNoObjectAndNextCommand()
             => annotationWorkflowCommandAdapter.ExecuteCompleteNoObjectAndNextCommand();
@@ -3326,6 +4004,9 @@ namespace MvcVisionSystem
 
         private void ExecuteCandidateConfidenceChangedCommand(double confidence)
             => candidateReviewStateAdapter.ExecuteCandidateConfidenceChangedCommand(confidence);
+
+        private void ExecuteCandidateClassFilterChangedCommand(string classFilter)
+            => candidateReviewStateAdapter.ExecuteCandidateClassFilterChangedCommand(classFilter);
 
         private void RefreshCandidateList()
             => candidateReviewStateAdapter.RefreshCandidateList();
@@ -3442,13 +4123,13 @@ namespace MvcVisionSystem
             => imageQueueReviewAdapter.ApplyReviewStatusToItemCore(item, status, refreshTrainingStepCompletion);
 
         private void UpdateImageQueueStatusText(int loadedCount = -1, int totalToLoad = -1)
-            => imageQueueReviewAdapter.UpdateImageQueueStatusText(loadedCount, totalToLoad);
+        {
+            batchDetectionWorkflowAdapter?.RefreshCandidateQueueState();
+            imageQueueReviewAdapter.UpdateImageQueueStatusText(loadedCount, totalToLoad);
+        }
 
         private void UpdateQueueQuickFilterButtons()
             => imageQueueReviewAdapter.UpdateQueueQuickFilterButtons();
-
-        private WpfImageQueueFilter GetSelectedImageQueueFilter()
-            => imageQueueReviewAdapter.GetSelectedImageQueueFilter();
 
         private string GetImageQueueSearchText()
             => imageQueueReviewAdapter.GetImageQueueSearchText();
@@ -3589,7 +4270,7 @@ namespace MvcVisionSystem
             => imageQueueReviewAdapter.MarkAnomalyImageReviewState(imagePath, imageName, state, saveReviewStatus);
 
         private void RefreshImageQueuePurposePresentation()
-            => imageQueueReviewAdapter.RefreshImageQueuePurposePresentation();
+            => viewModels.DatasetWorkspaceViewModel.ApplyItemUpdates(imageQueueReviewAdapter.RefreshImageQueuePurposePresentation);
         #endregion
 
         #region ImageQueueCommandFacade
@@ -3613,9 +4294,6 @@ namespace MvcVisionSystem
 
         private bool TryOpenNextIncompleteQueueImage()
             => imageQueueNavigationAdapter.TryOpenNextIncompleteQueueImage();
-
-        private bool TryOpenNextIncompleteQueueImage(string currentImagePath)
-            => imageQueueNavigationAdapter.TryOpenNextIncompleteQueueImage(currentImagePath);
 
         private void ExecuteOpenSelectedQueueImageCommand()
             => imageQueueNavigationAdapter.ExecuteOpenSelectedQueueImageCommand();
@@ -3728,7 +4406,7 @@ namespace MvcVisionSystem
         private void PreloadAdjacentQueueImages(string imagePath)
             => imageQueueLoadingAdapter.PreloadAdjacentQueueImages(imagePath);
 
-        private void LoadImageToCanvas(CvMat imageMat, string fileName)
+        private void LoadImageToCanvas(CvMat imageMat, string fileName, string imagePath)
         {
             using (MainCanvasViewModel.ImageViewer.SuppressRefresh())
             {
@@ -3738,7 +4416,8 @@ namespace MvcVisionSystem
                 }
                 else
                 {
-                    MainCanvasViewModel.LoadImage(imageMat, fileName);
+                    displayWorkspaceAdapter.LoadCanvasImage(() => MainCanvasViewModel.LoadImage(imageMat, fileName),
+                        imagePath, new System.Drawing.Size(imageMat.Width, imageMat.Height));
                 }
 
                 MainCanvasViewModel.ClearRois();
@@ -3887,7 +4566,10 @@ namespace MvcVisionSystem
             => yoloEnvironmentWorkflowAdapter.ExecuteRunYoloSmokeCommand();
 
         private void SetYoloCommandStatus(string text, bool isBusy)
-            => YoloStatusViewModel?.SetCommandStatus(text, isBusy);
+        {
+            YoloStatusViewModel?.SetCommandStatus(text, isBusy);
+            ShellViewModel?.RefreshInferenceReviewState();
+        }
 
         private void SetYoloRecoveryStatus(string titleText, string detailText, string actionText)
         {
@@ -3970,7 +4652,10 @@ namespace MvcVisionSystem
             => modelCenterWorkflowAdapter.UpdateCandidateModelDecisionPanel(comparison);
 
         private void ExecutePromoteSelectedModelHistoryCommand()
-            => modelCenterWorkflowAdapter.ExecutePromoteSelectedModelHistoryCommand();
+        {
+            modelCenterWorkflowAdapter.ExecutePromoteSelectedModelHistoryCommand();
+            batchDetectionWorkflowAdapter?.RefreshCandidateQueueState();
+        }
 
         private void RefreshModelCenterDashboard(
             WpfTrainingWeightsComparison comparison = null,
@@ -4060,21 +4745,26 @@ namespace MvcVisionSystem
                 : draft.CreatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.CurrentCulture);
             return WpfMessageDialog.Show(this, new WpfMessageDialogOptions
             {
-                Title = "비정상 종료 편집 복구",
-                Message = "저장되지 않은 현재 이미지 편집 초안을 발견했습니다.",
+                Title = OpenVisionLab.OpenVisionLanguageService.T("WpfCrashRecovery.Title"),
+                Message = OpenVisionLab.OpenVisionLanguageService.T("WpfCrashRecovery.Message"),
                 Details =
-                    $"Recipe: {draft?.RecipeName}\n" +
-                    $"이미지: {imageName}\n" +
-                    $"초안 시각: {localTime}\n" +
-                    $"편집 사유: {draft?.DirtyReason}\n" +
-                    $"객체: 박스 {draft?.Boxes?.Count ?? 0}개, 세그멘테이션 {draft?.Segments?.Count ?? 0}개\n\n" +
-                    "복구하면 화면의 미저장 편집 상태로만 돌아옵니다. " +
-                    "AI 후보를 승인하거나 라벨 파일을 저장하지 않습니다. 검토 후 `라벨 저장`을 눌러야 합니다.",
+                    string.Format(
+                        CultureInfo.CurrentCulture,
+                        OpenVisionLab.OpenVisionLanguageService.T("WpfCrashRecovery.DraftDetails"),
+                        draft?.RecipeName,
+                        imageName,
+                        localTime,
+                        draft?.DirtyReason,
+                        draft?.Boxes?.Count ?? 0,
+                        draft?.Segments?.Count ?? 0,
+                        "\n") +
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfCrashRecovery.RestoreBoundary") + " " +
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfCrashRecovery.RecoveryBoundary"),
                 Kind = WpfMessageDialogKind.Warning,
                 Buttons = WpfMessageDialogButtons.YesNo,
                 DefaultResult = WpfMessageDialogResult.No,
-                PrimaryButtonText = "편집 복구",
-                SecondaryButtonText = "초안 폐기",
+                PrimaryButtonText = OpenVisionLab.OpenVisionLanguageService.T("WpfCrashRecovery.Restore"),
+                SecondaryButtonText = OpenVisionLab.OpenVisionLanguageService.T("WpfCrashRecovery.Discard"),
                 MaxWidth = 660D
             });
         }
@@ -4083,12 +4773,12 @@ namespace MvcVisionSystem
         {
             WpfMessageDialog.Show(this, new WpfMessageDialogOptions
             {
-                Title = "편집 초안을 복구하지 못했습니다",
-                Message = "원본 이미지 또는 현재 Recipe 상태를 확인한 뒤 다시 시작해 주세요.",
-                Details = "복구 초안은 안전을 위해 격리되거나 유지되지 않습니다. 저장된 라벨 파일은 변경하지 않았습니다.",
+                Title = OpenVisionLab.OpenVisionLanguageService.T("WpfCrashRecovery.Failure.Title"),
+                Message = OpenVisionLab.OpenVisionLanguageService.T("WpfCrashRecovery.Failure.Message"),
+                Details = OpenVisionLab.OpenVisionLanguageService.T("WpfCrashRecovery.Failure.Detail"),
                 Kind = WpfMessageDialogKind.Warning,
                 Buttons = WpfMessageDialogButtons.OK,
-                PrimaryButtonText = "확인"
+                PrimaryButtonText = OpenVisionLab.OpenVisionLanguageService.T("MessageBox.OK")
             });
         }
         #endregion
@@ -4142,6 +4832,9 @@ namespace MvcVisionSystem
         private void FinishQueueCompletionAndGuideDatasetCheck()
             => trainingGuideWorkflowAdapter.FinishQueueCompletionAndGuideDatasetCheck();
 
+        private void ExecuteCancelLabelingCommand()
+            => ExecuteDatasetHomeCommand();
+
         private void UpdateDatasetStatusDashboard(
             YoloDatasetReadinessReport report,
             TrainingChecklistPresentation presentation)
@@ -4176,7 +4869,10 @@ namespace MvcVisionSystem
             => workflowNavigationAdapter.ShowGuideToolsWorkflowView(stage);
 
         private void ShowClassCatalogWorkflowView(WpfShellWorkflowStage stage)
-            => workflowNavigationAdapter.ShowClassCatalogWorkflowView(stage);
+        {
+            datasetTransferWindowHost.RefreshInlineInterchange();
+            workflowNavigationAdapter.ShowClassCatalogWorkflowView(stage);
+        }
 
         private void ShowYoloModelCenterWorkflowView()
             => workflowNavigationAdapter.ShowYoloModelCenterWorkflowView();
@@ -4326,7 +5022,10 @@ namespace MvcVisionSystem
             => annotationRenderingAdapter?.CompletePolygonAnnotation();
 
         private void RefreshPolygonOverlays()
-            => annotationRenderingAdapter?.RefreshPolygonOverlays();
+        {
+            annotationRenderingAdapter?.RefreshPolygonOverlays();
+            CanvasPanelViewModel?.SetPolygonProgress(polygonAnnotationService?.Points.Count ?? 0);
+        }
 
         private void EnsureManualRoiMetadataCount()
             => annotationRenderingAdapter?.EnsureManualRoiMetadataCount();
@@ -4517,6 +5216,21 @@ namespace MvcVisionSystem
         private void ExecuteNextSmartMaskInstanceCommand()
             => smartMaskWorkflowAdapter.ExecuteNextSmartMaskInstanceCommand();
 
+        private void ExecuteApplySmartMaskCandidateCommand()
+            => smartMaskWorkflowAdapter.ExecuteApplySmartMaskCandidateCommand();
+
+        private void ExecuteUndoSmartMaskCandidateEdit()
+            => smartMaskWorkflowAdapter.UndoSmartMaskCandidateEdit();
+
+        private void ExecuteRedoSmartMaskCandidateEdit()
+            => smartMaskWorkflowAdapter.RedoSmartMaskCandidateEdit();
+
+        private void ExecuteAddSmartMaskCandidateRegion()
+            => smartMaskWorkflowAdapter.SetSmartMaskCandidateRegionOperation(MaskRegionOperation.Add);
+
+        private void ExecuteSubtractSmartMaskCandidateRegion()
+            => smartMaskWorkflowAdapter.SetSmartMaskCandidateRegionOperation(MaskRegionOperation.Subtract);
+
         private void ExecuteSetSmartMaskAutoContourMode(bool enabled)
             => annotationToolSettingsAdapter.ExecuteSetSmartMaskAutoContourMode(enabled);
 
@@ -4601,6 +5315,9 @@ namespace MvcVisionSystem
         #region AnnotationProductivityAdapterFacade
         private bool TryDuplicateSelectedAnnotation()
             => annotationProductivityAdapter.TryDuplicateSelectedAnnotation();
+
+        private void ExecuteImportPreviousLabelsCommand()
+            => annotationProductivityAdapter.TryImportPreviousLabels();
 
         private bool TryDuplicateManualRoi(int sourceIndex)
             => annotationProductivityAdapter.TryDuplicateManualRoi(sourceIndex);
@@ -4691,7 +5408,10 @@ namespace MvcVisionSystem
             => annotationHistoryAdapter.RegisterRoiEditHistoryBeforeChange(overlayId, actionName);
 
         private void PushAnnotationHistorySnapshot(WpfAnnotationHistorySnapshot snapshot, bool markDirty = true)
-            => annotationHistoryAdapter.PushAnnotationHistorySnapshot(snapshot, markDirty);
+        {
+            annotationHistoryAdapter.PushAnnotationHistorySnapshot(snapshot, markDirty);
+            if (markDirty) imageQueueReviewAdapter?.RefreshLabelSuspicionReview();
+        }
 
         private void ClearAnnotationHistory()
             => annotationHistoryAdapter.ClearAnnotationHistory();
@@ -4700,7 +5420,11 @@ namespace MvcVisionSystem
             => annotationHistoryAdapter.RefreshAnnotationHistoryToolState();
 
         private bool UndoWpfAnnotationHistory()
-            => annotationHistoryAdapter.UndoWpfAnnotationHistory();
+        {
+            bool restored = annotationHistoryAdapter.UndoWpfAnnotationHistory();
+            if (restored) imageQueueReviewAdapter?.RefreshLabelSuspicionReview();
+            return restored;
+        }
 
         private void ExecuteUndoAnnotationCommand()
             => annotationHistoryAdapter.ExecuteUndoAnnotationCommand();
@@ -4709,7 +5433,11 @@ namespace MvcVisionSystem
             => annotationHistoryAdapter.ExecuteRedoAnnotationCommand();
 
         private bool RedoWpfAnnotationHistory()
-            => annotationHistoryAdapter.RedoWpfAnnotationHistory();
+        {
+            bool restored = annotationHistoryAdapter.RedoWpfAnnotationHistory();
+            if (restored) imageQueueReviewAdapter?.RefreshLabelSuspicionReview();
+            return restored;
+        }
 
         private void ResetActiveRoiEditHistory()
             => annotationHistoryAdapter.ResetActiveRoiEditHistory();
@@ -4749,7 +5477,41 @@ namespace MvcVisionSystem
             => annotationSaveStateAdapter.ApplyAnnotationDirtyPresentation();
 
         private void MarkAnnotationsSaved(string reason)
-            => annotationSaveStateAdapter.MarkAnnotationsSaved(reason);
+        {
+            annotationSaveStateAdapter.MarkAnnotationsSaved(reason);
+            ShellViewModel?.InvalidateInferenceDecisionProjections();
+            imageQueueReviewAdapter?.RefreshLabelSuspicionReview();
+        }
+
+        private void MarkAnnotationsLoaded(string imagePath, int loadedBoxCount, int loadedSegmentCount)
+        {
+            if (annotationLoadState.IsSaveBlocked)
+            {
+                annotationSaveStateAdapter.MarkAnnotationsSaved(
+                    "라벨 읽기 결과를 확인하는 중입니다.");
+                return;
+            }
+
+            YoloImageLabelStatus status = YoloImageLabelStatusService.Build(
+                imagePath,
+                applicationState.ImageWorkspace.ActiveImageSize,
+                applicationState.Data);
+            if (!status.HasLabelFile)
+            {
+                annotationSaveStateAdapter.MarkAnnotationsUnlabeled();
+                return;
+            }
+
+            if (status.ObjectCount == 0 && status.InvalidLineCount == 0)
+            {
+                annotationSaveStateAdapter.MarkAnnotationsNoObjectSaved(
+                    OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Status.SavedLabels.EmptyFile"));
+                return;
+            }
+
+            annotationSaveStateAdapter.MarkAnnotationsSaved(
+                imageLoadPresentationService.BuildAnnotationLoadedStatus());
+        }
 
         private void SetAnnotationSaveStatusWaiting()
         {
@@ -4793,6 +5555,9 @@ namespace MvcVisionSystem
         private void ExecuteTrainingModelCenterCommand()
             => workflowNavigationAdapter.ExecuteTrainingModelCenterCommand();
 
+        private void ExecuteModelComparisonCommand()
+            => workflowNavigationAdapter.ExecuteModelComparisonCommand();
+
         private void ExecuteReviewCandidateModelCommand()
             => workflowNavigationAdapter.ExecuteReviewCandidateModelCommand();
 
@@ -4803,7 +5568,10 @@ namespace MvcVisionSystem
             => workflowNavigationAdapter.ApplyLearningModeWorkflowAction(action);
 
         private void UpdateYoloCommandButtons()
-            => workflowNavigationAdapter?.UpdateYoloCommandButtons();
+        {
+            workflowNavigationAdapter?.UpdateYoloCommandButtons();
+            batchDetectionWorkflowAdapter?.RefreshCandidateCommandState();
+        }
 
         private void ScheduleDisplayAdjustmentRefresh()
         {
@@ -4823,6 +5591,14 @@ namespace MvcVisionSystem
         private void MainCanvasView_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             displayWorkspaceAdapter.HandleCanvasViewSizeChanged(sender, e);
+        }
+
+        private void TrainingModelWorkspaceGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (sender is Grid grid && grid.ColumnDefinitions.Count > 0)
+            {
+                grid.ColumnDefinitions[0].Width = new GridLength(e.NewSize.Width <= 1200D ? 200D : 230D);
+            }
         }
 
         private void SetDatasetStatus(string text)
@@ -4935,7 +5711,7 @@ namespace MvcVisionSystem
 
         private void ShellViewModel_WorkspaceLayoutReset(object sender, EventArgs e)
         {
-            AppendLog("패널 너비 초기화: 작업 패널 340px / 이미지 큐 320px");
+            AppendLog(OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Status.Layout.ResetWidths"));
         }
 
         private CanvasWorkflowContextSnapshot CaptureCanvasWorkflowContext()
@@ -4953,9 +5729,13 @@ namespace MvcVisionSystem
                 selectedStep?.Step,
                 selectedStep?.Text,
                 selectedTool?.Tool,
-                selectedTool?.Text,
-                activeAnnotationTool,
-                CanvasPanelViewModel?.SelectedBoxDrawingMethod?.Method);
+                 selectedTool?.Text,
+                 activeAnnotationTool,
+                 CanvasPanelViewModel?.SelectedBoxDrawingMethod?.Method,
+                 CanvasPanelViewModel?.SelectedMaskEraserScope?.Scope ?? MaskEraserScope.VisibleEditable,
+                 ObjectReviewViewModel?.IsSelectedSource(WpfObjectReviewSource.ManualSegment) == true,
+                 CanvasPanelViewModel?.IsSmartMaskCandidateEditAvailable == true,
+                 ShellViewModel.IsLabelingStageActive, CanvasPanelViewModel?.SelectedLabelClass?.DrawColor, CanvasPanelViewModel?.OverlayOpacity ?? 1D);
         }
 
         private void RefreshCanvasWorkflowContext()
@@ -4970,6 +5750,7 @@ namespace MvcVisionSystem
 
         private void ConfigureCanvasPanelCommands()
         {
+            CanvasPanelViewModel.ConfigureMaskEraserScopeWorkflow(_ => RefreshCanvasWorkflowContext());
             new CanvasPanelCommandWiring(new CanvasPanelCommandWiringContext
             {
                 CanvasPanelViewModel = CanvasPanelViewModel,
@@ -4993,25 +5774,39 @@ namespace MvcVisionSystem
                 ExecuteUndoAnnotationCommand = ExecuteUndoAnnotationCommand,
                 ExecuteRedoAnnotationCommand = ExecuteRedoAnnotationCommand,
                 ExecuteDeleteObjectCommand = ExecuteDeleteObjectCommand,
+                CanDeleteObject = () => ObjectReviewViewModel?.IsDeleteEnabled == true,
                 ExecuteSaveAnnotationsCommand = ExecuteSaveAnnotationsCommand,
                 ExecuteCompleteNoObjectAndNextCommand = ExecuteCompleteNoObjectAndNextCommand,
+                ExecuteNoObjectSelectionChanged = selected => annotationWorkflowCommandAdapter.ExecuteNoObjectSelectionChanged(selected),
+                ExecuteSaveAndNextCommand = ExecuteSaveAndNextCommand,
+                ExecuteImportPreviousLabelsCommand = ExecuteImportPreviousLabelsCommand,
                 ShowClassCatalogWorkflowView = ShowClassCatalogWorkflowView,
                 CancelFourPointBoxDraft = updateStatus => CancelFourPointBoxDraft(updateStatus),
                 SelectClassCatalogClass = className => ClassCatalogViewModel?.SelectClass(className),
                 RefreshObjectClassOptions = RefreshObjectClassOptions,
                 ApplyCanvasDisplayMode = mode => ApplyCanvasDisplayMode(mode, redraw: true, logChange: true),
+                ApplyTemporaryOriginalViewState = active => workflowNavigationAdapter.ApplyTemporaryOriginalViewState(active),
                 ExecuteSetBoxDrawingMethod = ExecuteSetBoxDrawingMethod,
-                ExecuteDecreaseBrushSizeCommand = ExecuteDecreaseBrushSizeCommand,
-                ExecuteIncreaseBrushSizeCommand = ExecuteIncreaseBrushSizeCommand,
-                ExecuteCreateSmartMaskCandidateCommand = ExecuteCreateSmartMaskCandidateCommand,
+                ExecuteCompletePolygonDraft = () => annotationInputAdapter?.TryCompletePolygonDraft(),
+                ExecuteCancelPolygonDraft = () => annotationInputAdapter?.TryCancelPolygonDraft(),
+                 ExecuteDecreaseBrushSizeCommand = ExecuteDecreaseBrushSizeCommand,
+                 ExecuteIncreaseBrushSizeCommand = ExecuteIncreaseBrushSizeCommand,
+                 ExecuteSetBrushSizeCommand = size => LearningWorkflowViewModel.BrushSize = size,
+                 ExecuteCreateSmartMaskCandidateCommand = ExecuteCreateSmartMaskCandidateCommand,
+                 ExecuteOpenSmartMaskSetupCommand = ExecuteOpenEnvironmentSetupCenterCommand,
                 ExecuteSetSmartMaskPointModeCommand = ExecuteSetSmartMaskPointModeCommand,
                 ExecuteUndoSmartMaskPointCommand = ExecuteUndoSmartMaskPointCommand,
                 ExecuteClearSmartMaskPointsCommand = ExecuteClearSmartMaskPointsCommand,
                 ExecuteCancelSmartMaskGenerationCommand = ExecuteCancelSmartMaskGenerationCommand,
+                ExecuteApplySmartMaskCandidateCommand = ExecuteApplySmartMaskCandidateCommand,
                 ExecuteNextSmartMaskInstanceCommand = ExecuteNextSmartMaskInstanceCommand,
                 ExecuteSelectSmartMaskCandidateVersionCommand = ExecuteSelectSmartMaskCandidateVersionCommand,
                 ExecuteSetSmartMaskAutoContourMode = ExecuteSetSmartMaskAutoContourMode,
                 ExecuteSetSmartMaskPolygonDetailCommand = ExecuteSetSmartMaskPolygonDetailCommand,
+                ExecuteUndoSmartMaskCandidateEdit = ExecuteUndoSmartMaskCandidateEdit,
+                ExecuteRedoSmartMaskCandidateEdit = ExecuteRedoSmartMaskCandidateEdit,
+                ExecuteAddSmartMaskCandidateRegion = ExecuteAddSmartMaskCandidateRegion,
+                ExecuteSubtractSmartMaskCandidateRegion = ExecuteSubtractSmartMaskCandidateRegion,
                 SyncCanvasBrushSizeFromWorkflow = SyncCanvasBrushSizeFromWorkflow,
                 RefreshCanvasAnnotationToolScope = RefreshCanvasAnnotationToolScope,
                 RefreshCanvasWorkflowContext = RefreshCanvasWorkflowContext
@@ -5150,6 +5945,7 @@ namespace MvcVisionSystem
                 ProjectConfigViewModel = ProjectConfigViewModel,
                 ProjectRecipeSessionService = projectRecipeSessionService,
                 ProjectRecipeApplyWorkflowService = projectRecipeApplyWorkflowService,
+                ApplyRecipeWorkflow = recipeName => projectSettingsWorkflowAdapter.ApplyProjectRecipeFromPanelAsync(recipeName),
                 ApplicationStateProvider = () => applicationState,
                 CloseApprovedProvider = () => isApplicationCloseApproved,
                  CreateNavigationCallbacks = projectSettingsWorkflowAdapter.CreateProjectConfigNavigationCallbacks,
@@ -5159,7 +5955,11 @@ namespace MvcVisionSystem
                      && (ProjectRecipeListBox == null
                          || string.Equals(ProjectRecipeListBox.SelectedItem as string, selected, StringComparison.Ordinal)),
                  ProjectConfigSaved = projectSettingsWorkflowAdapter.HandleProjectConfigSaved,
-                 ProjectRecipeApplied = projectSettingsWorkflowAdapter.HandleProjectRecipeApplied,
+                 ProjectRecipeApplied = (recipeName, result) =>
+                 {
+                     projectSettingsWorkflowAdapter.HandleProjectRecipeApplied(recipeName, result);
+                     if (result?.IsApplied == true) displayWorkspaceAdapter?.BeginReferenceSession();
+                 },
                  WorkflowError = projectSettingsWorkflowAdapter.HandleProjectConfigWorkflowError,
                 RecipeListBox = ProjectRecipeListBox,
                 RefreshAttachedCommandBindings = RefreshAttachedCommandBindings
@@ -5231,6 +6031,7 @@ namespace MvcVisionSystem
         {
             ConfigureImageQueuePanelCommands();
             imageQueueView = ImageQueuePanelControl?.InitializeQueue(imageQueueItems);
+            imageQueueReviewAdapter?.ConfigureAnomalyReviewCommands();
             UpdateQueueQuickFilterButtons();
         }
 
@@ -5245,6 +6046,7 @@ namespace MvcVisionSystem
             {
                 CandidateReviewViewModel = CandidateReviewViewModel,
                 ExecuteCandidateConfidenceChangedCommand = ExecuteCandidateConfidenceChangedCommand,
+                ExecuteCandidateClassFilterChangedCommand = ExecuteCandidateClassFilterChangedCommand,
                 ExecuteConfirmSelectedCandidateCommand = ExecuteConfirmSelectedCandidateCommand,
                 ExecuteConfirmAllCandidatesCommand = ExecuteConfirmAllCandidatesCommand,
                 ExecuteSkipSelectedCandidateCommand = ExecuteSkipSelectedCandidateCommand,
@@ -5267,11 +6069,18 @@ namespace MvcVisionSystem
 
         private void ConfigureObjectReviewPanelCommands()
         {
+            ObjectReviewViewModel.ConfigureReviewModeCommands(
+                () => imageQueueReviewAdapter.SetLabelingReviewMode(false),
+                () => imageQueueReviewAdapter.SetLabelingReviewMode(true),
+                imageQueueReviewAdapter.ApproveAndOpenNextReviewImage,
+                imageQueueReviewAdapter.RejectAndOpenNextReviewImage);
             new ObjectReviewPanelCommandWiring(new ObjectReviewPanelCommandWiringContext
             {
                 ObjectReviewViewModel = ObjectReviewViewModel,
+                SelectedReferenceClassNameProvider = () => ShellViewModel.IsLabelingStageActive && !ShellViewModel.IsRecipeLibraryVisible ? CanvasPanelViewModel.SelectedLabelClass?.Text : null,
                 ExecuteDeleteObjectCommand = ExecuteDeleteObjectCommand,
                 ExecuteApplyObjectClassCommand = ExecuteApplyObjectClassCommand,
+                ExecuteApplySelectedObjectsClassCommand = ExecuteApplySelectedObjectsClassCommand,
                 ExecuteMarkQualityUnreviewedCommand = ExecuteMarkQualityUnreviewedCommand,
                 ExecuteMarkQualityNeedsFixCommand = ExecuteMarkQualityNeedsFixCommand,
                 ExecuteMarkQualityReviewedCommand = ExecuteMarkQualityReviewedCommand,
@@ -5301,6 +6110,7 @@ namespace MvcVisionSystem
                 ObjectReviewWorkflowService = objectReviewWorkflowService,
                 DeleteSelectedObject = DeleteSelectedObject,
                 ApplyObjectSessionStateMutation = ApplyObjectSessionStateMutation,
+                ToggleAllObjectsHidden = () => objectReviewStateAdapter.ToggleAllObjectsHidden(),
                 ReportObjectReviewStatus = status => SetYoloCommandStatus(status, isBusy: false),
                 CaptureObjectReviewSnapshots = CaptureObjectReviewSnapshots,
                 ApplyObjectPersistentOccludedMutation = ApplyObjectPersistentOccludedMutation,
@@ -5315,6 +6125,8 @@ namespace MvcVisionSystem
                 ApplyObjectGroupTagMutation = ApplyObjectGroupTagMutation,
                 ConfirmObjectGroupDissolve = ConfirmObjectGroupDissolve,
                 ApplyObjectGroupDissolveMutation = ApplyObjectGroupDissolveMutation,
+                AnalyzeMaskQualityCommand = ExecuteAnalyzeMaskQualityCommand,
+                RepairSelectedMaskQualityMarkerCommand = ExecuteRepairSelectedMaskQualityMarkerCommand,
                 ObjectListBox = ObjectListBox,
                 RefreshAttachedCommandBindings = RefreshAttachedCommandBindings
             }).ConfigureObjectReviewPanelCommands();
@@ -5355,8 +6167,8 @@ namespace MvcVisionSystem
             EnterLabelingWorkbenchStartView();
             if (!TryLoadImage(
                 imagePath,
-                populateQueue: false,
-                refreshQueueDetails: false,
+                populateQueue: true,
+                refreshQueueDetails: true,
                 refreshActiveStatus: true,
                 appendLoadLog: true))
             {
@@ -5376,7 +6188,6 @@ namespace MvcVisionSystem
 
         private void ExecuteOpenEnvironmentSetupCenterCommand()
         {
-            HeaderToolsPopup.IsOpen = false;
             auxiliaryWindowHost.ShowEnvironmentSetupCenter();
         }
 
@@ -5609,14 +6420,12 @@ namespace MvcVisionSystem
         private Wpf.Ui.Controls.Button TemplateBatchQueueButton => ImageQueuePanelControl?.TemplateBatchButton;
         private Wpf.Ui.Controls.Button RetryFailedQueueButton => ImageQueuePanelControl?.RetryFailedButton;
         private Wpf.Ui.Controls.Button StopBatchQueueButton => ImageQueuePanelControl?.StopBatchButton;
-        private Wpf.Ui.Controls.Button QueueFilterUnfinishedButton => ImageQueuePanelControl?.QueueFilterUnfinished;
         private Wpf.Ui.Controls.Button QueueFilterAllButton => ImageQueuePanelControl?.QueueFilterAll;
         private Wpf.Ui.Controls.Button QueueFilterCandidateButton => ImageQueuePanelControl?.QueueFilterCandidate;
         private Wpf.Ui.Controls.Button QueueFilterFailedButton => ImageQueuePanelControl?.QueueFilterFailed;
         private Wpf.Ui.Controls.Button QueueFilterConfirmedButton => ImageQueuePanelControl?.QueueFilterConfirmed;
         private Wpf.Ui.Controls.Button QueueFilterSkippedButton => ImageQueuePanelControl?.QueueFilterSkipped;
         private Wpf.Ui.Controls.Button QueueFilterNoCandidateButton => ImageQueuePanelControl?.QueueFilterNoCandidate;
-        private TextBlock QueueFilterUnfinishedText => ImageQueuePanelControl?.QueueFilterUnfinishedTextBlock;
         private TextBlock ImageQueuePanelTitleText => ImageQueuePanelControl?.PanelTitleTextBlock;
         private TextBlock QueueFilterAllText => ImageQueuePanelControl?.QueueFilterAllTextBlock;
         private TextBlock QueueFilterCandidateText => ImageQueuePanelControl?.QueueFilterCandidateTextBlock;
@@ -5651,7 +6460,7 @@ namespace MvcVisionSystem
         private Wpf.Ui.Controls.Button ActualSizeCanvasButton => CanvasPanelControl?.ActualSizeButton;
         private Wpf.Ui.Controls.Button PanCanvasButton => CanvasPanelControl?.PanButton;
         private Wpf.Ui.Controls.Button DisplayAdjustmentCanvasButton => CanvasPanelControl?.DisplayAdjustmentButton;
-        private System.Windows.Controls.Primitives.Popup DisplayAdjustmentPopup => CanvasPanelControl?.DisplayAdjustmentFlyout;
+        private CanvasDisplayAdjustmentWindow DisplayAdjustmentPopup => CanvasPanelControl?.DisplayAdjustmentFlyout;
         private Wpf.Ui.Controls.Button FocusCandidateCanvasButton => CanvasPanelControl?.FocusCandidateButton;
         private Wpf.Ui.Controls.Button ResetAiOverlayCanvasButton => CanvasPanelControl?.ResetAiOverlayButton;
         private Border DetectionResultOverlay => CanvasPanelControl?.ResultOverlay;
@@ -5762,8 +6571,6 @@ namespace MvcVisionSystem
         private TextBlock ClassSectionLabelText => ClassCatalogPanelControl?.ClassSectionLabelTextBlock;
         private TextBox ClassNameBox => ClassCatalogPanelControl?.ClassNameTextBox;
         private Wpf.Ui.Controls.Button AddClassButton => ClassCatalogPanelControl?.AddClass;
-        private Wpf.Ui.Controls.Button RenameClassButton => ClassCatalogPanelControl?.RenameClass;
-        private Wpf.Ui.Controls.Button RemoveClassButton => ClassCatalogPanelControl?.RemoveClass;
         private ListBox ClassColorBox => ClassCatalogPanelControl?.ClassColor;
         private Expander ClassColorAdvancedPanel => ClassCatalogPanelControl?.ClassColorAdvanced;
         private Wpf.Ui.Controls.Button ApplyClassColorButton => ClassCatalogPanelControl?.ApplyClassColor;
@@ -5855,9 +6662,21 @@ namespace MvcVisionSystem
             // Keep ViewModels out of UserControls; the shell composes data contexts so each View can be constructed standalone.
             LearningWorkflowPanelControl.DataContext = LearningWorkflowViewModel;
             ImageQueuePanelControl.DataContext = ImageQueueViewModel;
+            AnomalyDecisionNoticePopup.DataContext = ImageQueueViewModel;
+            AnomalyDecisionNoticePopup.PlacementTarget = MainWorkspaceGrid;
+            AnomalyDecisionNotice.DataContext = ImageQueueViewModel;
             CanvasPanelControl.DataContext = CanvasPanelViewModel;
             ObjectReviewPanelControl.DataContext = ObjectReviewViewModel;
+            ModelComparisonWorkspacePanelControl.DataContext = viewModels.ModelComparisonWorkspaceViewModel;
+            modelComparisonWorkflowAdapter.ConfigureWorkspace();
+            TrainingWorkspacePanelControl.DataContext = viewModels.TrainingWorkspaceViewModel;
+            if (YoloModelSettingsPanelControl.Parent is System.Windows.Controls.Panel settingsParent) settingsParent.Children.Remove(YoloModelSettingsPanelControl);
+            TrainingWorkspacePanelControl.SettingsContent = YoloModelSettingsPanelControl;
+            System.Windows.Data.BindingOperations.SetBinding(YoloModelSettingsPanelControl, WpfYoloModelSettingsPanel.SettingsSectionProperty,
+                new System.Windows.Data.Binding(nameof(TrainingWorkspaceViewModel.SelectedSettingsTabIndex)) { Source = viewModels.TrainingWorkspaceViewModel });
+            trainingWorkspaceWorkflowAdapter.Configure();
             ClassCatalogPanelControl.DataContext = ClassCatalogViewModel;
+            OperationsExchangeForm.DataContext = datasetTransferWindowHost.GetInlineInterchangeViewModel();
             ProjectConfigPanelControl.DataContext = ProjectConfigViewModel;
             StatusBarPanelControl.DataContext = StatusBarViewModel;
             ShellLogPanelControl.DataContext = ShellLogViewModel;
@@ -5905,6 +6724,46 @@ namespace MvcVisionSystem
             MainCanvasViewModel.ShowGroupBounds = false;
             MainCanvasViewModel.DrawingShapeKind = CanvasRoiShapeKind.Rectangle;
             MainCanvasViewModel.ShouldDrawOverExistingRoi = ShouldDrawOverExistingRoiForCurrentClass;
+            viewModels.LabelingPreferencesViewModel.ConfigurePresentation(() =>
+            {
+                MainCanvasViewModel.ShowRoiClassNames = viewModels.LabelingPreferencesViewModel.ShowLabelNames;
+                MainCanvasViewModel.BoxCrosshairEnabled = viewModels.LabelingPreferencesViewModel.BoxCrosshair;
+                RefreshPolygonOverlays();
+                MainCanvasViewModel.ImageViewer?.RefreshGL();
+            });
+        }
+
+        private void OnLabelingFooterCaptionTargetUpdated(object sender, System.Windows.Data.DataTransferEventArgs e)
+        {
+            if (sender is System.Windows.Controls.TextBlock caption && e.Property == System.Windows.Controls.TextBlock.TextProperty
+                && ReferenceEquals(e.TargetObject, caption))
+            {
+                for (DependencyObject current = System.Windows.Media.VisualTreeHelper.GetParent(caption); current != null; current = System.Windows.Media.VisualTreeHelper.GetParent(current))
+                {
+                    if (current is FrameworkElement owner) owner.InvalidateMeasure();
+                    if (current is System.Windows.Controls.Primitives.ButtonBase) break;
+                }
+            }
+        }
+
+        private void OnShellDialogVisibilityChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if ((bool)e.NewValue)
+            {
+                commandPalettePreviousFocus = Keyboard.FocusedElement;
+                Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+                {
+                    if (ShortcutHelpOverlay.IsVisible) ShortcutHelpFooterCloseButton.Focus();
+                    else if (PreferencesOverlay.IsVisible) PreferencesCloseButton.Focus();
+                    else if (EnvironmentOverlay.IsVisible) EnvironmentCloseButton.Focus();
+                    else if (RecipeImportOverlay.IsVisible) RecipeImportCloseButton.Focus();
+                }));
+            }
+            else
+            {
+                commandPalettePreviousFocus?.Focus();
+                commandPalettePreviousFocus = null;
+            }
         }
 
         private void SeedImageQueueInputCommands()
@@ -5937,8 +6796,139 @@ namespace MvcVisionSystem
         private void PopulateTrainingEditorFields()
             => projectSettingsEditorAdapter.PopulateTrainingEditorFields();
 
+        private WorkflowTransitionAdapter CreateWorkflowTransitionAdapter()
+            => new WorkflowTransitionAdapter(new WorkflowTransitionAdapterContext
+            {
+                IsApplicationCloseApproved = () => isApplicationCloseApproved,
+                IsOperationRunning = IsWorkflowOperationRunning,
+                CanBrowseCapturedTrainingQueue = CanBrowseCapturedTrainingQueue,
+                HasDraft = HasWorkflowDraft,
+                ActiveWorkNamesProvider = () => BuildApplicationCloseState()?.ActiveWorkNames ?? Array.Empty<string>(),
+                PendingCandidateCountProvider = () => candidateReviewState.PendingCount,
+                HasUnsavedAnnotations = () => annotationDirtyState.IsDirty,
+                HasUnsavedSettings = () => projectSettingsEditorAdapter?.HasUnsavedSettings == true,
+                SaveAnnotations = () => SaveCurrentAnnotations(out _),
+                SaveSettings = SaveSettingsForWorkflowTransition,
+                DiscardAnnotations = () => imageLoadWorkflowAdapter?.ReloadActiveImageDiscardingUnsavedAnnotations() == true,
+                DiscardSettings = () => projectSettingsWorkflowAdapter?.ReloadCurrentRecipeSettingsFromDisk() == true,
+                ShowDirtyPrompt = ShowWorkflowTransitionPrompt,
+                ShowBlocked = ShowWorkflowTransitionBlocked,
+                ShowTransitionFailure = ShowWorkflowTransitionFailure,
+                RefreshCommandState = () =>
+                {
+                    viewModels.MenuViewModel.Refresh();
+                    UpdateYoloCommandButtons();
+                }
+            });
+
+        private bool IsWorkflowOperationRunning()
+            => isApplicationCloseApproved || datasetSetupWorkflowAdapter?.IsSelectionRunning == true
+                || projectSettingsWorkflowAdapter?.IsRecipeApplyRunning == true || imageDetectionWorkflowService.IsDetecting
+                || batchDetectionWorkflowService.IsRunning || trainingCommandLifecycleService.IsRunning
+                || trainingRuntimeWorkflowService.IsTrainingWorkflowRunning || yoloEnvironmentWorkflowService.IsRunning
+                || trainingRuntimeWorkflowService.IsQueueBusy || trainingRuntimeWorkflowService.HasPendingQueueCandidate
+                || smartMaskWorkflowService.IsRunning || modelComparisonWorkflowService.IsModelComparisonRunning
+                || modelComparisonWorkflowService.IsSegmentationComparisonRunning || anomalyClassificationEvaluationWorkflowService.IsRunning
+                || externalYoloDatasetIntakeWorkflowService.IsRunning || externalAuditWorkflowService.IsExternalEvaluationDataAuditRunning
+                || externalAuditWorkflowService.IsHistoricalSegmentationRemediationAuditRunning;
+
+        private bool HasWorkflowDraft()
+            => HasPendingMaskStrokeCommitWork() || HasBlockingHistoryDraft();
+
+        private bool HasBlockingHistoryDraft()
+            => fourPointBoxService.HasDraft || polygonAnnotationService.Points.Count > 0 || maskStrokeWorkflowAdapter.IsActiveMaskStroke
+                || polygonBoundaryEditWorkflowService.IsPolygonVertexEditPending
+                || polygonBoundaryEditWorkflowService.IsIntelligentScissorsPending || smartMaskPromptSession.HasSession
+                || ObjectReviewViewModel.IsSplitPending || ObjectReviewViewModel.IsHoleEditPending
+                || pendingSegmentationRemoveUnderlyingPlan != null;
+
+        private bool CanBrowseCapturedTrainingQueue()
+            => trainingRuntimeWorkflowService.IsQueueBusy && !trainingRuntimeWorkflowService.IsQueuePreparing && !isApplicationCloseApproved
+                && !HasWorkflowDraft() && !annotationDirtyState.IsDirty && projectSettingsEditorAdapter?.HasUnsavedSettings != true
+                && datasetSetupWorkflowAdapter?.IsSelectionRunning != true && projectSettingsWorkflowAdapter?.IsRecipeApplyRunning != true
+                && !imageDetectionWorkflowService.IsDetecting && !batchDetectionWorkflowService.IsRunning && !trainingCommandLifecycleService.IsRunning
+                && !yoloEnvironmentWorkflowService.IsRunning && !smartMaskWorkflowService.IsRunning
+                && !modelComparisonWorkflowService.IsModelComparisonRunning && !modelComparisonWorkflowService.IsSegmentationComparisonRunning
+                && !anomalyClassificationEvaluationWorkflowService.IsRunning && !externalYoloDatasetIntakeWorkflowService.IsRunning
+                && !externalAuditWorkflowService.IsExternalEvaluationDataAuditRunning && !externalAuditWorkflowService.IsHistoricalSegmentationRemediationAuditRunning;
+
+        private bool SaveSettingsForWorkflowTransition()
+        {
+            try
+            {
+                projectSettingsEditorAdapter.SaveYoloEditorFields();
+                projectSettingsEditorAdapter.SaveTrainingEditorFields();
+                if (!projectSettingsWorkflowAdapter.SaveProjectConfigFromPanel())
+                {
+                    return false;
+                }
+
+                PopulateYoloEditorFields();
+                PopulateTrainingEditorFields();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                SetProjectConfigStatus($"설정 저장 실패: {ex.Message}");
+                AppendLog($"전환 전 설정 저장 실패: {ex.Message}");
+                return false;
+            }
+        }
+
+        private WpfMessageDialogResult ShowWorkflowTransitionPrompt(string title, string message, string details)
+            => WpfMessageDialog.Show(this, new WpfMessageDialogOptions
+            {
+                Title = title,
+                Message = message,
+                Details = details,
+                DetailsCaption = OpenVisionLanguageService.T("WpfShell.Dialog.Details"),
+                Kind = WpfMessageDialogKind.Warning,
+                Buttons = WpfMessageDialogButtons.YesNoCancel,
+                DefaultResult = WpfMessageDialogResult.Cancel,
+                PrimaryButtonText = OpenVisionLanguageService.T("ShellTransition.Save"),
+                SecondaryButtonText = OpenVisionLanguageService.T("ShellTransition.Discard"),
+                TertiaryButtonText = OpenVisionLanguageService.T("ShellTransition.Stay"),
+                MaxWidth = 620D
+            });
+
+        private void ShowWorkflowTransitionBlocked(string title, string message, string details)
+            => WpfMessageDialog.Show(this, new WpfMessageDialogOptions
+            {
+                Title = title,
+                Message = message,
+                Details = details,
+                Kind = WpfMessageDialogKind.Warning,
+                Buttons = WpfMessageDialogButtons.OK,
+                PrimaryButtonText = OpenVisionLanguageService.T("ShellTransition.Confirm"),
+                MaxWidth = 620D
+            });
+
+        private void ShowWorkflowTransitionFailure(string title, string message)
+            => WpfMessageDialog.Show(this, new WpfMessageDialogOptions
+            {
+                Title = title,
+                Message = message,
+                Kind = WpfMessageDialogKind.Warning,
+                Buttons = WpfMessageDialogButtons.OK,
+                PrimaryButtonText = OpenVisionLanguageService.T("ShellTransition.Confirm"),
+                MaxWidth = 620D
+            });
+
         private void ConfigureShellCommands()
         {
+            viewModels.MenuViewModel.Configure(
+                busy: IsWorkflowOperationRunning,
+                draft: HasWorkflowDraft,
+                pendingCandidates: () => candidateReviewState.PendingCount > 0,
+                recipe: () => !string.IsNullOrWhiteSpace(applicationState.Recipe?.Name),
+                duplicateSelected: () => TryDuplicateSelectedAnnotation(),
+                canBrowseTraining: CanBrowseCapturedTrainingQueue,
+                historyDraft: HasBlockingHistoryDraft);
+            viewModels.MenuViewModel.ConfigurePaletteImages(() => imageQueueItems, item =>
+            {
+                if (!imageQueueNavigationAdapter.TryOpenSelectedQueueImage(item, skipIfAlreadyActive: false)) return false;
+                return workflowNavigationAdapter.EnterLabelingWorkbenchStartView();
+            });
             ShellViewModel.ConfigureCommands(
                 ExecuteToggleThemeCommand,
                 ExecuteLoadSampleCommand,
@@ -5969,27 +6959,146 @@ namespace MvcVisionSystem
                 null,
                 ExecuteOpenModelBenchmarkCommand,
                 datasetTransferWindowHost.ShowDatasetHealth,
-                datasetTransferWindowHost.ShowDatasetInterchange);
+                null,
+                FinishQueueCompletionAndGuideDatasetCheck,
+                ExecuteCancelLabelingCommand,
+                ExecuteCloseRecipeCommand,
+                workflowNavigationAdapter.CanStartLabeling,
+                ExecuteModelComparisonCommand,
+                openDatasetInterchangeDirection: datasetTransferWindowHost.ShowDatasetInterchange);
+            ShellViewModel.ConfigureInferenceReviewActions(
+                () => yoloEnvironmentWorkflowAdapter.ExecuteInferenceTargetCommand(
+                    ShellViewModel.SelectedInferenceModelHistoryItem),
+                () => _ = batchDetectionWorkflowAdapter.ExecuteInferenceWorkspaceBatchCommandAsync(onlyUnexecuted: false),
+                () => ShellViewModel.IsInferenceTargetEnabled
+                    && !imageDetectionWorkflowService.IsDetecting
+                    && !batchDetectionWorkflowService.IsRunning,
+                () => ImageQueueViewModel.IsBatchDetectEnabled
+                    && ShellViewModel.IsInferenceTargetEnabled
+                    && !imageDetectionWorkflowService.IsDetecting
+                    && !batchDetectionWorkflowService.IsRunning,
+                () => imageDetectionWorkflowService.IsDetecting || batchDetectionWorkflowService.IsRunning,
+                () =>
+                {
+                    if (ShellViewModel.IsInferenceStageActive) CandidateReviewViewModel.BeginInferenceRecipe(applicationState.Recipe?.Name + "|" + applicationState.Data?.OutputRootPath);
+                    UpdateCandidateActionState();
+                    workflowNavigationAdapter.UpdateYoloCommandButtons();
+                },
+                workflowNavigationAdapter.UpdateYoloCommandButtons,
+                runUnexecutedTarget: () => _ = batchDetectionWorkflowAdapter.ExecuteInferenceWorkspaceBatchCommandAsync(onlyUnexecuted: true),
+                canRunUnexecutedTarget: () => ShellViewModel.IsInferenceStageActive && ImageQueueViewModel.IsBatchDetectEnabled && ShellViewModel.IsInferenceTargetEnabled
+                    && !imageDetectionWorkflowService.IsDetecting && !batchDetectionWorkflowService.IsRunning
+                    && imageQueueItems.Any(item => !ShellViewModel.HasCompletedInferenceResult(item.ImagePath)));
+            CandidateReviewViewModel.ConfigureModelErrorReview(
+                quality =>
+                {
+                    if (!workflowNavigationAdapter.EnterLabelingWorkbenchStartView()) return false;
+                    if (quality && ObjectQualityReviewExpander != null) { ObjectQualityReviewExpander.IsExpanded = true; ObjectQualityReviewExpander.BringIntoView(); }
+                    return true;
+                },
+                candidateReviewActionAdapter.ReturnToModelComparison,
+                () => !IsWorkflowOperationRunning() && !annotationDirtyState.IsDirty && !HasPendingMaskStrokeCommitWork() && (!candidateReviewState.HasPendingCandidates || ShellViewModel.IsInferenceResultReadOnly || CandidateReviewViewModel.IsModelComparisonEvidence));
+            ShellViewModel.ConfigureInferenceResultReview(
+                () => new InferenceResultReviewContext(
+                    applicationState.Recipe?.Name + "|" + applicationState.Data?.OutputRootPath,
+                    applicationState.ImageWorkspace.ActiveImagePath,
+                    GetVisibleQueueItems().Select(item => item.ImagePath).ToArray(),
+                    DetectionWorkflowAdapter.CreateTrialModelSettings(applicationState.Data.ProjectSettings.PythonModel, ShellViewModel.SelectedInferenceModelHistoryItem, includeUnavailableForPresentation: true) ?? applicationState.Data.ProjectSettings.PythonModel,
+                    ShellViewModel.IsInferenceInspectionOnly,
+                    IsWorkflowOperationRunning(),
+                    annotationDirtyState.IsDirty || HasPendingMaskStrokeCommitWork(),
+                    candidateReviewState.HasPendingCandidates && (candidateReviewState.LabelingTransferEntry != null || !ShellViewModel.IsInferenceResultReadOnly),
+                    GetVisibleCandidateList().Count,
+                    CandidateReviewViewModel?.IsModelComparisonEvidence == true,
+                    imageQueueItems.Select(item => item.ImagePath).ToArray(), GetCandidateConfidenceFilter(),
+                    string.Equals(candidateReviewState.LabelingTransferEntry?.Result?.Source?.ImagePath, applicationState.ImageWorkspace.ActiveImagePath, StringComparison.OrdinalIgnoreCase)
+                        ? candidateReviewState.LabelingTransferEntry : null, IsClosing: isApplicationCloseApproved),
+                path => imageQueueNavigationAdapter.TryOpenSelectedQueueImage(FindImageQueueItem(path), skipIfAlreadyActive: true),
+                result => detectionResultProjectionAdapter.RestoreInferenceResult(result),
+                () =>
+                {
+                    if (viewModels.IsModelWorkflowCreated && !CandidateReviewViewModel.IsModelComparisonEvidence) { RefreshCandidateList(); UpdateDetectionResultOverlay(); }
+                    UpdateCandidateActionState();
+                },
+                () => ImageQueueViewModel.ResetQueueFiltersCommand.Execute(null),
+                selectPrediction: candidate => CandidateReviewViewModel.CandidateSelectionChangedCommand.Execute(
+                    CandidateReviewViewModel.Candidates.FirstOrDefault(row => ReferenceEquals(row.Payload, candidate))),
+                selectedPredictionProvider: () => candidateReviewStateAdapter.GetSelectedCandidate(),
+                classCatalogProvider: () => ClassCatalogViewModel.Classes.ToArray(),
+                sendResultToLabeling: workflowNavigationAdapter.TrySendInferenceResultsToLabeling,
+                exportDeferredResults: buildCsv => fileDialogService.TrySaveUtf8Text(this, OpenVisionLanguageService.T("WpfInference.Export.Title"), "CSV (*.csv)|*.csv", buildCsv, "inference-results.csv", ".csv"));
+            batchDetectionWorkflowAdapter.ConfigureCandidateWorkflow();
+            ImageQueueViewModel.ConfigureInferencePresentation(ShellViewModel.InferenceResultReview.Find, ShellViewModel.InferenceResultReview.GetDecisionProjection,
+                () => ImageQueuePanelControl?.RefreshQueueView());
+            CanvasPanelViewModel.ConfigureLabelingImageNavigation(direction => imageQueueNavigationAdapter.TryOpenAdjacentQueueImage(direction),
+                () => ShellViewModel.IsLabelingStageActive && !ShellViewModel.IsRecipeLibraryVisible && imageQueueItems.Count > 0 && !isApplicationCloseApproved && !IsWorkflowOperationRunning());
+            CanvasPanelViewModel.ConfigureInferenceImageNavigation(direction => imageQueueNavigationAdapter.TryOpenAdjacentQueueImage(direction, includeFilteredItems: true),
+                () => ShellViewModel.IsInferenceStageActive && imageQueueItems.Count > 0 && !isApplicationCloseApproved && !IsWorkflowOperationRunning());
+            imageQueueReviewAdapter.ConfigureLabelSuspicionReview();
+            ShellViewModel.ConfigureWorkflowStageChanged(stage =>
+            {
+                displayWorkspaceAdapter?.RefreshReferenceDisplay();
+                if (stage == WpfShellWorkflowStage.Labeling)
+                {
+                    imageQueueReviewAdapter.RefreshAllLabelSuspicions();
+                    batchDetectionWorkflowAdapter.RefreshCandidateQueueState(verifyContent: true, refreshDisagreement: false);
+                    ImageQueuePanelControl?.RefreshQueueView();
+                }
+                else batchDetectionWorkflowAdapter.RefreshCandidateCommandState();
+            });
+            viewModels.MenuViewModel.ConfigureReviewCommands(new OpenVisionLab.Mvvm.RelayCommand(() =>
+            {
+                string runId = ModelRegistryService.FindCurrentInspectionModel(applicationState.Data?.ProjectSettings?.ModelRegistry)?.TrainingRunId ?? string.Empty;
+                ShellViewModel.ModelComparisonCommand.Execute(null);
+                viewModels.ModelComparisonWorkspaceViewModel.OpenDecisionRuleForRunId(runId);
+            }, () => !isApplicationCloseApproved && !IsWorkflowOperationRunning()),
+                new OpenVisionLab.Mvvm.RelayCommand(() => imageQueueReviewAdapter.OpenLabelSuspicionReview(), () => imageQueueReviewAdapter.CanOpenLabelSuspicionReview()));
+            ImageQueueViewModel.ConfigureCandidateAnomalyAction(state => imageQueueReviewAdapter.MarkActiveAnomalyImageReviewState(state),
+                () => !isApplicationCloseApproved && ShellViewModel.IsLabelingStageActive && !IsWorkflowOperationRunning() && !annotationDirtyState.IsDirty && !HasPendingMaskStrokeCommitWork());
+            ShellViewModel.ConfigureInferenceDecisionReview(modelComparisonWorkflowAdapter.EvaluateSavedDecision, entry =>
+            {
+                string runId = modelComparisonWorkflowAdapter.ResolveDecisionRuleRunId(entry);
+                ShellViewModel.ModelComparisonCommand.Execute(null);
+                viewModels.ModelComparisonWorkspaceViewModel.OpenDecisionRuleForRunId(runId);
+            }, modelComparisonWorkflowAdapter.CreateSavedDecisionEvaluator, anomalyEvidence: entry =>
+            {
+                if (applicationState.Data?.ProjectSettings?.DatasetPurpose != LabelingDatasetPurpose.AnomalyDetection) return default;
+                string weights = entry?.Result?.Source?.WeightsPath ?? ShellViewModel.SelectedInferenceModelHistoryItem?.WeightsPath ?? applicationState.Data.ProjectSettings.PythonModel.WeightsPath;
+                var candidate = ModelRegistryService.FindInspectionModelByPath(applicationState.Data.ProjectSettings.ModelRegistry, weights);
+                string artifact = entry?.Result?.CaptureWeightsSha256;
+                if (string.IsNullOrWhiteSpace(artifact)) artifact = candidate?.WeightsSha256 ?? string.Empty;
+                double? threshold = modelComparisonWorkflowAdapter.GetSavedAnomalyThreshold(artifact,
+                    string.IsNullOrWhiteSpace(entry?.TrainingRunIdentity) ? candidate?.TrainingRunId : entry.TrainingRunIdentity);
+                AnomalyImageReviewStatusService.TryReadSavedVerdict(applicationState.Data,
+                    entry?.Result?.ImagePath ?? applicationState.ImageWorkspace.ActiveImagePath, out bool? verdict, out _);
+                return (threshold, verdict);
+            });
             ShellViewModel.ConfigureAnomalyEvaluationWorkflow(
                 anomalyClassificationEvaluationWorkflowService,
                 CreateAnomalyEvaluationCallbacks);
+            ShellViewModel.ConfigureTemporaryOriginalViewLifecycle(
+                ExecuteShellPreviewKeyUpCommand,
+                ExecuteShellDeactivatedCommand);
             RefreshAttachedCommandBindings(
                 this,
                 WindowLifecycleCommandBehavior.LoadedCommandProperty,
                 WindowLifecycleCommandBehavior.ClosedCommandProperty,
-                InputCommandBehaviors.PreviewKeyInputCommandProperty);
+                WindowLifecycleCommandBehavior.DeactivatedCommandProperty,
+                InputCommandBehaviors.PreviewKeyInputCommandProperty,
+                InputCommandBehaviors.PreviewKeyUpInputCommandProperty);
             // XAML bindings can keep the same command reference while the shell
             // replaces its configured delegates. Reattach the lifecycle handlers
             // so the first Loaded/Closed event cannot be missed.
             WindowLifecycleCommandBehavior.RefreshLoadedCommand(this);
             WindowLifecycleCommandBehavior.RefreshClosedCommand(this);
+            WindowLifecycleCommandBehavior.RefreshDeactivatedCommand(this);
             RefreshAttachedCommandBindings(DatasetHomeStageButton, System.Windows.Controls.Primitives.ButtonBase.CommandProperty);
             RefreshAttachedCommandBindings(LabelingWorkbenchStageButton, System.Windows.Controls.Primitives.ButtonBase.CommandProperty);
             RefreshAttachedCommandBindings(InferenceReviewStageButton, System.Windows.Controls.Primitives.ButtonBase.CommandProperty);
             RefreshAttachedCommandBindings(TrainingModelStageButton, System.Windows.Controls.Primitives.ButtonBase.CommandProperty);
-            RefreshAttachedCommandBindings(WorkflowStageReviewCandidateModelButton, System.Windows.Controls.Primitives.ButtonBase.CommandProperty);
-            RefreshAttachedCommandBindings(WorkflowStageSaveModelSettingsButton, System.Windows.Controls.Primitives.ButtonBase.CommandProperty);
-            RefreshAttachedCommandBindings(WorkflowStageInspectCurrentImageButton, System.Windows.Controls.Primitives.ButtonBase.CommandProperty);
+            RefreshAttachedCommandBindings(ModelCenterPriorityReviewCandidateButton, System.Windows.Controls.Primitives.ButtonBase.CommandProperty);
+            RefreshAttachedCommandBindings(ModelCenterPrioritySaveModelButton, System.Windows.Controls.Primitives.ButtonBase.CommandProperty);
+            RefreshAttachedCommandBindings(ModelCenterPriorityInspectCurrentButton, System.Windows.Controls.Primitives.ButtonBase.CommandProperty);
             RefreshAttachedCommandBindings(RightWorkflowDockToggleButton, System.Windows.Controls.Primitives.ButtonBase.CommandProperty);
             RefreshAttachedCommandBindings(RightWorkflowDatasetHomeButton, System.Windows.Controls.Primitives.ButtonBase.CommandProperty);
             RefreshAttachedCommandBindings(RightWorkflowSavedLabelsButton, System.Windows.Controls.Primitives.ButtonBase.CommandProperty);

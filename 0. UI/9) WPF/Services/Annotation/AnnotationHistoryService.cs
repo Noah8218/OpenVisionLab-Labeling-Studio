@@ -595,6 +595,9 @@ namespace MvcVisionSystem
         public bool RestorePendingCandidates { get; }
 
         public bool RestoreConfirmedCandidates { get; }
+
+        // Full UI captures can restore the object-free selection. Existing delta snapshots leave it unchanged.
+        internal bool? NoObjectSelected { get; set; }
     }
 
     public sealed class WpfMaskSegmentHistoryDelta

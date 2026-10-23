@@ -11,6 +11,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		public void FitToRect(RectangleF rect)
 		{
 			SetZoomValue(rect);
+			ZoomChanged(this, EventArgs.Empty);
 			UpdateView(rect);
 		}
 
@@ -18,6 +19,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		{
 			if (_fitRect.IsEmpty) return;
 			SetZoomValue(_fitRect);
+			ZoomChanged(this, EventArgs.Empty);
 			UpdateView(_fitRect);
 		}
 
@@ -25,6 +27,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		{
 			if (!CanUseOpenGlControl() || _fitRect.IsEmpty) return;
 			_zoom = GetControlMinSize();
+			ZoomChanged(this, EventArgs.Empty);
 			OpenGlDrawing.ZoomFactor = ZoomScale;
 			UpdateView(_fitRect);
 		}
@@ -40,6 +43,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 
 			_zoom = viewState.Zoom;
 			_offsetSize = viewState.OffsetSize;
+			ZoomChanged(this, EventArgs.Empty);
 			InvalidateVisibleOverlayCache();
 			Reshape();
 			RefreshGL();
@@ -148,6 +152,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 
 			_zoom = (float)Math.Round((decimal)_zoom, 3);
 			OpenGlDrawing.ZoomFactor = ZoomScale;
+			ZoomChanged(this, EventArgs.Empty);
 
 			return oldZoom;
 		}

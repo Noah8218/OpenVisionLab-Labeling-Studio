@@ -15,12 +15,17 @@ namespace MvcVisionSystem
 {
     public sealed class WpfDatasetSetupWizardViewModel : WpfObservableViewModel, IDisposable
     {
+        public const int RecipeNameMaxLength = 100;
+
         private static readonly Action NoOpCommand = () => { };
         private static readonly Action<object> NoOpSelectionCommand = _ => { };
         private WpfLearningModeItem selectedDatasetPurposeMode;
         private string recipeName = string.Empty;
+        private string productCode = string.Empty;
+        private string recipeDescription = string.Empty;
         private string outputRootPath = string.Empty;
         private string classNamesText = "Defect";
+        private string newClassName = string.Empty;
         private string imageRootPath = string.Empty;
         private string selectedModelEngine = PythonModelSettings.EngineYoloV8;
         private string weightsPath = string.Empty;
@@ -51,11 +56,11 @@ namespace MvcVisionSystem
 
         public WpfDatasetSetupWizardViewModel()
         {
+            AddClassCommand = new RelayCommand(AddClass);
+            RemoveClassCommand = new RelayCommand<string>(RemoveClass);
             OpenVisionLanguageService.LanguageChanged += OpenVisionLanguageService_LanguageChanged;
-            DatasetPurposeModes.Add(new WpfLearningModeItem(WpfLearningMode.ObjectDetection, "\uAC1D\uCCB4 \uD0D0\uC9C0", PackIconMaterialKind.ShapeSquareRoundedPlus, "\uBC15\uC2A4 \uB77C\uBCA8 \uB370\uC774\uD130\uC14B"));
-            DatasetPurposeModes.Add(new WpfLearningModeItem(WpfLearningMode.Segmentation, "\uC138\uADF8\uBA58\uD14C\uC774\uC158", PackIconMaterialKind.ViewListOutline, "\uD3F4\uB9AC\uACE4\uACFC \uB9C8\uC2A4\uD06C \uB77C\uBCA8"));
-            DatasetPurposeModes.Add(new WpfLearningModeItem(WpfLearningMode.AnomalyDetection, "\uC774\uC0C1 \uD0D0\uC9C0", PackIconMaterialKind.AlertCircleOutline, "이미지 전체 정상/이상 판정"));
-            SelectedDatasetPurposeMode = DatasetPurposeModes.FirstOrDefault();
+            RefreshDatasetPurposeModes(WpfLearningMode.ObjectDetection);
+            RefreshSamplePresets();
             RefreshPreview();
         }
 
@@ -65,11 +70,76 @@ namespace MvcVisionSystem
 
         public string SetupSummaryText => T("WpfDatasetSetup.Summary");
 
+        public string ClassEntryHelpText => T("WpfDatasetSetup.Classes.EntryHelp");
+        public string ClassEntryPlaceholderText => T("WpfDatasetSetup.Classes.EntryPlaceholder");
+        public string AdvancedSettingsText => T("WpfDatasetSetup.Advanced");
+        public string AdvancedButtonText => T("WpfDatasetSetup.AdvancedButton");
+        public string RecipeFolderNoteText => T("WpfDatasetSetup.RecipeFolderNote");
+        public string CreateButtonText => T("WpfDatasetSetup.CreateAndOpen");
+        public string CancelButtonText => T("WpfComparisonWorkspace.Cancel");
+        public string CloseButtonText => T("Common.Close");
+        public string JumpToClassesText => T("WpfDatasetSetup.JumpToClasses");
+        public string BrowseText => T("찾기");
+
+        public string NewClassName { get => newClassName; set => SetProperty(ref newClassName, value ?? string.Empty); }
+        public IReadOnlyList<DatasetSetupClassTag> ClassTags => ParseClassNames(ClassNamesText).Select((name, index) => new DatasetSetupClassTag(index + 1, name)).ToArray();
+        public ICommand AddClassCommand { get; }
+        public ICommand RemoveClassCommand { get; }
+
+        public string RecipeNameSectionText => T("WpfDatasetSetup.Section.RecipeName");
+
+        public string DatasetPurposeSectionText => T("WpfDatasetSetup.Section.Purpose");
+
+        public string ImageStorageSectionText => T("WpfDatasetSetup.Section.ImageStorage");
+
+        public string ImageFolderLabelText => T("WpfDatasetSetup.Field.ImageFolder");
+
+        public string OutputRootLabelText => T("WpfDatasetSetup.Field.OutputRoot");
+
+        public string RecipeClassesSectionText => T("WpfDatasetSetup.Section.Classes");
+
+        public string CreateSummaryTitleText => T("WpfDatasetSetup.CreateSummary.Title");
+
+        public string CreateSummaryRecipeLabelText => T("WpfDatasetSetup.CreateSummary.Recipe");
+
+        public string CreateSummaryPurposeLabelText => T("WpfDatasetSetup.CreateSummary.Purpose");
+
+        public string CreateSummaryImageLabelText => T("WpfDatasetSetup.CreateSummary.Image");
+
+        public string CreateSummaryClassesLabelText => T("WpfDatasetSetup.CreateSummary.Classes");
+
+        public string CreateSummaryNoteText => T("WpfDatasetSetup.CreateSummary.Note");
+
+        public string CreateSummaryExplainText => T("WpfDatasetSetup.CreateSummary.Explain");
+
+        public string RecipeNamePlaceholderText => T("WpfDatasetSetup.RecipeName.Placeholder");
+
+        public string ProductCodePlaceholderText => T("WpfDatasetSetup.ProductCode.Placeholder");
+
+        public string ImageRootPlaceholderText => T("WpfDatasetSetup.ImageRoot.Placeholder");
+
+        public string RecipeNameSummaryText
+            => string.IsNullOrWhiteSpace(RecipeName) ? T("WpfDatasetSetup.CreateSummary.NameEmpty") : RecipeName;
+
         public string SetupSourceRuleTitleText => T("WpfDatasetSetup.SourceRule.Title");
 
         public string SetupSourceRuleDetailText => T("WpfDatasetSetup.SourceRule.Detail");
 
         public string SetupSourceRuleChecklistText => T("WpfDatasetSetup.SourceRule.Checklist");
+
+        public string StartingDataTitleText => T("WpfDatasetSetup.StartingData");
+        public string ModelSectionTitleText => T("WpfDatasetSetup.ModelSection.Title");
+        public string ModelSetupIntroText => T("WpfDatasetSetup.ModelSetupIntro");
+        public string ModelEngineLabelText => T("WpfDatasetSetup.ModelSection.Engine");
+        public string InitialModelEngineNameText => T("WpfDatasetSetup.ModelSection.InitialEngine");
+        public string ModelFileLabelText => T("WpfDatasetSetup.ModelSection.File");
+        public string InitialModelFileNameText => T("WpfDatasetSetup.ModelSection.InitialFile");
+        public string BrowseInitialModelFileNameText => T("WpfDatasetSetup.ModelSection.BrowseFile");
+        public string AnomalyClassesTitleText => T("WpfDatasetSetup.AnomalyClasses.Title");
+        public string NormalClassLabelText => T("WpfDatasetSetup.AnomalyClasses.Normal");
+        public string AnomalousClassLabelText => T("WpfDatasetSetup.AnomalyClasses.Anomalous");
+        public string NormalClassNameText => T("WpfDatasetSetup.AnomalyClasses.NormalName");
+        public string AnomalousClassNameText => T("WpfDatasetSetup.AnomalyClasses.AnomalousName");
 
         public ObservableCollection<WpfLearningModeItem> DatasetPurposeModes { get; } = new ObservableCollection<WpfLearningModeItem>();
 
@@ -82,8 +152,10 @@ namespace MvcVisionSystem
             {
                 if (SetProperty(ref selectedDatasetPurposeMode, value))
                 {
+                    string classDraft = SelectedSamplePreset?.Kind == WpfDatasetSamplePresetKind.Empty && value?.Mode != WpfLearningMode.AnomalyDetection ? ClassNamesText : null;
                     SynchronizeUntouchedAutomaticPaths();
                     RefreshSamplePresets();
+                    if (classDraft != null) ClassNamesText = classDraft;
                     RefreshPreview();
                     OnPropertyChanged(nameof(AnomalySettingsVisibility));
                 }
@@ -110,6 +182,9 @@ namespace MvcVisionSystem
             {
                 if (SetProperty(ref recipeName, value ?? string.Empty))
                 {
+                    if (!string.IsNullOrWhiteSpace(RecipeName) && StatusText == T("WpfDatasetSetup.Error.RecipeNameRequired")) StatusText = string.Empty;
+                    OnPropertyChanged(nameof(RecipeNameSummaryText));
+                    OnPropertyChanged(nameof(RecipeNamePlaceholderVisibility));
                     if (automaticPathSyncEnabled && !isApplyingAutomaticPathSync)
                     {
                         recipeNameWasEdited = true;
@@ -119,6 +194,29 @@ namespace MvcVisionSystem
                 }
             }
         }
+
+        public Visibility RecipeNamePlaceholderVisibility
+            => string.IsNullOrEmpty(RecipeName) ? Visibility.Visible : Visibility.Collapsed;
+
+        public string ProductCode
+        {
+            get => productCode;
+            set => SetProperty(ref productCode, value ?? string.Empty);
+        }
+
+        public string RecipeDescription
+        {
+            get => recipeDescription;
+            set => SetProperty(ref recipeDescription, value ?? string.Empty);
+        }
+
+        public string RecipeIdentitySectionText => T("WpfDatasetSetup.Identity.Section");
+
+        public string RecipeProductCodeLabelText => T("WpfDatasetSetup.Identity.ProductCode");
+
+        public string RecipeDescriptionLabelText => T("WpfDatasetSetup.Identity.Description");
+
+        public string RecipeIdentityHelpText => T("WpfDatasetSetup.Identity.Help");
 
         public string OutputRootPath
         {
@@ -144,6 +242,8 @@ namespace MvcVisionSystem
             {
                 if (SetProperty(ref classNamesText, value ?? string.Empty))
                 {
+                    OnPropertyChanged(nameof(SummaryClassItems));
+                    OnPropertyChanged(nameof(ClassTags));
                     RefreshPreview();
                 }
             }
@@ -156,6 +256,7 @@ namespace MvcVisionSystem
             {
                 if (SetProperty(ref imageRootPath, value ?? string.Empty))
                 {
+                    OnPropertyChanged(nameof(ImageSummaryText));
                     RefreshPreview();
                 }
             }
@@ -222,6 +323,9 @@ namespace MvcVisionSystem
             private set => SetProperty(ref classSummaryText, value ?? string.Empty);
         }
 
+        public IReadOnlyList<string> SummaryClassItems
+            => ClassTags.Select(tag => tag.Caption).ToArray();
+
         public string StorageHelpText
         {
             get => storageHelpText;
@@ -233,6 +337,11 @@ namespace MvcVisionSystem
             get => imageSourcePreviewText;
             private set => SetProperty(ref imageSourcePreviewText, value ?? string.Empty);
         }
+
+        public string ImageSummaryText
+            => string.IsNullOrWhiteSpace(ImageRootPath)
+                ? T("WpfDatasetSetup.CreateSummary.ImageLater")
+                : Path.GetFileName(Path.TrimEndingDirectorySeparator(ImageRootPath.Trim()));
 
         public string IsolationHelpText
         {
@@ -304,7 +413,7 @@ namespace MvcVisionSystem
         private void ExecuteBrowseOutputRoot()
         {
             ExecuteBrowseFolder(
-                "데이터셋 저장 폴더 선택",
+                T("WpfDatasetSetup.Dialog.RecipeFolder"),
                 OutputRootPath,
                 selectedPath => OutputRootPath = selectedPath);
         }
@@ -312,7 +421,7 @@ namespace MvcVisionSystem
         private void ExecuteBrowseImageRoot()
         {
             ExecuteBrowseFolder(
-                "원본 이미지 폴더 선택",
+                T("WpfDatasetSetup.Dialog.SourceImageFolder"),
                 ImageRootPath,
                 selectedPath => ImageRootPath = selectedPath);
         }
@@ -326,7 +435,7 @@ namespace MvcVisionSystem
             }
 
             string selectedPath = callbacks?.SelectFile?.Invoke(
-                "초기 검사 모델 파일 선택",
+                T("WpfDatasetSetup.Dialog.InspectionModel"),
                 "모델 파일 (*.pt;*.pth;*.onnx)|*.pt;*.pth;*.onnx|All files (*.*)|*.*",
                 WeightsPath);
             if (string.IsNullOrWhiteSpace(selectedPath)
@@ -383,7 +492,7 @@ namespace MvcVisionSystem
             WeightsPath = string.Empty;
             AnomalyNormalClassNamesText = "normal";
             AnomalyAbnormalClassNamesText = "abnormal";
-            StatusText = T("WpfDatasetSetup.Status.Initial");
+            StatusText = string.Empty;
             RefreshPreview();
         }
 
@@ -396,6 +505,18 @@ namespace MvcVisionSystem
             error = string.Empty;
 
             string normalizedRecipeName = (RecipeName ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(normalizedRecipeName))
+            {
+                error = T("WpfDatasetSetup.Error.RecipeNameRequired");
+                return false;
+            }
+
+            if (normalizedRecipeName.Length > RecipeNameMaxLength)
+            {
+                error = T("WpfDatasetSetup.Error.RecipeNameTooLong");
+                return false;
+            }
+
             if (!ProjectRecipeService.IsValidRecipeName(normalizedRecipeName))
             {
                 error = T("WpfDatasetSetup.Error.InvalidRecipeName");
@@ -432,10 +553,21 @@ namespace MvcVisionSystem
 
             WpfLearningModeItem selectedPurposeItem = selectedPurpose as WpfLearningModeItem
                 ?? SelectedDatasetPurposeMode;
+            string normalizedProductCode = (ProductCode ?? string.Empty).Trim();
+            string normalizedRecipeDescription = (RecipeDescription ?? string.Empty).Trim();
+            if (normalizedProductCode.Length > LabelingProjectSettings.RecipeProductCodeMaxLength
+                || normalizedRecipeDescription.Length > LabelingProjectSettings.RecipeDescriptionMaxLength)
+            {
+                error = T("WpfDatasetSetup.Error.IdentityTooLong");
+                return false;
+            }
+
             request = new WpfDatasetSetupRequest
             {
                 Purpose = WpfLearningWorkflowPanelViewModel.ToDatasetPurpose(selectedPurposeItem?.Mode ?? WpfLearningMode.ObjectDetection),
                 RecipeName = normalizedRecipeName,
+                ProductCode = normalizedProductCode,
+                RecipeDescription = normalizedRecipeDescription,
                 OutputRootPath = normalizedOutputRoot,
                 ClassNames = classNames,
                 ImageRootPath = normalizedImageRoot,
@@ -477,6 +609,17 @@ namespace MvcVisionSystem
 
             return normalized;
         }
+
+        private void AddClass()
+        {
+            string name = ClassCatalogService.NormalizeClassName(NewClassName);
+            if (name.Length == 0) return;
+            ClassNamesText = string.Join(Environment.NewLine, ParseClassNames(ClassNamesText).Concat(ParseClassNames(name)).Distinct(StringComparer.OrdinalIgnoreCase));
+            NewClassName = string.Empty;
+        }
+
+        private void RemoveClass(string name)
+            => ClassNamesText = string.Join(Environment.NewLine, ParseClassNames(ClassNamesText).Where(item => !string.Equals(item, name, StringComparison.OrdinalIgnoreCase)));
 
         private void RefreshPreview()
         {
@@ -541,13 +684,62 @@ namespace MvcVisionSystem
             }
 
             OnPropertyChanged(nameof(WindowTitleText));
+            OnPropertyChanged(nameof(ClassEntryHelpText));
+            OnPropertyChanged(nameof(ClassEntryPlaceholderText));
+            OnPropertyChanged(nameof(AdvancedSettingsText));
+            OnPropertyChanged(nameof(AdvancedButtonText));
+            OnPropertyChanged(nameof(RecipeFolderNoteText));
+            OnPropertyChanged(nameof(CreateButtonText));
+            OnPropertyChanged(nameof(JumpToClassesText));
+            OnPropertyChanged(nameof(BrowseText));
+            OnPropertyChanged(nameof(CancelButtonText));
+            OnPropertyChanged(nameof(CloseButtonText));
             OnPropertyChanged(nameof(SetupSummaryText));
+            OnPropertyChanged(nameof(RecipeNameSectionText));
+            OnPropertyChanged(nameof(DatasetPurposeSectionText));
+            OnPropertyChanged(nameof(ImageStorageSectionText));
+            OnPropertyChanged(nameof(ImageFolderLabelText));
+            OnPropertyChanged(nameof(OutputRootLabelText));
+            OnPropertyChanged(nameof(RecipeClassesSectionText));
+            OnPropertyChanged(nameof(CreateSummaryTitleText));
+            OnPropertyChanged(nameof(CreateSummaryRecipeLabelText));
+            OnPropertyChanged(nameof(CreateSummaryPurposeLabelText));
+            OnPropertyChanged(nameof(CreateSummaryImageLabelText));
+            OnPropertyChanged(nameof(CreateSummaryClassesLabelText));
+            OnPropertyChanged(nameof(CreateSummaryNoteText));
+            OnPropertyChanged(nameof(CreateSummaryExplainText));
+            OnPropertyChanged(nameof(ImageSummaryText));
+            OnPropertyChanged(nameof(RecipeNamePlaceholderText));
+            OnPropertyChanged(nameof(ProductCodePlaceholderText));
+            OnPropertyChanged(nameof(ImageRootPlaceholderText));
+            OnPropertyChanged(nameof(RecipeNameSummaryText));
             OnPropertyChanged(nameof(SetupSourceRuleTitleText));
             OnPropertyChanged(nameof(SetupSourceRuleDetailText));
             OnPropertyChanged(nameof(SetupSourceRuleChecklistText));
+            OnPropertyChanged(nameof(StartingDataTitleText));
+            OnPropertyChanged(nameof(ModelSectionTitleText));
+            OnPropertyChanged(nameof(ModelSetupIntroText));
+            OnPropertyChanged(nameof(ModelEngineLabelText));
+            OnPropertyChanged(nameof(InitialModelEngineNameText));
+            OnPropertyChanged(nameof(ModelFileLabelText));
+            OnPropertyChanged(nameof(InitialModelFileNameText));
+            OnPropertyChanged(nameof(BrowseInitialModelFileNameText));
+            OnPropertyChanged(nameof(AnomalyClassesTitleText));
+            OnPropertyChanged(nameof(NormalClassLabelText));
+            OnPropertyChanged(nameof(AnomalousClassLabelText));
+            OnPropertyChanged(nameof(NormalClassNameText));
+            OnPropertyChanged(nameof(AnomalousClassNameText));
+            OnPropertyChanged(nameof(RecipeIdentitySectionText));
+            OnPropertyChanged(nameof(RecipeProductCodeLabelText));
+            OnPropertyChanged(nameof(RecipeDescriptionLabelText));
+            OnPropertyChanged(nameof(RecipeIdentityHelpText));
             OnPropertyChanged(nameof(ModelSetupHelpText));
             StatusText = LocalizationTextRuntimeService.Translate(StatusText);
+            WpfLearningMode selectedPurpose = SelectedDatasetPurposeMode?.Mode ?? WpfLearningMode.ObjectDetection;
+            string classNamesText = ClassNamesText;
+            RefreshDatasetPurposeModes(selectedPurpose);
             RefreshSamplePresets();
+            ClassNamesText = classNamesText;
             RefreshPreview();
         }
 
@@ -581,6 +773,30 @@ namespace MvcVisionSystem
             SelectedSamplePreset = SamplePresets.FirstOrDefault(item => item.Kind == previousKind && item.IsAvailable)
                 ?? SamplePresets.FirstOrDefault(item => item.Kind == WpfDatasetSamplePresetKind.Empty)
                 ?? SamplePresets.FirstOrDefault();
+        }
+
+        private void RefreshDatasetPurposeModes(WpfLearningMode selectedMode)
+        {
+            DatasetPurposeModes.Clear();
+            DatasetPurposeModes.Add(new WpfLearningModeItem(
+                WpfLearningMode.ObjectDetection,
+                T("WpfDatasetSetup.Mode.ObjectDetection"),
+                PackIconMaterialKind.ShapeSquareRoundedPlus,
+                T("WpfDatasetSetup.Mode.ObjectDetection.Tooltip")));
+            DatasetPurposeModes.Add(new WpfLearningModeItem(
+                WpfLearningMode.Segmentation,
+                T("WpfDatasetSetup.Mode.Segmentation"),
+                PackIconMaterialKind.ViewListOutline,
+                T("WpfDatasetSetup.Mode.Segmentation.Tooltip")));
+            DatasetPurposeModes.Add(new WpfLearningModeItem(
+                WpfLearningMode.AnomalyDetection,
+                T("WpfDatasetSetup.Mode.AnomalyDetection"),
+                PackIconMaterialKind.AlertCircleOutline,
+                T("WpfDatasetSetup.Mode.AnomalyDetection.Tooltip")));
+
+            selectedDatasetPurposeMode = DatasetPurposeModes.FirstOrDefault(item => item.Mode == selectedMode)
+                ?? DatasetPurposeModes.FirstOrDefault();
+            OnPropertyChanged(nameof(SelectedDatasetPurposeMode));
         }
 
         private void ApplySamplePresetDefaults(WpfDatasetSamplePresetItem samplePreset)
@@ -630,6 +846,15 @@ namespace MvcVisionSystem
                 isApplyingAutomaticPathSync = false;
             }
         }
+    }
+
+    // The displayed ordinal belongs to this draft form; persisted class indices remain zero-based.
+    public sealed class DatasetSetupClassTag
+    {
+        public DatasetSetupClassTag(int ordinal, string name) { Ordinal = ordinal; Name = name; }
+        public int Ordinal { get; }
+        public string Name { get; }
+        public string Caption => $"{Ordinal} {Name}";
     }
 
     public sealed class DatasetSetupWizardPathCallbacks

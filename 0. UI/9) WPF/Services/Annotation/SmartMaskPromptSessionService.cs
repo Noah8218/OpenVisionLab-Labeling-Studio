@@ -100,7 +100,11 @@ namespace MvcVisionSystem
             PromptBounds = promptBounds;
             ClassId = classId;
             ClassName = string.IsNullOrWhiteSpace(className) ? "Defect" : className.Trim();
-            InputMode = WpfSmartMaskPointInputMode.None;
+            // The reference workflow accepts a normal click as an include point
+            // immediately after the AI prompt opens.  Keep the explicit mode
+            // buttons available, but make the safe/default path useful without
+            // an extra mode-selection click.
+            InputMode = WpfSmartMaskPointInputMode.Positive;
             HasProducedCandidate = false;
             initialCandidate = null;
             latestCandidate = null;
@@ -194,6 +198,25 @@ namespace MvcVisionSystem
                 ? initialCandidate
                 : latestCandidate;
             return ReferenceEquals(selected, candidate);
+        }
+
+        public bool RestoreSelectedCandidateReference(YoloWorkerSmokeCandidate candidate)
+        {
+            if (!HasSession || !HasProducedCandidate || candidate == null)
+            {
+                return false;
+            }
+
+            if (SelectedCandidateVersion == WpfSmartMaskCandidateVersion.Initial)
+            {
+                initialCandidate = candidate;
+            }
+            else
+            {
+                latestCandidate = candidate;
+            }
+
+            return true;
         }
 
         public void MarkCandidateResolved()

@@ -1,0 +1,59 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                    xmlns:local="clr-namespace:MvcVisionSystem">
+    <local:KoreanWordBoundaryConverter x:Key="CandidateReviewWordBoundaryConverter" />
+        <Style x:Key="CandidateReviewButtonStyle" TargetType="{x:Type ui:Button}">
+            <Setter Property="Template" Value="{DynamicResource WpfUiDarkButtonTemplate}" />
+            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" />
+                </Trigger>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+                    <Setter Property="Opacity" Value="0.45" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    <DataTemplate x:Key="LabelSuspicionReviewTemplate">
+                <Border Visibility="{Binding LabelSuspicionVisibility}" Background="{DynamicResource SuspicionBackgroundBrush}" BorderBrush="{DynamicResource SuspicionBrush}" BorderThickness="3,0,0,0" Padding="8,4" Margin="0,8,0,0" AutomationProperties.AutomationId="LabelSuspicionReview">
+                    <StackPanel>
+                        <TextBlock Text="{Binding LabelSuspicionTitle}" Foreground="{DynamicResource PrimaryTextBrush}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding LabelSuspicionStateText}" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                        <TextBlock Text="{Binding LabelSuspicionWarningText, Mode=OneWay, Converter={StaticResource CandidateReviewWordBoundaryConverter}}" AutomationProperties.Name="{Binding LabelSuspicionWarningText, Mode=OneWay}" Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" Margin="0,4,0,4"/>
+                        <TextBlock Text="{Binding LabelSuspicionDiagnostic}" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                        <ItemsControl ItemsSource="{Binding LabelSuspicions}">
+                            <ItemsControl.ItemTemplate><DataTemplate>
+                                <Grid Margin="0,3">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding DisplayText}" Foreground="{DynamicResource PrimaryTextBrush}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <ui:Button Grid.Column="1" Content="{Binding FixText}" Command="{Binding DataContext.FixLabelSuspicionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" Style="{StaticResource CandidateReviewButtonStyle}" AutomationProperties.Name="{Binding FixText}"/>
+                                </Grid>
+                            </DataTemplate></ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <CheckBox Style="{DynamicResource RecipeCheckBoxStyle}" Content="{Binding LabelSuspicionOverlayText}" IsChecked="{Binding IsSuspicionOverlayVisible, Mode=TwoWay}" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,4"/>
+                        <WrapPanel>
+                            <ui:Button Content="{Binding LabelSuspicionDismissText}" Command="{Binding DismissLabelSuspicionCommand}" Style="{StaticResource CandidateReviewButtonStyle}"/>
+                            <ui:Button Content="{Binding LabelSuspicionUndoText}" Command="{Binding UndoLabelSuspicionDismissalCommand}" Style="{StaticResource CandidateReviewButtonStyle}"/>
+                        </WrapPanel>
+                        <TextBlock Text="{Binding LabelSuspicionCriterionText}" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+    </DataTemplate>
+</ResourceDictionary>

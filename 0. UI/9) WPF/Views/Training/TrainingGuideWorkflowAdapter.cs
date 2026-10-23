@@ -292,11 +292,27 @@ namespace MvcVisionSystem
             // The queue completion transition belongs to the training guide workflow:
             // the Shell only supplies the existing presentation callbacks.
             context.RefreshTrainingReadinessPanel?.Invoke(true);
+            IReadOnlyList<WpfImageQueueItem> queueItems = (context.ImageQueueItemsProvider?.Invoke()
+                ?? Enumerable.Empty<WpfImageQueueItem>())
+                .Where(item => item != null)
+                .ToList();
+            int incompleteImageCount = queueItems.Count(item => !ImageQueueFilterService.HasCompletedLabelWork(item));
+            if (queueItems.Count == 0 || incompleteImageCount > 0)
+            {
+                string message = queueItems.Count == 0
+                    ? "이미지 완료 처리 보류: 작업할 이미지가 없습니다."
+                    : $"이미지 완료 처리 보류: 아직 처리하지 않은 이미지가 {incompleteImageCount}장 있습니다.";
+                context.SetModelStatus?.Invoke(message);
+                context.AppendLog(message);
+                context.RefreshCanvasWorkflowContext?.Invoke();
+                return;
+            }
+
             WpfLearningStepItem saveStep = context.LearningWorkflowViewModel.LearningSteps
                 .FirstOrDefault(step => step.Step == WpfLearningStep.Save);
             if (saveStep != null)
             {
-                context.LearningWorkflowViewModel.SelectedStep = saveStep;
+                context.LearningWorkflowViewModel.SelectLearningStepForDisplay(saveStep);
             }
 
             context.SetModelStatus?.Invoke("이미지 완료: 데이터셋 점검 결과를 확인하세요.");

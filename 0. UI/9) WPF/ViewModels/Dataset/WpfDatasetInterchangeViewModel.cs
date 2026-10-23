@@ -3,6 +3,7 @@ using OpenVisionLab;
 using OpenVisionLab.Mvvm;
 using System;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Windows.Input;
@@ -19,6 +20,26 @@ namespace MvcVisionSystem
                 System.Globalization.CultureInfo.InvariantCulture,
                 Translate(key),
                 arguments ?? Array.Empty<object>());
+
+        public static string TranslateWarning(string value)
+        {
+            string warning = value ?? string.Empty;
+            const string affectedPrefix = " (영향 ";
+            int marker = warning.LastIndexOf(affectedPrefix, StringComparison.Ordinal);
+            if (marker < 0 || !warning.EndsWith("건)", StringComparison.Ordinal)) return LocalizationTextRuntimeService.Translate(warning);
+
+            string countText = warning.Substring(marker + affectedPrefix.Length, warning.Length - marker - affectedPrefix.Length - 2);
+            if (!int.TryParse(countText, NumberStyles.None, CultureInfo.InvariantCulture, out int count)) return LocalizationTextRuntimeService.Translate(warning);
+            string detail = warning.Substring(0, marker);
+            string translatedDetail = detail switch
+            {
+                "ObjectMetadataTags: Lost - 현재 외부 exporter는 객체 tag를 기록하지 않습니다." => "ObjectMetadataTags: Lost - " + Translate("WpfDatasetInterchange.Loss.ObjectTags"),
+                "ObjectMetadataGroups: Lost - 현재 외부 exporter는 객체 group id를 기록하지 않습니다." => "ObjectMetadataGroups: Lost - " + Translate("WpfDatasetInterchange.Loss.ObjectGroups"),
+                "ObjectMetadataOcclusion: Lost - 현재 외부 exporter는 객체 occlusion 상태를 기록하지 않습니다." => "ObjectMetadataOcclusion: Lost - " + Translate("WpfDatasetInterchange.Loss.ObjectOcclusion"),
+                _ => LocalizationTextRuntimeService.Translate(detail)
+            };
+            return Format("WpfDatasetInterchange.LossWarning.AffectedCount", translatedDetail, count);
+        }
     }
 
     public sealed class WpfDatasetInterchangeOption : WpfObservableViewModel, IDisposable
@@ -34,6 +55,15 @@ namespace MvcVisionSystem
         public DatasetExportCapability Capability { get; }
 
         public string DisplayText => $"{Capability.DisplayName} \u00B7 {DirectionText}";
+
+        public string FormatText => Capability.FormatKey switch
+        {
+            string key when key.StartsWith("coco-", StringComparison.Ordinal) => "COCO (json)",
+            string key when key.StartsWith("pascal-voc-", StringComparison.Ordinal) => "Pascal VOC (xml)",
+            string key when key.StartsWith("label-studio-", StringComparison.Ordinal) => "Label Studio (json)",
+            string key when key.StartsWith("cvat-", StringComparison.Ordinal) => "CVAT (xml/zip)",
+            _ => Capability.DisplayName
+        };
 
         public string DirectionText => T(
             string.Equals(Capability.Direction, "import", StringComparison.OrdinalIgnoreCase)
@@ -110,6 +140,7 @@ namespace MvcVisionSystem
     {
         private readonly DatasetInterchangePreflightService preflightService;
         private bool disposed;
+        private bool isDetailsExpanded;
         private LabelingProjectData data;
         private string recipeName = string.Empty;
         private WpfDatasetInterchangeOption selectedOperation;
@@ -119,10 +150,10 @@ namespace MvcVisionSystem
         private string targetSplit = YoloDatasetSplitService.TrainMode;
         private string datasetName = "\uB370\uC774\uD130\uC14B \uBBF8\uC120\uD0DD";
         private string datasetPurposeText = "\uBAA9\uC801 \uBBF8\uD655\uC778";
-        private string statusText = "\uC0AC\uC804\uAC80\uC0AC \uB300\uAE30";
-        private string statusDetailText = "\uD615\uC2DD\uACFC \uACBD\uB85C\uB97C \uC120\uD0DD\uD55C \uB4A4 Dry-run\uC744 \uC2E4\uD589\uD558\uC138\uC694.";
-        private string metricText = "\uC774\uBBF8\uC9C0 - \u00B7 \uC5B4\uB178\uD14C\uC774\uC158 - \u00B7 \uD074\uB798\uC2A4 -";
-        private string sourceIntegrityText = "\uC6D0\uBCF8 \uBB34\uACB0\uC131: \uBBF8\uD655\uC778";
+        private string statusText = T("WpfDatasetInterchange.Status.Waiting");
+        private string statusDetailText = T("WpfDatasetInterchange.Status.Detail");
+        private string metricText = T("WpfDatasetInterchange.Metric.Empty");
+        private string sourceIntegrityText = T("WpfDatasetInterchange.Integrity.SourceUnknown");
         private string targetIntegrityText = "\uC694\uCCAD \uB300\uC0C1: \uBBF8\uD655\uC778";
         private string lastDryRunSignature = string.Empty;
         private bool canApply;
@@ -155,9 +186,12 @@ namespace MvcVisionSystem
             BrowseTargetCommand = new RelayCommand(BrowseTarget);
             BrowseImageRootCommand = new RelayCommand(BrowseImageRoot);
             DryRunCommand = new RelayCommand(RunDryRun);
+            ToggleDetailsCommand = new RelayCommand(() => IsDetailsExpanded = !IsDetailsExpanded);
             ApplyCommand = new RelayCommand(Apply, () => CanApply);
             Refresh(data, recipeName);
         }
+
+        public WpfLocalizationViewModel LanguageViewModel => WpfLocalizationViewModel.Instance;
 
         public ObservableCollection<WpfDatasetInterchangeOption> Operations { get; } =
             new ObservableCollection<WpfDatasetInterchangeOption>();
@@ -184,6 +218,19 @@ namespace MvcVisionSystem
                 }
             }
         }
+
+        public bool IsDetailsExpanded
+        {
+            get => isDetailsExpanded;
+            set
+            {
+                if (SetProperty(ref isDetailsExpanded, value)) OnPropertyChanged(nameof(DetailsToggleText));
+            }
+        }
+
+        public string DetailsToggleText => T(IsDetailsExpanded ? "WpfDatasetInterchange.Action.ShowSummary" : "WpfDatasetInterchange.Action.ShowDetails");
+
+        public ICommand ToggleDetailsCommand { get; }
 
         public bool IsImport => SelectedOperation?.IsImport == true;
 
@@ -392,6 +439,9 @@ namespace MvcVisionSystem
                 return;
             }
 
+            bool contextChanged = !ReferenceEquals(data, sourceData)
+                || !string.Equals(IsImport ? TargetPath : SourcePath, sourceData?.OutputRootPath ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+                || (currentRecipeName != null && !string.Equals(recipeName, currentRecipeName, StringComparison.Ordinal));
             data = sourceData;
             if (currentRecipeName != null)
             {
@@ -403,12 +453,28 @@ namespace MvcVisionSystem
             LabelingDatasetPurpose purpose = data?.ProjectSettings?.DatasetPurpose
                 ?? LabelingDatasetPurpose.ObjectDetection;
             DatasetPurposeText = DatasetContextPresentationService.FormatPurposeName(purpose);
-            WpfDatasetInterchangeOption preferred = Operations.FirstOrDefault(item =>
-                !item.IsImport
-                && string.Equals(item.Capability.DatasetPurpose, purpose.ToString(), StringComparison.Ordinal))
-                ?? Operations.FirstOrDefault();
-            SelectedOperation = preferred;
+            WpfDatasetInterchangeOption preferred = SelectedOperation != null
+                && string.Equals(SelectedOperation.Capability.DatasetPurpose, purpose.ToString(), StringComparison.Ordinal)
+                ? SelectedOperation
+                : Operations.FirstOrDefault(item => !item.IsImport && string.Equals(item.Capability.DatasetPurpose, purpose.ToString(), StringComparison.Ordinal))
+                    ?? Operations.FirstOrDefault();
+            if (ReferenceEquals(SelectedOperation, preferred))
+            {
+                if (contextChanged) ResetPathsForSelection();
+            }
+            else
+            {
+                SelectedOperation = preferred;
+            }
             InvalidateDryRun();
+        }
+
+        public void SelectDirection(bool isImport)
+        {
+            if (disposed || SelectedOperation?.IsImport == isImport) return;
+            string purpose = (data?.ProjectSettings?.DatasetPurpose ?? LabelingDatasetPurpose.ObjectDetection).ToString();
+            SelectedOperation = Operations.FirstOrDefault(item => item.IsImport == isImport && string.Equals(item.Capability.DatasetPurpose, purpose, StringComparison.Ordinal))
+                ?? Operations.FirstOrDefault(item => item.IsImport == isImport);
         }
 
         private void BrowseSource()
@@ -440,6 +506,7 @@ namespace MvcVisionSystem
 
         private void RunDryRun()
         {
+            IsDetailsExpanded = true;
             DatasetInterchangePreflightReport report = preflightService.DryRun(BuildRequest());
             lastDryRunSignature = BuildRequestSignature();
             lastDryRunReport = report;
@@ -544,26 +611,30 @@ namespace MvcVisionSystem
 
             foreach (string warning in report.Warnings)
             {
-                Findings.Add(new WpfDatasetInterchangeIssueItem(LocalizeInterchangeText(warning), isBlocking: false));
+                Findings.Add(new WpfDatasetInterchangeIssueItem(DatasetInterchangeTextFormatter.TranslateWarning(warning), isBlocking: false));
             }
 
             StatusText = TranslateStatus(report);
-            StatusDetailText = LocalizeInterchangeText(report.DetailText);
+            StatusDetailText = report.Issues.Count > 0
+                ? string.Join(" ", Findings.Where(item => item.IsBlocking).Select(item => item.Text))
+                : report.IsDryRun ? T("WpfDatasetInterchange.Status.DryRunImpact") : string.Empty;
             MetricText = Format(
                 "WpfDatasetInterchange.Metric.Counts",
                 report.ImageCount,
                 report.AnnotationCount,
                 report.CategoryCount);
-            SourceIntegrityText = report.SourceUnchanged
-                ? Format(
-                    "WpfDatasetInterchange.Integrity.SourceKept",
-                    ShortFingerprint(report.SourceFingerprint))
-                : T("WpfDatasetInterchange.Integrity.SourceChanged");
-            TargetIntegrityText = report.IsDryRun
-                ? report.RequestedTargetUnchanged
-                    ? T("WpfDatasetInterchange.Integrity.TargetDryRunKept")
-                    : T("WpfDatasetInterchange.Integrity.TargetChanged")
-                : T("WpfDatasetInterchange.Integrity.TargetApplied");
+            SourceIntegrityText = string.IsNullOrWhiteSpace(report.SourceFingerprint)
+                ? T("WpfDatasetInterchange.Integrity.SourceUnknown")
+                : report.SourceUnchanged
+                    ? Format("WpfDatasetInterchange.Integrity.SourceKept", ShortFingerprint(report.SourceFingerprint))
+                    : T("WpfDatasetInterchange.Integrity.SourceChanged");
+            TargetIntegrityText = report.WasApplied
+                ? T("WpfDatasetInterchange.Integrity.TargetApplied")
+                : string.IsNullOrWhiteSpace(report.RequestedTargetFingerprint)
+                    ? T("WpfDatasetInterchange.Integrity.TargetUnknown")
+                    : report.RequestedTargetUnchanged
+                        ? T(report.IsDryRun ? "WpfDatasetInterchange.Integrity.TargetDryRunKept" : "WpfDatasetInterchange.Integrity.TargetKept")
+                        : T("WpfDatasetInterchange.Integrity.TargetChanged");
         }
 
         private static string TranslateStatus(DatasetInterchangePreflightReport report)
@@ -626,6 +697,7 @@ namespace MvcVisionSystem
             OnPropertyChanged(nameof(TargetLabelText));
             OnPropertyChanged(nameof(OperationContractText));
             OnPropertyChanged(nameof(LossWarningConfirmationText));
+            OnPropertyChanged(nameof(DetailsToggleText));
             DatasetPurposeText = DatasetContextPresentationService.FormatPurposeName(
                 data?.ProjectSettings?.DatasetPurpose ?? LabelingDatasetPurpose.ObjectDetection);
             InvalidateDryRun();
@@ -638,6 +710,36 @@ namespace MvcVisionSystem
             => DatasetInterchangeTextFormatter.Format(key, arguments);
 
         private static string LocalizeInterchangeText(string value)
-            => LocalizationTextRuntimeService.Translate(value ?? string.Empty);
+        {
+            string text = value ?? string.Empty;
+            const string purposePrefix = "선택한 작업은 ";
+            const string purposeSeparator = " 목적이 필요하지만 현재 데이터셋 목적은 ";
+            const string purposeSuffix = "입니다.";
+            int purposeMarker = text.IndexOf(purposeSeparator, StringComparison.Ordinal);
+            if (text.StartsWith(purposePrefix, StringComparison.Ordinal) && text.EndsWith(purposeSuffix, StringComparison.Ordinal) && purposeMarker > purposePrefix.Length)
+            {
+                string requiredText = text.Substring(purposePrefix.Length, purposeMarker - purposePrefix.Length);
+                string currentText = text.Substring(purposeMarker + purposeSeparator.Length, text.Length - purposeMarker - purposeSeparator.Length - purposeSuffix.Length);
+                if (Enum.TryParse(requiredText, out LabelingDatasetPurpose requiredPurpose) && Enum.IsDefined(typeof(LabelingDatasetPurpose), requiredPurpose)
+                    && requiredPurpose.ToString() == requiredText && Enum.TryParse(currentText, out LabelingDatasetPurpose currentPurpose)
+                    && Enum.IsDefined(typeof(LabelingDatasetPurpose), currentPurpose) && currentPurpose.ToString() == currentText)
+                    return Format("WpfDatasetInterchange.Error.PurposeMismatch", DatasetContextPresentationService.FormatPurposeName(requiredPurpose), DatasetContextPresentationService.FormatPurposeName(currentPurpose));
+            }
+
+            const string lossReportPrefix = "내보내기 보존 목록을 만들지 못했습니다: ";
+            if (text.StartsWith(lossReportPrefix, StringComparison.Ordinal))
+                return Format("WpfDatasetInterchange.Error.LossReportFailed", text.Substring(lossReportPrefix.Length));
+
+            const string skippedPrefix = "잘못되었거나 지원하지 않는 이미지·라벨 ";
+            const string skippedSuffix = "건을 건너뛰었습니다. 적용 전에 수정하세요.";
+            if (text.StartsWith(skippedPrefix, StringComparison.Ordinal) && text.EndsWith(skippedSuffix, StringComparison.Ordinal))
+            {
+                string countText = text.Substring(skippedPrefix.Length, text.Length - skippedPrefix.Length - skippedSuffix.Length);
+                if (int.TryParse(countText, NumberStyles.None, CultureInfo.InvariantCulture, out int count))
+                    return Format("WpfDatasetInterchange.Error.InvalidSkipped", count);
+            }
+
+            return LocalizationTextRuntimeService.Translate(text);
+        }
     }
 }

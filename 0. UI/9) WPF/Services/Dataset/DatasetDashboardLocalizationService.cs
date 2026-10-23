@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace MvcVisionSystem
 {
@@ -86,7 +87,7 @@ namespace MvcVisionSystem
             return string.Format(
                 CultureInfo.InvariantCulture,
                 OpenVisionLanguageService.T(key),
-                arguments);
+                arguments.Select(argument => argument is LabelingDatasetPurpose purpose ? DatasetContextPresentationService.FormatPurposeName(purpose) : argument).ToArray());
         }
     }
 
@@ -347,6 +348,11 @@ namespace MvcVisionSystem
                 return Text("WpfLearningWorkflow.DatasetDashboard.Action.Warning.SplitGuide");
             }
 
+            if (TryParseAnomalyClassImageWarning(normalized, out string anomalyClass, out int imageCount))
+            {
+                return Text("WpfLearningWorkflow.DatasetDashboard.Issue.Warning.AnomalyClassImages", anomalyClass, imageCount);
+            }
+
             return string.IsNullOrWhiteSpace(normalized)
                 ? Text("WpfLearningWorkflow.DatasetDashboard.Action.Warning.Unknown")
                 : Text("WpfLearningWorkflow.DatasetDashboard.Action.Warning.Raw", normalized);
@@ -418,6 +424,18 @@ namespace MvcVisionSystem
                 : Text("WpfLearningWorkflow.DatasetDashboard.Issue.Next.ObjectDetection.FixDetails");
         }
 
+        internal static bool TryParseAnomalyClassImageWarning(string warning, out string className, out int imageCount)
+        {
+            className = string.Empty;
+            imageCount = 0;
+            Match match = Regex.Match(warning ?? string.Empty,
+                @"^YOLO dataset warning: class '(normal|abnormal)' has only (0|[1-9][0-9]*) image\(s\)\. Add more labeled examples before trusting training\.$",
+                RegexOptions.CultureInvariant);
+            if (!match.Success || !int.TryParse(match.Groups[2].Value, NumberStyles.None, CultureInfo.InvariantCulture, out imageCount)) return false;
+            className = match.Groups[1].Value;
+            return true;
+        }
+
         private static DatasetDashboardTextDescriptor BuildQualityWarning(string warning)
         {
             string normalized = warning?.Trim() ?? string.Empty;
@@ -429,6 +447,11 @@ namespace MvcVisionSystem
             if (normalized.Contains("YOLO split guide", StringComparison.OrdinalIgnoreCase))
             {
                 return Text("WpfLearningWorkflow.DatasetDashboard.Issue.Warning.SplitGuide");
+            }
+
+            if (TryParseAnomalyClassImageWarning(normalized, out string anomalyClass, out int imageCount))
+            {
+                return Text("WpfLearningWorkflow.DatasetDashboard.Issue.Warning.AnomalyClassImages", anomalyClass, imageCount);
             }
 
             return Text("WpfLearningWorkflow.DatasetDashboard.Issue.Warning.Raw", normalized);

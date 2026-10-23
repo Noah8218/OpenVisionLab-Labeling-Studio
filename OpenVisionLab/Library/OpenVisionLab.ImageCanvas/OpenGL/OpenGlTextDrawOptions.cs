@@ -1,4 +1,5 @@
 ﻿using OpenVisionLab.ImageCanvas.Canvas;
+using System;
 using System.Collections.Generic;
 
 namespace OpenVisionLab.ImageCanvas.OpenGLRendering
@@ -6,6 +7,8 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 	public class OpenGlTextDrawOptions
 	{
 		public List<OpenGlFontBitmapEntry> FontBitmapEntries { get; set; }
+		public Dictionary<string, (uint TextureId, int Width, int Height, IntPtr RenderContext)> RoiLabelTextures { get; set; }
+		public ISet<string> RoiLabelTextureKeys { get; set; }
 		public float XSpan { get; set; }
 		public float YSpan { get; set; }
 		public System.Drawing.SizeF OffsetSize { get; set; }

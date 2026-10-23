@@ -52,7 +52,7 @@ namespace MvcVisionSystem
             Dictionary<string, string> values = ReadDataYamlScalarValues(request.DataYamlPath);
             if (!values.TryGetValue(task, out string splitPath) || string.IsNullOrWhiteSpace(splitPath))
             {
-                errors.Add($"\uD559\uC2B5 \uC124\uC815\uC5D0 \uCD5C\uC885 \uAC80\uC99D \uC774\uBBF8\uC9C0 \uACBD\uB85C\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uBAA8\uB378 \uBE44\uAD50 \uC804 {task} \uC774\uBBF8\uC9C0\uB97C 1\uC7A5 \uC774\uC0C1 \uD655\uBCF4\uD558\uC138\uC694.");
+                errors.Add(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfComparison.Preflight.TestImagesMissing"), task));
                 return errors;
             }
 

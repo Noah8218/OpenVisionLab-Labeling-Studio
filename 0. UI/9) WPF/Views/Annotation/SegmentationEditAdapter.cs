@@ -146,7 +146,7 @@ namespace MvcVisionSystem
             FlushQueuedMaskStrokeCommits();
             if (smartMaskPromptSession.HasSession || smartMaskWorkflowService.IsRunning)
             {
-                const string smartMaskError = "\uC2A4\uB9C8\uD2B8 \uB9C8\uC2A4\uD06C \uD6C4\uBCF4\uB97C \uD655\uC815\uD558\uAC70\uB098 \uCDE8\uC18C\uD55C \uB4A4 \uAD6C\uBA4D\uC744 \uD3B8\uC9D1\uD558\uC138\uC694.";
+                string smartMaskError = OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Hole.ResolveMask");
                 SetYoloCommandStatus(smartMaskError, isBusy: false);
                 AppendLog(smartMaskError);
                 return;
@@ -158,7 +158,7 @@ namespace MvcVisionSystem
                 || selected.Index >= manualSegments.Count
                 || activeImageSize.IsEmpty)
             {
-                const string selectionError = "\uAD6C\uBA4D\uC744 \uD3B8\uC9D1\uD560 \uD3F4\uB9AC\uACE4 \uB610\uB294 \uB9C8\uC2A4\uD06C \uAC1D\uCCB4\uB97C \uD558\uB098 \uC120\uD0DD\uD558\uC138\uC694.";
+                string selectionError = OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Hole.SelectEditable");
                 SetYoloCommandStatus(selectionError, isBusy: false);
                 AppendLog(selectionError);
                 return;
@@ -182,8 +182,8 @@ namespace MvcVisionSystem
             RefreshPolygonOverlays();
 
             string status = mode == WpfSegmentationHoleEditMode.Add
-                ? "\uAD6C\uBA4D \uADF8\uB9AC\uAE30: \uAC1D\uCCB4 \uC548\uCABD\uC5D0 \uC810\uC744 \uD074\uB9AD\uD558\uACE0 \uCCAB \uC810 \uB610\uB294 \uB354\uBE14\uD074\uB9AD\uC73C\uB85C \uC644\uB8CC\uD558\uC138\uC694."
-                : "\uAD6C\uBA4D \uCC44\uC6B0\uAE30: \uC678\uBD80 \uBC30\uACBD\uACFC \uC5F0\uACB0\uB418\uC9C0 \uC54A\uC740 \uB0B4\uBD80 \uAD6C\uBA4D\uC744 \uD074\uB9AD\uD558\uC138\uC694.";
+                ? OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Hole.AddGuide")
+                : OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Hole.FillGuide");
             SetYoloCommandStatus(status, isBusy: false);
             AppendLog(status);
         }
@@ -209,7 +209,7 @@ namespace MvcVisionSystem
             if (!TryResolvePendingSegmentationHoleSource(out int sourceIndex, out LabelingSegmentationObject source))
             {
                 CancelPendingSegmentationHoleEdit(updateStatus: false);
-                const string staleSelectionError = "\uC120\uD0DD\uD55C \uAC1D\uCCB4\uAC00 \uBCC0\uACBD\uB418\uC5B4 \uAD6C\uBA4D \uD3B8\uC9D1\uC744 \uCDE8\uC18C\uD588\uC2B5\uB2C8\uB2E4.";
+                string staleSelectionError = OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Hole.SelectionChanged");
                 SetYoloCommandStatus(staleSelectionError, isBusy: false);
                 AppendLog(staleSelectionError);
                 return true;
@@ -224,6 +224,12 @@ namespace MvcVisionSystem
                     out LabelingSegmentationObject filled,
                     out string error))
                 {
+                    foreach (string key in new[] { "WpfSegmentation.Hole.MinimumPoints", "WpfSegmentation.Hole.InsideBoundary", "WpfSegmentation.Hole.InsideRegion", "WpfSegmentation.Hole.SourceMissing", "WpfSegmentation.Hole.OutsideBackground", "WpfSegmentation.Hole.FillSourceMissing", "WpfSegmentation.Hole.SelectEmpty", "WpfSegmentation.Hole.ExternalArea" })
+                    {
+                        if (!OpenVisionLab.OpenVisionLanguageService.GetPreviousKoreanDefaults(key).Contains(error, StringComparer.Ordinal)) continue;
+                        error = OpenVisionLab.OpenVisionLanguageService.T(key);
+                        break;
+                    }
                     SetYoloCommandStatus(error, isBusy: false);
                     AppendLog($"Segment hole fill skipped: {error}");
                     return true;
@@ -252,7 +258,7 @@ namespace MvcVisionSystem
             }
 
             SetYoloCommandStatus(
-                $"\uAD6C\uBA4D \uB2E4\uAC01\uD615: {holePolygonAnnotationService.Points.Count}\uC810 / \uCCAB \uC810 \uB610\uB294 \uB354\uBE14\uD074\uB9AD\uC73C\uB85C \uC644\uB8CC",
+                string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Hole.Progress"), holePolygonAnnotationService.Points.Count),
                 isBusy: false);
             return true;
         }
@@ -270,6 +276,12 @@ namespace MvcVisionSystem
             {
                 holePolygonAnnotationService.Reset();
                 RefreshPolygonOverlays();
+                foreach (string key in new[] { "WpfSegmentation.Hole.MinimumPoints", "WpfSegmentation.Hole.InsideBoundary", "WpfSegmentation.Hole.InsideRegion", "WpfSegmentation.Hole.SourceMissing", "WpfSegmentation.Hole.OutsideBackground", "WpfSegmentation.Hole.FillSourceMissing", "WpfSegmentation.Hole.SelectEmpty", "WpfSegmentation.Hole.ExternalArea" })
+                {
+                    if (!OpenVisionLab.OpenVisionLanguageService.GetPreviousKoreanDefaults(key).Contains(error, StringComparer.Ordinal)) continue;
+                    error = OpenVisionLab.OpenVisionLanguageService.T(key);
+                    break;
+                }
                 SetYoloCommandStatus(error, isBusy: false);
                 AppendLog($"Segment hole add skipped: {error}");
                 return;
@@ -330,7 +342,7 @@ namespace MvcVisionSystem
             RefreshPolygonOverlays();
             if (wasPending && updateStatus)
             {
-                const string status = "\uB0B4\uBD80 \uAD6C\uBA4D \uD3B8\uC9D1\uC744 \uCDE8\uC18C\uD588\uC2B5\uB2C8\uB2E4.";
+                string status = OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Hole.Canceled");
                 SetYoloCommandStatus(status, isBusy: false);
                 AppendLog(status);
             }
@@ -343,19 +355,34 @@ namespace MvcVisionSystem
             CancelPendingIntelligentScissors(updateStatus: false);
             CompleteMaskAnnotationStroke();
             FlushQueuedMaskStrokeCommits();
-            string error = "\uB4A4\uCABD \uAC1D\uCCB4\uC640 \uACB9\uCE68\uC744 \uBD84\uC11D\uD560 \uC138\uADF8\uBA3C\uD2B8\uB97C \uD558\uB098 \uC120\uD0DD\uD558\uC138\uC694.";
+            string error = OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Overlap.SelectObject");
             WpfSegmentationRemoveUnderlyingPlan plan = null;
+            int? failureObjectNumber = null;
             bool hasSelection = TryGetSelectedObjectReviewItem(out WpfObjectReviewItemRef selected)
                 && selected.Source == WpfObjectReviewSource.ManualSegment;
             if (!hasSelection
-                || !segmentationRemoveUnderlyingService.TryAnalyze(
+                || !segmentationRemoveUnderlyingService.TryAnalyzeWithFailureObjectNumber(
                     manualSegments,
                     selected.Index,
                     activeImageSize,
                     out plan,
-                    out error))
+                    out error,
+                    out failureObjectNumber))
             {
                 CancelPendingSegmentationRemoveUnderlying(updateStatus: false);
+                if (failureObjectNumber.HasValue)
+                {
+                    error = string.Format(System.Globalization.CultureInfo.InvariantCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Overlap.InvalidSource"), failureObjectNumber.Value);
+                }
+                else if (hasSelection)
+                {
+                    foreach (string key in new[] { "WpfSegmentation.Overlap.SelectObject", "WpfSegmentation.Overlap.NoBehind", "WpfSegmentation.Overlap.NoOverlap" })
+                    {
+                        if (!OpenVisionLab.OpenVisionLanguageService.GetPreviousKoreanDefaults(key).Contains(error, StringComparer.Ordinal)) continue;
+                        error = OpenVisionLab.OpenVisionLanguageService.T(key);
+                        break;
+                    }
+                }
                 SetYoloCommandStatus(error, isBusy: false);
                 if (!string.IsNullOrWhiteSpace(error))
                 {
@@ -380,7 +407,7 @@ namespace MvcVisionSystem
                     .OrderBy(change => change.SourceIndex)
                     .Select(change => $"#{change.SourceIndex + 1}"));
             string warning = FormattableString.Invariant(
-                $"\uC601\uD5A5 {plan.Changes.Count}\uAC1C({affected}) \u00B7 \uC81C\uAC70 {plan.RemovedPixelCount:N0}px \u00B7 \uC644\uC804 \uC0AD\uC81C {plan.RemovedObjectCount}\uAC1C. '\uD655\uC778 \uD6C4 \uC81C\uAC70'\uB97C \uB204\uB974\uBA74 \uB4A4\uCABD geometry\uAC00 \uBCC0\uACBD\uB429\uB2C8\uB2E4.");
+                $"\uC601\uD5A5 {plan.Changes.Count}\uAC1C({affected}) \u00B7 \uC81C\uAC70 {plan.RemovedPixelCount:N0}px \u00B7 \uC644\uC804 \uC0AD\uC81C {plan.RemovedObjectCount}\uAC1C. '\uD655\uC778 \uD6C4 \uC81C\uAC70'\uB97C \uB204\uB974\uBA74 \uB4A4\uCABD \uD615\uC0C1\uC774 \uBCC0\uACBD\uB429\uB2C8\uB2E4.");
             ObjectReviewViewModel?.SetRemoveUnderlyingPreview(true, warning);
             RefreshPolygonOverlays();
             SetYoloCommandStatus(warning, isBusy: false);
@@ -411,7 +438,7 @@ namespace MvcVisionSystem
             if (!currentAnalysisMatches)
             {
                 CancelPendingSegmentationRemoveUnderlying(updateStatus: false);
-                const string stale = "\uB77C\uBCA8 geometry\uB098 \uD45C\uC2DC \uC21C\uC11C\uAC00 \uBCC0\uACBD\uB418\uC5B4 \uAE30\uC874 \uC601\uD5A5 \uBD84\uC11D\uC744 \uC801\uC6A9\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4. \uB2E4\uC2DC \uACB9\uCE68\uC744 \uBD84\uC11D\uD558\uC138\uC694.";
+                string stale = OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Overlap.Stale");
                 SetYoloCommandStatus(stale, isBusy: false);
                 AppendLog($"Remove-underlying stale preview rejected: {FirstNonEmpty(error, "selection or geometry changed")}");
                 return;
@@ -462,7 +489,7 @@ namespace MvcVisionSystem
 
             if (wasPending && updateStatus)
             {
-                const string status = "\uB4A4\uCABD \uACB9\uCE68 \uC81C\uAC70 \uBBF8\uB9AC\uBCF4\uAE30\uB97C \uCDE8\uC18C\uD588\uC2B5\uB2C8\uB2E4.";
+                string status = OpenVisionLab.OpenVisionLanguageService.T("WpfSegmentation.Overlap.Canceled");
                 SetYoloCommandStatus(status, isBusy: false);
                 AppendLog(status);
             }

@@ -72,14 +72,15 @@ namespace MvcVisionSystem
             {
                 var empty = new TextBlock
                 {
-                    Text = "\uBE44\uAD50 \uAC00\uB2A5\uD55C \uC2E4\uD589\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.",
+                    Text = OpenVisionLab.OpenVisionLanguageService.T("WpfModelBenchmark.Chart.Empty"),
                     Foreground = secondaryBrush,
                     FontFamily = new FontFamily("Segoe UI"),
-                    FontSize = 10D,
-                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    FontSize = 13D,
+                    Width = Math.Max(1D, width - (AxisPadding + 8D) * 2D),
+                    TextWrapping = TextWrapping.Wrap,
                     ToolTip = statusText
                 };
-                Canvas.SetLeft(empty, Math.Max(AxisPadding + 8D, (width - 170D) / 2D));
+                Canvas.SetLeft(empty, AxisPadding + 8D);
                 Canvas.SetTop(empty, Math.Max(AxisPadding + 8D, (height - 20D) / 2D));
                 canvas.Children.Add(empty);
                 return;
@@ -120,11 +121,13 @@ namespace MvcVisionSystem
                     Text = point.QualityText + " / " + point.TaktText,
                     Foreground = primaryBrush,
                     FontFamily = new FontFamily("Segoe UI"),
-                    FontSize = 8D,
+                    FontSize = 13D,
                     ToolTip = point.ToolTipText
                 };
-                double labelLeft = Math.Clamp(x + 9D, AxisPadding + 2D, Math.Max(AxisPadding + 2D, width - 108D));
-                double labelTop = Math.Clamp(y - 18D, AxisPadding + 2D, Math.Max(AxisPadding + 2D, height - 18D));
+                label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                double labelLeft = Math.Clamp(x + 9D, AxisPadding + 2D, Math.Max(AxisPadding + 2D, width - label.DesiredSize.Width - 2D));
+                double above = y - marker.Height / 2D - label.DesiredSize.Height - 4D;
+                double labelTop = Math.Clamp(above >= 2D ? above : y + marker.Height / 2D + 4D, 2D, Math.Max(2D, height - label.DesiredSize.Height - 2D));
                 Canvas.SetLeft(label, labelLeft);
                 Canvas.SetTop(label, labelTop);
                 canvas.Children.Add(label);

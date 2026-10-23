@@ -33,23 +33,23 @@ namespace MvcVisionSystem
             string selectedTaskActionText;
             if (hasSelectedObject)
             {
-                selectedTaskTitleText = "\uC120\uD0DD \uB77C\uBCA8 \uC218\uC815";
+                selectedTaskTitleText = OpenVisionLab.OpenVisionLanguageService.T("WpfObjectReview.Selected.EditTitle");
                 selectedTaskDetailText = string.IsNullOrWhiteSpace(selectedObject.DisplayText)
                     ? summaryText ?? string.Empty
                     : selectedObject.DisplayText;
-                selectedTaskActionText = "\uD074\uB798\uC2A4\uB97C \uBC14\uAFB8\uAC70\uB098 \uC0AD\uC81C\uD558\uBA74 \uC800\uC7A5 \uD544\uC694 \uC0C1\uD0DC\uAC00 \uB429\uB2C8\uB2E4. \uB77C\uBCA8 \uC800\uC7A5\uC73C\uB85C \uD30C\uC77C\uC5D0 \uBC18\uC601\uD558\uC138\uC694.";
+                selectedTaskActionText = OpenVisionLab.OpenVisionLanguageService.T("WpfObjectReview.Selected.SaveAction");
             }
             else
             {
                 selectedTaskTitleText = hasAnyEnabledObject
-                    ? "\uC120\uD0DD \uB77C\uBCA8 \uC5C6\uC74C"
-                    : "\uD604\uC7AC \uC774\uBBF8\uC9C0 \uB77C\uBCA8 \uC5C6\uC74C";
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfObjectReview.Selected.NoSelectionTitle")
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfObjectReview.Selected.EmptyTitle");
                 selectedTaskDetailText = hasAnyEnabledObject
-                    ? "\uBAA9\uB85D\uC5D0\uC11C \uB77C\uBCA8\uC744 \uC120\uD0DD\uD558\uBA74 \uD074\uB798\uC2A4 \uBCC0\uACBD\uACFC \uC0AD\uC81C\uAC00 \uD65C\uC131\uD654\uB429\uB2C8\uB2E4."
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfObjectReview.Selected.SelectDetail")
                     : summaryText ?? string.Empty;
                 selectedTaskActionText = hasAnyEnabledObject
-                    ? "\uC120\uD0DD \uD6C4 \uD544\uC694\uD55C \uBCC0\uACBD\uC744 \uD558\uACE0, \uB77C\uBCA8 \uC800\uC7A5\uC73C\uB85C \uC644\uB8CC\uD558\uC138\uC694."
-                    : "\uAC1D\uCCB4\uAC00 \uC5C6\uB2E4\uBA74 \uB2E4\uC74C \uC774\uBBF8\uC9C0\uB85C \uC774\uB3D9\uD558\uAC70\uB098 \uAC1D\uCCB4 \uC5C6\uC74C \uC791\uC5C5\uC73C\uB85C \uC644\uB8CC\uD558\uC138\uC694.";
+                    ? OpenVisionLab.OpenVisionLanguageService.T("WpfObjectReview.Selected.SelectAction")
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfObjectReview.Selected.EmptyAction");
             }
 
             bool isSelectedObjectGrouped = supportsPersistentMetadata
@@ -61,14 +61,14 @@ namespace MvcVisionSystem
                 supportsSessionState && selectedObject.IsPinned,
                 supportsSessionState
                     ? selectedObject.ObjectSessionStateText
-                    : "\uC218\uB3D9 \uBC15\uC2A4 \uB610\uB294 \uC138\uADF8\uBA58\uD2B8\uB97C \uC120\uD0DD\uD558\uC138\uC694.",
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfObjectReview.Selected.SessionSelect"),
                 supportsPersistentMetadata,
                 supportsPersistentMetadata && selectedObject.IsOccluded,
                 supportsPersistentMetadata && !string.IsNullOrWhiteSpace(selectedObject.MetadataTagsText)
                     ? selectedObject.MetadataTagsText
-                    : "\uD0DC\uADF8 \uC5C6\uC74C",
+                    : OpenVisionLab.OpenVisionLanguageService.T("WpfObjectReview.Selected.NoTags"),
                 isSelectedObjectGrouped,
-                isSelectedObjectGrouped ? selectedObject.GroupDisplayText : "\uADF8\uB8F9 \uC5C6\uC74C",
+                isSelectedObjectGrouped ? selectedObject.GroupDisplayText : OpenVisionLab.OpenVisionLanguageService.T("WpfObjectReview.Selected.NoGroup"),
                 selectedTaskTitleText,
                 selectedTaskDetailText,
                 selectedTaskActionText);

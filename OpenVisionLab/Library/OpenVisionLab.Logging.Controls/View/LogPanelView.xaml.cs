@@ -10,6 +10,14 @@ namespace OpenVisionLab.Logging.Controls.View
     {
         private readonly LogPanelViewModel viewModel;
 
+        public static readonly DependencyProperty HeaderActionWidthProperty = DependencyProperty.Register(nameof(HeaderActionWidth), typeof(double), typeof(LogPanelView), new PropertyMetadata(0D));
+
+        public double HeaderActionWidth
+        {
+            get => (double)GetValue(HeaderActionWidthProperty);
+            set => SetValue(HeaderActionWidthProperty, value);
+        }
+
         public LogPanelView()
         {
             InitializeComponent();

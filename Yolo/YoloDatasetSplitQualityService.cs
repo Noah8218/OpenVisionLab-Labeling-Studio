@@ -106,6 +106,26 @@ namespace MvcVisionSystem.Yolo
             }
         }
 
+        public static YoloDatasetSplitOverlapSummary BuildAssignmentSummary(IEnumerable<string> imagePaths, YoloDatasetSettings settings)
+        {
+            try
+            {
+                var images = (imagePaths ?? Array.Empty<string>()).Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Select(path => new { Path = path, Split = YoloDatasetSplitService.SelectModesForImage(Path.GetFileNameWithoutExtension(path), settings).First() })
+                    .Where(item => item.Split != YoloDatasetSplitService.ExcludedMode)
+                    .Select(item => new { item.Path, item.Split, Hash = BuildFileContentKey(item.Path) }).ToArray();
+                var overlaps = images.GroupBy(item => item.Hash).Where(group => group.Select(item => item.Split).Distinct().Count() > 1).ToArray();
+                int nameCount = images.GroupBy(item => Path.GetFileNameWithoutExtension(item.Path), StringComparer.OrdinalIgnoreCase)
+                    .Count(group => group.Select(item => item.Split).Distinct().Count() > 1);
+                string example = overlaps.Length == 0 ? string.Empty : string.Join(" == ", overlaps[0].GroupBy(item => item.Split).Select(group => Path.GetFileName(group.First().Path)).Take(2));
+                return new YoloDatasetSplitOverlapSummary(nameCount, overlaps.Length, example);
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                return new YoloDatasetSplitOverlapSummary(0, 0, string.Empty, error.Message);
+            }
+        }
+
         public static void ValidateSeparation(
             string leftMode,
             string leftImageDirectory,

@@ -53,7 +53,7 @@ namespace MvcVisionSystem.Yolo
 
         private static YoloDatasetHealthReport BuildAnomalyReport(LabelingProjectData data)
         {
-            AnomalyClassificationTrainingReadinessReport readiness = AnomalyClassificationTrainingReadinessService.Build(data);
+            AnomalyClassificationTrainingReadinessReport readiness = AnomalyClassificationTrainingReadinessService.BuildSourceReview(data);
             var classes = new[]
             {
                 new YoloDatasetHealthClassSummary("normal", readiness.NormalImageCount),

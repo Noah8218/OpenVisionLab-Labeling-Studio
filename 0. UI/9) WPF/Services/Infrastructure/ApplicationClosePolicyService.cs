@@ -1,3 +1,4 @@
+using OpenVisionLab;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,47 +15,47 @@ namespace MvcVisionSystem
             var names = new List<string>();
             if (state.IsCreatingSmartMask)
             {
-                names.Add("Smart Mask 후보 생성");
+                names.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfClose.ActiveWork.SmartMask"));
             }
             if (state.IsDetecting)
             {
-                names.Add("현재 이미지 AI 검사");
+                names.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfClose.ActiveWork.CurrentInference"));
             }
             if (state.IsBatchDetectionRunning)
             {
-                names.Add("일괄 AI 검사");
+                names.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfClose.ActiveWork.BatchInference"));
             }
             if (state.IsExternalYoloDatasetIntakeRunning)
             {
-                names.Add("외부 YOLO 데이터셋 확인");
+                names.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfClose.ActiveWork.ExternalDataset"));
             }
             if (state.IsExternalEvaluationDataAuditRunning)
             {
-                names.Add("외부 평가 데이터 대조");
+                names.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfClose.ActiveWork.ExternalEvaluation"));
             }
             if (state.IsHistoricalSegmentationRemediationAuditRunning)
             {
-                names.Add("SEG 보정 검토");
+                names.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfClose.ActiveWork.SegmentationCorrection"));
             }
             if (state.IsTrainingRunning)
             {
-                names.Add("모델 학습");
+                names.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfClose.ActiveWork.Training"));
             }
             if (state.IsYoloEnvironmentCommandRunning)
             {
-                names.Add("모델 실행환경 설정");
+                names.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfClose.ActiveWork.Environment"));
             }
             if (state.IsModelComparisonRunning)
             {
-                names.Add("모델 비교");
+                names.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfClose.ActiveWork.Comparison"));
             }
             if (state.IsSegmentationAdapterComparisonRunning)
             {
-                names.Add("세그멘테이션 어댑터 비교");
+                names.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfClose.ActiveWork.SegmentationComparison"));
             }
             if (state.IsAnomalyEvaluationRunning)
             {
-                names.Add("이상 분류 평가");
+                names.Add(OpenVisionLab.OpenVisionLanguageService.T("WpfClose.ActiveWork.AnomalyEvaluation"));
             }
 
             return names;
@@ -71,7 +72,8 @@ namespace MvcVisionSystem
                 .ToArray();
             int pendingCandidateCount = Math.Max(0, state.PendingCandidateCount);
             bool hasUnsavedAnnotations = state.HasUnsavedAnnotations;
-            if (!hasUnsavedAnnotations && pendingCandidateCount == 0 && activeWorkNames.Length == 0)
+            bool hasPendingTrainingResult = !string.IsNullOrWhiteSpace(state.PendingTrainingWeightsPath);
+            if (!hasUnsavedAnnotations && pendingCandidateCount == 0 && activeWorkNames.Length == 0 && !hasPendingTrainingResult)
             {
                 return ApplicationClosePlan.NoPrompt;
             }
@@ -79,50 +81,56 @@ namespace MvcVisionSystem
             var messageLines = new List<string>();
             if (hasUnsavedAnnotations)
             {
-                messageLines.Add("현재 이미지의 라벨 편집이 아직 파일에 저장되지 않았습니다.");
+                messageLines.Add(OpenVisionLanguageService.T("ApplicationClose.UnsavedLabelsMessage"));
             }
 
             if (pendingCandidateCount > 0)
             {
                 messageLines.Add(
-                    $"미확정 AI 후보 {pendingCandidateCount}개는 확정 라벨이 아니며 종료하면 저장되지 않고 폐기됩니다.");
+                    string.Format(OpenVisionLanguageService.T("ApplicationClose.CandidateNotSaved"), pendingCandidateCount));
             }
 
             if (activeWorkNames.Length > 0)
             {
                 messageLines.Add(
-                    $"진행 중인 작업 {activeWorkNames.Length}개는 창이 닫힐 때 중지됩니다.");
+                    string.Format(OpenVisionLanguageService.T("ApplicationClose.ActiveWorkStops"), activeWorkNames.Length));
             }
+
+            if (hasPendingTrainingResult) messageLines.Add(OpenVisionLanguageService.T("ApplicationClose.PendingTrainingMessage"));
 
             messageLines.Add(
                 hasUnsavedAnnotations
-                    ? "라벨을 저장할지 선택한 뒤 종료하세요."
+                    ? OpenVisionLanguageService.T("ApplicationClose.SaveChoice")
                     : pendingCandidateCount > 0 && activeWorkNames.Length > 0
-                        ? "후보를 폐기하고 진행 중인 작업을 중지한 뒤 종료할지 선택하세요."
+                        ? OpenVisionLanguageService.T("ApplicationClose.StopWorkChoice")
                         : activeWorkNames.Length > 0
-                            ? "진행 중인 작업을 중지하고 종료할지 선택하세요."
-                            : "현재 후보를 폐기하고 종료할지 선택하세요.");
+                            ? OpenVisionLanguageService.T("ApplicationClose.StopChoice")
+                            : hasPendingTrainingResult
+                                ? OpenVisionLanguageService.T("ApplicationClose.PendingTrainingChoice")
+                                : OpenVisionLanguageService.T("ApplicationClose.CloseWithoutSavingChoice"));
 
             var detailLines = new List<string>();
             if (!string.IsNullOrWhiteSpace(state.ActiveImagePath))
             {
-                detailLines.Add("현재 이미지: " + Path.GetFileName(state.ActiveImagePath));
+                detailLines.Add(string.Format(OpenVisionLanguageService.T("ApplicationClose.ImageDetail"), Path.GetFileName(state.ActiveImagePath)));
             }
 
             if (hasUnsavedAnnotations && !string.IsNullOrWhiteSpace(state.UnsavedAnnotationReason))
             {
-                detailLines.Add("저장되지 않은 편집: " + state.UnsavedAnnotationReason.Trim());
+                detailLines.Add(string.Format(OpenVisionLanguageService.T("ApplicationClose.UnsavedEditsDetail"), state.UnsavedAnnotationReason.Trim()));
             }
 
             if (pendingCandidateCount > 0)
             {
-                detailLines.Add($"미확정 AI 후보: {pendingCandidateCount}개");
+                detailLines.Add(string.Format(OpenVisionLanguageService.T("ApplicationClose.PendingCandidatesDetail"), pendingCandidateCount));
             }
 
             if (activeWorkNames.Length > 0)
             {
-                detailLines.Add("중지할 작업: " + string.Join(", ", activeWorkNames));
+                detailLines.Add(string.Format(OpenVisionLanguageService.T("ApplicationClose.StopWorkDetail"), string.Join(", ", activeWorkNames)));
             }
+
+            if (hasPendingTrainingResult) detailLines.Add(OpenVisionLanguageService.T("ApplicationClose.RetainedTrainingFile") + ": " + state.PendingTrainingWeightsPath);
 
             return new ApplicationClosePlan
             {
@@ -130,21 +138,25 @@ namespace MvcVisionSystem
                     ? WpfApplicationClosePromptKind.SaveDiscardCancel
                     : WpfApplicationClosePromptKind.DiscardCancel,
                 Title = hasUnsavedAnnotations
-                    ? "저장하지 않은 라벨이 있습니다"
+                    ? OpenVisionLanguageService.T("ApplicationClose.UnsavedLabelsTitle")
                     : pendingCandidateCount > 0
-                        ? "확인되지 않은 작업이 있습니다"
-                        : "진행 중인 작업이 있습니다",
+                        ? OpenVisionLanguageService.T("ApplicationClose.PendingCandidatesTitle")
+                        : hasPendingTrainingResult
+                            ? OpenVisionLanguageService.T("ApplicationClose.PendingTrainingTitle")
+                            : OpenVisionLanguageService.T("ApplicationClose.ActiveWorkTitle"),
                 Message = string.Join(Environment.NewLine, messageLines),
                 Details = string.Join(Environment.NewLine, detailLines),
                 PrimaryButtonText = hasUnsavedAnnotations
-                    ? "저장 후 종료"
+                    ? OpenVisionLanguageService.T("ApplicationClose.SaveAndClose")
                     : pendingCandidateCount > 0 && activeWorkNames.Length > 0
-                        ? "폐기·중지 후 종료"
+                        ? OpenVisionLanguageService.T("ApplicationClose.StopWorkAndClose")
                         : activeWorkNames.Length > 0
-                            ? "작업 중지 후 종료"
-                            : "폐기하고 종료",
-                SecondaryButtonText = hasUnsavedAnnotations ? "저장하지 않고 종료" : "계속 작업",
-                TertiaryButtonText = hasUnsavedAnnotations ? "계속 작업" : string.Empty
+                            ? OpenVisionLanguageService.T("ApplicationClose.StopWorkAndClose")
+                            : hasPendingTrainingResult && pendingCandidateCount == 0
+                                ? OpenVisionLanguageService.T("ApplicationClose.KeepTrainingFileAndClose")
+                                : OpenVisionLanguageService.T("ApplicationClose.CloseWithoutSaving"),
+                SecondaryButtonText = hasUnsavedAnnotations ? OpenVisionLanguageService.T("ApplicationClose.CloseWithoutSaving") : OpenVisionLanguageService.T("ApplicationClose.ContinueWorking"),
+                TertiaryButtonText = hasUnsavedAnnotations ? OpenVisionLanguageService.T("ApplicationClose.ContinueWorking") : string.Empty
             };
         }
     }
@@ -192,6 +204,8 @@ namespace MvcVisionSystem
         public IReadOnlyList<string> ActiveWorkNames { get; set; } = Array.Empty<string>();
 
         public string ActiveImagePath { get; set; } = string.Empty;
+
+        public string PendingTrainingWeightsPath { get; set; } = string.Empty;
     }
 
     public enum WpfApplicationClosePromptKind

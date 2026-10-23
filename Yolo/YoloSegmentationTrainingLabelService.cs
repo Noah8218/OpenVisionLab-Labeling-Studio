@@ -29,6 +29,12 @@ namespace MvcVisionSystem.Yolo
             }
 
             data.NormalizeOutputPaths();
+            if (data.ProjectSettings.AdditionalImageRootPaths?.Count > 0)
+            {
+                foreach (string missing in data.ProjectSettings.ResolveImageRootPaths().Where(root => !Directory.Exists(root)))
+                    result.Errors.Add(string.Format(OpenVisionLab.OpenVisionLanguageService.T("DatasetSourceFolders.Unavailable"), missing));
+                if (result.Errors.Count > 0) return result;
+            }
             data.EnsureYoloOutputDirectories();
             ImportOkBackgroundImages(data, result);
 
@@ -126,15 +132,13 @@ namespace MvcVisionSystem.Yolo
 
         private static void ImportOkBackgroundImages(LabelingProjectData data, YoloSegmentationTrainingLabelExportResult result)
         {
-            string sourceRoot = data?.ProjectSettings?.PythonModel?.ImageRootPath;
-            if (string.IsNullOrWhiteSpace(sourceRoot) || !Directory.Exists(sourceRoot))
-            {
-                return;
-            }
-
-            foreach (string sourceImagePath in Directory.EnumerateFiles(sourceRoot, "*", SearchOption.AllDirectories)
-                .Where(IsSupportedImageFile)
-                .Where(path => IsUnderNamedFolder(sourceRoot, path, "OK")))
+            IEnumerable<string> roots = data?.ProjectSettings?.AdditionalImageRootPaths?.Count > 0
+                ? data.ProjectSettings.ResolveImageRootPaths()
+                : new[] { data?.ProjectSettings?.PythonModel?.ImageRootPath };
+            foreach (string sourceImagePath in roots.Where(root => !string.IsNullOrWhiteSpace(root) && Directory.Exists(root))
+                .SelectMany(root => Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
+                    .Where(IsSupportedImageFile).Where(path => IsUnderNamedFolder(root, path, "OK")))
+                .Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 string fileStem = Path.GetFileNameWithoutExtension(sourceImagePath);
                 string extension = Path.GetExtension(sourceImagePath);
@@ -143,7 +147,8 @@ namespace MvcVisionSystem.Yolo
                     continue;
                 }
 
-                IReadOnlyList<string> selectedModes = YoloDatasetSplitService.SelectModesForImage(fileStem, data.ProjectSettings?.YoloDataset);
+                IReadOnlyList<string> selectedModes = YoloDatasetSplitService.SelectModesForImage(fileStem, data.ProjectSettings?.YoloDataset)
+                    .Where(mode => mode != YoloDatasetSplitService.ExcludedMode).ToArray();
                 RemoveStaleOkBackgroundCopies(data, fileStem, selectedModes);
 
                 foreach (string mode in selectedModes)
