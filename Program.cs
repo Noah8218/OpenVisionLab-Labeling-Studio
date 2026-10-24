@@ -57,7 +57,7 @@ namespace MvcVisionSystem
             }
             catch (Exception Desc)
             {
-                AppLog.ABNORMAL("Ex ==> {0}", Desc.Message);
+                AppLog.ABNORMAL("Ex ==> {0}\r\n{1}", Desc.GetType().FullName, new System.Diagnostics.StackTrace(Desc, false));
                 Environment.ExitCode = 1;
             }
             finally

@@ -1170,7 +1170,7 @@ namespace MvcVisionSystem
             }
             else
             {
-                ResetSmartMaskCandidateEditBuffer();
+                ResetSmartMaskCandidateEditBuffer(clearSelectedObjectOrigin: !hasSession);
             }
             UpdateCandidateEditState();
             int promptIndex = isVisible && !hasSession ? FindSmartMaskPromptIndex() : -1;

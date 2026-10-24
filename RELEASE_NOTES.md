@@ -4,6 +4,18 @@
 
 - No unreleased changes.
 
+## 0.3.6 — 2026-10-24
+
+- Preserve the selected Smart Mask object while regenerating its candidate;
+  explicit application and label saving retain their existing guards.
+- Restore item hosts in content-only WPF review tabs to prevent the observed
+  Ctrl+Tab/Ctrl+Shift+Tab container exception. Fatal diagnostics record exception
+  type and stack without adding exception payloads or source-file paths.
+- Refresh Korean and English README workflows with actual industrial images,
+  1920×1080 media, and the candidate/apply/save sequence.
+- Compatible PATCH checkpoint; public file formats remain unchanged. Full
+  HTML/WPF concordance and brightness input/reset remain unverified.
+
 ## 0.3.5 — 2026-09-16
 
 - Hardened annotation load/save, crash-recovery, Object Review, detection, and

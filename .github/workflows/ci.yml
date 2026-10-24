@@ -24,22 +24,38 @@ jobs:
       - name: Check required README sections
         shell: pwsh
         run: |
-          $readme = Get-Content README.md -Raw -Encoding UTF8
-          $required = @(
-            '## 1분 요약',
-            '## 설치',
-            '## 실행',
-            '## 샘플 데이터',
-            '## Build Command',
-            '## Smoke Command',
-            '## CI',
-            '## Release Notes',
-            '## Roadmap',
-            '## Known Limitations'
-          )
-          foreach ($section in $required) {
-            if (-not $readme.Contains($section)) {
-              throw "README is missing required section: $section"
+          $requiredByFile = [ordered]@{
+            'README.md' = @(
+              '## 1분 요약',
+              '## 설치',
+              '## 실행',
+              '## 샘플 데이터',
+              '## 빌드 명령',
+              '## 스모크 검사 명령',
+              '## CI',
+              '## 릴리스 노트',
+              '## 향후 계획',
+              '## 알려진 한계'
+            )
+            'README.en.md' = @(
+              '## Quick overview',
+              '## Installation',
+              '## Running',
+              '## Sample data',
+              '## Build Command',
+              '## Smoke Command',
+              '## CI',
+              '## Release Notes',
+              '## Roadmap',
+              '## Known Limitations'
+            )
+          }
+          foreach ($entry in $requiredByFile.GetEnumerator()) {
+            $readme = Get-Content -LiteralPath $entry.Key -Raw -Encoding UTF8
+            foreach ($section in $entry.Value) {
+              if (-not $readme.Contains($section)) {
+                throw "$($entry.Key) is missing required section: $section"
+              }
             }
           }
           if (-not (Test-Path RELEASE_NOTES.md)) {
