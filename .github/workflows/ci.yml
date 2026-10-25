@@ -26,28 +26,48 @@ jobs:
         run: |
           $requiredByFile = [ordered]@{
             'README.md' = @(
-              '## 1분 요약',
-              '## 설치',
-              '## 실행',
-              '## 샘플 데이터',
-              '## 빌드 명령',
-              '## 스모크 검사 명령',
-              '## CI',
-              '## 릴리스 노트',
-              '## 향후 계획',
-              '## 알려진 한계'
+              '## 지원 작업',
+              '## 작업 흐름',
+              '## AI는 후보만 만든다',
+              '## 작업별 상세',
+              '### 객체 탐지',
+              '### 세그멘테이션과 Smart Mask',
+              '### 이상 탐지',
+              '## 빠른 시작',
+              '## 설치·요구 사항',
+              '## 하나의 레시피, 여러 모델',
+              '## 개발자용',
+              '### 빌드 명령',
+              '### 실행',
+              '### 배포 검증',
+              '### 환경 점검 CLI',
+              '### CI',
+              '## 알려진 한계',
+              '## 버전',
+              '### 최근 버전 이력',
+              '## 라이선스'
             )
             'README.en.md' = @(
-              '## Quick overview',
-              '## Installation',
-              '## Running',
-              '## Sample data',
-              '## Build Command',
-              '## Smoke Command',
-              '## CI',
-              '## Release Notes',
-              '## Roadmap',
-              '## Known Limitations'
+              '## Supported tasks',
+              '## Workflow',
+              '## AI proposes candidates',
+              '## Task details',
+              '### Object detection',
+              '### Segmentation and Smart Mask',
+              '### Anomaly detection',
+              '## Quick start',
+              '## Installation and requirements',
+              '## One recipe, multiple models',
+              '## For developers',
+              '### Build Command',
+              '### Running',
+              '### Package verification',
+              '### Environment check CLI',
+              '### CI',
+              '## Known Limitations',
+              '## Version',
+              '### Recent version history',
+              '## License'
             )
           }
           foreach ($entry in $requiredByFile.GetEnumerator()) {
