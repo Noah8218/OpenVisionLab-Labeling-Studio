@@ -4,13 +4,15 @@ A Windows desktop tool for labeling, training, comparing models, and running inf
 
 [![Version 0.3.7](https://img.shields.io/badge/version-0.3.7-blue)](Directory.Build.props)
 ![Windows 10/11 x64](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-blue)
+![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
 [![MIT License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![CI](https://github.com/Noah8218/OpenVisionLab-Labeling-Studio/actions/workflows/ci.yml/badge.svg)](https://github.com/Noah8218/OpenVisionLab-Labeling-Studio/actions/workflows/ci.yml)
 
 [English](README.en.md) | [한국어](README.md)
 
 ![Smart Mask: starting box, AI candidate, confirmation, then save and next](docs/tutorial/images/readme/en/hero-smart-mask.gif)
 
-Draw a starting box → review the MobileSAM candidate → apply the mask → save and advance. [Watch the MP4](docs/tutorial/images/readme/en/hero-smart-mask.mp4). (Idle time omitted.)
+Draw a starting box → review the MobileSAM candidate → apply the mask → save and advance. [Watch the MP4](docs/tutorial/images/readme/en/hero-smart-mask.mp4). (Idle time omitted.) [Build and try it](#try-it-in-3-steps)
 
 ## Supported tasks
 
@@ -67,6 +69,14 @@ Boxes and masks are optional. **G** switches the image queue to grid view.
 YOLOv8/YOLO11 classification learns from both OK and NG examples; PatchCore learns from reviewed-normal images.
 PatchCore returns an image decision, score/threshold, location candidates, and a heatmap. **View heatmap** opens read-only review without changing labels, candidates, or the model.
 
+## Try it in 3 steps
+
+1. Clone `https://github.com/Noah8218/OpenVisionLab-Labeling-Studio.git` and enter the repository directory.
+2. Build and launch the app with the two commands in [Build from source](#build-from-source).
+3. Create an object-detection recipe with `datasets/object-detection/coco128/coco128/images/train2017` as the source image folder. Choose a separate empty output folder, set the classes, then open Labeling. See the [included sample notices](datasets/object-detection/coco128/coco128/README.txt).
+
+Python and weights are model-specific requirements for training, inference, and MobileSAM assistance; manual labeling does not require them.
+
 ## Quick start
 
 1. Create a recipe and select object detection, segmentation, or anomaly detection.
@@ -94,6 +104,17 @@ Recipe save or training start records a content-based `dsv2-...` dataset version
 The Dataset view shows the recorded version, and trained-model history records the version used.
 In **Training → Runtime**, selecting a registered model switches its Python executable, runtime folder, and communication script together; select the runtime folder if initial discovery fails.
 Compare models with matching dataset identities, classes, splits, and evaluation settings; different conditions are shown as differences rather than a ranking.
+
+## Build from source
+
+Windows 10/11 x64, .NET SDK **8.0.421**, and PowerShell are required.
+
+```powershell
+dotnet build .\OpenVisionLab.LabelingStudio.sln -c Debug -p:Platform=x64
+.\scripts\start-labeling-workbench.ps1 -AppMode Debug
+```
+
+See [Development](docs/DEVELOPMENT.md) for build, launch, package verification, environment checks, and CI details.
 
 ## For developers
 
@@ -150,19 +171,20 @@ Sample information: `datasets/object-detection/coco128/coco128/README.txt`; [Pyt
 
 </details>
 
+## Documentation
+
+- [User guide](docs/tutorial/README.md) · [Visual guide](docs/tutorial/labeling-workbench-tutorial.html) · [Single-file guide](docs/tutorial/labeling-workbench-tutorial-standalone.html)
+- [Build and development](docs/DEVELOPMENT.md) · [Release notes](RELEASE_NOTES.md)
+
 ## Known Limitations
 
-- There is no installer, code-signing package, or completed clean-PC install/upgrade/uninstall validation. A self-contained bundle includes .NET, but still needs compatible graphics and the selected model runtime. Basic or virtualized displays can be incompatible.
-- Model runtimes and weights may require separate preparation and are not downloaded without approval. Support requires a registered adapter with compatible class/split/output mapping; an arbitrary GitHub model is not supported merely by its name.
-- Local functional evidence does not establish production accuracy, long-run reliability, or takt time. A CI definition alone does not establish a successful hosted run. The manuals identify historical screen dates, not the appearance of the current build.
-- Diagnostics use local user storage and explicit support-bundle export; there is no telemetry, cloud support, or automatic upload. The environment CLI cannot validate the Main Viewer's graphics context without opening that viewer and provides no training or inference commands.
-- Recipe archive export includes the last saved recipe and full dataset with SHA-256 verification. Unsaved labels, unconfirmed candidates, and active jobs block export. Import uses a new location without overwriting existing data or automatically applying the recipe. Dataset versioning does not copy the full source dataset.
-- Crash recovery covers one current image's unsaved boxes, segmentation, and review metadata. Restore/discard is explicit; candidates are excluded and labels still require saving. Drafts older than seven days or with mismatched recipe/dataset/image identity are not used.
-- An interrupted explicit multi-file save recovers the last completed state on restart. Corrupt or inaccessible recovery records block workspace entry and produce logs. Process-termination checks do not prove resilience to power loss or storage failure.
-- Anomaly AI decisions remain unconfirmed candidates. Only manual OK/NG review or explicitly approved folder-review results become training ground truth. Legacy review files cannot recover missing AI/user provenance.
-- PatchCore is a bounded normal-only pilot. Synthetic or small-sample functional checks do not establish field quality; evaluate held-out production data separately from training and validation data.
-- MobileSAM supports one starting box per object with multiple inclusion/exclusion points. Bounded tests covered exact metadata boxes, 20% expansion, 10% shrinkage, and 10% diagonal shifts; larger errors, arbitrary shapes, automatic multi-object separation, and field accuracy are unverified. Automatic confirmation/save and text/voice-based labeling are unsupported. The recipe restores the option when reopened. Restoring it does not run inference, confirm candidates, or save labels.
+- There is no installer, code-signing package, or completed clean-PC install/upgrade/uninstall validation. Even a self-contained bundle needs compatible graphics; basic or virtualized displays can be incompatible.
+- Model runtimes and weights may need separate preparation and are not downloaded without approval. Model support requires a registered adapter with compatible class/split/output mapping.
+- Local functional evidence does not establish production accuracy, long-run reliability, or takt time. PatchCore remains a bounded normal-only pilot.
+- AI output remains a candidate. Confirmation and label saving are separate; automatic confirmation/save and text/voice-based labeling are unsupported.
 - Cloud accounts, team permissions, deployment pipelines, and camera/PLC control are outside the current product scope.
+
+See [Development limitations](docs/DEVELOPMENT.md#limitations) for archive, recovery, diagnostics, anomaly-ground-truth, and MobileSAM constraints.
 
 ## Version
 
@@ -211,6 +233,16 @@ This project is maintained using explicit version numbers.
 #### v0.2.0 (2026-08-24)
 
 - Extended Korean/English refresh across supported presentation surfaces without changing workflow state.
+
+## Part of OpenVisionLab
+
+| Project | What it does |
+| --- | --- |
+| [2D Workbench](https://github.com/Noah8218/OpenVisionLab) | Rule-based 2D inspection recipes |
+| [3D Studio](https://github.com/Noah8218/OpenVisionLab-3D-Studio) | 3D teaching, Thickness and Warpage |
+| [Labeling Studio](https://github.com/Noah8218/OpenVisionLab-Labeling-Studio) | Labeling, training and model comparison |
+| [Machine Studio](https://github.com/Noah8218/OpenVisionLab-Machine-Studio) | Machine simulation before hardware |
+| [Vision SDK](https://github.com/Noah8218/OpenVisionLab-Vision-SDK) | Shared C# inspection library |
 
 ## License
 

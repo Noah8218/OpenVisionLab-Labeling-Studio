@@ -4,13 +4,15 @@
 
 [![버전 0.3.7](https://img.shields.io/badge/version-0.3.7-blue)](Directory.Build.props)
 ![Windows 10/11 x64](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-blue)
+![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
 [![MIT 라이선스](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![CI](https://github.com/Noah8218/OpenVisionLab-Labeling-Studio/actions/workflows/ci.yml/badge.svg)](https://github.com/Noah8218/OpenVisionLab-Labeling-Studio/actions/workflows/ci.yml)
 
 [English](README.en.md) | [한국어](README.md)
 
 ![Smart Mask 시작 박스·후보 검토·확정·저장 후 다음 이미지 이동](docs/tutorial/images/readme/ko/hero-smart-mask.gif)
 
-시작 박스 → MobileSAM 후보 검토 → 마스크 적용 → 저장하고 다음 이미지로 이동합니다. [MP4 보기](docs/tutorial/images/readme/ko/hero-smart-mask.mp4). (대기 구간 생략)
+시작 박스 → MobileSAM 후보 검토 → 마스크 적용 → 저장하고 다음 이미지로 이동합니다. [MP4 보기](docs/tutorial/images/readme/ko/hero-smart-mask.mp4). (대기 구간 생략) [빌드하고 시작하기](#3단계로-시작하기)
 
 ## 지원 작업
 
@@ -67,6 +69,14 @@ AI 결과는 검토할 후보입니다.<br>
 YOLOv8/YOLO11 분류는 OK와 NG 예시를 모두 사용하며, PatchCore는 정상으로 검수한 이미지로 학습합니다.
 PatchCore는 이미지 판정, 점수/임계값, 위치 후보와 히트맵을 반환합니다. **히트맵 보기**는 라벨·후보·모델을 변경하지 않는 읽기 전용 확인 창을 엽니다.
 
+## 3단계로 시작하기
+
+1. `https://github.com/Noah8218/OpenVisionLab-Labeling-Studio.git`를 clone하고 저장소 폴더로 이동합니다.
+2. [소스에서 빌드](#소스에서-빌드)의 두 명령으로 앱을 빌드하고 실행합니다.
+3. 객체 탐지 레시피를 만들고 `datasets/object-detection/coco128/coco128/images/train2017`을 원본 이미지 폴더로 지정합니다. 별도의 빈 출력 폴더와 클래스를 설정한 뒤 라벨링 화면을 엽니다. 샘플의 라이선스는 [포함된 안내](datasets/object-detection/coco128/coco128/README.txt)를 확인하세요.
+
+Python 실행 환경과 가중치는 학습·추론·MobileSAM 보조 기능의 모델별 요구 사항입니다. 수동 라벨링에는 필요하지 않습니다.
+
 ## 빠른 시작
 
 1. 레시피를 만들고 객체 탐지, 세그멘테이션, 이상 탐지 중 목적을 선택합니다.
@@ -94,6 +104,17 @@ PatchCore는 이미지 판정, 점수/임계값, 위치 후보와 히트맵을 �
 데이터셋 화면은 기록된 버전을 표시하고 학습 모델 이력은 사용한 버전을 기록합니다.
 **학습 → 실행 환경**에서 등록된 모델을 선택하면 Python 실행 파일, 실행 환경 폴더와 통신 스크립트가 함께 전환됩니다. 최초 자동 탐색에 실패하면 실행 환경 폴더를 지정합니다.
 데이터 식별값, 클래스, 분할과 평가 설정이 같은 모델을 비교하며, 조건이 다르면 우열 대신 차이를 표시합니다.
+
+## 소스에서 빌드
+
+Windows 10/11 x64, .NET SDK **8.0.421**, PowerShell이 필요합니다.
+
+```powershell
+dotnet build .\OpenVisionLab.LabelingStudio.sln -c Debug -p:Platform=x64
+.\scripts\start-labeling-workbench.ps1 -AppMode Debug
+```
+
+빌드·실행·패키지 검증·환경 점검·CI의 상세 내용은 [개발 안내(영문)](docs/DEVELOPMENT.md)를 참고하세요.
 
 ## 개발자용
 
@@ -150,19 +171,20 @@ OpenVisionLab.LabelingStudio.exe --environment-self-test --json
 
 </details>
 
+## 문서
+
+- [사용자 매뉴얼](docs/tutorial/README.md) · [화면 가이드](docs/tutorial/labeling-workbench-tutorial.html) · [단일 파일 가이드](docs/tutorial/labeling-workbench-tutorial-standalone.html)
+- [빌드·개발 안내(영문)](docs/DEVELOPMENT.md) · [버전 이력](RELEASE_NOTES.md)
+
 ## 알려진 한계
 
-- 설치 프로그램과 코드 서명 패키지가 없으며, 깨끗한 PC의 설치·업그레이드·제거 검증을 마치지 않았습니다. self-contained 번들은 .NET을 포함하지만 호환되는 그래픽 환경과 선택한 모델의 실행 환경은 필요합니다. 기본 또는 가상 디스플레이는 호환되지 않을 수 있습니다.
-- 모델 실행 환경과 가중치는 별도 준비가 필요할 수 있으며 승인 없이 다운로드하지 않습니다. 등록된 어댑터와 호환되는 클래스·분할·출력 매핑이 있어야 지원하며, GitHub의 임의 모델을 이름만으로 지원하지는 않습니다.
-- 로컬 기능 확인은 생산 정확도, 장시간 안정성, takt time을 입증하지 않습니다. CI 정의만으로 원격 실행 성공을 입증하지는 않습니다. 매뉴얼에 표시된 과거 화면의 기준일은 현재 빌드의 화면을 뜻하지 않습니다.
-- 진단은 로컬 사용자 저장소와 명시적 support bundle 내보내기를 사용합니다. 텔레메트리, 클라우드 지원과 자동 업로드는 제공하지 않습니다. 환경 점검 CLI는 Main Viewer를 열지 않아 해당 뷰어의 그래픽 컨텍스트를 검증할 수 없으며, 학습·추론 명령을 제공하지 않습니다.
-- 레시피 아카이브는 마지막으로 저장한 레시피와 전체 데이터셋을 SHA-256 검증과 함께 내보냅니다. 미저장 라벨, 미확정 후보나 진행 중 작업이 있으면 내보내기를 차단합니다. 가져오기는 기존 데이터를 덮어쓰지 않는 새 위치를 사용하며 레시피를 자동 적용하지 않습니다. 데이터 버전 기록은 원본 데이터셋 전체를 복사하지 않습니다.
-- 비정상 종료 복구 범위는 현재 이미지 한 장의 미저장 박스·세그멘테이션·검수 메타데이터입니다. 복구·폐기를 명시적으로 선택하며 후보는 제외하고 라벨 저장도 별도로 해야 합니다. 7일이 지난 초안이나 레시피·데이터셋·이미지 식별 정보가 다른 초안은 사용하지 않습니다.
-- 명시적 다중 파일 저장이 중단되면 다음 시작에서 마지막 완료 상태를 복구합니다. 복구 기록이 손상되거나 접근할 수 없으면 작업 화면 진입을 중단하고 로그를 남깁니다. 프로세스 종료 검사는 전원 차단이나 저장 장치 장애에 대한 내성을 입증하지 않습니다.
-- 이상 탐지 AI 판정은 미확정 후보입니다. 수동 OK/NG 검수 또는 명시적으로 승인한 폴더 검수 결과만 학습 정답으로 저장합니다. 이전 검수 파일에 없는 AI·사용자 출처는 복원할 수 없습니다.
-- PatchCore는 정상 전용 학습을 제공하는 제한된 pilot입니다. 합성 또는 소규모 기능 검사로 현장 품질을 입증할 수 없으며, 학습·검증에 사용하지 않은 생산 데이터를 별도로 평가해야 합니다.
-- MobileSAM은 객체마다 시작 박스 하나와 여러 포함·제외점을 지원합니다. 제한된 검사에서 정확한 메타데이터 박스, 20% 확대, 10% 축소와 10% 대각선 이동을 확인했습니다. 더 큰 오차, 임의 형상, 자동 다중 객체 분리와 현장 정확도는 미검증입니다. 자동 확정·저장과 텍스트·음성 기반 라벨링은 지원하지 않습니다. 레시피를 다시 열면 옵션이 복원됩니다. 복원 자체가 추론, 후보 확정, 라벨 저장을 실행하지는 않습니다.
+- 설치 프로그램과 코드 서명 패키지가 없으며, 깨끗한 PC의 설치·업그레이드·제거 검증을 마치지 않았습니다. self-contained 번들도 호환되는 그래픽 환경이 필요하며 기본·가상 디스플레이는 호환되지 않을 수 있습니다.
+- 모델 실행 환경과 가중치는 별도 준비가 필요할 수 있으며 승인 없이 다운로드하지 않습니다. 모델 지원에는 호환되는 클래스·분할·출력 매핑을 가진 등록 어댑터가 필요합니다.
+- 로컬 기능 확인은 생산 정확도, 장시간 안정성, takt time을 입증하지 않습니다. PatchCore는 정상 전용 학습을 제공하는 제한된 pilot입니다.
+- AI 결과는 후보입니다. 후보 확정과 라벨 저장은 별도이며, 자동 확정·저장과 텍스트·음성 기반 라벨링은 지원하지 않습니다.
 - 클라우드 계정, 팀 권한, 배포 파이프라인과 카메라·PLC 제어는 현재 제품 범위가 아닙니다.
+
+아카이브·복구·진단·이상 탐지 정답·MobileSAM의 세부 제한은 [개발 안내의 Limitations](docs/DEVELOPMENT.md#limitations)에 있습니다.
 
 ## 버전
 
@@ -211,6 +233,16 @@ OpenVisionLab.LabelingStudio.exe --environment-self-test --json
 #### v0.2.0 (2026-08-24)
 
 - 작업 상태를 바꾸지 않고 지원 화면에 한국어·영어 전환을 반영했습니다.
+
+## OpenVisionLab 프로젝트
+
+| 프로젝트 | 역할 |
+| --- | --- |
+| [2D Workbench](https://github.com/Noah8218/OpenVisionLab) | 규칙 기반 2D 검사 Recipe |
+| [3D Studio](https://github.com/Noah8218/OpenVisionLab-3D-Studio) | 3D 티칭, Thickness와 Warpage 측정 |
+| [Labeling Studio](https://github.com/Noah8218/OpenVisionLab-Labeling-Studio) | 라벨링, 학습과 모델 비교 |
+| [Machine Studio](https://github.com/Noah8218/OpenVisionLab-Machine-Studio) | 하드웨어 준비 전 장비 시뮬레이션 |
+| [Vision SDK](https://github.com/Noah8218/OpenVisionLab-Vision-SDK) | 공용 C# 검사 라이브러리 |
 
 ## 라이선스
 
