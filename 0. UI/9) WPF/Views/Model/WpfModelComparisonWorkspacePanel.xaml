@@ -61,11 +61,15 @@
                 <TextBlock Margin="0,6,12,0" Style="{StaticResource ComparisonCaptionStyle}" Text="{Binding Language[WpfComparisonWorkspace.RuleIntroduction]}" Visibility="{Binding IsRuleTab, Converter={StaticResource ComparisonBooleanToVisibility}}" />
             </StackPanel>
             <Grid Grid.Column="1" VerticalAlignment="Center">
+                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                 <StackPanel Orientation="Horizontal" Visibility="{Binding IsPerformanceTab, Converter={StaticResource ComparisonBooleanToVisibility}}">
                     <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" Style="{StaticResource ComparisonCaptionStyle}" Text="{Binding Language[WpfComparisonWorkspace.ReferenceData]}" />
-                    <ComboBox x:Name="ComparisonVersionCombo" Height="Auto" MinWidth="96" MaxWidth="456" MinHeight="30" Padding="8,5,28,5" Style="{StaticResource RecipeComboBoxStyle}" ItemsSource="{Binding Versions}" SelectedItem="{Binding SelectedVersion}" IsEnabled="{Binding CanChooseModels}" ToolTip="{Binding SelectedVersion}"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" MaxWidth="420" TextWrapping="Wrap" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+                    <ComboBox x:Name="ComparisonVersionCombo" Height="Auto" MinWidth="96" MaxWidth="456" MinHeight="30" Padding="8,5,28,5" Style="{StaticResource RecipeComboBoxStyle}" ItemsSource="{Binding VersionChoices}" SelectedItem="{Binding SelectedVersionChoice, Mode=TwoWay}" IsEnabled="{Binding CanChooseModels}" ToolTip="{Binding SelectedVersionLabel}"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Value}" MaxWidth="420" TextWrapping="Wrap" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
                     <Button x:Name="RunWorkspaceComparisonButton" Margin="8,0,0,0" Height="30" MinHeight="30" Padding="10,5" Style="{StaticResource RecipeSecondaryButtonStyle}" Command="{Binding RunComparisonCommand}" Content="{Binding Language[WpfComparisonWorkspace.Run]}" ToolTip="{Binding RunHint}" />
                 </StackPanel>
+                <Expander x:Name="ComparisonIdentityDetails" Grid.Row="1" Margin="0,6,0,0" HorizontalAlignment="Right" MaxWidth="456" Style="{StaticResource DatasetExpanderStyle}" Header="{Binding Language[WpfDatasetVersion.IdentityDetails]}" Visibility="{Binding IsPerformanceTab, Converter={StaticResource ComparisonBooleanToVisibility}}">
+                    <TextBox x:Name="ComparisonIdentityBox" Style="{StaticResource RecipeInputStyle}" MinWidth="300" MaxWidth="420" IsReadOnly="True" Text="{Binding SelectionIdentityText, Mode=OneWay}" TextWrapping="Wrap" AutomationProperties.Name="{Binding Language[WpfDatasetVersion.IdentityDetails]}" />
+                </Expander>
                 <StackPanel Orientation="Horizontal" Visibility="{Binding IsRuleTab, Converter={StaticResource ComparisonBooleanToVisibility}}">
                     <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" Style="{StaticResource ComparisonCaptionStyle}" Text="{Binding Language[WpfComparisonWorkspace.Model]}" />
                     <ComboBox x:Name="DecisionRuleModelCombo" MinWidth="220" MaxWidth="456" MinHeight="30" Padding="8,5,28,5" Style="{StaticResource RecipeComboBoxStyle}" ItemsSource="{Binding Models}" SelectedItem="{Binding SelectedRuleModel, Mode=TwoWay}" IsEnabled="{Binding CanChooseModels}" DisplayMemberPath="ModelName" />
@@ -77,7 +81,7 @@
                 <StackPanel MinWidth="{Binding MetricTableMinimumWidth}" Grid.IsSharedSizeScope="True">
                     <Grid x:Name="ComparisonTableHeaders" Background="{DynamicResource PanelBrush}" MinHeight="32" Panel.ZIndex="1">
                         <Grid.RenderTransform><TranslateTransform Y="{Binding VerticalOffset, ElementName=ComparisonTableScroll}" /></Grid.RenderTransform>
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="110" /><ColumnDefinition Width="0" /><ColumnDefinition Width="*" MinWidth="200" /><ColumnDefinition Width="225.8" /><ColumnDefinition Width="Auto" SharedSizeGroup="MetricsColumn" /><ColumnDefinition Width="200" /></Grid.ColumnDefinitions>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" MinWidth="110" SharedSizeGroup="ComparisonSelectionColumn" /><ColumnDefinition Width="0" /><ColumnDefinition Width="*" MinWidth="200" /><ColumnDefinition Width="225.8" /><ColumnDefinition Width="Auto" SharedSizeGroup="MetricsColumn" /><ColumnDefinition Width="200" /></Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="5" Margin="8,7" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding Language[WpfComparisonWorkspace.RulePartTest]}" />
                         <TextBlock Grid.Column="0" Margin="8,7" FontSize="12" FontWeight="SemiBold" LineHeight="17.4" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Language[WpfComparisonWorkspace.AB]}" />
                         <TextBlock Grid.Column="1" Margin="8,7" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Language[WpfComparisonWorkspace.Rank]}" Visibility="Collapsed" />
@@ -104,7 +108,7 @@
                                     </Style.Triggers>
                                 </Style></Border.Style>
                                 <Grid TextElement.FontSize="12">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="110" /><ColumnDefinition Width="0" /><ColumnDefinition Width="*" MinWidth="200" /><ColumnDefinition Width="225.8" /><ColumnDefinition Width="Auto" SharedSizeGroup="MetricsColumn" /><ColumnDefinition Width="200" /></Grid.ColumnDefinitions>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" MinWidth="110" SharedSizeGroup="ComparisonSelectionColumn" /><ColumnDefinition Width="0" /><ColumnDefinition Width="*" MinWidth="200" /><ColumnDefinition Width="225.8" /><ColumnDefinition Width="Auto" SharedSizeGroup="MetricsColumn" /><ColumnDefinition Width="200" /></Grid.ColumnDefinitions>
                                     <Button Grid.Column="5" Margin="4,5" MinHeight="30" Padding="8,5" Style="{StaticResource RecipeQuietButtonStyle}" Command="{Binding DataContext.ShowRuleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"><TextBlock Text="{Binding DecisionTestSummaryText}" TextWrapping="Wrap" /></Button>
                                     <StackPanel Orientation="Horizontal" Margin="4,7" VerticalAlignment="Center">
                                         <StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding IsComparable}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></StackPanel.Style>
@@ -121,8 +125,8 @@
                                         <TextBlock Grid.Column="1" Margin="6,0,0,0" Text="{Binding ModelRole, NotifyOnTargetUpdated=True}" TargetUpdated="OnModelRoleTargetUpdated" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center" />
                                     </Grid>
                                     <Grid Grid.Column="3" Margin="8,7" VerticalAlignment="Center">
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding VersionText}" ToolTip="{Binding VersionDetail}" LineHeight="17.4" VerticalAlignment="Center" />
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding VersionText}" ToolTip="{Binding VersionDetail}" TextTrimming="CharacterEllipsis" LineHeight="17.4" VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="1" Margin="6,0,0,0" Text="{Binding VersionStateText}" TextWrapping="Wrap" FontSize="11" LineHeight="17.4" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center">
                                             <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding VersionStateText}" Value=""><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
                                         </TextBlock>

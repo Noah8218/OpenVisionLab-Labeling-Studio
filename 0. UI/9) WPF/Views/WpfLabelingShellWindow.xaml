@@ -4333,7 +4333,7 @@
                                     </Grid>
                                     <StackPanel Visibility="{Binding IsImport, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,12,0,0">
                                         <TextBlock Text="{Binding DataContext.LanguageViewModel[WpfOperations.Exchange.Split], ElementName=ShellWindow}" />
-                                        <ComboBox x:Name="OperationsExchangeSplitCombo" ItemsSource="{Binding Splits}" SelectedItem="{Binding TargetSplit, Mode=TwoWay}"
+                                        <ComboBox x:Name="OperationsExchangeSplitCombo" ItemsSource="{Binding SplitChoices}" DisplayMemberPath="Text" SelectedValuePath="Key" SelectedValue="{Binding TargetSplit, Mode=TwoWay}"
                                                   Style="{StaticResource ShellDatasetComboStyle}" MinHeight="38" />
                                     </StackPanel>
                                     <TextBlock Text="{Binding StatusText}" FontWeight="SemiBold" Margin="0,14,0,3" TextWrapping="Wrap" />

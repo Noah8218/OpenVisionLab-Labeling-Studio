@@ -203,7 +203,7 @@ namespace MvcVisionSystem
                         : T("WpfEnvironment.Overall.Ready");
                 OverallDetailText = requiredAttentionCount > 0
                     ? T("WpfEnvironment.Overall.Detail.Required")
-                    : T("WpfEnvironment.Overall.Detail.Ready");
+                    : string.Empty;
                 LastCheckedText = Format(
                     "WpfEnvironment.LastChecked",
                     DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));

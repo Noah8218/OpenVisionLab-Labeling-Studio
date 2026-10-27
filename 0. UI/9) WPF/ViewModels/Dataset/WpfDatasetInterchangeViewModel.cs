@@ -182,6 +182,7 @@ namespace MvcVisionSystem
             Splits.Add(YoloDatasetSplitService.TrainMode);
             Splits.Add(YoloDatasetSplitService.ValidMode);
             Splits.Add(YoloDatasetSplitService.TestMode);
+            foreach (string split in Splits) SplitChoices.Add(new DatasetWorkspaceChoice(split, "WpfDatasetInterchange.Split."));
             BrowseSourceCommand = new RelayCommand(BrowseSource);
             BrowseTargetCommand = new RelayCommand(BrowseTarget);
             BrowseImageRootCommand = new RelayCommand(BrowseImageRoot);
@@ -197,6 +198,8 @@ namespace MvcVisionSystem
             new ObservableCollection<WpfDatasetInterchangeOption>();
 
         public ObservableCollection<string> Splits { get; } = new ObservableCollection<string>();
+
+        public ObservableCollection<DatasetWorkspaceChoice> SplitChoices { get; } = new();
 
         public ObservableCollection<WpfDatasetInterchangeIssueItem> Findings { get; } =
             new ObservableCollection<WpfDatasetInterchangeIssueItem>();
@@ -693,6 +696,7 @@ namespace MvcVisionSystem
                 return;
             }
 
+            foreach (DatasetWorkspaceChoice choice in SplitChoices) choice.RefreshText();
             OnPropertyChanged(nameof(SourceLabelText));
             OnPropertyChanged(nameof(TargetLabelText));
             OnPropertyChanged(nameof(OperationContractText));

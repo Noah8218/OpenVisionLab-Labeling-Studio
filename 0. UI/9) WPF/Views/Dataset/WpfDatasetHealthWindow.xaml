@@ -325,10 +325,7 @@
                            Command="{Binding RefreshCommand}"
                            AutomationProperties.Name="{Binding LanguageViewModel[WpfDatasetHealth.Refresh.Automation]}"
                            ToolTip="{Binding LanguageViewModel[WpfDatasetHealth.Refresh.ToolTip]}">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconMaterial Kind="Refresh" Width="16" Height="16" Margin="0,0,8,0" />
-                        <TextBlock Text="{Binding LanguageViewModel[WpfDatasetHealth.Refresh.Name]}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <iconPacks:PackIconMaterial Kind="Refresh" Width="16" Height="16" Margin="0" HorizontalAlignment="Center" />
                 </ui:Button>
                 <TextBlock Text="{Binding GeneratedAtText}"
                            Foreground="{DynamicResource RecipeMutedTextBrush}"

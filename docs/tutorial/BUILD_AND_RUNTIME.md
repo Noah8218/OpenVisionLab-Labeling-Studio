@@ -1,8 +1,8 @@
-# Development
+# Build and runtime guide
 
-[English README](../README.en.md) · [한국어 README](../README.md) · [Release notes](../RELEASE_NOTES.md)
+[English README](../../README.md) · [한국어 README](../../README.ko.md) · [Release notes](../../RELEASE_NOTES.md)
 
-Build and run the app, verify a package, or check its environment with the commands below. Run them from the repository root. The versioned examples use **0.3.7**; [Directory.Build.props](../Directory.Build.props) owns the product version and [global.json](../global.json) pins the SDK.
+Build and run the app, verify a package, or check its environment with the commands below. Run them from the repository root. The versioned examples below use **0.3.8**; [Directory.Build.props](../../Directory.Build.props) owns the product version and [global.json](../../global.json) pins the SDK.
 
 ## Build Command
 
@@ -28,14 +28,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x6
 .\scripts\start-labeling-workbench.ps1 -AppMode Publish
 ```
 
-The versioned self-contained folder is `artifacts\publish\Release\win-x64\0.3.7`. The release and publish manifests record source/build identity and the full payload's SHA-256 hashes.
+The versioned self-contained folder is `artifacts\publish\Release\win-x64\0.3.8`. Extract the portable ZIP into a new folder, verify the manifests, then run `OpenVisionLab.LabelingStudio.exe`. The release and publish manifests record source/build identity and the full payload's SHA-256 hashes.
 
 ## Package verification
 
 Verify the existing package without changing it:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.3.7 -VerifyOnly
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.3.8 -VerifyOnly
 ```
 
 ## Environment check CLI
@@ -48,9 +48,16 @@ The read-only check runs before WPF startup and emits one JSON document. For Pow
 
 ## CI
 
-[Windows CI](../.github/workflows/ci.yml) checks both README files, builds the application, verifies the product version, and checks whitespace. It also builds a versioned self-contained bundle and retains a temporary workflow artifact for non-pull-request runs.
+[Windows CI](../../.github/workflows/ci.yml) checks the README, builds the Windows application, and checks whitespace. See the workflow for the checks and artifacts included in each run. GPU-dependent validation requires the selected runtime, weights, and data.
 
-Sample information: `datasets/object-detection/coco128/coco128/README.txt`; [Python TCP protocol and mock-client examples](../samples/python_protocol/README.md).
+Sample information: `datasets/object-detection/coco128/coco128/README.txt`; [Python TCP protocol and mock-client examples](../../samples/python_protocol/README.md).
+
+
+## Launcher configuration
+
+The launcher reads `config/labeling-runtime.local.json` when present and otherwise uses [config/labeling-runtime.example.json](../../config/labeling-runtime.example.json). Set personal paths in the uncommitted local file.
+
+The example's `labelingApp.publishExecutable` still names a `0.1.0` folder. Before using `-AppMode Publish`, point the local setting to the versioned bundle you actually built. The Debug example points to `artifacts/run/Debug/OpenVisionLab.LabelingStudio.exe`. The `-StartYolo` and `-StartPythonUi` switches start the YOLO runtime and Python UI, respectively. `-CheckYolo` runs the configured Python client with `--smoke-test` before launching the app; missing prerequisites or a failed check stop the launch.
 
 ## Limitations
 

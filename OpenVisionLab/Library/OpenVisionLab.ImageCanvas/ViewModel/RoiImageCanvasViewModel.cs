@@ -85,6 +85,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		private readonly OverlayRenderSpatialIndex _polygonOverlayRenderIndex = new OverlayRenderSpatialIndex();
 		private int _hoveredPolygonOverlayIndex = -1;
 		private CanvasRect<float> _hoveredLabelRect;
+		// Conservative lifetime hint: existing labels and the copy buffer can outlive a clear.
+		private bool _mayHaveLabelRectangles;
 		private readonly List<RoiImageCanvasMaskOverlay> _maskOverlays = new List<RoiImageCanvasMaskOverlay>();
 		private readonly List<RectangleF> _maskOverlayBounds = new List<RectangleF>();
 		private readonly List<int> _selectedMaskOverlayIndices = new List<int>();
@@ -3258,6 +3260,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 								_drawingRect.ShapeKind = DrawingShapeKind;
 								_drawingRect.IsEditing = true;
 								_drawingRect.IsLabelAnnotation = LabelDrawingColor.HasValue; _drawingRect.IsLabelDraft = LabelDrawingColor.HasValue; _drawingRect.LabelColor = LabelDrawingColor ?? System.Drawing.Color.Empty;
+								_mayHaveLabelRectangles |= _drawingRect.IsLabelAnnotation;
 							}
 							break;
 						case CanvasInteractionMode.Edit:
@@ -3337,6 +3340,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 				IsEditing = true,
 				IsLabelAnnotation = LabelDrawingColor.HasValue, IsLabelDraft = LabelDrawingColor.HasValue, LabelColor = LabelDrawingColor ?? System.Drawing.Color.Empty
 			};
+			_mayHaveLabelRectangles |= _drawingRect.IsLabelAnnotation;
 			openGLControl.Cursor = System.Windows.Forms.Cursors.Cross;
 			return true;
 		}
@@ -3526,8 +3530,16 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			System.Drawing.PointF currentRobotyPos = _imageViewer.GetCurrentRobotPos(e.X, e.Y);
 			if (e.CanvasButton == CanvasPointerButton.None)
 			{
-				CanvasRect<float> hoveredLabel = _imageViewer.GetCanvasOverlayManager().GetVisibleOverlaysInBounds(new RectangleF(currentRobotyPos.X, currentRobotyPos.Y, 1F, 1F))
-					.AsEnumerable().Reverse().Where(item => !item.IsGroupRectangle && item.Shape is CanvasRect<float> rect && rect.IsLabelAnnotation && rect.Contain(currentRobotyPos.X, currentRobotyPos.Y)).Select(item => (CanvasRect<float>)item.Shape).FirstOrDefault();
+				CanvasRect<float> hoveredLabel = null;
+				// Generic ROI and brush hosts need no label-hover query until a label is introduced.
+				if (_mayHaveLabelRectangles)
+				{
+					_imageViewer.VisitInteractiveOverlaysNearPoint(currentRobotyPos, 0F, includeGroupRectangles: false, item =>
+					{
+						if (item.Shape is CanvasRect<float> rect && rect.IsLabelAnnotation && rect.Contain(currentRobotyPos.X, currentRobotyPos.Y))
+							hoveredLabel = rect;
+					});
+				}
 				if (!ReferenceEquals(_hoveredLabelRect, hoveredLabel))
 				{
 					if (_hoveredLabelRect != null) { _hoveredLabelRect.IsLabelHovered = false; MarkRoiDisplayChanged(_hoveredLabelRect); }
@@ -4671,6 +4683,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 				IsFill = shapeKind == CanvasRoiShapeKind.Ellipse,
 				IsLabelAnnotation = isLabelAnnotation, ShowLabelEditHandles = showLabelEditHandles, LabelColor = drawColor ?? System.Drawing.Color.DeepSkyBlue
 			};
+			_mayHaveLabelRectangles |= isLabelAnnotation;
 
 			_imageViewer.AddOverlay(parentOverlay.GroupType, parentOverlay.GroupType, rect, rect.UniqueId, parentOverlay.InspWindowType, EnumItemType.Window, drawColorOverride: drawColor);
 			_selectedRect = rect;
@@ -4751,11 +4764,13 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		#region EventHandler
 		public void OnRoiGrouped(Model.RoiChangedEventArgs e)
 		{
+			_mayHaveLabelRectangles = true; // A copied group may contain label rectangles.
 			RoiGrouped?.Invoke(this, e);
 		}
 
 		public void OnRoiAdded(CanvasRect<float> canvasRect, CanvasOverlayItem parentOverlay)
 		{
+			_mayHaveLabelRectangles |= canvasRect?.IsLabelAnnotation == true;
 			Model.RoiChangedEventArgs argOverlay = CreateRoiChangedEventArgs(canvasRect);
 			argOverlay.Group = parentOverlay;
 			RoiAdded(this, argOverlay);

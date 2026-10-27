@@ -8,6 +8,7 @@ namespace MvcVisionSystem
         public WpfDatasetSetupWizardWindow()
         {
             InitializeComponent();
+            SizeChanged += OnWindowSizeChanged;
             LocalizationTextRuntimeService.RegisterWindow(this);
         }
 
@@ -22,6 +23,17 @@ namespace MvcVisionSystem
             MaxHeight = Math.Max(MinHeight, viewportHeight - 40);
         }
 
+
+        private void OnWindowSizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (!IsLoaded || !e.HeightChanged || WindowState != WindowState.Normal) return;
+
+            var screen = System.Windows.Forms.Screen.FromHandle(new System.Windows.Interop.WindowInteropHelper(this).Handle);
+            double scale = System.Windows.Media.VisualTreeHelper.GetDpi(this).DpiScaleY;
+            double monitorTop = screen.WorkingArea.Top / scale;
+            double maximumTop = Math.Max(monitorTop, screen.WorkingArea.Bottom / scale - e.NewSize.Height);
+            Top = Math.Clamp(Top, monitorTop, maximumTop);
+        }
 
         private void OnJumpToClassesClick(object sender, RoutedEventArgs e)
         {

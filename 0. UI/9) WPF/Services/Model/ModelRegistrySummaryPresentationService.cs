@@ -60,6 +60,8 @@ namespace MvcVisionSystem
                 PythonModelSettings.EngineYoloV8 => OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Profile.Engine.YoloV8"),
                 PythonModelSettings.EngineYolo11 => OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Profile.Engine.Yolo11"),
                 PythonModelSettings.EngineOnnx => OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Profile.Engine.Onnx"),
+                PythonModelSettings.EngineUnet => OpenVisionLab.OpenVisionLanguageService.T("WpfModelSettings.EngineName.Unet"),
+                PythonModelSettings.EnginePatchCore => OpenVisionLab.OpenVisionLanguageService.T("WpfModelSettings.EngineName.PatchCore"),
                 _ => OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistrySummary.Profile.Engine.YoloV5")
             };
 

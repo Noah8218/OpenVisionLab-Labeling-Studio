@@ -151,9 +151,11 @@ namespace MvcVisionSystem
             get
             {
                 string capabilityText = LocalizationTextRuntimeService.Translate(CapabilityStatusText);
-                string value = string.IsNullOrWhiteSpace(baseToolTipDescription)
-                    ? capabilityText
-                    : $"{LocalizationTextRuntimeService.Translate(baseToolTipDescription)} / {capabilityText}";
+                string value = Tool == WpfAnnotationTool.Undo || Tool == WpfAnnotationTool.Redo
+                    ? DisplayText
+                    : string.IsNullOrWhiteSpace(baseToolTipDescription)
+                        ? capabilityText
+                        : $"{LocalizationTextRuntimeService.Translate(baseToolTipDescription)} / {capabilityText}";
                 if (!string.IsNullOrWhiteSpace(ShortcutText))
                 {
                     value = string.Format(System.Globalization.CultureInfo.InvariantCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfLearningWorkflow.ToolTip.WithShortcut"), value, ShortcutText);

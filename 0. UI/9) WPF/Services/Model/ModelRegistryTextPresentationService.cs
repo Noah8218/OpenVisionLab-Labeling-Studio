@@ -10,6 +10,37 @@ namespace MvcVisionSystem
         public static string FormatModelPath(string path)
             => TrainingWeightsService.FormatWeightsDisplayPath(path);
 
+        public static string FormatModelCaption(string engine, string runName, string eventUtc, string weightsPath,
+            string modelId = null, bool hasTrainingRun = true, string trainingRunId = null)
+        {
+            string kind = (modelId ?? string.Empty).ToLowerInvariant() switch
+            {
+                "yolov5s" => "YOLOv5s", "yolov8n" => "YOLOv8n", "yolov8s" => "YOLOv8s",
+                "yolo11n" => "YOLO11n", "yolo11s" => "YOLO11s", "yolo11m" => "YOLO11m", "patchcore" => "PatchCore (WRN50)",
+                "yolov8s-seg" => "YOLOv8s-seg", "yolo11s-seg" => "YOLO11s-seg",
+                "yolov8s-cls" => "YOLOv8s-cls", "yolo11s-cls" => "YOLO11s-cls",
+                _ => string.IsNullOrWhiteSpace(engine) ? string.Empty : PythonModelSettings.FormatModelEngineName(engine)
+            };
+            string name = (runName ?? string.Empty).Trim();
+            if (name.Equals(trainingRunId, StringComparison.Ordinal)) name = string.Empty;
+            if (name.Length == 0)
+            {
+                string directoryName = System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(weightsPath ?? string.Empty));
+                name = directoryName?.Length == 64 && directoryName.All(Uri.IsHexDigit)
+                    ? System.IO.Path.GetFileName(weightsPath) : FormatModelPath(weightsPath);
+            }
+            string caption = kind.Length == 0 ? name : name.Length == 0 || name.Equals(kind, StringComparison.OrdinalIgnoreCase)
+                || name.Equals(modelId, StringComparison.OrdinalIgnoreCase) || name.Equals(engine, StringComparison.OrdinalIgnoreCase)
+                ? kind : kind + " · " + name;
+            if (!hasTrainingRun) return caption;
+            // EventUtc can change when a model record is updated, including adoption fallback.
+            string time = DateTime.TryParseExact(eventUtc, new[] { "yyyy-MM-ddTHH:mm:ssK", "yyyy-MM-ddTHH:mm:ss.FFFFFFFK" },
+                CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out DateTime utc)
+                ? string.Format(CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.RecordedTime"), utc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.CurrentCulture))
+                : OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.RunTimeUnknown");
+            return caption + " · " + time;
+        }
+
         public static string FormatTrainingState(string state)
         {
             return (state ?? string.Empty).Trim().ToLowerInvariant() switch

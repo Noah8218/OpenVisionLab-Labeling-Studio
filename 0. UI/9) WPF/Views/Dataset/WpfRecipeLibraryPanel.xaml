@@ -73,7 +73,6 @@
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                 <StackPanel Margin="0,0,16,0">
                     <TextBlock Text="{Binding RecipeStartTitleText}" FontSize="20" LineHeight="29" FontWeight="SemiBold" />
-                    <TextBlock Text="{Binding RecipeStartSummaryText}" Margin="0,4,0,0" TextWrapping="Wrap" Foreground="{DynamicResource RecipeMutedTextBrush}" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="RecipeLibraryImportButton" Height="31" Content="{Binding RecipeImportText}" Margin="0,0,8,0"
@@ -148,7 +147,7 @@
                         </Grid>
                     </DataTemplate></ListBox.ItemTemplate>
                 </ListBox>
-                <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="420" Margin="24" Visibility="{Binding EmptyStateVisibility}"><TextBlock Text="{Binding EmptyStateTitleText}" FontSize="18" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" /><TextBlock Text="{Binding EmptyStateDetailText}" Margin="0,8,0,16" TextAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource RecipeMutedTextBrush}" /><Button x:Name="RecipeLibraryCreateFirstButton" Style="{StaticResource RecipePrimaryButtonStyle}" Content="{Binding CreateFirstDatasetButtonText}" Command="{Binding CreateNewCommand}" HorizontalAlignment="Center" AutomationProperties.AutomationId="RecipeLibraryCreateFirstButton" /></StackPanel>
+                <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="420" Margin="24" Visibility="{Binding EmptyStateVisibility}"><TextBlock Text="{Binding EmptyStateTitleText}" FontSize="18" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" /><Button x:Name="RecipeLibraryCreateFirstButton" Margin="0,16,0,0" Style="{StaticResource RecipePrimaryButtonStyle}" Content="{Binding CreateFirstDatasetButtonText}" Command="{Binding CreateNewCommand}" HorizontalAlignment="Center" AutomationProperties.AutomationId="RecipeLibraryCreateFirstButton" /></StackPanel>
                 <TextBlock x:Name="RecipeLibraryNoResultsText" Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="16,28" Text="{Binding SearchNoResultsText}" TextAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource RecipeMutedTextBrush}" Visibility="{Binding FilteredEmptyStateVisibility}" />
             </Grid>
         </Grid>

@@ -74,7 +74,9 @@
                     <Border Background="{DynamicResource RecipeSurfaceBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,12,0">
                         <StackPanel>
                             <TextBlock x:Name="EnvironmentSetupOverallText" Text="{Binding OverallStatusText}" Foreground="{DynamicResource RecipeTextBrush}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
-                            <TextBlock x:Name="EnvironmentSetupOverallDetailText" Text="{Binding OverallDetailText}" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" Margin="0,6,0,0" />
+                            <TextBlock x:Name="EnvironmentSetupOverallDetailText" Text="{Binding OverallDetailText}" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" Margin="0,6,0,0" >
+                                <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding OverallDetailText}" Value=""><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                            </TextBlock>
                             <TextBlock x:Name="EnvironmentSetupSelectedRuntimeText" Text="{Binding SelectedRuntimeText}" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" LineHeight="18.85" LineStackingStrategy="BlockLineHeight" Margin="0,6,0,0" />
                         </StackPanel>
                     </Border>
@@ -188,10 +190,7 @@
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
                     <ui:Button x:Name="EnvironmentSetupRefreshButton" AutomationProperties.AutomationId="EnvironmentSetupRefreshButton" AutomationProperties.Name="{Binding [WpfEnvironment.Action.Refresh.Automation], Source={x:Static local:WpfLocalizationViewModel.Instance}}" ToolTip="{Binding [WpfEnvironment.Action.Refresh.ToolTip], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource EnvironmentSetupActionButtonStyle}" Command="{Binding RefreshCommand}" Margin="0,0,10,0">
-                        <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconMaterial Kind="Refresh" Width="16" Height="16" Margin="0,0,8,0" />
-                            <TextBlock Text="{Binding [WpfEnvironment.Action.Refresh.Name], Source={x:Static local:WpfLocalizationViewModel.Instance}}" VerticalAlignment="Center" />
-                        </StackPanel>
+                        <iconPacks:PackIconMaterial Kind="Refresh" Width="16" Height="16" Margin="0" HorizontalAlignment="Center" />
                     </ui:Button>
                     <ui:Button x:Name="EnvironmentSetupOpenModelSettingsButton" AutomationProperties.AutomationId="EnvironmentSetupOpenModelSettingsButton" AutomationProperties.Name="{Binding [WpfEnvironment.Action.ModelSettings.Automation], Source={x:Static local:WpfLocalizationViewModel.Instance}}" ToolTip="{Binding [WpfEnvironment.Action.ModelSettings.ToolTip], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource EnvironmentSetupPrimaryButtonStyle}" Command="{Binding OpenModelSettingsCommand}" Margin="0,0,10,0">
                         <StackPanel Orientation="Horizontal">

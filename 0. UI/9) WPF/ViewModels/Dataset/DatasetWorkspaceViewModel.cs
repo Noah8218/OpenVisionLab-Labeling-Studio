@@ -114,6 +114,11 @@ namespace MvcVisionSystem
         public bool IsApplyingSplit { get => isApplyingSplit; internal set { if (SetProperty(ref isApplyingSplit, value)) RefreshCommands(); } }
         public bool IsAnomalyPurpose => project?.ProjectSettings?.DatasetPurpose == LabelingDatasetPurpose.AnomalyDetection;
         public string SourceRoot => sourceRoot;
+        public string SourceRootDisplayText => string.Join(" · ", sourceRoot.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries).Select(path =>
+        {
+            string name = Path.GetFileName(path.TrimEnd('\\', '/'));
+            return string.IsNullOrEmpty(name) ? path : name;
+        }));
         public string OperationStatus => operationStatusKey == "Assigned"
             ? Format(operationStatusKey, operationStatusArguments[0], T("Split." + operationStatusArguments[1]))
             : string.IsNullOrEmpty(operationStatusKey) ? string.Empty : Format(operationStatusKey, operationStatusArguments);
@@ -503,9 +508,10 @@ namespace MvcVisionSystem
 
     public sealed class DatasetWorkspaceChoice : WpfObservableViewModel
     {
-        public DatasetWorkspaceChoice(string key) { Key = key; }
+        private readonly string textKeyPrefix;
+        public DatasetWorkspaceChoice(string key, string textKeyPrefix = "WpfDatasetWorkspace.Split.") { Key = key; this.textKeyPrefix = textKeyPrefix; }
         public string Key { get; }
-        public string Text => OpenVisionLanguageService.T("WpfDatasetWorkspace.Split." + Key);
+        public string Text => OpenVisionLanguageService.T(textKeyPrefix + Key);
         internal void RefreshText() => OnPropertyChanged(nameof(Text));
     }
 

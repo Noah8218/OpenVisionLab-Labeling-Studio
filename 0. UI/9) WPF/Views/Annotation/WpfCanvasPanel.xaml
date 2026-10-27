@@ -992,10 +992,7 @@
                                    AutomationProperties.Name="{Binding Tag.LanguageViewModel[WpfAnnotationTool.Undo], ElementName=CanvasPanelRoot}"
                                    IsEnabled="{Binding UndoAnnotationTool.IsActionEnabled}"
                                    Command="{Binding UndoAnnotationCommand}">
-                            <StackPanel Orientation="Horizontal">
-                                <iconPacks:PackIconMaterial Style="{StaticResource CanvasCommandIconStyle}" Kind="UndoVariant" />
-                                <TextBlock Text="{Binding Tag.LanguageViewModel[WpfAnnotationTool.Undo], ElementName=CanvasPanelRoot}" />
-                            </StackPanel>
+                            <iconPacks:PackIconMaterial Style="{StaticResource CanvasCommandIconStyle}" Kind="UndoVariant" Margin="0" HorizontalAlignment="Center" />
                         </ui:Button>
                         <ui:Button x:Name="CanvasHeaderRedoAnnotationButton"
                                    Style="{StaticResource CanvasCommandButtonStyle}"
@@ -1003,10 +1000,7 @@
                                    AutomationProperties.Name="{Binding Tag.LanguageViewModel[WpfAnnotationTool.Redo], ElementName=CanvasPanelRoot}"
                                    IsEnabled="{Binding RedoAnnotationTool.IsActionEnabled}"
                                    Command="{Binding RedoAnnotationCommand}">
-                            <StackPanel Orientation="Horizontal">
-                                <iconPacks:PackIconMaterial Style="{StaticResource CanvasCommandIconStyle}" Kind="RedoVariant" />
-                                <TextBlock Text="{Binding Tag.LanguageViewModel[WpfAnnotationTool.Redo], ElementName=CanvasPanelRoot}" />
-                            </StackPanel>
+                            <iconPacks:PackIconMaterial Style="{StaticResource CanvasCommandIconStyle}" Kind="RedoVariant" Margin="0" HorizontalAlignment="Center" />
                         </ui:Button>
                         </WrapPanel>
                         <ui:Button x:Name="CanvasDeleteAnnotationButton"
@@ -2822,10 +2816,7 @@
                                    AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfAnnotationTool.Undo], RelativeSource={RelativeSource AncestorType=Window}}"
                                    IsEnabled="{Binding UndoAnnotationTool.IsActionEnabled}"
                                    Command="{Binding UndoAnnotationCommand}">
-                            <StackPanel Orientation="Vertical">
-                                <iconPacks:PackIconMaterial Style="{StaticResource CanvasCommandIconStyle}" Margin="0,0,0,3" HorizontalAlignment="Center" Kind="UndoVariant" />
-                                <TextBlock Text="{Binding DataContext.LanguageViewModel[WpfAnnotationTool.Undo], RelativeSource={RelativeSource AncestorType=Window}}" FontSize="9" TextWrapping="Wrap" TextAlignment="Center" />
-                            </StackPanel>
+                            <iconPacks:PackIconMaterial Style="{StaticResource CanvasCommandIconStyle}" Kind="UndoVariant" Margin="0" HorizontalAlignment="Center" />
                         </ui:Button>
                         <ui:Button x:Name="CanvasRedoAnnotationButton"
                                    Style="{StaticResource CanvasCommandButtonStyle}"
@@ -2835,10 +2826,7 @@
                                    AutomationProperties.Name="{Binding DataContext.LanguageViewModel[WpfAnnotationTool.Redo], RelativeSource={RelativeSource AncestorType=Window}}"
                                    IsEnabled="{Binding RedoAnnotationTool.IsActionEnabled}"
                                    Command="{Binding RedoAnnotationCommand}">
-                            <StackPanel Orientation="Vertical">
-                                <iconPacks:PackIconMaterial Style="{StaticResource CanvasCommandIconStyle}" Margin="0,0,0,3" HorizontalAlignment="Center" Kind="RedoVariant" />
-                                <TextBlock Text="{Binding DataContext.LanguageViewModel[WpfAnnotationTool.Redo], RelativeSource={RelativeSource AncestorType=Window}}" FontSize="9" TextWrapping="Wrap" TextAlignment="Center" />
-                            </StackPanel>
+                            <iconPacks:PackIconMaterial Style="{StaticResource CanvasCommandIconStyle}" Kind="RedoVariant" Margin="0" HorizontalAlignment="Center" />
                         </ui:Button>
                     </StackPanel>
                     </StackPanel>

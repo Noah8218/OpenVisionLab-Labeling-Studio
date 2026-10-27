@@ -244,14 +244,11 @@
                            Grid.Column="1"
                            Style="{StaticResource BenchmarkActionButtonStyle}"
                            Command="{Binding RefreshCommand}"
-                           ToolTip="&#xC2E4;&#xD589; &#xBCF4;&#xACE0;&#xC11C; &#xC0C8;&#xB85C;&#xACE0;&#xCE68;">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconMaterial Kind="Refresh"
+                           AutomationProperties.Name="{Binding [WpfModelBenchmark.Action.Refresh], Source={x:Static local:WpfLocalizationViewModel.Instance}}"
+                           ToolTip="{Binding [WpfModelBenchmark.Action.Refresh], Source={x:Static local:WpfLocalizationViewModel.Instance}}">
+                    <iconPacks:PackIconMaterial Kind="Refresh"
                                                     Width="15"
-                                                    Height="15"
-                                                    Margin="0,0,6,0" />
-                        <TextBlock Text="&#xC0C8;&#xB85C;&#xACE0;&#xCE68;" VerticalAlignment="Center" />
-                    </StackPanel>
+                                                    Height="15" Margin="0" HorizontalAlignment="Center" />
                 </ui:Button>
             </Grid>
         </Border>

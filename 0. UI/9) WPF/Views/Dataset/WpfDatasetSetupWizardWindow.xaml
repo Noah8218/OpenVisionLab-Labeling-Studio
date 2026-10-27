@@ -623,26 +623,6 @@
                                 HorizontalAlignment="Stretch">
                             <TextBlock Text="{Binding JumpToClassesText}" TextWrapping="Wrap" />
                         </Button>
-                        <Border x:Name="WizardCreateSummaryNote"
-                                Background="#202A38"
-                                BorderBrush="{StaticResource AccentBrush}"
-                                BorderThickness="2,0,0,0"
-                                Padding="12"
-                                Margin="0,12,0,0">
-                            <TextBlock x:Name="WizardSummaryNoteText"
-                                       Text="{Binding CreateSummaryNoteText}"
-                                       Foreground="#E5E7EB"
-                                       FontFamily="{DynamicResource UiFontFamily}"
-                                       FontSize="12"
-                                       TextWrapping="Wrap" />
-                        </Border>
-                        <TextBlock x:Name="WizardSummaryExplainText"
-                                   Text="{Binding CreateSummaryExplainText}"
-                                   Foreground="{StaticResource SecondaryTextBrush}"
-                                   FontFamily="{DynamicResource UiFontFamily}"
-                                   FontSize="12"
-                                   TextWrapping="Wrap"
-                                   Margin="0,12,0,0" />
                     </StackPanel>
                 </Border>
 

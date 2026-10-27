@@ -22,6 +22,7 @@ namespace MvcVisionSystem
         private IReadOnlyDictionary<string, long> weightsSizes = new Dictionary<string, long>();
         private IReadOnlyDictionary<string, double> displayModelSizesMegabytes;
         private LabelingDatasetPurpose purpose;
+        private IReadOnlyDictionary<string, RecipeDatasetVersionPresentation> versionLabels = new Dictionary<string, RecipeDatasetVersionPresentation>();
         private string currentVersion = string.Empty;
         private string currentContentHash = string.Empty;
         private string selectedVersion = string.Empty;
@@ -115,6 +116,7 @@ namespace MvcVisionSystem
         internal event Action RefreshRequested;
         public ObservableCollection<ModelComparisonWorkspaceRow> Models { get; } = new();
         public ObservableCollection<string> Versions { get; } = new();
+        public ObservableCollection<KeyValuePair<string, string>> VersionChoices { get; } = new();
         public ObservableCollection<ModelComparisonImagePair> Images { get; } = new();
         public ObservableCollection<ModelComparisonClassMetricRow> ClassMetrics { get; } = new();
         public System.ComponentModel.ICollectionView ImageView { get; }
@@ -255,7 +257,23 @@ namespace MvcVisionSystem
         public bool HasComparablePair => SelectedA?.IsComparable == true && SelectedB?.IsComparable == true && SelectedA != SelectedB && SelectedA.Run.EvaluationConditionKey == SelectedB.Run.EvaluationConditionKey;
         public bool ErrorsOnly { get => errorsOnly; set { if (SetProperty(ref errorsOnly, value)) { ImageView.Refresh(); SelectFirstShownImage(); OnPropertyChanged(nameof(ImagePositionText)); } } }
         public bool ShowGroundTruth { get => showGroundTruth; set { if (SetProperty(ref showGroundTruth, value)) RequestPreview(); } }
+        public string SelectedVersionLabel => versionLabels.GetValueOrDefault(SelectedVersion)?.DisplayText ?? RecipeDatasetVersionPresentationService.MissingLabel;
+        public string SelectionIdentityText => SelectedVersion + Environment.NewLine + (SelectedA?.History.TrainingRunId ?? string.Empty) + Environment.NewLine + (SelectedB?.History.TrainingRunId ?? string.Empty);
         public string SelectedVersion { get => selectedVersion; set { if (!refreshing && CanChooseModels && SetProperty(ref selectedVersion, value ?? string.Empty)) RefreshRows(); } }
+        public KeyValuePair<string, string>? SelectedVersionChoice
+        {
+            get
+            {
+                foreach (KeyValuePair<string, string> choice in VersionChoices) if (choice.Key == SelectedVersion) return choice;
+                return null;
+            }
+            set
+            {
+                // Refreshing labels removes the old item; the stored ID remains authoritative.
+                if (!refreshing && value.HasValue) SelectedVersion = value.Value.Key;
+                OnPropertyChanged(nameof(SelectedVersionChoice));
+            }
+        }
         public ModelComparisonWorkspaceRow SelectedA { get => selectedA; set { if (CanChooseModels && Models.Contains(value) && SetProperty(ref selectedA, value)) RefreshPair(); } }
         public ModelComparisonWorkspaceRow SelectedB { get => selectedB; set { if (CanChooseModels && Models.Contains(value) && SetProperty(ref selectedB, value)) RefreshPair(); } }
         public ModelComparisonImagePair SelectedImage { get => selectedImage; set { if (value == null || Images.Contains(value)) { if (SetProperty(ref selectedImage, value)) RequestPreview(); } } }
@@ -469,8 +487,9 @@ namespace MvcVisionSystem
             undoAdoption = undo ?? (_ => { });
         }
 
-        internal void SetContext(IReadOnlyList<WpfModelRegistryHistoryItem> models, IReadOnlyList<WpfModelBenchmarkRun> runs, IReadOnlyDictionary<string, string> hashes, string version, string contentHash, string engine, string root, double threshold, bool runAvailable, bool running, string recipeIdentity = "", LabelingDatasetPurpose datasetPurpose = LabelingDatasetPurpose.ObjectDetection, IReadOnlyDictionary<string, long> sizes = null)
+        internal void SetContext(IReadOnlyList<WpfModelRegistryHistoryItem> models, IReadOnlyList<WpfModelBenchmarkRun> runs, IReadOnlyDictionary<string, string> hashes, string version, string contentHash, string engine, string root, double threshold, bool runAvailable, bool running, string recipeIdentity = "", LabelingDatasetPurpose datasetPurpose = LabelingDatasetPurpose.ObjectDetection, IReadOnlyDictionary<string, long> sizes = null, IReadOnlyDictionary<string, RecipeDatasetVersionPresentation> datasetVersionLabels = null)
         {
+            versionLabels = datasetVersionLabels ?? new Dictionary<string, RecipeDatasetVersionPresentation>();
             bool leavingDisplayContext = isReadOnlyDisplayContext;
             isReadOnlyDisplayContext = false;
             displayModelSizesMegabytes = null;
@@ -481,6 +500,7 @@ namespace MvcVisionSystem
         // Explicit display-only catalog entry: no weights verification or executable workflow is inferred.
         internal void SetReadOnlyDisplayContext(IReadOnlyList<WpfModelRegistryHistoryItem> models, IReadOnlyList<WpfModelBenchmarkRun> runs, string version, string contentHash, double threshold, string recipeIdentity = "", LabelingDatasetPurpose datasetPurpose = LabelingDatasetPurpose.ObjectDetection, IReadOnlyDictionary<string, double> modelSizesMegabytes = null)
         {
+            versionLabels = new Dictionary<string, RecipeDatasetVersionPresentation>();
             isReadOnlyDisplayContext = true;
             displayModelSizesMegabytes = modelSizesMegabytes;
             CancelAdoption();
@@ -516,6 +536,7 @@ namespace MvcVisionSystem
                 if (existingIndex < 0) Versions.Insert(index, versions[index]);
                 else if (existingIndex != index) Versions.Move(existingIndex, index);
             }
+            RefreshVersionChoices();
             if (projectChanged || !Versions.Contains(selectedVersion)) selectedVersion = currentVersion;
             refreshing = false;
             RefreshRows();
@@ -588,10 +609,15 @@ namespace MvcVisionSystem
             {
                 Models.Clear();
                 string content = SelectedVersion == currentVersion ? currentContentHash : reports.FirstOrDefault(run => run.DatasetVersionId == SelectedVersion)?.DatasetContentSha256;
-                var rows = history.Select(item => new ModelComparisonWorkspaceRow(item,
-                    reports.Where(run => MatchesTask(run) && (isReadOnlyDisplayContext ? MatchesDisplayRun(item, run) : MatchesWeights(item, run))).OrderByDescending(run => run.DatasetVersionId == SelectedVersion).ThenByDescending(run => run.CreatedAt).FirstOrDefault(),
-                    SelectedVersion, content, confidence, MetricKeys, !isReadOnlyDisplayContext && weightsSizes.TryGetValue(item.WeightsPath, out long bytes) ? bytes : null,
-                    isReadOnlyDisplayContext && displayModelSizesMegabytes != null && !string.IsNullOrWhiteSpace(item.TrainingRunId) && displayModelSizesMegabytes.TryGetValue(item.TrainingRunId, out double megabytes) ? megabytes : null)).ToArray();
+                var rows = history.Select(item =>
+                {
+                    WpfModelBenchmarkRun report = reports.Where(run => MatchesTask(run) && (isReadOnlyDisplayContext ? MatchesDisplayRun(item, run) : MatchesWeights(item, run)))
+                        .OrderByDescending(run => run.DatasetVersionId == SelectedVersion).ThenByDescending(run => run.CreatedAt).FirstOrDefault();
+                    return new ModelComparisonWorkspaceRow(item, report, SelectedVersion, content, confidence, MetricKeys,
+                        !isReadOnlyDisplayContext && weightsSizes.TryGetValue(item.WeightsPath, out long bytes) ? bytes : null,
+                        isReadOnlyDisplayContext && displayModelSizesMegabytes != null && !string.IsNullOrWhiteSpace(item.TrainingRunId) && displayModelSizesMegabytes.TryGetValue(item.TrainingRunId, out double megabytes) ? megabytes : null,
+                        versionLabels.GetValueOrDefault(report?.DatasetVersionId ?? string.Empty));
+                }).ToArray();
                 WpfModelBenchmarkRun reference = rows.FirstOrDefault(row => row.History.IsCurrentInspectionModel && row.IsComparable)?.Run ?? rows.FirstOrDefault(row => row.IsComparable)?.Run;
                 foreach (ModelComparisonWorkspaceRow row in rows) if (row.IsComparable && reference != null && row.Run.EvaluationConditionKey != reference.EvaluationConditionKey) row.IsComparable = false;
                 foreach (string key in MetricKeys.Where(key => key != "threshold"))
@@ -626,6 +652,9 @@ namespace MvcVisionSystem
             OnPropertyChanged(nameof(HasModels));
             OnPropertyChanged(nameof(MetricHeaders)); OnPropertyChanged(nameof(PrimaryMetricCaption)); OnPropertyChanged(nameof(MetricTableMinimumWidth)); OnPropertyChanged(nameof(IsLocalizationTask));
             OnPropertyChanged(nameof(SelectedVersion));
+            OnPropertyChanged(nameof(SelectedVersionChoice));
+            OnPropertyChanged(nameof(SelectedVersionLabel));
+            OnPropertyChanged(nameof(SelectionIdentityText));
             OnPropertyChanged(nameof(IsBusy));
         }
 
@@ -666,7 +695,7 @@ namespace MvcVisionSystem
             RefreshClassMetrics();
             ImageView.Refresh();
             SelectFirstShownImage();
-            foreach (string property in new[] { nameof(SelectedA), nameof(SelectedB), nameof(BaselineTitle), nameof(CandidateTitle), nameof(EvidenceText), nameof(HasComparablePair), nameof(HasImageReview), nameof(HasClassMetrics), nameof(ClassMetricCaption), nameof(BaselineMisses), nameof(CandidateMisses), nameof(BaselineExtras), nameof(CandidateExtras), nameof(BaselineTakt), nameof(CandidateTakt) }) OnPropertyChanged(property);
+            foreach (string property in new[] { nameof(SelectionIdentityText), nameof(SelectedA), nameof(SelectedB), nameof(BaselineTitle), nameof(CandidateTitle), nameof(EvidenceText), nameof(HasComparablePair), nameof(HasImageReview), nameof(HasClassMetrics), nameof(ClassMetricCaption), nameof(BaselineMisses), nameof(CandidateMisses), nameof(BaselineExtras), nameof(CandidateExtras), nameof(BaselineTakt), nameof(CandidateTakt) }) OnPropertyChanged(property);
             RefreshCommands();
         }
 
@@ -788,7 +817,21 @@ namespace MvcVisionSystem
         private static string FormatCount(int? value) => value?.ToString(CultureInfo.CurrentCulture) ?? "—";
         internal static string T(string key) => OpenVisionLanguageService.T("WpfComparisonWorkspace." + key);
         private static string Format(string key, params object[] values) => string.Format(CultureInfo.CurrentCulture, T(key), values);
-        private void OnLanguageChanged(object sender, EventArgs e) { foreach (ModelComparisonWorkspaceRow row in Models) { row.DecisionTestSummaryText = DescribeFixedTest(row); row.RefreshText(); } foreach (ModelComparisonImagePair image in Images) image.RefreshText(); if (!string.IsNullOrEmpty(statusKey)) status = Format(statusKey, statusArguments); RequestPreview(); OnPropertyChanged(string.Empty); }
+        private void RefreshVersionChoices()
+        {
+            bool previousRefreshing = refreshing;
+            refreshing = true;
+            try
+            {
+                VersionChoices.Clear();
+                foreach (string id in Versions) VersionChoices.Add(new KeyValuePair<string, string>(id, versionLabels.GetValueOrDefault(id)?.DisplayText ?? RecipeDatasetVersionPresentationService.MissingLabel));
+            }
+            finally { refreshing = previousRefreshing; }
+            OnPropertyChanged(nameof(SelectedVersion));
+            OnPropertyChanged(nameof(SelectedVersionChoice));
+        }
+
+        private void OnLanguageChanged(object sender, EventArgs e) { RefreshVersionChoices(); foreach (ModelComparisonWorkspaceRow row in Models) { row.DecisionTestSummaryText = DescribeFixedTest(row); row.RefreshText(); } foreach (ModelComparisonImagePair image in Images) image.RefreshText(); if (!string.IsNullOrEmpty(statusKey)) status = Format(statusKey, statusArguments); RequestPreview(); OnPropertyChanged(string.Empty); }
         public void Dispose()
         {
             if (disposed) return;
@@ -830,9 +873,11 @@ namespace MvcVisionSystem
         private readonly long? weightsSize;
         private readonly double? displaySizeMegabytes;
         private readonly string referenceVersion;
+        private readonly RecipeDatasetVersionPresentation versionLabel;
 
-        public ModelComparisonWorkspaceRow(WpfModelRegistryHistoryItem history, WpfModelBenchmarkRun run, string version, string contentHash, double confidence, IReadOnlyList<string> columns = null, long? weightsSizeBytes = null, double? displaySizeMegabytes = null)
+        public ModelComparisonWorkspaceRow(WpfModelRegistryHistoryItem history, WpfModelBenchmarkRun run, string version, string contentHash, double confidence, IReadOnlyList<string> columns = null, long? weightsSizeBytes = null, double? displaySizeMegabytes = null, RecipeDatasetVersionPresentation datasetVersionLabel = null)
         {
+            versionLabel = datasetVersionLabel;
             History = history;
             Run = run;
             metricKeys = columns ?? new[] { "map50", "map5095", "precision", "recall", "f1", "takt", "size", "trainingMinutes" };
@@ -858,13 +903,12 @@ namespace MvcVisionSystem
         public bool IsBestF1 => BestMetrics.Contains("f1");
         public bool IsBestTakt => BestMetrics.Contains("takt");
         public string RankText => Rank == 0 ? "—" : Rank.ToString(CultureInfo.CurrentCulture);
-        public string ModelName => (History.ModelEngine == PythonModelSettings.EnginePatchCore ? PythonModelSettings.EnginePatchCore : PythonModelSettings.FormatModelEngineName(History.ModelEngine))
-            + " · " + (string.IsNullOrEmpty(History.TrainingRunName) ? System.IO.Path.GetFileName(History.WeightsPath) : History.TrainingRunName);
+        public string ModelName => History.InferenceTitleText;
         public string ModelRole => History.IsConfiguredModelFallback
             ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Configured.Model")
             : History.IsCurrentInspectionModel ? ModelComparisonWorkspaceViewModel.T("CurrentModel") : ModelComparisonWorkspaceViewModel.T("TrainedModel");
-        public string VersionText => string.IsNullOrEmpty(Run?.DatasetVersionId) ? ModelComparisonWorkspaceViewModel.T("VersionMissing") : Run.DatasetVersionId.Length > 21 ? Run.DatasetVersionId[..21] + "…" : Run.DatasetVersionId;
-        public string VersionDetail => Run?.DatasetVersionId ?? ModelComparisonWorkspaceViewModel.T("VersionMissing");
+        public string VersionText => string.IsNullOrEmpty(Run?.DatasetVersionId) ? ModelComparisonWorkspaceViewModel.T("VersionMissing") : versionLabel?.DisplayText ?? RecipeDatasetVersionPresentationService.MissingLabel;
+        public string VersionDetail => VersionText + Environment.NewLine + (Run?.DatasetVersionId ?? string.Empty);
         public string ComparisonState => IsComparable ? ModelComparisonWorkspaceViewModel.T("SameVersion") : ModelComparisonWorkspaceViewModel.T("Reevaluate");
         public string VersionStateText => IsComparable ? string.Empty : Run != null && !string.IsNullOrWhiteSpace(Run.DatasetVersionId) && Run.DatasetVersionId != referenceVersion
             ? ModelComparisonWorkspaceViewModel.T("DifferentVersion") : ModelComparisonWorkspaceViewModel.T("Reevaluate");

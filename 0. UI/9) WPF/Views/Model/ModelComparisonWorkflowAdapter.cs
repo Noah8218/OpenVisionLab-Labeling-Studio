@@ -110,7 +110,8 @@ namespace MvcVisionSystem
             try { if (!data.ProjectSettings.ExternalYoloDataset.UseForTraining) version = RecipeDatasetVersionService.CreateSnapshot(data); }
             catch (Exception ex) when (ex is IOException || ex is InvalidDataException || ex is UnauthorizedAccessException || ex is ArgumentException || ex is NotSupportedException) { snapshotError = ex.Message; }
             Workspace.SetContext(models, reports, hashes, version?.DatasetVersionId, version?.ContentSha256, settings.ModelEngine, settings.ProjectRootPath,
-                settings.MinimumDetectionConfidence, LearningWorkflowViewModel?.IsRunModelComparisonEnabled == true, context.IsWorkspaceBusyProvider?.Invoke() == true, data.OutputRootPath, data.ProjectSettings.DatasetPurpose, sizes);
+                settings.MinimumDetectionConfidence, LearningWorkflowViewModel?.IsRunModelComparisonEnabled == true, context.IsWorkspaceBusyProvider?.Invoke() == true, data.OutputRootPath, data.ProjectSettings.DatasetPurpose, sizes,
+                RecipeDatasetVersionPresentationService.BuildLabels(context.ManifestPathProvider?.Invoke(), version));
             try { Workspace.SetDecisionRuleContext(data.ProjectSettings.ModelRegistry.TrainingRuns, data.ClassNamedList?.Select(item => item?.Text ?? string.Empty).ToArray(), RecipeDatasetVersionService.CreateDecisionReviewEvidenceSha256(data)); }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is InvalidDataException)
             {
@@ -1030,6 +1031,7 @@ namespace MvcVisionSystem
         internal Func<bool> IsWorkspaceBusyProvider { get; init; }
         internal Func<bool> IsApplicationCloseApproved { get; init; }
         internal Func<string> RepositoryRootProvider { get; init; }
+        internal Func<string> ManifestPathProvider { get; init; }
         internal Func<WpfModelRegistryHistoryItem, WpfModelBenchmarkRun, string, ModelCandidateLifecycleResult> AdoptWorkspaceModel { get; init; }
         internal Func<string, ModelCandidateLifecycleResult> UndoWorkspaceAdoption { get; init; }
         internal Dispatcher UiDispatcher { get; init; }

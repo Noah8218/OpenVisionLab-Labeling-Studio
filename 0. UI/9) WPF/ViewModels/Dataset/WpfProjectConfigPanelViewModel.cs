@@ -18,6 +18,7 @@ namespace MvcVisionSystem
         private string configPath = string.Empty;
         private string manifestPath = string.Empty;
         private string datasetVersionText = new RecipeDatasetVersionPresentation().VersionText;
+        private string datasetVersionDisplayText = new RecipeDatasetVersionPresentation().DisplayText;
         private string datasetVersionDetailText = new RecipeDatasetVersionPresentation().DetailText;
         private string statusText = OpenVisionLanguageService.T("WpfProjectConfig.Status.Initial");
         private string recipeRootPath = string.Empty;
@@ -129,6 +130,12 @@ namespace MvcVisionSystem
         {
             get => datasetVersionText;
             private set => SetProperty(ref datasetVersionText, value ?? string.Empty);
+        }
+
+        public string DatasetVersionDisplayText
+        {
+            get => datasetVersionDisplayText;
+            private set => SetProperty(ref datasetVersionDisplayText, value ?? string.Empty);
         }
 
         public string DatasetVersionDetailText
@@ -437,6 +444,7 @@ namespace MvcVisionSystem
         {
             presentation ??= new RecipeDatasetVersionPresentation();
             DatasetVersionText = presentation.VersionText;
+            DatasetVersionDisplayText = presentation.DisplayText;
             DatasetVersionDetailText = presentation.DetailText;
         }
 

@@ -26,28 +26,6 @@ jobs:
         run: |
           $requiredByFile = [ordered]@{
             'README.md' = @(
-              '## 지원 작업',
-              '## 작업 흐름',
-              '## AI는 후보만 만든다',
-              '## 작업별 상세',
-              '### 객체 탐지',
-              '### 세그멘테이션과 Smart Mask',
-              '### 이상 탐지',
-              '## 빠른 시작',
-              '## 설치·요구 사항',
-              '## 하나의 레시피, 여러 모델',
-              '## 개발자용',
-              '### 빌드 명령',
-              '### 실행',
-              '### 배포 검증',
-              '### 환경 점검 CLI',
-              '### CI',
-              '## 알려진 한계',
-              '## 버전',
-              '### 최근 버전 이력',
-              '## 라이선스'
-            )
-            'README.en.md' = @(
               '## Supported tasks',
               '## Workflow',
               '## AI proposes candidates',
@@ -55,19 +33,47 @@ jobs:
               '### Object detection',
               '### Segmentation and Smart Mask',
               '### Anomaly detection',
+              '## Try it in 3 steps',
               '## Quick start',
               '## Installation and requirements',
               '## One recipe, multiple models',
+              '## Build from source',
               '## For developers',
               '### Build Command',
               '### Running',
               '### Package verification',
               '### Environment check CLI',
               '### CI',
+              '## Documentation',
               '## Known Limitations',
               '## Version',
-              '### Recent version history',
+              '## Part of OpenVisionLab',
               '## License'
+            )
+            'README.ko.md' = @(
+              '## 지원 작업',
+              '## 작업 흐름',
+              '## AI는 후보만 만든다',
+              '## 작업별 상세',
+              '### 객체 탐지',
+              '### 세그멘테이션과 Smart Mask',
+              '### 이상 탐지',
+              '## 3단계로 시작하기',
+              '## 빠른 시작',
+              '## 설치·요구 사항',
+              '## 하나의 레시피, 여러 모델',
+              '## 소스에서 빌드',
+              '## 개발자용',
+              '### 빌드 명령',
+              '### 실행',
+              '### 배포 검증',
+              '### 환경 점검 CLI',
+              '### CI',
+              '## 문서',
+              '## 알려진 한계',
+              '## 버전',
+              '## OpenVisionLab 프로젝트',
+              '## 라이선스'
             )
           }
           foreach ($entry in $requiredByFile.GetEnumerator()) {
@@ -80,6 +86,21 @@ jobs:
           }
           if (-not (Test-Path RELEASE_NOTES.md)) {
             throw "RELEASE_NOTES.md is missing"
+          }
+          [xml]$props = Get-Content Directory.Build.props -Raw
+          $version = [string]$props.Project.PropertyGroup.VersionPrefix
+          $notes = Get-Content RELEASE_NOTES.md -Raw -Encoding UTF8
+          foreach ($requiredVersion in @($version) + @('0.3.7', '0.3.6', '0.3.5', '0.3.4', '0.3.3', '0.3.2', '0.3.1', '0.3.0', '0.2.1', '0.2.0')) {
+            if ($notes -notmatch ('(?m)^## ' + [regex]::Escape($requiredVersion) + '(?:\s|$)')) {
+              throw "RELEASE_NOTES.md is missing version $requiredVersion"
+            }
+          }
+          foreach ($readmePath in $requiredByFile.Keys) {
+            $readme = Get-Content -LiteralPath $readmePath -Raw -Encoding UTF8
+            if (-not $readme.Contains("**$version**")) { throw "$readmePath does not identify product version $version" }
+          }
+          foreach ($guidePath in @('docs/tutorial/BUILD_AND_RUNTIME.md', 'docs/tutorial/README.md')) {
+            if (-not (Test-Path -LiteralPath $guidePath -PathType Leaf)) { throw "Missing user guide: $guidePath" }
           }
 
       - name: Resolve product version

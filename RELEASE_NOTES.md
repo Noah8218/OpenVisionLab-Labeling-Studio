@@ -1,5 +1,14 @@
 # Release Notes
 
+## 0.3.8 — 2026-10-26
+
+- Show readable dataset version names and model roles across dataset, training, and model comparison screens, with explicit version and run identifiers available in details.
+- Keep model comparison selections stable while refreshing version lists and retain table headings while scrolling.
+- Align labeling and model-workflow terminology, queue saved-count hints, and dataset setup layout with the current application.
+- Preserve training run identity, inference-model selection, and Smart Mask/canvas state handling.
+- Align the English/Korean README and public build/runtime guidance with this product version while preserving the approved structure, media, limitations, and earlier release history.
+- Existing Recipe, annotation, dataset, and integration formats remain compatible.
+
 ## 0.3.7 — 2026-10-26
 
 - Reorganize the Korean and English README around supported tasks, the operator workflow, quick start, source builds, and known limitations.

@@ -99,6 +99,7 @@ namespace MvcVisionSystem
         public string Status => status;
         public string PendingWeightsPath => runtime?.PendingQueueCandidateWeightsPath ?? string.Empty;
         public string VersionText => context?.DatasetVersionId ?? "—";
+        public string VersionDisplayText => context == null ? "—" : context.VersionLabels?.GetValueOrDefault(VersionText)?.DisplayText ?? RecipeDatasetVersionPresentationService.MissingLabel;
         public string RecipeName => context?.RecipeName ?? "—";
         public string InspectionModelName => context?.InspectionModelName ?? T("NoModel");
         public string InspectionModelBadgeText => context?.InspectionModelCaptionKey == "WpfTrainingWorkspace.InspectionModel" && !string.IsNullOrWhiteSpace(context.InspectionModelName)
@@ -290,7 +291,7 @@ namespace MvcVisionSystem
             {
                 nameof(IsBusy), nameof(IsPreparing), nameof(CanEdit), nameof(CanStart), nameof(CanStop), nameof(CanRetrySave), nameof(CanRepeat), nameof(CanOpenResult),
                 nameof(CompletedRunCount), nameof(HasCompletedRuns), nameof(IsFormVisible), nameof(IsLiveVisible), nameof(IsDetailVisible), nameof(HasHistory), nameof(HasQueue), nameof(HasStatus), nameof(HasWarnings),
-                nameof(HasValidationError), nameof(ValidationError), nameof(Status), nameof(PendingWeightsPath), nameof(VersionText), nameof(RecipeName), nameof(InspectionModelName), nameof(InspectionModelBadgeText), nameof(InspectionModelCaption), nameof(EnvironmentText),
+                nameof(HasValidationError), nameof(ValidationError), nameof(Status), nameof(PendingWeightsPath), nameof(VersionText), nameof(VersionDisplayText), nameof(RecipeName), nameof(InspectionModelName), nameof(InspectionModelBadgeText), nameof(InspectionModelCaption), nameof(EnvironmentText),
                 nameof(HistoryCountText), nameof(InputCountText), nameof(ExcludedText), nameof(SavedInputText), nameof(SelectedCountText), nameof(StartText),
                 nameof(LiveCountText), nameof(LiveModelText), nameof(LiveLogText), nameof(LiveMetrics), nameof(LiveMetricEpochs), nameof(LiveValidationCaption),
                 nameof(SelectedRun), nameof(OnlyReviewed), nameof(EpochsText), nameof(ImageSizeText), nameof(BatchSizeText)
@@ -340,7 +341,7 @@ namespace MvcVisionSystem
 
     internal sealed record TrainingWorkspaceContext(string RecipeIdentity, string RecipeName, LabelingDatasetPurpose Purpose, string DatasetVersionId, string DatasetContentSha256,
         IReadOnlyList<TrainingDatasetImageSelection> Images, IReadOnlyList<string> ClassNames, IReadOnlyDictionary<string, int> ClassCounts, IReadOnlyDictionary<string, int> ReviewedClassCounts,
-        IReadOnlyList<TrainingModelChoice> Models, IReadOnlyList<TrainingHistoryItem> History, string InspectionModelName, string EnvironmentText, string InspectionModelCaptionKey = "WpfTrainingWorkspace.InspectionModel");
+        IReadOnlyList<TrainingModelChoice> Models, IReadOnlyList<TrainingHistoryItem> History, string InspectionModelName, string EnvironmentText, string InspectionModelCaptionKey = "WpfTrainingWorkspace.InspectionModel", IReadOnlyDictionary<string, RecipeDatasetVersionPresentation> VersionLabels = null);
 
     public sealed class TrainingModelChoice : WpfObservableViewModel
     {
@@ -366,21 +367,27 @@ namespace MvcVisionSystem
         private bool isSelected;
         private readonly LabelingDatasetPurpose purpose;
         private readonly ModelComparisonWorkspaceRow evaluation;
-        internal TrainingHistoryItem(WpfModelRegistryHistoryItem history, TrainingRun run, string name, LabelingDatasetPurpose task = LabelingDatasetPurpose.ObjectDetection, WpfModelBenchmarkRun report = null)
+        private readonly RecipeDatasetVersionPresentation versionLabel;
+        private readonly string runName;
+        private readonly string modelId;
+        internal TrainingHistoryItem(WpfModelRegistryHistoryItem history, TrainingRun run, string name, LabelingDatasetPurpose task = LabelingDatasetPurpose.ObjectDetection, WpfModelBenchmarkRun report = null, RecipeDatasetVersionPresentation datasetVersionLabel = null)
         {
-            History = history; Parameters = run?.Parameters?.Copy(); Name = name; EventUtc = run?.EventUtc ?? string.Empty; purpose = task;
+            History = history; Parameters = run?.Parameters?.Copy(); EventUtc = run?.EventUtc ?? string.Empty; purpose = task;
+            runName = string.IsNullOrEmpty(run?.RunName) ? name : run.RunName; modelId = run?.Parameters?.ModelId; versionLabel = datasetVersionLabel;
             var row = new ModelComparisonWorkspaceRow(history, report, run?.DatasetVersionId, run?.DatasetContentSha256, report?.Confidence ?? double.NaN, MetricKeys);
             evaluation = row.IsComparable && report.SourceSha256.Length == 64 ? row : new ModelComparisonWorkspaceRow(history, null, run?.DatasetVersionId, run?.DatasetContentSha256, double.NaN, MetricKeys);
         }
         internal WpfModelRegistryHistoryItem History { get; }
         internal TrainingRunParameters Parameters { get; }
-        public string Name { get; }
+        public string Name => ModelRegistryTextPresentationService.FormatModelCaption(History.ModelEngine, runName, EventUtc, History.WeightsPath, modelId, trainingRunId: History.TrainingRunId);
         private string EventUtc { get; }
         public bool IsSelected { get => isSelected; internal set => SetProperty(ref isSelected, value); }
         public bool IsInspectionModel => History.IsCurrentInspectionModel;
         private string DateText => DateTime.TryParse(EventUtc, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out DateTime date) ? date.ToLocalTime().ToString("MM-dd", CultureInfo.CurrentCulture) : "—";
         public string RoleText => IsInspectionModel ? TrainingWorkspaceViewModel.T("InspectionModel") : DateText;
         public string VersionText => History.DatasetVersionId.Length == 0 ? "—" : History.DatasetVersionId;
+        public string VersionDisplayText => versionLabel?.DisplayText ?? RecipeDatasetVersionPresentationService.MissingLabel;
+        public string IdentityText => History.DatasetVersionId + Environment.NewLine + History.TrainingRunId;
         private IReadOnlyList<string> MetricKeys => purpose switch
         {
             LabelingDatasetPurpose.Segmentation => new[] { "miou", "dice", "map50", "takt" },
@@ -390,11 +397,11 @@ namespace MvcVisionSystem
         public IReadOnlyList<ModelComparisonMetricCell> MetricCells => evaluation.MetricCells.Select(cell => new ModelComparisonMetricCell(cell.Key, cell.Text, false, purpose)).ToArray();
         public double MetricCardsMinimumWidth => MetricKeys.Count * (130 + 12);
         public string MetricText => evaluation.PrimaryMetricText;
-        public string SummaryText => VersionText + " · " + ModelComparisonWorkspaceViewModel.FormatMetricCaption(MetricKeys[0], purpose) + " " + MetricText;
-        public string SettingsText => TrainingWorkspaceViewModel.F("RunSettings", VersionText, DateText, Parameters?.Epochs.ToString() ?? "—", Parameters?.ImageSize.ToString() ?? "—", Parameters?.BatchSize.ToString() ?? "—");
+        public string SummaryText => VersionDisplayText + " · " + ModelComparisonWorkspaceViewModel.FormatMetricCaption(MetricKeys[0], purpose) + " " + MetricText;
+        public string SettingsText => TrainingWorkspaceViewModel.F("RunSettings", VersionDisplayText, DateText, Parameters?.Epochs.ToString() ?? "—", Parameters?.ImageSize.ToString() ?? "—", Parameters?.BatchSize.ToString() ?? "—");
         public string DurationText => Parameters?.DurationSeconds is double duration && double.IsFinite(duration) && duration >= 0 ? TrainingWorkspaceViewModel.F("DurationMinutes", duration / 60) : "—";
-        public string EvaluationNote => evaluation.Run != null ? TrainingWorkspaceViewModel.F("VerifiedEvaluation", evaluation.Run.DatasetVersionId, evaluation.Run.EvidenceCount) : TrainingWorkspaceViewModel.T("EvaluationPending");
-        internal void RefreshText() { foreach (string name in new[] { nameof(RoleText), nameof(MetricText), nameof(MetricCells), nameof(SummaryText), nameof(SettingsText), nameof(DurationText), nameof(EvaluationNote) }) OnPropertyChanged(name); }
+        public string EvaluationNote => evaluation.Run != null ? TrainingWorkspaceViewModel.F("VerifiedEvaluation", VersionDisplayText, evaluation.Run.EvidenceCount) : TrainingWorkspaceViewModel.T("EvaluationPending");
+        internal void RefreshText() { foreach (string name in new[] { nameof(Name), nameof(VersionDisplayText), nameof(RoleText), nameof(MetricText), nameof(MetricCells), nameof(SummaryText), nameof(SettingsText), nameof(DurationText), nameof(EvaluationNote) }) OnPropertyChanged(name); }
     }
 
     public sealed class TrainingQueueRow : WpfObservableViewModel

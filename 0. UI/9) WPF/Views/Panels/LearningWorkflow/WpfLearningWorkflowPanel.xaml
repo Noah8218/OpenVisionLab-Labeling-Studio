@@ -1385,15 +1385,6 @@
                                FontWeight="SemiBold"
                                TextWrapping="Wrap"
                                Margin="0,4,0,1" />
-                    <TextBlock x:Name="FirstRunChecklistSummaryText"
-                               AutomationProperties.AutomationId="FirstRunChecklistSummaryText"
-                               Text="{Binding FirstRunChecklistSummaryText}"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="{DynamicResource UiFontFamily}"
-                               FontSize="9"
-                               LineHeight="11"
-                               TextWrapping="Wrap"
-                               Margin="0,0,0,4" />
                     <ItemsControl x:Name="FirstRunChecklistItemsControl"
                                   AutomationProperties.AutomationId="FirstRunChecklistItemsControl"
                                   ItemsSource="{Binding FirstRunChecklistItems}"

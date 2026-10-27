@@ -250,7 +250,7 @@
                             <StackPanel Visibility="{Binding IsDetailsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <StackPanel Margin="0,16,0,0" Visibility="{Binding IsImport, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <TextBlock Text="{Binding [WpfDatasetInterchange.Label.ImportSplit], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource InterchangeLabelStyle}" />
-                                    <ComboBox ItemsSource="{Binding Splits}" SelectedItem="{Binding TargetSplit}" AutomationProperties.Name="{Binding [WpfDatasetInterchange.Label.ImportSplitTarget], Source={x:Static local:WpfLocalizationViewModel.Instance}}" />
+                                    <ComboBox ItemsSource="{Binding SplitChoices}" DisplayMemberPath="Text" SelectedValuePath="Key" SelectedValue="{Binding TargetSplit, Mode=TwoWay}" AutomationProperties.Name="{Binding [WpfDatasetInterchange.Label.ImportSplitTarget], Source={x:Static local:WpfLocalizationViewModel.Instance}}" />
                                 </StackPanel>
                             </StackPanel>
                             <Border Background="{DynamicResource RecipePageBrush}" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1" CornerRadius="7" Padding="12" Margin="0,16,0,0" Visibility="{Binding IsDetailsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">

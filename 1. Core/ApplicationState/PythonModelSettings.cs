@@ -103,6 +103,9 @@ namespace MvcVisionSystem
                 EngineYoloV5 => "YOLOv5",
                 EngineYoloV8 => "YOLOv8",
                 EngineYolo11 => "YOLO11",
+                EngineUnet => "U-Net",
+                EnginePatchCore => "PatchCore",
+                EngineOnnx => "ONNX",
                 _ => "YOLO"
             };
         }

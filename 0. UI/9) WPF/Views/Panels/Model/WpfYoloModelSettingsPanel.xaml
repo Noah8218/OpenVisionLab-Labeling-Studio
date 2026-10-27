@@ -47,7 +47,7 @@
                 <Setter Property="FontSize" Value="13" />
                 <Setter Property="Padding" Value="8,4" />
                 <Setter Property="VerticalContentAlignment" Value="Center" />
-                <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+                <Setter Property="HorizontalScrollBarVisibility" Value="Hidden" />
                 <Setter Property="Validation.ErrorTemplate" Value="{x:Null}" />
                 <Setter Property="Margin" Value="0,5,0,0" />
                 <Style.Triggers>
@@ -271,6 +271,7 @@
                          Style="{StaticResource YoloModelTextBoxStyle}"
                          Text="{Binding PythonExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          ToolTip="{Binding PythonExecutablePath}" /><ui:Button Grid.Column="1" x:Name="BrowseYoloPythonButton"
+                           Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}"
                            Style="{StaticResource YoloModelBrowseButtonStyle}"
                            IsEnabled="{Binding IsBrowsePythonEnabled}"
                            ToolTip="&#xCD94;&#xB860; &#xC2E4;&#xD589; &#xD30C;&#xC77C; &#xC120;&#xD0DD;"
@@ -280,6 +281,7 @@
                          Style="{StaticResource YoloModelTextBoxStyle}"
                          Text="{Binding ProjectRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          ToolTip="{Binding ProjectRootPath}" /><ui:Button Grid.Column="1" x:Name="BrowseYoloProjectRootButton"
+                           Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}"
                            Style="{StaticResource YoloModelBrowseButtonStyle}"
                            IsEnabled="{Binding IsBrowseProjectRootEnabled}"
                            ToolTip="&#xBAA8;&#xB378; &#xC2E4;&#xD589; &#xD658;&#xACBD; &#xD3F4;&#xB354; &#xC120;&#xD0DD;"
@@ -289,6 +291,7 @@
                          Style="{StaticResource YoloModelTextBoxStyle}"
                          Text="{Binding ClientScriptPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          ToolTip="{Binding ClientScriptPath}" /><ui:Button Grid.Column="1" x:Name="BrowseYoloClientScriptButton"
+                           Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}"
                            Style="{StaticResource YoloModelBrowseButtonStyle}"
                            IsEnabled="{Binding IsBrowseClientScriptEnabled}"
                            ToolTip="&#xBAA8;&#xB378; &#xD1B5;&#xC2E0; &#xC2A4;&#xD06C;&#xB9BD;&#xD2B8; &#xC120;&#xD0DD;"

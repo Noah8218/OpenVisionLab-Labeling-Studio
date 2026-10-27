@@ -16,6 +16,10 @@ namespace MvcVisionSystem
 
         public string TrainingRunName { get; set; } = string.Empty;
 
+        public string TrainingModelId { get; set; } = string.Empty;
+
+        public string TrainingEventUtc { get; set; } = string.Empty;
+
         public string DatasetVersionId { get; set; } = string.Empty;
 
         public string DatasetContentSha256 { get; set; } = string.Empty;
@@ -39,7 +43,8 @@ namespace MvcVisionSystem
         public string KindText { get => IsConfiguredModelFallback ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Configured.Model") : kindText; set => kindText = value; }
 
         public string TitleText { get => IsConfiguredModelFallback ? $"{OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Configured.Model")}: {ModelRegistryTextPresentationService.FormatModelPath(WeightsPath)}" : titleText; set => titleText = value; }
-        public string InferenceTitleText => string.IsNullOrWhiteSpace(ModelEngine) ? TitleText : $"{ModelEngine} · {(!string.IsNullOrWhiteSpace(TrainingRunName) ? TrainingRunName : Path.GetFileName(WeightsPath))}";
+        public string InferenceTitleText => string.IsNullOrWhiteSpace(ModelEngine) ? TitleText
+            : ModelRegistryTextPresentationService.FormatModelCaption(ModelEngine, TrainingRunName, TrainingEventUtc, WeightsPath, TrainingModelId, !IsConfiguredModelFallback, TrainingRunId);
 
         public string DetailText { get => IsConfiguredModelFallback ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Configured.Detail") : detailText; set => detailText = value; }
 
@@ -62,6 +67,7 @@ namespace MvcVisionSystem
         public void RefreshLocalizedPresentation()
         {
             OnPropertyChanged(nameof(InferenceBadgeText));
+            OnPropertyChanged(nameof(InferenceTitleText));
             if (!IsConfiguredModelFallback) return;
             foreach (string property in new[] { nameof(KindText), nameof(TitleText), nameof(InferenceTitleText), nameof(DetailText), nameof(DecisionText), nameof(ActionText), nameof(ActionToolTip) }) OnPropertyChanged(property);
         }

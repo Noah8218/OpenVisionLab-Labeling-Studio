@@ -535,6 +535,7 @@ namespace MvcVisionSystem
                     IsInferenceStageActiveProvider = () => ShellViewModel?.IsInferenceStageActive == true,
                     IsComparisonStageActiveProvider = () => ShellViewModel?.IsModelComparisonStageActive == true,
                     WorkspaceViewModelProvider = () => viewModels.ModelComparisonWorkspaceViewModel,
+                    ManifestPathProvider = () => viewModels.ProjectConfigViewModel.ManifestPath,
                     IsWorkspaceBusyProvider = IsWorkflowOperationRunning,
                     IsApplicationCloseApproved = () => isApplicationCloseApproved,
                     RepositoryRootProvider = () => ModelBenchmarkCatalogService.FindRepositoryRoot(),

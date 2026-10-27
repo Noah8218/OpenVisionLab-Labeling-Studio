@@ -121,7 +121,10 @@
                                 </Button>
                                 <TextBlock Style="{StaticResource DatasetSectionTitleStyle}" Text="{Binding LanguageViewModel[WpfDatasetWorkspace.Source]}" Foreground="{DynamicResource RecipeMutedTextBrush}" Margin="0" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" />
                             </DockPanel>
-                            <TextBlock Text="{Binding DatasetWorkspaceViewModel.SourceRoot}" FontSize="12" TextWrapping="Wrap" Margin="0" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" />
+                            <TextBlock x:Name="DatasetSourceRootText" Text="{Binding DatasetWorkspaceViewModel.SourceRootDisplayText}" ToolTip="{Binding DatasetWorkspaceViewModel.SourceRoot}" FontSize="12" TextTrimming="CharacterEllipsis" Margin="0" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" />
+                            <Expander x:Name="DatasetSourceRootDetails" Style="{StaticResource DatasetExpanderStyle}" Header="{Binding LanguageViewModel[WpfRecipeLibrary.RecipeLocationsTitleText]}" Margin="0,4,0,0">
+                                <TextBox x:Name="DatasetSourceRootDetailsBox" Style="{StaticResource RecipeInputStyle}" IsReadOnly="True" Text="{Binding DatasetWorkspaceViewModel.SourceRoot, Mode=OneWay}" TextWrapping="Wrap" MaxHeight="120" VerticalScrollBarVisibility="Auto" />
+                            </Expander>
                             <TextBlock Style="{StaticResource DatasetCaptionStyle}" Text="{Binding DatasetWorkspaceViewModel.SourceSummaryText}" Margin="0" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" />
                         </StackPanel>
                     </Border>
@@ -168,9 +171,12 @@
                         <StackPanel>
                             <TextBlock Style="{StaticResource DatasetSectionTitleStyle}" Text="{Binding LanguageViewModel[WpfDatasetWorkspace.Version]}" />
                             <Border Background="{DynamicResource RecipeSelectedBrush}" BorderBrush="{DynamicResource RecipeSelectedBorderBrush}" BorderThickness="1" SizeChanged="OnDatasetVersionBadgeSizeChanged" Padding="8,1" HorizontalAlignment="Left">
-                                <TextBlock Text="{Binding ProjectConfigViewModel.DatasetVersionText}" FontFamily="{DynamicResource UiFontFamily}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Foreground="#B9D3FF" Typography.NumeralAlignment="Tabular" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding ProjectConfigViewModel.DatasetVersionDisplayText}" FontFamily="{DynamicResource UiFontFamily}" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Foreground="#B9D3FF" Typography.NumeralAlignment="Tabular" TextWrapping="Wrap" />
                             </Border>
                             <TextBlock Style="{StaticResource DatasetCaptionStyle}" Text="{Binding LanguageViewModel[WpfDatasetWorkspace.VersionHint]}" Foreground="{DynamicResource RecipeDisabledTextBrush}" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Margin="0,6,0,0" />
+                            <Expander x:Name="DatasetVersionIdentityDetails" Style="{StaticResource DatasetExpanderStyle}" Header="{Binding LanguageViewModel[WpfDatasetVersion.IdentityDetails]}" Margin="0,6,0,0">
+                                <TextBox Style="{StaticResource RecipeInputStyle}" IsReadOnly="True" Text="{Binding ProjectConfigViewModel.DatasetVersionText, Mode=OneWay}" TextWrapping="Wrap" />
+                            </Expander>
                         </StackPanel>
                     </Border>
                 </StackPanel>

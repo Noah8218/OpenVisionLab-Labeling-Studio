@@ -182,7 +182,7 @@ namespace MvcVisionSystem
             string titlePrefix = candidate.IsCurrentInspectionModel
                 ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Current.Kind")
                 : OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Trained.Label");
-            string modelPath = ModelRegistryTextPresentationService.FormatModelPath(candidate.WeightsPath);
+            string modelCaption = ModelRegistryTextPresentationService.FormatModelCaption(profile?.ModelEngine, run?.RunName, run?.EventUtc, candidate.WeightsPath, run?.Parameters?.ModelId, trainingRunId: run?.TrainingRunId);
             string profileText = string.IsNullOrWhiteSpace(profile?.DisplayName)
                 ? OpenVisionLab.OpenVisionLanguageService.T("WpfModelRegistry.History.Profile.Unknown")
                 : profile.DisplayName;
@@ -231,6 +231,8 @@ namespace MvcVisionSystem
                 ProfileId = candidate.ProfileId ?? string.Empty,
                 TrainingRunId = candidate.TrainingRunId ?? string.Empty,
                 TrainingRunName = run?.RunName ?? string.Empty,
+                TrainingModelId = run?.Parameters?.ModelId ?? string.Empty,
+                TrainingEventUtc = run?.EventUtc ?? string.Empty,
                 DatasetVersionId = run?.DatasetVersionId ?? string.Empty,
                 DatasetContentSha256 = run?.DatasetContentSha256 ?? string.Empty,
                 WeightsPath = candidate.WeightsPath ?? string.Empty,
@@ -242,7 +244,7 @@ namespace MvcVisionSystem
                 ArtifactStatus = candidate.ArtifactStatus ?? string.Empty,
                 BaselineWeightsPath = candidate.BaselineWeightsPath ?? string.Empty,
                 KindText = titlePrefix,
-                TitleText = $"{titlePrefix}: {modelPath}",
+                TitleText = $"{titlePrefix}: {modelCaption}",
                 DetailText = $"{profileText} / {runText}{datasetVersionText}{baselineText}",
                 MetricText = metrics,
                 DecisionText = candidate.IsCurrentInspectionModel

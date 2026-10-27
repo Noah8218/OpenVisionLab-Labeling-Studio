@@ -52,6 +52,7 @@ namespace MvcVisionSystem
                 if (!data.ProjectSettings.ExternalYoloDataset.UseForTraining) version = RecipeDatasetVersionService.CreateSnapshot(data);
             }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { failure = error.Message; }
+            IReadOnlyDictionary<string, RecipeDatasetVersionPresentation> versionLabels = RecipeDatasetVersionPresentationService.BuildLabels(context.ViewModels.ProjectConfigViewModel.ManifestPath, version);
             IReadOnlyList<TrainingModelChoice> models = BuildModels(data.ProjectSettings.DatasetPurpose, data.ProjectSettings.PythonModel, context.StatusProvider(), context.RuntimeStateProvider()?.CanRunTraining == true);
             IReadOnlyList<WpfModelRegistryHistoryItem> history = ModelRegistryHistoryPresentationService.BuildHistoryItems(data.ProjectSettings.ModelRegistry, int.MaxValue);
             IReadOnlyList<WpfModelBenchmarkRun> reports = new ModelBenchmarkCatalogService().Load(context.RepositoryRootProvider?.Invoke() ?? ModelBenchmarkCatalogService.FindRepositoryRoot());
@@ -60,7 +61,7 @@ namespace MvcVisionSystem
             {
                 WpfModelRegistryHistoryItem item = history.FirstOrDefault(row => row.TrainingRunId == run.TrainingRunId);
                 string name = models.FirstOrDefault(model => model.ModelId == run.Parameters?.ModelId)?.Name ?? run.RunName;
-                return item == null ? null : BuildHistoryItem(item, run, name, data.ProjectSettings.DatasetPurpose, reports);
+                return item == null ? null : BuildHistoryItem(item, run, name, data.ProjectSettings.DatasetPurpose, reports, versionLabels.GetValueOrDefault(run.DatasetVersionId));
             }).Where(item => item != null).ToArray();
             string engine = PythonModelSettings.NormalizeModelEngine(data.ProjectSettings.PythonModel.ModelEngine);
             string environment = TrainingWorkspaceViewModel.F(context.StatusProvider().IsClientConnected ? "EnvironmentReady" : "EnvironmentDisconnected", engine);
@@ -69,12 +70,12 @@ namespace MvcVisionSystem
             Workspace.SetContext(new TrainingWorkspaceContext(data.OutputRootPath + "|" + context.RecipeNameProvider(), context.RecipeNameProvider(), data.ProjectSettings.DatasetPurpose,
                 version?.DatasetVersionId ?? "—", version?.ContentSha256 ?? string.Empty, images, data.ClassNamedList.Where(item => item != null).Select(item => item.Text).ToArray(),
                 YoloDatasetStatisticsService.BuildClassObjectCounts(data, imageNames: names), YoloDatasetStatisticsService.BuildClassObjectCounts(data, imageNames: reviewed), models, records,
-                Path.GetFileName(data.ProjectSettings.PythonModel.WeightsPath), environment,
-                history.Any(item => item.IsCurrentInspectionModel) ? "WpfTrainingWorkspace.InspectionModel" : "WpfModelRegistry.History.Configured.Model"));
+                history.FirstOrDefault(item => item.IsCurrentInspectionModel)?.InferenceTitleText ?? Path.GetFileName(data.ProjectSettings.PythonModel.WeightsPath), environment,
+                history.Any(item => item.IsCurrentInspectionModel) ? "WpfTrainingWorkspace.InspectionModel" : "WpfModelRegistry.History.Configured.Model", versionLabels));
             Workspace.SetSnapshotError(failure);
         }
 
-        internal static TrainingHistoryItem BuildHistoryItem(WpfModelRegistryHistoryItem history, TrainingRun run, string name, LabelingDatasetPurpose purpose, IReadOnlyList<WpfModelBenchmarkRun> reports)
+        internal static TrainingHistoryItem BuildHistoryItem(WpfModelRegistryHistoryItem history, TrainingRun run, string name, LabelingDatasetPurpose purpose, IReadOnlyList<WpfModelBenchmarkRun> reports, RecipeDatasetVersionPresentation versionLabel = null)
         {
             string task = purpose switch { LabelingDatasetPurpose.Segmentation => "segmentation", LabelingDatasetPurpose.AnomalyDetection => "anomaly-classification", _ => "object-detection" };
             string path = File.Exists(history.WeightsPath) ? history.WeightsPath : history.ArtifactPath;
@@ -85,7 +86,7 @@ namespace MvcVisionSystem
                     && (ModelComparisonWorkspaceViewModel.SamePath(history.WeightsPath, report.WeightsPath) || ModelComparisonWorkspaceViewModel.SamePath(history.ArtifactPath, report.WeightsPath)))
                     .OrderByDescending(report => report.CreatedAt).FirstOrDefault();
             if (evaluation != null && !ModelArtifactStoreService.Verify(evaluation.SourcePath, evaluation.SourceSha256)) evaluation = null;
-            return new TrainingHistoryItem(history, run, name, purpose, evaluation);
+            return new TrainingHistoryItem(history, run, name, purpose, evaluation, versionLabel);
         }
 
         private IReadOnlyList<TrainingDatasetImageSelection> CaptureImages()
