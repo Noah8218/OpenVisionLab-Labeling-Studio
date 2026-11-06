@@ -57,7 +57,28 @@ Sample information: `datasets/object-detection/coco128/coco128/README.txt`; [Pyt
 
 The launcher reads `config/labeling-runtime.local.json` when present and otherwise uses [config/labeling-runtime.example.json](../../config/labeling-runtime.example.json). Set personal paths in the uncommitted local file.
 
-The example's `labelingApp.publishExecutable` still names a `0.1.0` folder. Before using `-AppMode Publish`, point the local setting to the versioned bundle you actually built. The Debug example points to `artifacts/run/Debug/OpenVisionLab.LabelingStudio.exe`. The `-StartYolo` and `-StartPythonUi` switches start the YOLO runtime and Python UI, respectively. `-CheckYolo` runs the configured Python client with `--smoke-test` before launching the app; missing prerequisites or a failed check stop the launch.
+The example's `labelingApp.publishExecutable` uses `${productVersion}`, resolved from `Directory.Build.props`. The default Publish commands therefore work without a local configuration file. The Debug example points to `artifacts/run/Debug/OpenVisionLab.LabelingStudio.exe`. An explicit `-ConfigPath` wins over the local file, and the local file wins over the example. A custom `-ReleaseVersion` or bundle location requires an explicit configuration naming that exact bundle; the launcher never picks the greatest directory name or rewrites personal settings. Use `-AppMode Publish -CheckOnly` to print the resolved existing EXE without starting the app, Python, or model checks. Missing bundles fail with the expected path and publish command. The `-StartYolo` and `-StartPythonUi` switches start the YOLO runtime and Python UI, respectively. `-CheckYolo` runs the configured Python client with `--smoke-test` before launching the app; missing prerequisites or a failed check stop the launch.
+
+## Writable storage and focused checks
+
+Published bundles store recipe catalogs and default DATA under the existing
+current-user application-data root, keeping the package payload unchanged.
+`OPENVISIONLAB_LABELING_APP_DATA_ROOT` selects a separate profile; explicit
+dataset output remains authoritative. Ordinary source builds without this
+override retain their existing install-local recipe location. Existing catalogs
+are not moved or imported automatically; use the explicit recipe import workflow.
+Windows file-dialog history is shared by the account even when app profiles differ.
+
+Run the small launcher path regression from the repository root:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-LabelingWorkbenchLauncher.ps1
+```
+
+It uses disposable path fixtures and does not launch executable fixtures. For an
+actual package, verify the manifests again after normal GUI use and exit. Keep
+JSON `status` and warning counts from the environment CLI with its exit code;
+headless graphics warnings do not establish viewer or model readiness.
 
 ## Limitations
 

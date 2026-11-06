@@ -113,6 +113,14 @@ jobs:
           }
           "PRODUCT_VERSION=$version" >> $env:GITHUB_ENV
 
+      - name: Build documented solution
+        shell: pwsh
+        run: dotnet build .\OpenVisionLab.LabelingStudio.sln -c Debug -p:Platform=x64
+
+      - name: Verify launcher path resolution
+        shell: powershell
+        run: .\scripts\Test-LabelingWorkbenchLauncher.ps1
+
       - name: Build application
         shell: pwsh
         run: dotnet build .\OpenVisionLab.LabelingStudio.csproj -c Release -p:Platform=x64 -m:1 -nr:false /p:UseSharedCompilation=false

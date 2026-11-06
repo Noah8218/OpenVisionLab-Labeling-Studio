@@ -4,10 +4,15 @@ param(
     [string]$AppMode = "Debug",
     [switch]$StartYolo,
     [switch]$StartPythonUi,
-    [switch]$CheckYolo
+    [switch]$CheckYolo,
+    [switch]$CheckOnly
 )
 
 $ErrorActionPreference = "Stop"
+
+if ($CheckOnly -and ($StartYolo -or $StartPythonUi -or $CheckYolo)) {
+    throw "-CheckOnly cannot be combined with runtime start or YOLO check switches."
+}
 
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptRoot
@@ -45,6 +50,14 @@ function Expand-PathTokens([string]$Path) {
     $repoParent = Split-Path -Parent $repoRoot
     $expanded = $Path.Replace('${repoRoot}', $repoRoot)
     $expanded = $expanded.Replace('${repoParent}', $repoParent)
+    if ($expanded.Contains('${productVersion}')) {
+        [xml]$buildProps = Get-Content -LiteralPath (Join-Path $repoRoot 'Directory.Build.props') -Raw -Encoding UTF8
+        $productVersion = [string]$buildProps.Project.PropertyGroup.VersionPrefix
+        if ($productVersion -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Directory.Build.props must define a numeric VersionPrefix for the publish path: '$productVersion'"
+        }
+        $expanded = $expanded.Replace('${productVersion}', $productVersion)
+    }
     return $expanded
 }
 
@@ -222,6 +235,18 @@ $appPath = if ($AppMode -eq "Publish") {
 }
 else {
     Resolve-RepoPath $config.labelingApp.debugExecutable
+}
+
+if ([string]::IsNullOrWhiteSpace($appPath) -or -not (Test-Path -LiteralPath $appPath -PathType Leaf)) {
+    if ($AppMode -eq 'Publish') {
+        throw "Published app not found: '$appPath'. Run scripts\publish-win-x64.ps1 -Configuration Release, or set labelingApp.publishExecutable in '$ConfigPath' to the exact bundle you built."
+    }
+    throw "Debug app not found: '$appPath'. Build OpenVisionLab.LabelingStudio.sln -c Debug -p:Platform=x64 first."
+}
+
+if ($CheckOnly) {
+    Write-Output $appPath
+    return
 }
 
 if ($StartYolo) {

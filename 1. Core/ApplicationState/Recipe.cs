@@ -32,8 +32,6 @@ namespace MvcVisionSystem
         //[XmlArray("HeadUseInfos")]
         //[XmlArrayItem("HeadUseInfo")]
 
-        [XmlIgnore] private const string RECIPE_DIRECTORY = "RECIPE";
-
         [XmlIgnore] private string m_strName = "";
 
         [XmlIgnore] private string m_strNamePrev = "";
@@ -100,11 +98,11 @@ namespace MvcVisionSystem
         {
             try
             {
-                string strRecipePath = Path.Combine(AppContext.BaseDirectory, RECIPE_DIRECTORY);
+                string strRecipePath = ProjectRecipeService.GetRecipeRootDirectory();
                 DirectoryInfo dirRecipe = new DirectoryInfo(strRecipePath);
                 if (dirRecipe.Exists == false) dirRecipe.Create();
 
-                string strRecipeNamePath = Path.Combine(AppContext.BaseDirectory, RECIPE_DIRECTORY, strRecipeName ?? string.Empty);
+                string strRecipeNamePath = Path.Combine(strRecipePath, strRecipeName ?? string.Empty);
                 DirectoryInfo dirRecipeName = new DirectoryInfo(strRecipeNamePath);
                 if (dirRecipeName.Exists == false) dirRecipeName.Create();
 

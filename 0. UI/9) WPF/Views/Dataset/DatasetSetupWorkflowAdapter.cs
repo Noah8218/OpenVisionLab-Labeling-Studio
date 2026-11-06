@@ -628,7 +628,7 @@ namespace MvcVisionSystem
             => datasetSetupPathService.ResolveOutputRoot(recipeName, GetDatasetSetupDefaultOutputRoot(), ProjectRecipeService.GetRecipeRootDirectory());
 
         internal static string GetDatasetSetupDefaultOutputRoot()
-            => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "DATA"));
+            => ProjectRecipeService.GetDefaultDatasetRootDirectory();
 
         internal void SetDatasetSetupStatus(string message)
         {

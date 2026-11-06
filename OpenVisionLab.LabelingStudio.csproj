@@ -134,7 +134,6 @@
     <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.ImageSpace.Core\OpenVisionLab.ImageSpace.Core.csproj"
                       Condition="Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.ImageSpace.Core\OpenVisionLab.ImageSpace.Core.csproj')" />
     <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.ImageCanvas\OpenVisionLab.ImageCanvas.csproj"
-                      AdditionalProperties="ImageCanvasCopyOpenCvVideoRuntime=false"
                       Condition="Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.ImageCanvas\OpenVisionLab.ImageCanvas.csproj')" />
   </ItemGroup>
 

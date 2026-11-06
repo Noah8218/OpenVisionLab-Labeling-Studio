@@ -251,7 +251,19 @@ if ($VerifyOnly.IsPresent) {
 }
 
 if (Test-Path -LiteralPath $publishDir) {
-    Remove-Item -LiteralPath $publishDir -Recurse -Force
+    $existingPublishDir = Get-Item -LiteralPath $resolvedPublishDir -Force
+    if (($existingPublishDir.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Refusing to replace a redirected publish directory: $resolvedPublishDir"
+    }
+    # Windows PowerShell Remove-Item can fail on generated payload/state paths over MAX_PATH.
+    # The resolved target has already been restricted to the repository publish root above.
+    $deletePath = $resolvedPublishDir
+    if ($env:OS -eq 'Windows_NT') {
+        $deletePath = if ($resolvedPublishDir.StartsWith('\\')) {
+            '\\?\UNC\' + $resolvedPublishDir.Substring(2)
+        } else { '\\?\' + $resolvedPublishDir }
+    }
+    [IO.Directory]::Delete($deletePath, $true)
 }
 New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
 

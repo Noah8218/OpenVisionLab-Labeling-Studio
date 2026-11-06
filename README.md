@@ -147,6 +147,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x6
 
 The versioned self-contained folder is `artifacts\publish\Release\win-x64\0.3.8`. Extract the portable ZIP into a new folder, verify the manifests, then run `OpenVisionLab.LabelingStudio.exe`. The release and publish manifests record source/build identity and the full payload's SHA-256 hashes.
 
+The example launcher resolves the Publish folder from the version in `Directory.Build.props`; no local configuration is needed for the default bundle. An explicit `-ConfigPath` takes precedence over `config/labeling-runtime.local.json`, which takes precedence over the example. See [launcher configuration](docs/tutorial/BUILD_AND_RUNTIME.md#launcher-configuration) for custom bundles.
+
 ### Package verification
 
 Verify the existing package without changing it:

@@ -41,7 +41,7 @@ namespace MvcVisionSystem
         public string ResolveOutputRoot(string recipeName, string baseOutputRootPath, string recipeRootPath)
         {
             string defaultOutputRoot = string.IsNullOrWhiteSpace(baseOutputRootPath)
-                ? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "DATA"))
+                ? ProjectRecipeService.GetDefaultDatasetRootDirectory()
                 : Path.GetFullPath(baseOutputRootPath);
             string normalizedRecipeName = ProjectRecipeService.IsValidRecipeName(recipeName)
                 ? recipeName.Trim()

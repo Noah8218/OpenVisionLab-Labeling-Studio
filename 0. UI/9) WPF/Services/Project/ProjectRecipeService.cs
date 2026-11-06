@@ -11,7 +11,27 @@ namespace MvcVisionSystem
 
         public static string GetRecipeRootDirectory()
         {
-            return Path.Combine(AppContext.BaseDirectory, "RECIPE");
+            return Path.Combine(GetWorkingRootDirectory(), "RECIPE");
+        }
+
+        public static string GetDefaultDatasetRootDirectory()
+            => Path.Combine(GetWorkingRootDirectory(), "DATA");
+
+        private static string GetWorkingRootDirectory()
+            => ResolveWorkingRootDirectory(
+                AppContext.BaseDirectory,
+                Environment.GetEnvironmentVariable(RuntimeDiagnosticsService.ApplicationDataRootEnvironmentVariable));
+
+        internal static string ResolveWorkingRootDirectory(string applicationRoot, string configuredDataRoot)
+        {
+            // Keep existing source-build catalogs in place. Published bundles and explicit
+            // profiles use the existing current-user storage owner, never the package payload.
+            if (string.IsNullOrWhiteSpace(configuredDataRoot)
+                && !File.Exists(Path.Combine(applicationRoot, RuntimeDiagnosticsService.ReleaseManifestFileName)))
+            {
+                return Path.GetFullPath(applicationRoot);
+            }
+            return RuntimeDiagnosticsPaths.Resolve(applicationRoot, configuredDataRoot).ApplicationDataRoot;
         }
 
         public static string BuildConfigDirectory(string recipeRootPath, string recipeName)

@@ -13,7 +13,7 @@ namespace MvcVisionSystem
 
         public static string GetManifestPath(string recipeName)
         {
-            return Path.Combine(AppContext.BaseDirectory, "RECIPE", recipeName ?? string.Empty, FileName);
+            return Path.Combine(ProjectRecipeService.GetRecipeRootDirectory(), recipeName ?? string.Empty, FileName);
         }
 
         public static void Save(LabelingProjectData data, string recipeName)

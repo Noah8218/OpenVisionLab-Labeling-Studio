@@ -11,6 +11,9 @@
     <RepositoryType>git</RepositoryType>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <OpenCvSharpVersion>4.5.5.20211231</OpenCvSharpVersion>
+    <!-- Use one ImageCanvas property context for solution and app-reference builds.
+         The application owns the aligned OpenCV runtime. -->
+    <ImageCanvasCopyOpenCvVideoRuntime Condition="'$(ImageCanvasCopyOpenCvVideoRuntime)' == ''">false</ImageCanvasCopyOpenCvVideoRuntime>
     <VersionPrefix>0.3.8</VersionPrefix>
     <Version>$(VersionPrefix)</Version>
     <AssemblyVersion>0.3.8.0</AssemblyVersion>

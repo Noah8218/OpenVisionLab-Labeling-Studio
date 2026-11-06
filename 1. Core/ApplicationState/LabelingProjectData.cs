@@ -264,7 +264,7 @@ namespace MvcVisionSystem
                 return OutputDataYamlPath;
             }
 
-            return Path.Combine(AppContext.BaseDirectory, "DATA");
+            return ProjectRecipeService.GetDefaultDatasetRootDirectory();
         }
 
         private string ResolveDataYamlFilePath()
@@ -286,7 +286,7 @@ namespace MvcVisionSystem
 
         internal static string GetRecipeConfigPath(string recipeName)
         {
-            return Path.Combine(AppContext.BaseDirectory, "RECIPE", recipeName ?? string.Empty, "VISION.xml");
+            return Path.Combine(ProjectRecipeService.GetRecipeRootDirectory(), recipeName ?? string.Empty, "VISION.xml");
         }
 
         private static bool IsYamlFilePath(string path)
