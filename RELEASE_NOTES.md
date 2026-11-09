@@ -1,5 +1,15 @@
 # Release Notes
 
+## Unreleased
+
+## 0.4.0 — 2026-11-09
+
+- Combine the published Smart Mask selection, keyboard navigation, model/run identity, canvas handling, and fresh-source build/storage fixes with current development changes.
+- Keep export scrollbars clear of actions, enlarge the recipe-information close icon, show one missing-rule status in model assignment, summarize long model paths while preserving editable values, and localize ROI array captions.
+- Add an opt-in TCP inbox for received-image label review, with separate acknowledgement, editing, label save, result publication, cancellation, and recovery steps.
+- Preserve the approved bilingual README structure and media, current launcher behavior, existing Recipe/annotation/dataset formats, and earlier version history.
+
+
 ## 0.3.8 — 2026-10-26
 
 - Show readable dataset version names and model roles across dataset, training, and model comparison screens, with explicit version and run identifiers available in details.

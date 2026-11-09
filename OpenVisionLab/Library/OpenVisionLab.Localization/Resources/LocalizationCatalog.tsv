@@ -2034,6 +2034,12 @@ ImageCompare.DeltaVs	Delta vs {0:00}	Delta vs {0:00}
 ImageCompare.LoadFailed	이미지 비교 로드 실패.\n{0}	Image compare load failed.\n{0}
 ImageCompare.ImageSlot	이미지 {0:00}	Image {0:00}
 ImageCompare.ImagesCount	이미지: {0}/{1}	Images: {0}/{1}
+ImageCanvas.RoiArray.Title	ROI 배열	ROI array
+ImageCanvas.RoiArray.Rows	행 수	Rows
+ImageCanvas.RoiArray.Columns	열 수	Columns
+ImageCanvas.RoiArray.RowSpacing	행 간격 (mm)	Row spacing (mm)
+ImageCanvas.RoiArray.ColumnSpacing	열 간격 (mm)	Column spacing (mm)
+ImageCanvas.RoiArray.Apply	적용	Apply
 ImageCanvas.LoadImage	이미지 불러오기	Load Image
 ImageCanvas.SaveImage	이미지 저장	Save Image
 LayerDisplay.EmptyTitle	이미지 없음	No image
@@ -5360,3 +5366,26 @@ WpfModelRegistry.RecordedTime	기록 {0}	Recorded {0}
 WpfDatasetInterchange.Split.train	학습	Training
 WpfDatasetInterchange.Split.valid	검증	Validation
 WpfDatasetInterchange.Split.test	테스트	Test
+WpfIntegrationReview.ProtectedAfterSave	결과 처리 중에는 저장된 라벨 검수 내용을 변경할 수 없습니다.	Saved label review contents cannot change while the result is being processed.
+WpfIntegrationReview.RecoveryUnavailable	현재 작업 상태에서는 저장된 라벨 검수를 열 수 없습니다.	The current operation prevents opening a saved label review.
+WpfIntegrationReview.RecoverAction	저장된 라벨 검수 복구	Restore saved label review
+WpfIntegrationReview.BeginUnavailable	현재 작업 상태에서는 수신 이미지의 라벨 검수를 시작할 수 없습니다.	The current operation prevents starting label review for the received image.
+WpfIntegrationReview.BeginAction	수신 이미지 라벨 검수	Review received image labels
+WpfIntegrationReview.BeginBlockedByUnsaved	현재 이미지나 설정에 저장하지 않은 변경이 있어 라벨 검수를 시작하지 않았습니다.	Label review was deferred because the current image or settings have unsaved changes.
+WpfIntegrationReview.EditingStatus	라벨 검수 중 · 저장하면 라벨 결과를 반환합니다.	Reviewing labels · Save to return the label results.
+WpfIntegrationReview.SaveUnavailable	현재 상태에서는 라벨 검수 내용을 저장할 수 없습니다.	The label review cannot be saved in its current state.
+WpfIntegrationReview.NoObjectRequired	라벨이 없으면 '객체 없음'을 선택하세요.	Select 'No objects' when the image has no labels.
+WpfIntegrationReview.AcknowledgementRequired	수신 확인(ACK)을 마친 라벨 검수가 없습니다.	No label review has a confirmed acknowledgement (ACK).
+WpfIntegrationReview.ResultPending	라벨 저장·취소·실패 중 처리 결과가 아직 정해지지 않았습니다.	The label review has no confirmed save, cancellation or failure result yet.
+WpfIntegrationReview.CancelBlockedByUnsaved	저장하지 않은 변경이 있어 라벨 검수 취소를 보류했습니다.	Cancelling the label review was deferred because it has unsaved changes.
+WpfIntegrationReview.CancelUnavailable	현재 라벨 검수 상태에서는 취소할 수 없습니다.	The label review cannot be cancelled in its current state.
+WpfIntegrationReview.CancelledByUser	사용자가 라벨 검수를 취소했습니다.	The user cancelled the label review.
+WpfIntegrationReview.ContextChanged	라벨 검수를 시작한 뒤 클래스 순서나 작업 목적이 바뀌었습니다.	The class order or task purpose changed after label review began.
+WpfIntegrationReview.EndAction	라벨 검수 종료	End label review
+WpfIntegrationReview.ClosedBeforeResult	라벨 검수 결과를 반환하기 전에 라벨링 창이 닫혔습니다.	The labeling window closed before returning the label review result.
+WpfIntegrationReview.RecoveryRequired	라벨 검수 결과의 전송 완료를 확인할 수 없습니다. 앱을 다시 시작한 뒤 복구하세요.	Delivery of the label review result could not be confirmed. Restart the app and restore the review.
+WpfIntegrationReview.RecoverFailed	라벨 검수 복구에 실패했습니다. {0}	Could not restore the label review. {0}
+WpfIntegrationReview.PrepareFailed	라벨 검수 준비에 실패했습니다. {0}	Could not prepare the label review. {0}
+WpfIntegrationReview.LoadFailed	라벨 검수 이미지를 열 수 없습니다. {0}	Could not open the label review image. {0}
+WpfIntegrationReview.CancelFailed	라벨 검수를 취소할 수 없습니다. {0}	Could not cancel the label review. {0}
+WpfIntegrationReview.SaveTargetFailed	라벨 검수 저장 대상을 확인할 수 없습니다. {0}	Could not verify the label review save destination. {0}

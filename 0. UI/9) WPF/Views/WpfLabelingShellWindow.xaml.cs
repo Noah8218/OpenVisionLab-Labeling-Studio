@@ -1,8 +1,10 @@
 using MahApps.Metro.IconPacks;
 using MvcVisionSystem._1._Core;
 using MvcVisionSystem._3._Communication.TCP;
+using MvcVisionSystem._3._Communication.Integration;
 using MvcVisionSystem.DrawObject;
 using MvcVisionSystem.Yolo;
+using OpenVisionLab.Integration.Contracts;
 using OpenVisionLab.ImageCanvas.Views;
 using OpenVisionLab.ImageCanvas.ViewModels;
 using OpenVisionLab.Mvvm;
@@ -58,6 +60,25 @@ namespace MvcVisionSystem
         private const double PreferredInitialShellHeight = 1080D;
         private IInputElement commandPalettePreviousFocus;
         private readonly LabelingApplicationState applicationState = LabelingApplicationState.Inst;
+        // Only annotation adapters use this override; the user's active Recipe/data are never replaced.
+        private LabelingIntegrationReviewWorkflowService integrationReview;
+        private LabelingProjectData integrationReviewData;
+        private string integrationReviewPreviousImagePath;
+        private bool integrationReviewAcknowledged;
+        private bool integrationReviewLeaving;
+        private string integrationReviewTerminalDetail;
+        private bool integrationReviewCanvasWasEnabled;
+        private IDisposable integrationReviewJournalSuppression;
+        private LabelingIntegrationReviewInbox integrationReviewInbox;
+        private DispatcherTimer integrationReviewInboxTimer;
+        private bool integrationReviewInboxStarting;
+        private bool integrationReviewInboxClosed;
+        public LabelingIntegrationReviewState? IntegrationReviewState => integrationReview?.State;
+        public LabelingReviewWorkspace IntegrationReviewWorkspace => integrationReview?.Workspace;
+        public bool IntegrationReviewAcknowledged => integrationReviewAcknowledged;
+        public bool IntegrationReviewPublicationUncertain { get; private set; }
+        public IntegrationResultV2 LastIntegrationReviewResult { get; private set; }
+        private LabelingProjectData AnnotationProjectData => integrationReviewData ?? applicationState.Data;
         private readonly BulkObservableCollection<WpfImageQueueItem> imageQueueItems = new BulkObservableCollection<WpfImageQueueItem>();
         private readonly Dictionary<string, WpfImageQueueItem> imageQueueItemsByPath = new Dictionary<string, WpfImageQueueItem>(StringComparer.OrdinalIgnoreCase);
         private readonly ImageQualityReviewWorkflowService imageQualityReviewWorkflowService = new ImageQualityReviewWorkflowService();
@@ -595,7 +616,7 @@ namespace MvcVisionSystem
             objectReviewStateAdapter = new ObjectReviewStateAdapter(
                 new ObjectReviewStateAdapterContext
                 {
-                    DataProvider = () => applicationState.Data,
+                    DataProvider = () => AnnotationProjectData,
                     ObjectReviewWorkflowService = objectReviewWorkflowService,
                     ObjectMetadataStateService = objectMetadataStateService,
                     ObjectSessionStateService = objectSessionStateService,
@@ -639,7 +660,7 @@ namespace MvcVisionSystem
                     CanEditLabelSuspicion = () => imageQueueReviewAdapter?.CanEditLabelSuspicion() == true,
                     PreviewAnomalySuspicionVerdict = candidate => imageQueueReviewAdapter?.PreviewAnomalySuspicionVerdict(candidate) == true,
                     RefreshLabelSuspicionReview = () => imageQueueReviewAdapter?.RefreshLabelSuspicionReview(),
-                    DataProvider = () => applicationState.Data,
+                    DataProvider = () => AnnotationProjectData,
                     ObjectReviewPresentationService = objectReviewPresentationService,
                     ObjectSessionStateService = objectSessionStateService,
                     ObjectMetadataStateService = objectMetadataStateService,
@@ -749,24 +770,25 @@ namespace MvcVisionSystem
                 new AnnotationPersistenceAdapterContext
                 {
                     ActiveImageProvider = () => applicationState.ImageWorkspace.CaptureSnapshot(),
-                    SaveTrainingEditorFields = SaveTrainingEditorFields,
+                    SaveTrainingEditorFields = () => { if (integrationReview == null) SaveTrainingEditorFields(); },
                     AnnotationSaveWorkflowService = annotationSaveWorkflowService,
-                    DataProvider = () => applicationState.Data,
+                    DataProvider = () => AnnotationProjectData,
                     TrySaveCurrentObjectMetadata = TrySaveCurrentObjectMetadata,
                     MarkAnnotationsSaved = MarkAnnotationsSaved,
                     MarkAnnotationsNoObjectSaved = reason => annotationSaveStateAdapter.MarkAnnotationsNoObjectSaved(reason),
                     MarkAnnotationsUnlabeled = () => annotationSaveStateAdapter.MarkAnnotationsUnlabeled(),
                     OnAnnotationsSaved = hadChanges =>
                     {
+                        integrationReview?.ObserveAnnotationsSaved(applicationState.ImageWorkspace.ActiveImagePath);
                         displayWorkspaceAdapter?.InvalidateSavedGroundTruth();
-                        imageQueueReviewAdapter?.OnAnnotationsSaved(hadChanges);
+                        if (integrationReview == null) imageQueueReviewAdapter?.OnAnnotationsSaved(hadChanges);
                         if (!isApplicationCloseApproved) candidateReviewStateAdapter?.UpdateCandidateActionState();
                     },
                     ExplicitNoObjectSelectionProvider = () => ShellViewModel.IsLabelingStageActive && ShellViewModel.IsAnnotationWorkflowVisible
                         ? CanvasPanelViewModel.IsNoObjectSelected : (bool?)null,
                     AppendLog = AppendLog,
                     DiscardCrashRecoveryJournal = DiscardCrashRecoveryJournal,
-                    UpdateApplicationData = () => applicationState.System?.UpdateData(),
+                    UpdateApplicationData = () => { if (integrationReview == null) applicationState.System?.UpdateData(); },
                     CompleteMaskAnnotationStroke = CompleteMaskAnnotationStroke,
                     FlushQueuedMaskStrokeCommits = FlushQueuedMaskStrokeCommits,
                     AnnotationDirtyProvider = () => annotationDirtyState.IsDirty,
@@ -784,7 +806,7 @@ namespace MvcVisionSystem
                 {
                     ActiveImageSizeProvider = () => applicationState.ImageWorkspace.ActiveImageSize,
                     CurrentDatasetPurposeProvider = GetCurrentDatasetPurpose,
-                    DataProvider = () => applicationState.Data,
+                    DataProvider = () => AnnotationProjectData,
                     ManualRois = manualRois,
                     ManualRoiClassNames = manualRoiClassNames,
                     ManualRoiShapeKinds = manualRoiShapeKinds,
@@ -832,7 +854,7 @@ namespace MvcVisionSystem
                     HasActiveImage = () => applicationState.ImageWorkspace.ActiveImage != null
                         && !applicationState.ImageWorkspace.ActiveImageSize.IsEmpty
                         && !string.IsNullOrWhiteSpace(applicationState.ImageWorkspace.ActiveImagePath),
-                    HasDirtyAnnotations = () => annotationDirtyState.IsDirty,
+                    HasDirtyAnnotations = () => integrationReview == null && annotationDirtyState.IsDirty,
                     HasPendingCommitWork = HasPendingMaskStrokeCommitWork,
                     TryLoadImage = path => TryLoadImage(path, populateQueue: true),
                     ShowCrashRecoveryPrompt = ShowCrashRecoveryPromptDialog,
@@ -1325,7 +1347,7 @@ namespace MvcVisionSystem
                     ImageQueueItemsByPath = imageQueueItemsByPath,
                     ImageQueueViewProvider = () => imageQueueView,
                     IsLabelingStageActive = () => ShellViewModel.IsLabelingStageActive && !ShellViewModel.IsRecipeLibraryVisible,
-                    IsOperationRunning = IsWorkflowOperationRunning,
+                    IsOperationRunning = () => integrationReview != null || IsWorkflowOperationRunning(),
                     HasWorkflowDraft = HasWorkflowDraft,
                     IsAnnotationLoadBlocked = () => annotationLoadState.IsSaveBlocked,
                     HasCanvasLabelObjects = HasCanvasLabelObjects,
@@ -1344,7 +1366,8 @@ namespace MvcVisionSystem
                     ImageQueuePanelControl = ImageQueuePanelControl,
                     AnnotationDirtyState = annotationDirtyState,
                     PendingDetectionCandidatesProvider = () => pendingDetectionCandidates,
-                    ActiveImagePathProvider = () => applicationState.ImageWorkspace.ActiveImagePath,
+                    // Exchange annotations do not belong to the active Recipe's queue review records.
+                    ActiveImagePathProvider = () => integrationReview == null ? applicationState.ImageWorkspace.ActiveImagePath : string.Empty,
                     ActiveImageSizeProvider = () => applicationState.ImageWorkspace.ActiveImageSize,
                     IsApplicationCloseApproved = () => isApplicationCloseApproved,
                     IsImageQueueSelectionSuppressed = () => suppressImageQueueSelection,
@@ -1354,7 +1377,7 @@ namespace MvcVisionSystem
                     SetDatasetStatus = SetDatasetStatus,
                     SetModelStatus = SetModelStatus,
                     RefreshImageQueueViewAfterItemStateChange = RefreshImageQueueViewAfterItemStateChange,
-                    ClearActiveImageAfterSearchNoMatch = ClearActiveImageAfterQueueReset,
+                    ClearActiveImageAfterSearchNoMatch = () => { if (integrationReview == null) ClearActiveImageAfterQueueReset(); },
                     HasDisplayedInferenceResult = () => ShellViewModel.IsInferenceStageActive && ShellViewModel.HasDisplayedInferenceResult,
                     RefreshInferenceResultPresentation = () => ShellViewModel.RefreshInferenceResultPresentation(),
                     TryOpenNextIncompleteQueueImage = () => TryOpenNextIncompleteQueueImage(),
@@ -1387,7 +1410,7 @@ namespace MvcVisionSystem
                 });
             datasetWorkspaceWorkflowAdapter = new DatasetWorkspaceWorkflowAdapter(new DatasetWorkspaceWorkflowAdapterContext
             {
-                AddSourceFolder = () => { _ = imageQueueRootCommandAdapter.ExecuteAddImageFolderCommandAsync(); },
+                AddSourceFolder = () => { if (integrationReview == null) _ = imageQueueRootCommandAdapter.ExecuteAddImageFolderCommandAsync(); },
                 OpenLabelSuspicionReview = () => imageQueueReviewAdapter.OpenLabelSuspicionReview(),
                 CanOpenLabelSuspicionReview = () => !isApplicationCloseApproved && !IsWorkflowOperationRunning(),
                 ViewModels = viewModels,
@@ -2309,7 +2332,7 @@ namespace MvcVisionSystem
                     RestoreCandidateDraft = path => batchDetectionWorkflowAdapter?.RestoreCandidateDraft(path),
                     RefreshLabelSuspicionReview = () => imageQueueReviewAdapter?.RefreshLabelSuspicionReview(),
                     ApplicationState = applicationState,
-                    DataProvider = () => applicationState.Data,
+                    DataProvider = () => AnnotationProjectData,
                     ImageDecodeCacheService = imageDecodeCacheService,
                     ImageDecodeService = imageDecodeService,
                     ImageLoadResourceService = imageLoadResourceService,
@@ -2327,7 +2350,8 @@ namespace MvcVisionSystem
                     LoadImageToCanvas = LoadImageToCanvas,
                     RefreshCanvas = () => MainCanvasViewModel?.ImageViewer?.RefreshGL(),
                     EnsureProjectSettings = EnsureProjectSettings,
-                    TrySavePendingAnnotationsBeforeImageChange = imageQueueLoadingAdapter.TrySavePendingAnnotationsBeforeImageChange,
+                    TrySavePendingAnnotationsBeforeImageChange = path => integrationReview == null
+                        && imageQueueLoadingAdapter.TrySavePendingAnnotationsBeforeImageChange(path),
                     PrepareForImageChange = imageChangeStateAdapter.PrepareForImageChange,
                     EndTemporaryOriginalView = () => CanvasPanelViewModel?.EndTemporaryOriginalView(),
                     EndTemporaryPan = () => workflowNavigationAdapter?.EndTemporaryPan(),
@@ -2363,7 +2387,7 @@ namespace MvcVisionSystem
                     EndTemporaryPan = () => workflowNavigationAdapter?.EndTemporaryPan(),
                     IsApplicationCloseApproved = () => isApplicationCloseApproved,
                     ScheduleDeferredStartup = action => Dispatcher.BeginInvoke(
-                        new Action(action),
+                        new Action(() => { action(); _ = StartIntegrationReviewInboxFromArgumentsAsync(); }),
                         System.Windows.Threading.DispatcherPriority.ApplicationIdle),
                     RefreshYoloStatus = RefreshYoloStatus,
                     RefreshYoloSettingsPanelAsync = () => RefreshYoloSettingsPanelAsync(),
@@ -3085,7 +3109,11 @@ namespace MvcVisionSystem
             => shellInputLifecycleAdapter?.ApproveClose();
 
         private void ExecuteClosedCommand()
-            => shellInputLifecycleAdapter?.ExecuteClosed();
+        {
+            StopIntegrationReviewInbox();
+            try { CloseIntegrationReview(); }
+            finally { shellInputLifecycleAdapter?.ExecuteClosed(); }
+        }
 
         private void RefreshLocalizedPresentationForLanguage()
         {
@@ -3655,6 +3683,11 @@ namespace MvcVisionSystem
             bool requireVisible,
             out string error)
         {
+            if (integrationReview != null && integrationReview.State != LabelingIntegrationReviewState.Editing)
+            {
+                error = OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.ProtectedAfterSave");
+                return false;
+            }
             if (objectReviewStateAdapter == null)
             {
                 error = "객체 검수 상태를 초기화할 수 없습니다.";
@@ -3970,7 +4003,9 @@ namespace MvcVisionSystem
         }
 
         private string BuildLabelPathSummary()
-            => projectSettingsWorkflowAdapter.BuildLabelPathSummary();
+            => integrationReviewData == null ? projectSettingsWorkflowAdapter.BuildLabelPathSummary()
+                : string.Join(" / ", YoloAnnotationService.GetTargetLabelPaths(
+                    applicationState.ImageWorkspace.ActiveImageName, integrationReviewData));
 
         private void EnsureProjectSettings()
             => projectSettingsWorkflowAdapter.EnsureProjectSettings();
@@ -3984,13 +4019,492 @@ namespace MvcVisionSystem
             => annotationWorkflowCommandAdapter.ExecuteAddSampleRoiCommand();
 
         private void ExecuteSaveAnnotationsCommand()
-            => annotationWorkflowCommandAdapter.ExecuteSaveAnnotationsCommand();
+        {
+            if (integrationReview == null) annotationWorkflowCommandAdapter.ExecuteSaveAnnotationsCommand();
+            else if (integrationReview.State == LabelingIntegrationReviewState.Prepared)
+                TryLoadIntegrationReview(out _);
+            else if (integrationReview.State == LabelingIntegrationReviewState.Editing)
+                TrySaveIntegrationReview(out _);
+            else TryPublishIntegrationReview(out _);
+        }
 
         private void ExecuteSaveAndNextCommand()
-            => annotationWorkflowCommandAdapter.ExecuteSaveAndNextCommand();
+        {
+            if (integrationReview == null) annotationWorkflowCommandAdapter.ExecuteSaveAndNextCommand();
+            else ExecuteSaveAnnotationsCommand();
+        }
 
         private void ExecuteCompleteNoObjectAndNextCommand()
-            => annotationWorkflowCommandAdapter.ExecuteCompleteNoObjectAndNextCommand();
+        {
+            if (integrationReview == null) annotationWorkflowCommandAdapter.ExecuteCompleteNoObjectAndNextCommand();
+            else ExecuteSaveAnnotationsCommand();
+        }
+        #endregion
+
+        #region IntegrationReviewComposition
+        private async Task StartIntegrationReviewInboxFromArgumentsAsync()
+        {
+            try
+            {
+                string path = LabelingIntegrationReviewInbox.GetConfigurationPath(Environment.GetCommandLineArgs().Skip(1).ToArray());
+                if (path != null) await StartIntegrationReviewInboxAsync(path);
+            }
+            catch (Exception ex) { AppendLog("왕복 수신 설정 오류: " + ex.Message); }
+        }
+
+        public async Task<bool> StartIntegrationReviewInboxAsync(string configurationPath)
+        {
+            Dispatcher.VerifyAccess();
+            if (integrationReviewInbox != null || integrationReviewInboxStarting || integrationReviewInboxClosed) return false;
+            integrationReviewInboxStarting = true;
+            try
+            {
+                LabelingIntegrationReviewInbox inbox = await LabelingIntegrationReviewInbox.StartAsync(configurationPath);
+                if (integrationReviewInboxClosed || isApplicationCloseApproved)
+                {
+                    await inbox.DisposeAsync();
+                    return false;
+                }
+                integrationReviewInbox = inbox;
+                integrationReviewInboxTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher)
+                {
+                    Interval = TimeSpan.FromSeconds(2)
+                };
+                integrationReviewInboxTimer.Tick += IntegrationReviewInboxTick;
+                integrationReviewInboxTimer.Start();
+                AppendLog("이미지 왕복 수신 시작: " + inbox.Configuration.ExchangeRoot);
+                IntegrationReviewInboxTick(this, EventArgs.Empty);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                AppendLog("이미지 왕복 수신 시작 실패: " + ex.Message);
+                return false;
+            }
+            finally { integrationReviewInboxStarting = false; }
+        }
+
+        private void IntegrationReviewInboxTick(object sender, EventArgs e)
+        {
+            if (integrationReviewInbox == null || integrationReview != null || !IsLoaded || IsWorkflowOperationRunning()
+                || viewModels.MenuViewModel.IsShellDialogOpen) return;
+            // A request arriving before the operator's Recipe is ready remains discoverable.
+            if (applicationState.Data?.ClassNamedList?.Count is not > 0
+                || GetCurrentDatasetPurpose() is not (LabelingDatasetPurpose.ObjectDetection or LabelingDatasetPurpose.Segmentation)) return;
+            try
+            {
+                Guid? transaction = integrationReviewInbox.Discover(AppendLog).Select(id => (Guid?)id).FirstOrDefault();
+                if (!transaction.HasValue) return;
+                integrationReviewInbox.MarkAttempted(transaction.Value);
+                LabelingIntegrationReviewInboxConfiguration config = integrationReviewInbox.Configuration;
+                string workspace = LabelingIntegrationExchange.RequireContainedPath(config.WorkspaceRoot, transaction.Value.ToString("D"));
+                if (Directory.Exists(workspace))
+                    TryRecoverIntegrationReview(config.ExchangeRoot, transaction.Value, config.ConsumerBuild, config.WorkspaceRoot, out _);
+                else TryBeginIntegrationReview(config.ExchangeRoot, transaction.Value, config.ConsumerBuild, config.WorkspaceRoot, out _);
+            }
+            catch (Exception ex) { AppendLog("왕복 수신 확인 실패: " + ex.Message); }
+        }
+
+        public void RetryIntegrationInboxRequest(Guid transactionId)
+        {
+            Dispatcher.VerifyAccess();
+            integrationReviewInbox?.Retry(transactionId);
+            IntegrationReviewInboxTick(this, EventArgs.Empty);
+        }
+
+        private void StopIntegrationReviewInbox()
+        {
+            integrationReviewInboxClosed = true;
+            if (integrationReviewInboxTimer != null)
+            {
+                integrationReviewInboxTimer.Stop();
+                integrationReviewInboxTimer.Tick -= IntegrationReviewInboxTick;
+                integrationReviewInboxTimer = null;
+            }
+            LabelingIntegrationReviewInbox inbox = integrationReviewInbox;
+            integrationReviewInbox = null;
+            if (inbox != null) _ = DisposeIntegrationReviewInboxAsync(inbox);
+        }
+
+        private static async Task DisposeIntegrationReviewInboxAsync(LabelingIntegrationReviewInbox inbox)
+        {
+            try { await inbox.DisposeAsync().ConfigureAwait(false); }
+            catch (Exception ex) { OVLog.Write(LogCategory.Main, LogLevel.Info, "왕복 수신 종료 실패: " + ex.Message); }
+        }
+
+        public bool TryRecoverIntegrationReview(string exchangeRoot, Guid transactionId,
+            IntegrationApplicationIdentity consumerBuild, string workspaceRoot, out string error)
+        {
+            Dispatcher.VerifyAccess();
+            error = string.Empty;
+            if (integrationReview != null || !IsLoaded || IsWorkflowOperationRunning())
+                return ReportIntegrationReviewError(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.RecoveryUnavailable"), out error);
+            WorkflowTransitionApproval approval = workflowTransitionAdapter.TryApprove(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.RecoverAction"), replacesRecipe: true);
+            if (!approval.IsAllowed || !workflowTransitionAdapter.ApplyDiscard(approval)
+                || !workflowNavigationAdapter.EnterLabelingWorkbenchStartView())
+                return ReportIntegrationReviewError("현재 미저장 작업 보호로 왕복 복구가 보류되었습니다.", out error);
+            LastIntegrationReviewResult = null;
+            IntegrationReviewPublicationUncertain = false;
+            LabelingIntegrationReviewWorkflowService recovered = null;
+            try
+            {
+                recovered = LabelingIntegrationReviewWorkflowService.Recover(exchangeRoot, transactionId, consumerBuild,
+                    workspaceRoot, applicationState.Data.ClassNamedList.Select(item => item?.Text).ToArray(), GetCurrentDatasetPurpose());
+                LabelingProjectData isolated = recovered.CreateIsolatedProjectData(GetCurrentDatasetPurpose());
+                isolated.ProjectSettings.ObjectReviewTags = new List<string>(applicationState.Data.ProjectSettings.ObjectReviewTags ?? new List<string>());
+                integrationReviewPreviousImagePath = applicationState.ImageWorkspace.ActiveImagePath;
+                integrationReviewCanvasWasEnabled = CanvasPanelControl.IsEnabled;
+                integrationReviewJournalSuppression = crashRecoveryJournalWorkflowService.SuppressCapture();
+                integrationReviewData = isolated;
+                integrationReview = recovered;
+                integrationReviewTerminalDetail = recovered.TerminalDetail;
+                integrationReviewAcknowledged = recovered.State != LabelingIntegrationReviewState.Prepared;
+                CanvasPanelControl.IsEnabled = false;
+                if (recovered.State == LabelingIntegrationReviewState.Prepared) return TryLoadIntegrationReview(out error);
+                LastIntegrationReviewResult = recovered.ReadPublishedResult();
+                // Only an absent, verified receiver Result permits the existing publication intent to run again.
+                return TryPublishIntegrationReview(out error);
+            }
+            catch (Exception ex)
+            {
+                if (integrationReview == null) recovered?.Dispose();
+                return ReportIntegrationReviewError(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.RecoverFailed"), ex.Message), out error);
+            }
+        }
+
+        /// <summary>
+        /// Dispatcher-thread entry for the admitted integration request. ACK, image load,
+        /// explicit save and result publication are separate observable steps. This does
+        /// not apply a Recipe or change the current queue/class order.
+        /// </summary>
+        public bool TryBeginIntegrationReview(string exchangeRoot, Guid transactionId,
+            IntegrationApplicationIdentity consumerBuild, string workspaceRoot, out string error)
+        {
+            Dispatcher.VerifyAccess();
+            error = string.Empty;
+            if (integrationReview != null || !IsLoaded || IsWorkflowOperationRunning())
+                return ReportIntegrationReviewError(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.BeginUnavailable"), out error);
+
+            WorkflowTransitionApproval approval = workflowTransitionAdapter.TryApprove(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.BeginAction"), replacesRecipe: true);
+            if (!approval.IsAllowed || !workflowTransitionAdapter.ApplyDiscard(approval))
+                return ReportIntegrationReviewError(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.BeginBlockedByUnsaved"), out error);
+            if (!workflowNavigationAdapter.EnterLabelingWorkbenchStartView())
+                return ReportIntegrationReviewError("라벨링 작업 화면을 열지 못했습니다.", out error);
+
+            LastIntegrationReviewResult = null;
+            IntegrationReviewPublicationUncertain = false;
+            LabelingIntegrationReviewWorkflowService prepared = null;
+            try
+            {
+                string[] classes = applicationState.Data.ClassNamedList.Select(item => item?.Text).ToArray();
+                prepared = LabelingIntegrationReviewWorkflowService.Prepare(
+                    exchangeRoot, transactionId, consumerBuild, workspaceRoot, classes);
+                LabelingProjectData isolated = prepared.CreateIsolatedProjectData(GetCurrentDatasetPurpose());
+                // Existing tag definitions are copied; editing annotations must not rewrite the Recipe.
+                isolated.ProjectSettings.ObjectReviewTags = new List<string>(
+                    applicationState.Data.ProjectSettings.ObjectReviewTags ?? new List<string>());
+                integrationReviewPreviousImagePath = applicationState.ImageWorkspace.ActiveImagePath;
+                integrationReviewCanvasWasEnabled = CanvasPanelControl.IsEnabled;
+                integrationReviewJournalSuppression = crashRecoveryJournalWorkflowService.SuppressCapture();
+                integrationReviewData = isolated;
+                integrationReview = prepared;
+                integrationReviewAcknowledged = false;
+                integrationReviewTerminalDetail = null;
+                IntegrationReviewPublicationUncertain = false;
+                LastIntegrationReviewResult = null;
+                CanvasPanelControl.IsEnabled = false;
+                return TryLoadIntegrationReview(out error);
+            }
+            catch (Exception ex)
+            {
+                if (integrationReview == null) prepared?.Dispose();
+                return ReportIntegrationReviewError(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.PrepareFailed"), ex.Message), out error);
+            }
+        }
+
+        /// <summary>An uncertain ACK may be retried without claiming that the image was loaded.</summary>
+        public bool TryLoadIntegrationReview(out string error)
+        {
+            Dispatcher.VerifyAccess();
+            error = string.Empty;
+            if (integrationReview?.State != LabelingIntegrationReviewState.Prepared)
+                return ReportIntegrationReviewError("이미지 로드 대기 상태가 아닙니다.", out error);
+            try
+            {
+                integrationReview.Acknowledge();
+                integrationReviewAcknowledged = true;
+            }
+            catch (Exception ex)
+            {
+                return ReportIntegrationReviewError("ACK 확인 실패 또는 불확실: 같은 요청으로 재시도하세요. " + ex.Message, out error);
+            }
+            try
+            {
+                if (!integrationReview.TryLoad(integrationReviewData, path => imageLoadWorkflowAdapter.TryLoadImage(
+                    path, populateQueue: false, refreshQueueDetails: false, refreshActiveStatus: false,
+                    appendLoadLog: true, skipPendingAnnotationSave: true)))
+                    throw new InvalidOperationException("기존 이미지 로드 경로가 성공을 반환하지 않았습니다.");
+                CanvasPanelControl.IsEnabled = integrationReviewCanvasWasEnabled;
+                RestoreObjectMetadataTagsFromProject();
+                RefreshImageLoadReviewState(refreshActiveStatus: false, refreshClassCatalog: true);
+                SetYoloCommandStatus(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.EditingStatus"), false);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                FailIntegrationReview(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.LoadFailed"), ex.Message));
+                return ReportIntegrationReviewError(integrationReviewTerminalDetail, out error);
+            }
+        }
+
+        /// <summary>Used by Save, Save-and-next and explicit no-object completion only.</summary>
+        public bool TrySaveIntegrationReview(out string error)
+        {
+            Dispatcher.VerifyAccess();
+            error = string.Empty;
+            if (integrationReview?.State != LabelingIntegrationReviewState.Editing || IsWorkflowOperationRunning())
+                return ReportIntegrationReviewError(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.SaveUnavailable"), out error);
+            CompleteMaskAnnotationStroke();
+            FlushQueuedMaskStrokeCommits();
+            if (HasBlockingHistoryDraft() || pendingDetectionCandidates.Count > 0)
+                return ReportIntegrationReviewError("진행 중인 도형과 남은 후보를 먼저 완료하세요.", out error);
+            try
+            {
+                var boxes = BuildAnnotationRois();
+                var segments = BuildAnnotationSegments();
+                DrawingSize size = applicationState.ImageWorkspace.ActiveImageSize;
+                int boxCount = YoloAnnotationService.BuildAnnotationLines(boxes, integrationReviewData.ClassNamedList, size).Count;
+                int segmentCount = YoloSegmentationAnnotationService.BuildPolygonRecords(segments, integrationReviewData.ClassNamedList, size).Count;
+                bool explicitEmpty = boxCount + segmentCount == 0 && CanvasPanelViewModel.IsNoObjectSelected;
+                if (boxCount + segmentCount == 0 && !explicitEmpty)
+                    return ReportIntegrationReviewError(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.NoObjectRequired"), out error);
+                int metadataCount = Enumerable.Range(0, manualRois.Count)
+                    .Count(index => !objectMetadataStateService.GetManualRoiMetadata(index).IsDefault)
+                    + manualSegments.Count(segment => segment != null && !objectMetadataStateService.GetManualSegmentMetadata(segment).IsDefault);
+                var expected = new LabelingReviewSaveExpectation(boxCount, segmentCount, metadataCount, explicitEmpty);
+                integrationReview.SaveExplicitly(integrationReviewData, applicationState.ImageWorkspace.ActiveImagePath, expected,
+                    () => explicitEmpty ? SaveCurrentEmptyAnnotations() : annotationWorkflowCommandAdapter.SaveAnnotationsForReview());
+                CanvasPanelControl.IsEnabled = false;
+            }
+            catch (Exception ex)
+            {
+                FailIntegrationReview("라벨 저장 또는 저장 산출물 검증 실패: " + ex.Message);
+                return ReportIntegrationReviewError(integrationReviewTerminalDetail, out error);
+            }
+            return TryPublishIntegrationReview(out error);
+        }
+
+        /// <summary>Retries the same immutable save or terminal detail, never a newly generated revision.</summary>
+        public bool TryPublishIntegrationReview(out string error)
+        {
+            Dispatcher.VerifyAccess();
+            error = string.Empty;
+            if (integrationReview == null || !integrationReviewAcknowledged)
+                return ReportIntegrationReviewError(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.AcknowledgementRequired"), out error);
+            if (integrationReview.State == LabelingIntegrationReviewState.Prepared
+                || integrationReview.State == LabelingIntegrationReviewState.Editing
+                || integrationReview.State == LabelingIntegrationReviewState.Saving)
+                return ReportIntegrationReviewError(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.ResultPending"), out error);
+            if (LastIntegrationReviewResult == null)
+            {
+                try
+                {
+                    LastIntegrationReviewResult = integrationReview.State switch
+                    {
+                        LabelingIntegrationReviewState.Saved or LabelingIntegrationReviewState.PublicationPending
+                            or LabelingIntegrationReviewState.Published => integrationReview.PublishSaved(),
+                        LabelingIntegrationReviewState.Cancelled => integrationReview.PublishCancellation(integrationReviewTerminalDetail),
+                        LabelingIntegrationReviewState.Failed => integrationReview.PublishFailure(integrationReviewTerminalDetail),
+                        _ => throw new InvalidOperationException(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.ResultPending"))
+                    };
+                    IntegrationReviewPublicationUncertain = false;
+                    AppendLog("왕복 결과 발행 확인: " + LastIntegrationReviewResult.Status);
+                }
+                catch (Exception ex)
+                {
+                    // Do not turn an uncertain completion into a contradictory failure/cancellation.
+                    IntegrationReviewPublicationUncertain = true;
+                    return ReportIntegrationReviewError("결과 발행 실패 또는 불확실: 같은 저장 결과로 재시도하세요. " + ex.Message, out error);
+                }
+            }
+            return TryRestoreIntegrationReviewEditor(out error);
+        }
+
+        public bool TryCancelIntegrationReview(out string error)
+        {
+            Dispatcher.VerifyAccess();
+            error = string.Empty;
+            if (integrationReview == null) return true;
+            if (LastIntegrationReviewResult != null) return TryRestoreIntegrationReviewEditor(out error);
+            if (integrationReview.State == LabelingIntegrationReviewState.PublicationPending
+                || integrationReview.State == LabelingIntegrationReviewState.Published)
+            {
+                try
+                {
+                    LastIntegrationReviewResult = integrationReview.ReadPublishedResult();
+                    if (LastIntegrationReviewResult != null)
+                    {
+                        IntegrationReviewPublicationUncertain = false;
+                        return TryRestoreIntegrationReviewEditor(out error);
+                    }
+                    if (integrationReview.State == LabelingIntegrationReviewState.Published)
+                        return ReportIntegrationReviewError("확인했던 결과가 사라졌습니다. 자동 취소 또는 재발행하지 않습니다.", out error);
+                    IntegrationReviewPublicationUncertain = false;
+                }
+                catch (Exception ex) { return ReportIntegrationReviewError("수신 결과 확인 실패: " + ex.Message, out error); }
+            }
+            if (integrationReview.State == LabelingIntegrationReviewState.Cancelled
+                || integrationReview.State == LabelingIntegrationReviewState.Failed)
+                return TryPublishIntegrationReview(out error);
+            if (!TryApproveIntegrationReviewExit())
+                return ReportIntegrationReviewError(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.CancelBlockedByUnsaved"), out error);
+            try
+            {
+                if (!integrationReviewAcknowledged)
+                {
+                    integrationReview.Acknowledge();
+                    integrationReviewAcknowledged = true;
+                }
+                if (!integrationReview.Cancel())
+                    return ReportIntegrationReviewError(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.CancelUnavailable"), out error);
+                integrationReviewTerminalDetail = OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.CancelledByUser");
+                CanvasPanelControl.IsEnabled = false;
+                return TryPublishIntegrationReview(out error);
+            }
+            catch (Exception ex) { return ReportIntegrationReviewError(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.CancelFailed"), ex.Message), out error); }
+        }
+
+        private bool CanSaveIntegrationAnnotations()
+        {
+            if (integrationReview == null) return true;
+            try
+            {
+                if (integrationReview.State != LabelingIntegrationReviewState.Editing
+                    && integrationReview.State != LabelingIntegrationReviewState.Saving) return false;
+                if (GetCurrentDatasetPurpose() != integrationReviewData.ProjectSettings.DatasetPurpose
+                    || !applicationState.Data.ClassNamedList.Select(item => item?.Text)
+                        .SequenceEqual(integrationReviewData.ClassNamedList.Select(item => item?.Text), StringComparer.Ordinal))
+                    throw new InvalidOperationException(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.ContextChanged"));
+                integrationReview.ValidateSaveTarget(integrationReviewData, applicationState.ImageWorkspace.ActiveImagePath);
+                return true;
+            }
+            catch (Exception ex) { return ReportIntegrationReviewError(string.Format(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.SaveTargetFailed"), ex.Message), out _); }
+        }
+
+        private void FailIntegrationReview(string detail)
+        {
+            integrationReviewTerminalDetail ??= detail;
+            CanvasPanelControl.IsEnabled = false;
+            // Keep the editor and its saved files available until the terminal result is acknowledged locally.
+            bool publicationAttempted = false;
+            try
+            {
+                integrationReview.Fail();
+                publicationAttempted = true;
+                LastIntegrationReviewResult = integrationReview.PublishFailure(integrationReviewTerminalDetail);
+                IntegrationReviewPublicationUncertain = false;
+                AppendLog("왕복 실패 결과 발행 확인: " + integrationReviewTerminalDetail);
+            }
+            catch (Exception ex)
+            {
+                IntegrationReviewPublicationUncertain = publicationAttempted;
+                AppendLog((publicationAttempted ? "실패 결과 발행 불확실: " : "실패 상태 보존 오류 · 결과 발행 전 중단: ") + ex.Message);
+            }
+        }
+
+        private bool TryApproveIntegrationReviewExit()
+        {
+            integrationReviewLeaving = true;
+            try
+            {
+                WorkflowTransitionApproval approval = workflowTransitionAdapter.TryApprove(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.EndAction"), replacesRecipe: false);
+                return approval.IsAllowed && workflowTransitionAdapter.ApplyDiscard(approval);
+            }
+            finally { integrationReviewLeaving = false; }
+        }
+
+        private bool TryRestoreIntegrationReviewEditor(out string error)
+        {
+            error = string.Empty;
+            // A publication retry may happen after further UI edits. Use the existing discard/save decision.
+            if ((annotationDirtyState.IsDirty || HasWorkflowDraft()) && !TryApproveIntegrationReviewExit())
+                return ReportIntegrationReviewError("결과 발행은 확인되었으나 현재 편집 내용 보호로 화면 복귀가 보류되었습니다.", out error);
+            try
+            {
+                imageChangeStateAdapter.PrepareForImageChange();
+                ClearActiveImageAfterQueueReset();
+                integrationReviewData = null;
+                bool restored = string.IsNullOrWhiteSpace(integrationReviewPreviousImagePath)
+                    || imageLoadWorkflowAdapter.TryLoadImage(integrationReviewPreviousImagePath, populateQueue: false,
+                        refreshQueueDetails: false, refreshActiveStatus: false, appendLoadLog: false, skipPendingAnnotationSave: true);
+                if (!restored)
+                    return ReportIntegrationReviewError("결과 발행은 확인되었으나 이전 이미지 복귀에 실패했습니다. 복귀를 재시도하세요.", out error);
+                integrationReview.Dispose();
+                integrationReview = null;
+                integrationReviewAcknowledged = false;
+                integrationReviewPreviousImagePath = null;
+                integrationReviewJournalSuppression?.Dispose();
+                integrationReviewJournalSuppression = null;
+                CanvasPanelControl.IsEnabled = integrationReviewCanvasWasEnabled;
+                RestoreObjectMetadataTagsFromProject();
+                RefreshImageLoadReviewState(refreshActiveStatus: true, refreshClassCatalog: true);
+                viewModels.MenuViewModel.Refresh();
+                return true;
+            }
+            catch (Exception ex) { return ReportIntegrationReviewError("결과 발행 후 화면 복귀 실패: " + ex.Message, out error); }
+        }
+
+        private void CloseIntegrationReview()
+        {
+            if (integrationReview == null) return;
+            try
+            {
+                if (LastIntegrationReviewResult == null && integrationReviewAcknowledged)
+                {
+                    if (integrationReview.State is LabelingIntegrationReviewState.PublicationPending or LabelingIntegrationReviewState.Published)
+                    {
+                        LastIntegrationReviewResult = integrationReview.ReadPublishedResult();
+                        IntegrationReviewPublicationUncertain = LastIntegrationReviewResult == null;
+                        if (LastIntegrationReviewResult == null)
+                            AppendLog("수신 결과가 아직 없습니다. 저장된 왕복 결과 의도를 보존하며 재시작 시 다시 조회합니다.");
+                    }
+                    else if (integrationReview.State == LabelingIntegrationReviewState.Failed)
+                        LastIntegrationReviewResult = integrationReview.PublishFailure(integrationReviewTerminalDetail);
+                    else if (integrationReview.State == LabelingIntegrationReviewState.Cancelled)
+                        LastIntegrationReviewResult = integrationReview.PublishCancellation(integrationReviewTerminalDetail);
+                    else if (integrationReview.Cancel())
+                        LastIntegrationReviewResult = integrationReview.PublishCancellation(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.ClosedBeforeResult"));
+                    else
+                    {
+                        IntegrationReviewPublicationUncertain = true;
+                        AppendLog(OpenVisionLab.OpenVisionLanguageService.T("WpfIntegrationReview.RecoveryRequired"));
+                    }
+                    if (LastIntegrationReviewResult != null) IntegrationReviewPublicationUncertain = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                IntegrationReviewPublicationUncertain = true;
+                AppendLog("종료 중 왕복 결과 발행 불확실: " + ex.Message);
+            }
+            finally
+            {
+                integrationReview.Dispose(); // Never delete retained workspaces or replace an uncertain result.
+                integrationReview = null;
+                integrationReviewData = null;
+                integrationReviewAcknowledged = false;
+                integrationReviewJournalSuppression?.Dispose();
+                integrationReviewJournalSuppression = null;
+            }
+        }
+
+        private bool ReportIntegrationReviewError(string message, out string error)
+        {
+            error = message;
+            SetYoloCommandStatus(message, false);
+            AppendLog(message);
+            return false;
+        }
         #endregion
 
         #region CandidateReviewStateAdapterFacade
@@ -4276,10 +4790,14 @@ namespace MvcVisionSystem
 
         #region ImageQueueCommandFacade
         private void ExecuteLoadImageRootQueueCommand()
-            => imageQueueRootCommandAdapter.ExecuteLoadImageRootCommand();
+        {
+            if (integrationReview == null) imageQueueRootCommandAdapter.ExecuteLoadImageRootCommand();
+        }
 
         private void ExecuteBrowseImageFolderCommand()
-            => imageQueueRootCommandAdapter.ExecuteBrowseImageFolderCommand();
+        {
+            if (integrationReview == null) imageQueueRootCommandAdapter.ExecuteBrowseImageFolderCommand();
+        }
 
         private void SaveCurrentImageRootToRecipe(string selectedPath)
             => imageQueueRootCommandAdapter.SaveCurrentImageRootToRecipe(selectedPath);
@@ -4402,7 +4920,7 @@ namespace MvcVisionSystem
             => imageQueueLoadingAdapter.RefreshImageLoadReviewState(refreshActiveStatus, refreshClassCatalog);
 
         private bool TrySavePendingAnnotationsBeforeImageChange(string nextImagePath)
-            => imageQueueLoadingAdapter.TrySavePendingAnnotationsBeforeImageChange(nextImagePath);
+            => integrationReview == null && imageQueueLoadingAdapter.TrySavePendingAnnotationsBeforeImageChange(nextImagePath);
 
         private void PreloadAdjacentQueueImages(string imagePath)
             => imageQueueLoadingAdapter.PreloadAdjacentQueueImages(imagePath);
@@ -4730,13 +5248,15 @@ namespace MvcVisionSystem
             => crashRecoveryIntegrationAdapter.TryRestoreCrashRecoveryDraft(draft);
 
         private bool ScheduleCrashRecoveryJournalWrite()
-            => crashRecoveryIntegrationAdapter.ScheduleCrashRecoveryJournalWrite();
+            => integrationReview == null && crashRecoveryIntegrationAdapter.ScheduleCrashRecoveryJournalWrite();
 
         private WpfCrashRecoveryDraft CaptureCrashRecoveryDraft()
             => crashRecoveryIntegrationAdapter.CaptureCrashRecoveryDraft();
 
         private void DiscardCrashRecoveryJournal()
-            => crashRecoveryIntegrationAdapter.DiscardCrashRecoveryJournal();
+        {
+            if (integrationReview == null) crashRecoveryIntegrationAdapter.DiscardCrashRecoveryJournal();
+        }
 
         private WpfMessageDialogResult ShowCrashRecoveryPromptDialog(WpfCrashRecoveryDraft draft)
         {
@@ -4834,7 +5354,10 @@ namespace MvcVisionSystem
             => trainingGuideWorkflowAdapter.FinishQueueCompletionAndGuideDatasetCheck();
 
         private void ExecuteCancelLabelingCommand()
-            => ExecuteDatasetHomeCommand();
+        {
+            if (integrationReview == null) ExecuteDatasetHomeCommand();
+            else TryCancelIntegrationReview(out _);
+        }
 
         private void UpdateDatasetStatusDashboard(
             YoloDatasetReadinessReport report,
@@ -5496,7 +6019,7 @@ namespace MvcVisionSystem
             YoloImageLabelStatus status = YoloImageLabelStatusService.Build(
                 imagePath,
                 applicationState.ImageWorkspace.ActiveImageSize,
-                applicationState.Data);
+                AnnotationProjectData);
             if (!status.HasLabelFile)
             {
                 annotationSaveStateAdapter.MarkAnnotationsUnlabeled();
@@ -5526,10 +6049,13 @@ namespace MvcVisionSystem
 
         #region AnnotationPersistenceAdapterFacade
         private bool SaveCurrentAnnotations(out int savedCount)
-            => annotationPersistenceAdapter.SaveCurrentAnnotations(out savedCount);
+        {
+            savedCount = 0;
+            return CanSaveIntegrationAnnotations() && annotationPersistenceAdapter.SaveCurrentAnnotations(out savedCount);
+        }
 
         private bool SaveCurrentEmptyAnnotations()
-            => annotationPersistenceAdapter.SaveCurrentEmptyAnnotations();
+            => CanSaveIntegrationAnnotations() && annotationPersistenceAdapter.SaveCurrentEmptyAnnotations();
 
         private Dictionary<string, List<AnnotationRectangleObject>> BuildAnnotationRois()
             => annotationPersistenceAdapter.BuildAnnotationRois();
@@ -6116,8 +6642,8 @@ namespace MvcVisionSystem
                 CaptureObjectReviewSnapshots = CaptureObjectReviewSnapshots,
                 ApplyObjectPersistentOccludedMutation = ApplyObjectPersistentOccludedMutation,
                 ReportObjectReviewWorkflowError = ReportObjectReviewWorkflowError,
-                GetApplicationData = () => applicationState.Data,
-                GetCurrentRecipeName = GetCurrentRecipeName,
+                GetApplicationData = () => AnnotationProjectData,
+                GetCurrentRecipeName = () => integrationReview == null ? GetCurrentRecipeName() : string.Empty,
                 ApplyObjectPersistentTagMutation = ApplyObjectPersistentTagMutation,
                 ApplyObjectRecipeMetadataResetMutation = ApplyObjectRecipeMetadataResetMutation,
                 ApplyCreatedObjectGroupMutation = ApplyCreatedObjectGroupMutation,
@@ -6801,8 +7327,8 @@ namespace MvcVisionSystem
             => new WorkflowTransitionAdapter(new WorkflowTransitionAdapterContext
             {
                 IsApplicationCloseApproved = () => isApplicationCloseApproved,
-                IsOperationRunning = IsWorkflowOperationRunning,
-                CanBrowseCapturedTrainingQueue = CanBrowseCapturedTrainingQueue,
+                IsOperationRunning = () => IsWorkflowOperationRunning() || (integrationReview != null && !integrationReviewLeaving),
+                CanBrowseCapturedTrainingQueue = () => integrationReview == null && CanBrowseCapturedTrainingQueue(),
                 HasDraft = HasWorkflowDraft,
                 ActiveWorkNamesProvider = () => BuildApplicationCloseState()?.ActiveWorkNames ?? Array.Empty<string>(),
                 PendingCandidateCountProvider = () => candidateReviewState.PendingCount,

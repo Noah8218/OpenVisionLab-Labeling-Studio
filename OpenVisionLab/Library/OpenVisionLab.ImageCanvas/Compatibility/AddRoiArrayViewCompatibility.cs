@@ -10,6 +10,7 @@ namespace OpenVisionLab.ImageCanvas.Views
 
 		public AddRoiArrayView()
 		{
+			Title = OpenVisionLanguageService.T("ImageCanvas.RoiArray.Title");
 			Width = 420;
 			Height = 300;
 			MinWidth = 420;
@@ -31,23 +32,23 @@ namespace OpenVisionLab.ImageCanvas.Views
 			grid.ColumnDefinitions.Add(new ColumnDefinition());
 			grid.ColumnDefinitions.Add(new ColumnDefinition());
 
-			AddLabel(grid, "Row", 0, 0);
+			AddLabel(grid, OpenVisionLanguageService.T("ImageCanvas.RoiArray.Rows"), 0, 0);
 			AddTextBox(grid, nameof(AddRoiArrayViewModel.Rows), 1, 0);
-			AddLabel(grid, "Column", 0, 1);
+			AddLabel(grid, OpenVisionLanguageService.T("ImageCanvas.RoiArray.Columns"), 0, 1);
 			AddTextBox(grid, nameof(AddRoiArrayViewModel.Columns), 1, 1);
-			AddLabel(grid, "Row Gap(mm)", 2, 0);
+			AddLabel(grid, OpenVisionLanguageService.T("ImageCanvas.RoiArray.RowSpacing"), 2, 0);
 			AddTextBox(grid, nameof(AddRoiArrayViewModel.RowSpacing), 3, 0);
-			AddLabel(grid, "Column Gap(mm)", 2, 1);
+			AddLabel(grid, OpenVisionLanguageService.T("ImageCanvas.RoiArray.ColumnSpacing"), 2, 1);
 			AddTextBox(grid, nameof(AddRoiArrayViewModel.ColumnSpacing), 3, 1);
 
-			Button apply = new Button { Name = "ArrayApplyButton", Content = "Apply", Height = 40, Margin = new Thickness(4) };
+			Button apply = new Button { Name = "ArrayApplyButton", Content = OpenVisionLanguageService.T("ImageCanvas.RoiArray.Apply"), Height = 40, Margin = new Thickness(4) };
 			apply.SetResourceReference(StyleProperty, "RecipePrimaryButtonStyle");
 			apply.SetBinding(Button.CommandProperty, nameof(AddRoiArrayViewModel.ApplyCommand));
 			Grid.SetRow(apply, 4);
 			Grid.SetColumn(apply, 0);
 			grid.Children.Add(apply);
 
-			Button cancel = new Button { Name = "ArrayCancelButton", Content = "Cancel", IsCancel = true, Height = 40, Margin = new Thickness(4) };
+			Button cancel = new Button { Name = "ArrayCancelButton", Content = OpenVisionLanguageService.T("Common.Cancel"), IsCancel = true, Height = 40, Margin = new Thickness(4) };
 			cancel.SetResourceReference(StyleProperty, "RecipeSecondaryButtonStyle");
 			cancel.SetBinding(Button.CommandProperty, nameof(AddRoiArrayViewModel.CancelCommand));
 			Grid.SetRow(cancel, 4);

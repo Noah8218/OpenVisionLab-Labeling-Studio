@@ -2,7 +2,7 @@
 
 [English README](../../README.md) · [한국어 README](../../README.ko.md) · [Release notes](../../RELEASE_NOTES.md)
 
-Build and run the app, verify a package, or check its environment with the commands below. Run them from the repository root. The versioned examples below use **0.3.8**; [Directory.Build.props](../../Directory.Build.props) owns the product version and [global.json](../../global.json) pins the SDK.
+Build and run the app, verify a package, or check its environment with the commands below. Run them from the repository root. The versioned examples below use **0.4.0**; [Directory.Build.props](../../Directory.Build.props) owns the product version and [global.json](../../global.json) pins the SDK.
 
 ## Build Command
 
@@ -28,14 +28,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x6
 .\scripts\start-labeling-workbench.ps1 -AppMode Publish
 ```
 
-The versioned self-contained folder is `artifacts\publish\Release\win-x64\0.3.8`. Extract the portable ZIP into a new folder, verify the manifests, then run `OpenVisionLab.LabelingStudio.exe`. The release and publish manifests record source/build identity and the full payload's SHA-256 hashes.
+The versioned self-contained folder is `artifacts\publish\Release\win-x64\0.4.0`. Extract the portable ZIP into a new folder, verify the manifests, then run `OpenVisionLab.LabelingStudio.exe`. The release and publish manifests record source/build identity and the full payload's SHA-256 hashes.
 
 ## Package verification
 
 Verify the existing package without changing it:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.3.8 -VerifyOnly
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.4.0 -VerifyOnly
 ```
 
 ## Environment check CLI

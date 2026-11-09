@@ -2,7 +2,7 @@
 
 한 PC에서 산업 이미지에 라벨을 붙이고 모델을 학습·비교한 뒤 추론하는 Windows 데스크톱 도구입니다.
 
-[![버전 0.3.8](https://img.shields.io/badge/version-0.3.8-blue)](Directory.Build.props)
+[![버전 0.4.0](https://img.shields.io/badge/version-0.4.0-blue)](Directory.Build.props)
 ![Windows 10/11 x64](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-blue)
 ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
 [![MIT License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -145,7 +145,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x6
 .\scripts\start-labeling-workbench.ps1 -AppMode Publish
 ```
 
-버전별 self-contained 폴더는 `artifacts\publish\Release\win-x64\0.3.8`입니다. portable ZIP을 새 폴더에 풀고 manifest를 검증한 뒤 `OpenVisionLab.LabelingStudio.exe`를 실행합니다. release·publish manifest는 소스·빌드 식별 정보와 전체 payload의 SHA-256을 기록합니다.
+버전별 self-contained 폴더는 `artifacts\publish\Release\win-x64\0.4.0`입니다. portable ZIP을 새 폴더에 풀고 manifest를 검증한 뒤 `OpenVisionLab.LabelingStudio.exe`를 실행합니다. release·publish manifest는 소스·빌드 식별 정보와 전체 payload의 SHA-256을 기록합니다.
 
 기본 런처는 `Directory.Build.props`의 버전으로 Publish 폴더를 찾으므로 기본 번들에는 로컬 설정이 필요하지 않습니다. 명시한 `-ConfigPath`, `config/labeling-runtime.local.json`, 예제 설정 순서로 적용합니다. 사용자 지정 번들은 [런처 설정](docs/tutorial/BUILD_AND_RUNTIME.md#launcher-configuration)을 참고하세요.
 
@@ -154,7 +154,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x6
 기존 패키지를 변경하지 않고 검증합니다.
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.3.8 -VerifyOnly
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.4.0 -VerifyOnly
 ```
 
 ### 환경 점검 CLI
@@ -190,7 +190,7 @@ OpenVisionLab.LabelingStudio.exe --environment-self-test --json
 
 ## 버전
 
-현재 버전: **0.3.8** ([버전 원본](Directory.Build.props)) · [버전 이력](RELEASE_NOTES.md)
+현재 버전: **0.4.0** ([버전 원본](Directory.Build.props)) · [버전 이력](RELEASE_NOTES.md)
 
 ## OpenVisionLab 프로젝트
 

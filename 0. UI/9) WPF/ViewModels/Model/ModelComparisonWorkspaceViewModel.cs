@@ -180,7 +180,7 @@ namespace MvcVisionSystem
                 FormatDecisionRate(point.Evaluation.Extras, point.Evaluation.OkCount))));
         public string BaselinePartTestText => DescribeFixedTest(SelectedA);
         public string CandidatePartTestText => DescribeFixedTest(SelectedB);
-        public string AdoptionPartTestText => DescribeFixedTest(adoptionRow);
+        public string AdoptionPartTestText => DescribeFixedTest(adoptionRow, includeRuleStatus: false);
         public string RuleStateKey => RuleValidationError.Length > 0 && RuleValidationError == "RuleStale" ? "RuleStale" : ruleDirty ? "RuleUnsaved" : savedRule == null ? "RuleUnconfigured" : "RuleSaved";
         public string RuleStateText => T(RuleStateKey);
         public string RuleValidationError => ValidateRuleDraft(BuildRuleDraft());
@@ -364,13 +364,19 @@ namespace MvcVisionSystem
             }
             return points;
         }
-        private string DescribeFixedTest(ModelComparisonWorkspaceRow row)
+        private string GetSavedRuleStatus(ModelComparisonWorkspaceRow row, out ModelDecisionRule rule)
         {
-            ModelDecisionRule rule = ruleRuns.FirstOrDefault(run => run?.TrainingRunId == row?.History.TrainingRunId)?.DecisionRule;
-            if (rule == null) return T("RuleUnconfigured");
+            rule = row == null ? null : ruleRuns.FirstOrDefault(run => run?.TrainingRunId == row.History.TrainingRunId)?.DecisionRule;
+            if (rule == null) return "RuleUnconfigured";
             string error = ModelRegistryService.ValidateDecisionRule(rule);
-            if (error.Length > 0) return T(error);
-            if (!ModelRegistryService.DecisionRuleMatches(rule, row.History.TrainingRunId, weightsHashes.GetValueOrDefault(row.History.WeightsPath), currentVersion, currentContentHash, ruleReviewHash)) return T("RuleStale");
+            if (error.Length > 0) return error;
+            return ModelRegistryService.DecisionRuleMatches(rule, row.History.TrainingRunId, weightsHashes.GetValueOrDefault(row.History.WeightsPath), currentVersion, currentContentHash, ruleReviewHash) ? string.Empty : "RuleStale";
+        }
+
+        private string DescribeFixedTest(ModelComparisonWorkspaceRow row, bool includeRuleStatus = true)
+        {
+            string status = GetSavedRuleStatus(row, out ModelDecisionRule rule);
+            if (status.Length > 0) return includeRuleStatus ? T(status) : string.Empty;
             ModelDecisionTestSummary summary = rule.FixedTestSummary;
             return summary == null ? T("RuleNeedsEvaluation") : Format("RuleFixedTestSummary", summary.Misses, summary.NgCount, summary.Extras, summary.OkCount);
         }
@@ -470,11 +476,8 @@ namespace MvcVisionSystem
             : Format("RuleEvaluationSummary", evaluation.Misses, evaluation.NgCount, evaluation.Extras, evaluation.OkCount, evaluation.Accuracy, evaluation.ExcludedCount);
         private string DescribeSavedDecisionRule(ModelComparisonWorkspaceRow row)
         {
-            ModelDecisionRule rule = ruleRuns.FirstOrDefault(run => run?.TrainingRunId == row?.History.TrainingRunId)?.DecisionRule;
-            if (rule == null) return T("RuleUnconfigured");
-            string error = ModelRegistryService.ValidateDecisionRule(rule);
-            if (error.Length > 0) return T(error);
-            if (!ModelRegistryService.DecisionRuleMatches(rule, row.History.TrainingRunId, weightsHashes.GetValueOrDefault(row.History.WeightsPath), currentVersion, currentContentHash, ruleReviewHash)) return T("RuleStale");
+            string status = GetSavedRuleStatus(row, out ModelDecisionRule rule);
+            if (status.Length > 0) return T(status);
             return rule.DatasetPurpose == LabelingDatasetPurpose.AnomalyDetection ? Format("RuleAnomalySummary", rule.AnomalyScoreThreshold) : Format("RuleDetectionSummary", rule.Confidence, rule.MinimumShortSidePixels, rule.MinimumDefectCount);
         }
 
@@ -750,6 +753,7 @@ namespace MvcVisionSystem
             isAdoptionConfirmationOpen = true;
             OnPropertyChanged(nameof(AdoptionModelText));
             OnPropertyChanged(nameof(AdoptionDecisionRuleText));
+            OnPropertyChanged(nameof(AdoptionPartTestText));
             OnPropertyChanged(nameof(IsAdoptionConfirmationOpen));
             RefreshCommands();
         }

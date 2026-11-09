@@ -64,7 +64,7 @@
                 <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                 <StackPanel Orientation="Horizontal" Visibility="{Binding IsPerformanceTab, Converter={StaticResource ComparisonBooleanToVisibility}}">
                     <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" Style="{StaticResource ComparisonCaptionStyle}" Text="{Binding Language[WpfComparisonWorkspace.ReferenceData]}" />
-                    <ComboBox x:Name="ComparisonVersionCombo" Height="Auto" MinWidth="96" MaxWidth="456" MinHeight="30" Padding="8,5,28,5" Style="{StaticResource RecipeComboBoxStyle}" ItemsSource="{Binding VersionChoices}" SelectedItem="{Binding SelectedVersionChoice, Mode=TwoWay}" IsEnabled="{Binding CanChooseModels}" ToolTip="{Binding SelectedVersionLabel}"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Value}" MaxWidth="420" TextWrapping="Wrap" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+                    <ComboBox x:Name="ComparisonVersionCombo" Height="Auto" MinWidth="96" MaxWidth="456" MinHeight="30" Padding="8,5,28,5" Style="{StaticResource RecipeComboBoxStyle}" ItemsSource="{Binding VersionChoices}" SelectedValuePath="Key" SelectedItem="{Binding SelectedVersionChoice, Mode=TwoWay}" IsEnabled="{Binding CanChooseModels}" ToolTip="{Binding SelectedVersionLabel}"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Value}" MaxWidth="420" TextWrapping="Wrap" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
                     <Button x:Name="RunWorkspaceComparisonButton" Margin="8,0,0,0" Height="30" MinHeight="30" Padding="10,5" Style="{StaticResource RecipeSecondaryButtonStyle}" Command="{Binding RunComparisonCommand}" Content="{Binding Language[WpfComparisonWorkspace.Run]}" ToolTip="{Binding RunHint}" />
                 </StackPanel>
                 <Expander x:Name="ComparisonIdentityDetails" Grid.Row="1" Margin="0,6,0,0" HorizontalAlignment="Right" MaxWidth="456" Style="{StaticResource DatasetExpanderStyle}" Header="{Binding Language[WpfDatasetVersion.IdentityDetails]}" Visibility="{Binding IsPerformanceTab, Converter={StaticResource ComparisonBooleanToVisibility}}">
@@ -346,7 +346,15 @@
                     <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="20,6,20,16">
                         <TextBlock Text="{Binding AdoptionModelText}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,12" />
                         <TextBlock Text="{Binding AdoptionDecisionRuleText}" Style="{StaticResource ComparisonCaptionStyle}" Margin="0,0,0,12" />
-                        <TextBlock Text="{Binding AdoptionPartTestText}" Style="{StaticResource ComparisonCaptionStyle}" Margin="0,0,0,12" />
+                        <TextBlock Text="{Binding AdoptionPartTestText}" Margin="0,0,0,12">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource ComparisonCaptionStyle}">
+                                    <Style.Triggers>
+                                        <Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed" /></Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                         <TextBlock Style="{StaticResource ComparisonCaptionStyle}" Text="{Binding EvidenceText}" Margin="0,0,0,12" />
                         <Grid Margin="0,0,0,12" TextElement.FontSize="12"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /></Grid.ColumnDefinitions>
                             <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>

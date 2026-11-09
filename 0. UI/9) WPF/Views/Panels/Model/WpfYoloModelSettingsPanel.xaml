@@ -12,6 +12,42 @@
             </ResourceDictionary.MergedDictionaries>
             <BooleanToVisibilityConverter x:Key="YoloSectionVisibility" />
             <local:RuntimeDetailTextConverter x:Key="RuntimeDetailText" />
+            <local:PathTailPreviewConverter x:Key="YoloPathTail" />
+            <Style x:Key="YoloPathPreviewStyle" TargetType="ContentControl">
+                <Setter Property="IsHitTestVisible" Value="False" />
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="IsTabStop" Value="False" />
+                <Setter Property="Visibility" Value="{Binding Visibility}" />
+                <Setter Property="Margin" Value="{Binding Margin}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ContentControl">
+                            <Border x:Name="Preview" Margin="{Binding BorderThickness}" Padding="{Binding Padding}"
+                                    Background="{Binding Background}" CornerRadius="5">
+                                <TextBlock x:Name="Tail" VerticalAlignment="Center" Foreground="{Binding Foreground}"
+                                           FontFamily="{Binding FontFamily}" FontSize="{Binding FontSize}" FontWeight="{Binding FontWeight}">
+                                    <TextBlock.Text>
+                                        <MultiBinding Converter="{StaticResource YoloPathTail}">
+                                            <Binding Path="Text" />
+                                            <Binding Path="ActualWidth" RelativeSource="{RelativeSource Self}" />
+                                            <Binding Path="FontSize" />
+                                            <Binding />
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger SourceName="Tail" Property="Text" Value="">
+                                    <Setter TargetName="Preview" Property="Opacity" Value="0" />
+                                </Trigger>
+                                <DataTrigger Binding="{Binding IsKeyboardFocusWithin}" Value="True">
+                                    <Setter TargetName="Preview" Property="Opacity" Value="0" />
+                                </DataTrigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
             <Style x:Key="YoloIntegratedEditorStyle" TargetType="Expander" BasedOn="{StaticResource DatasetExpanderStyle}">
                 <Style.Triggers>
                     <DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False">
@@ -240,7 +276,8 @@
                              Style="{StaticResource YoloModelTextBoxStyle}"
                              Text="{Binding WeightsPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              ToolTip="{Binding WeightsPath}"
-                             Margin="0" /><ui:Button Grid.Column="1" x:Name="BrowseYoloWeightsButton"
+                             Margin="0" />
+                            <ContentControl DataContext="{Binding ElementName=YoloWeightsPathBox}" Style="{StaticResource YoloPathPreviewStyle}" /><ui:Button Grid.Column="1" x:Name="BrowseYoloWeightsButton"
                                Style="{StaticResource YoloModelBrowseButtonStyle}"
                                IsEnabled="{Binding IsBrowseWeightsEnabled}"
                                ToolTip="&#xAC80;&#xC0AC;&#xC5D0; &#xC0AC;&#xC6A9;&#xD560; &#xBAA8;&#xB378; &#xD30C;&#xC77C; &#xC120;&#xD0DD;"
@@ -270,7 +307,8 @@
                                TextWrapping="Wrap" ><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Visible" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></StackPanel></Border><Border Grid.Column="1" Grid.Row="0" Grid.ColumnSpan="1"><Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="0,0,0,12" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Margin" Value="6,0,0,12" /></DataTrigger></Style.Triggers></Style></Border.Style><StackPanel><TextBlock Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" Text="{Binding [WpfModelSettings.Python], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource YoloModelLabelStyle}"  TextWrapping="Wrap" /><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBox Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" x:Name="YoloPythonPathBox"
                          Style="{StaticResource YoloModelTextBoxStyle}"
                          Text="{Binding PythonExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="{Binding PythonExecutablePath}" /><ui:Button Grid.Column="1" x:Name="BrowseYoloPythonButton"
+                         ToolTip="{Binding PythonExecutablePath}" />
+                            <ContentControl DataContext="{Binding ElementName=YoloPythonPathBox}" Style="{StaticResource YoloPathPreviewStyle}" /><ui:Button Grid.Column="1" x:Name="BrowseYoloPythonButton"
                            Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}"
                            Style="{StaticResource YoloModelBrowseButtonStyle}"
                            IsEnabled="{Binding IsBrowsePythonEnabled}"
@@ -280,7 +318,8 @@
                 </ui:Button></Grid></StackPanel></Border><Border Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="1"><Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="0,0,16,12" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Margin" Value="0,0,6,0" /></DataTrigger></Style.Triggers></Style></Border.Style><StackPanel><TextBlock Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" Text="{Binding [WpfModelSettings.ProjectRoot], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource YoloModelLabelStyle}"  TextWrapping="Wrap" /><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBox Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" x:Name="YoloProjectRootBox"
                          Style="{StaticResource YoloModelTextBoxStyle}"
                          Text="{Binding ProjectRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="{Binding ProjectRootPath}" /><ui:Button Grid.Column="1" x:Name="BrowseYoloProjectRootButton"
+                         ToolTip="{Binding ProjectRootPath}" />
+                            <ContentControl DataContext="{Binding ElementName=YoloProjectRootBox}" Style="{StaticResource YoloPathPreviewStyle}" /><ui:Button Grid.Column="1" x:Name="BrowseYoloProjectRootButton"
                            Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}"
                            Style="{StaticResource YoloModelBrowseButtonStyle}"
                            IsEnabled="{Binding IsBrowseProjectRootEnabled}"
@@ -290,7 +329,8 @@
                 </ui:Button></Grid></StackPanel></Border><Border Grid.Column="1" Grid.Row="1" Grid.ColumnSpan="1"><Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="0,0,0,12" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Margin" Value="6,0,0,0" /></DataTrigger></Style.Triggers></Style></Border.Style><StackPanel><TextBlock Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" Text="{Binding [WpfModelSettings.ClientScript], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource YoloModelLabelStyle}"  TextWrapping="Wrap" /><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBox Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" x:Name="YoloClientScriptBox"
                          Style="{StaticResource YoloModelTextBoxStyle}"
                          Text="{Binding ClientScriptPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="{Binding ClientScriptPath}" /><ui:Button Grid.Column="1" x:Name="BrowseYoloClientScriptButton"
+                         ToolTip="{Binding ClientScriptPath}" />
+                            <ContentControl DataContext="{Binding ElementName=YoloClientScriptBox}" Style="{StaticResource YoloPathPreviewStyle}" /><ui:Button Grid.Column="1" x:Name="BrowseYoloClientScriptButton"
                            Visibility="{Binding ShowRuntimeFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}"
                            Style="{StaticResource YoloModelBrowseButtonStyle}"
                            IsEnabled="{Binding IsBrowseClientScriptEnabled}"
@@ -307,7 +347,8 @@
 <Border Visibility="{Binding ShowInspectionFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" BorderThickness="1"><Border.Style><Style TargetType="Border"><Setter Property="Background" Value="{DynamicResource RecipeSurfaceBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource RecipeBorderBrush}"/><Setter Property="Padding" Value="14" /><Setter Property="CornerRadius" Value="7" /><Setter Property="Margin" Value="0,0,0,12" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Padding" Value="14,12,14,0" /><Setter Property="Background" Value="Transparent"/><Setter Property="BorderBrush" Value="Transparent"/><Setter Property="CornerRadius" Value="8" /><Setter Property="Margin" Value="0" /></DataTrigger></Style.Triggers></Style></Border.Style><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="{Binding [WpfTrainingSettings.InferenceConditions], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Grid.Row="0" FontSize="12" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" FontWeight="SemiBold" Foreground="{DynamicResource RecipeMutedTextBrush}" Margin="0,0,0,8" ><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock><StackPanel><StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Grid.Row" Value="0" /><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Grid.Row" Value="2" /><Setter Property="Margin" Value="0,12,0,0" /></DataTrigger></Style.Triggers></Style></StackPanel.Style><TextBlock Visibility="{Binding ShowInspectionFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" TextWrapping="Wrap"><TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource YoloModelLabelStyle}"><Setter Property="Text" Value="{Binding [WpfModelSettings.ImageRoot], Source={x:Static local:WpfLocalizationViewModel.Instance}}"/><Style.Triggers><DataTrigger Binding="{Binding ShowLegacyFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}}" Value="False"><Setter Property="Text" Value="{Binding [WpfTrainingSettings.InspectionImageFolder], Source={x:Static local:WpfLocalizationViewModel.Instance}}"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBox Visibility="{Binding ShowInspectionFields, RelativeSource={RelativeSource AncestorType=local:WpfYoloModelSettingsPanel}, Converter={StaticResource YoloSectionVisibility}}" x:Name="YoloImageRootBox"
                          Style="{StaticResource YoloModelTextBoxStyle}"
                          Text="{Binding ImageRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="{Binding ImageRootPath}" /><ui:Button Grid.Column="1" x:Name="BrowseYoloImageRootButton"
+                         ToolTip="{Binding ImageRootPath}" />
+                            <ContentControl DataContext="{Binding ElementName=YoloImageRootBox}" Style="{StaticResource YoloPathPreviewStyle}" /><ui:Button Grid.Column="1" x:Name="BrowseYoloImageRootButton"
                            Style="{StaticResource YoloModelBrowseButtonStyle}"
                            IsEnabled="{Binding IsBrowseImageRootEnabled}"
                            ToolTip="&#xC774;&#xBBF8;&#xC9C0; &#xB8E8;&#xD2B8; &#xD3F4;&#xB354; &#xC120;&#xD0DD;"

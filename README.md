@@ -2,7 +2,7 @@
 
 A Windows desktop tool for labeling industrial images, training and comparing models, and running inference on one PC.
 
-[![Version 0.3.8](https://img.shields.io/badge/version-0.3.8-blue)](Directory.Build.props)
+[![Version 0.4.0](https://img.shields.io/badge/version-0.4.0-blue)](Directory.Build.props)
 ![Windows 10/11 x64](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-blue)
 ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
 [![MIT License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -145,7 +145,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x6
 .\scripts\start-labeling-workbench.ps1 -AppMode Publish
 ```
 
-The versioned self-contained folder is `artifacts\publish\Release\win-x64\0.3.8`. Extract the portable ZIP into a new folder, verify the manifests, then run `OpenVisionLab.LabelingStudio.exe`. The release and publish manifests record source/build identity and the full payload's SHA-256 hashes.
+The versioned self-contained folder is `artifacts\publish\Release\win-x64\0.4.0`. Extract the portable ZIP into a new folder, verify the manifests, then run `OpenVisionLab.LabelingStudio.exe`. The release and publish manifests record source/build identity and the full payload's SHA-256 hashes.
 
 The example launcher resolves the Publish folder from the version in `Directory.Build.props`; no local configuration is needed for the default bundle. An explicit `-ConfigPath` takes precedence over `config/labeling-runtime.local.json`, which takes precedence over the example. See [launcher configuration](docs/tutorial/BUILD_AND_RUNTIME.md#launcher-configuration) for custom bundles.
 
@@ -154,7 +154,7 @@ The example launcher resolves the Publish folder from the version in `Directory.
 Verify the existing package without changing it:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.3.8 -VerifyOnly
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.4.0 -VerifyOnly
 ```
 
 ### Environment check CLI
@@ -190,7 +190,7 @@ See [Runtime limitations](docs/tutorial/BUILD_AND_RUNTIME.md#limitations) for ar
 
 ## Version
 
-Current version: **0.3.8** ([version source](Directory.Build.props)) · [Release notes](RELEASE_NOTES.md)
+Current version: **0.4.0** ([version source](Directory.Build.props)) · [Release notes](RELEASE_NOTES.md)
 
 ## Part of OpenVisionLab
 

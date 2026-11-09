@@ -28,6 +28,8 @@
       color: var(--text);
       font-family: "Segoe UI", "Malgun Gothic", Arial, sans-serif;
       line-height: 1.65;
+      word-break: keep-all;
+      overflow-wrap: break-word;
     }
     a { color: #9ccaff; }
     code {
@@ -148,10 +150,10 @@
 </head>
 <body>
   <header>
-    <p class="eyebrow">작업자가 보고 그대로 따라 하는 최신 가이드</p>
+    <p class="eyebrow">작업 순서와 완료 상태를 확인하는 가이드</p>
     <h1>OpenVisionLab Labeling Studio 사용자 매뉴얼</h1>
-    <p>데이터셋 준비부터 라벨 저장, Smart Mask, 이상 탐지, Dataset Health, 학습, AI 후보 검토, 프로젝트 복구까지 실제 작업 순서와 완료 신호를 함께 설명합니다.</p>
-    <div class="meta"><span>기준: 2026-08-02</span><span>Windows 단일 작업자</span><span>다크 테마</span><span>명시적 저장·확정</span></div>
+    <p>데이터셋 준비부터 라벨 저장, 스마트 마스크, 이상 탐지, 데이터셋 점검, 학습, AI 후보 확인, 프로젝트 복구까지 실제 작업 순서와 완료 신호를 함께 설명합니다.</p>
+    <div class="meta"><span>문구: 2026-10-15 · 이미지는 이전 버전</span><span>Windows 단일 작업자</span><span>다크 테마</span><span>명시적 저장·확정</span></div>
   </header>
 
   <div class="layout">
@@ -163,9 +165,9 @@
       <a href="#detection">4. 객체탐지</a>
       <a href="#segmentation">5. 세그멘테이션</a>
       <a href="#anomaly">6. 이상 탐지·PatchCore</a>
-      <a href="#review">7. 저장·AI 후보·객체 검토</a>
-      <a href="#health">8. Dataset Health</a>
-      <a href="#template">9. 템플릿·데이터 교환</a>
+      <a href="#review">7. 저장·AI 후보 확인·객체 편집</a>
+      <a href="#health">8. 데이터셋 점검</a>
+      <a href="#template">9. 템플릿·가져오기·내보내기</a>
       <a href="#training">10. 학습·모델 비교</a>
       <a href="#recovery">11. 보관·복구·진단</a>
       <a href="#trouble">12. 문제 해결</a>
@@ -174,10 +176,10 @@
 
     <main>
       <div class="flow" aria-label="전체 작업 흐름">
-        <div><b>1 데이터셋</b>목적·폴더·클래스</div>
-        <div><b>2 라벨링</b>그리기·검수·저장</div>
-        <div><b>3 AI 후보</b>현재 검사·확정</div>
-        <div><b>4 학습/모델</b>점검·학습·비교</div>
+        <div><b>데이터셋</b>목적·폴더·클래스</div>
+        <div><b>라벨링</b>그리기·검수·저장</div>
+        <div><b>추론·AI 후보</b>추론·확정</div>
+        <div><b>학습·모델 비교</b>점검·학습·비교</div>
       </div>
 
       <section id="quick">
@@ -188,9 +190,9 @@
             <div class="card"><span class="label">완료 신호</span><h3>성공한 상태</h3><ul><li>객체 목록에 박스가 보임</li><li><strong>저장 필요</strong>가 사라짐</li><li>다시 열어도 박스가 복원됨</li></ul></div>
           </div>
           <ol>
-            <li><strong>1 데이터셋 → 데이터셋 시작</strong>에서 목적을 <strong>객체 탐지</strong>로 선택합니다.</li>
+            <li><strong>레시피 홈 → 새 레시피</strong>에서 목적을 <strong>객체 탐지</strong>로 선택합니다.</li>
             <li>이미지 폴더와 새 저장 폴더를 각각 지정합니다.</li>
-            <li><strong>2 라벨링</strong>으로 이동하고 클래스를 선택합니다.</li>
+            <li><strong>라벨링</strong>으로 이동하고 클래스를 선택합니다.</li>
             <li>캔버스 왼쪽 도구 레일에서 <strong>박스</strong>를 선택합니다.</li>
             <li>객체를 감싸도록 드래그하고 클래스·크기를 확인합니다.</li>
             <li><strong>라벨 저장</strong>을 누르고 <strong>저장됨</strong>을 확인합니다.</li>
@@ -202,12 +204,12 @@
       <section id="screen">
         <div class="section-head"><span class="num">2</span><div><h2>화면 구성과 자동 맞춤</h2><p>상단 단계, 왼쪽 작업, 중앙 캔버스, 오른쪽 이미지 큐를 기준으로 읽습니다.</p></div></div>
         <div class="body">
-          <figure><img src="images/features-20260802/01-labeling-overview-current-1920x1080.png" alt="현재 소스 기준 라벨링 전체 화면"><figcaption>현재 소스 화면. 상단은 작업 단계와 저장, 왼쪽은 검토, 중앙은 캔버스, 오른쪽은 이미지 큐입니다.</figcaption></figure>
+          <figure><img src="images/features-20260802/01-labeling-overview-current-1920x1080.png" alt="이전 버전의 라벨링 전체 화면"><figcaption>이전 버전 화면. 상단은 작업 단계와 저장, 왼쪽은 객체 확인, 중앙은 캔버스, 오른쪽은 이미지 큐입니다.</figcaption></figure>
           <table><thead><tr><th>영역</th><th>무엇을 확인하나요?</th></tr></thead><tbody>
             <tr><td>상단</td><td>현재 단계, 데이터셋 목적, 저장 상태, 현재 검사 모델</td></tr>
             <tr><td>왼쪽</td><td>저장 라벨, 현재 작업, 클래스, AI 후보 또는 모델 설정</td></tr>
-            <tr><td>중앙</td><td>라벨 편집·AI 검토·비교 모드와 캔버스 도구</td></tr>
-            <tr><td>오른쪽</td><td>현재 파일, 판정, 저장 상태, Worklist</td></tr>
+            <tr><td>중앙</td><td>라벨 편집·AI 후보 확인·비교 모드와 캔버스 도구</td></tr>
+            <tr><td>오른쪽</td><td>현재 파일, 판정, 저장 상태, 이미지 목록</td></tr>
           </tbody></table>
           <div class="callout"><strong>패널을 접거나 펼쳤을 때</strong><br>캔버스가 새 영역에 자동으로 맞춰집니다. 작업자가 임의 확대·이동한 화면을 초기 맞춤으로 되돌릴 때만 <strong>맞춤</strong>을 사용합니다.</div>
           <div class="callout"><strong>테마</strong><br>현재 제품은 다크 테마만 지원하며 테마 선택 메뉴는 숨겨져 있습니다.</div>
@@ -215,122 +217,122 @@
       </section>
 
       <section id="dataset">
-        <div class="section-head"><span class="num">3</span><div><h2>데이터셋, 이미지 큐, 클래스</h2><p>원본 이미지와 라벨 저장 위치를 분리하고 class id 순서를 확정합니다.</p></div></div>
+        <div class="section-head"><span class="num">3</span><div><h2>데이터셋, 이미지 큐, 클래스</h2><p>원본 이미지와 라벨 저장 위치를 분리하고 클래스 번호 순서를 확정합니다.</p></div></div>
         <div class="body">
           <figure><img src="images/annotated/02-dataset-wizard-actual-annotated.png" alt="번호와 화살표가 표시된 데이터셋 설정 화면"><figcaption>번호 순서대로 목적, 이미지 폴더, 저장 폴더를 확인합니다. 새 실험은 새 저장 폴더를 사용합니다.</figcaption></figure>
           <div class="grid">
-            <div class="card"><span class="label">메뉴</span><h3>1 데이터셋 → 데이터셋 시작</h3><ol><li>작업 목적 선택</li><li>이미지 폴더 선택</li><li>저장 폴더 선택</li><li>클래스 이름과 순서 확인</li></ol></div>
-            <div class="card"><span class="label">이미지 큐</span><h3>확인 필요 Worklist</h3><p>미판정, 저장 필요, AI 후보, 검사 실패, 수정 필요 이미지만 모읍니다. 현재 작업을 저장하면 다음 확인 필요 이미지로 이동합니다.</p></div>
+            <div class="card"><span class="label">메뉴</span><h3>레시피 홈 → 새 레시피</h3><ol><li>작업 목적 선택</li><li>이미지 폴더 선택</li><li>저장 폴더 선택</li><li>클래스 이름과 순서 확인</li></ol></div>
+            <div class="card"><span class="label">이미지 큐</span><h3>확인 필요 이미지</h3><p>미판정, 저장 필요, AI 후보, 검사 실패, 수정 필요 이미지만 모읍니다. 현재 작업을 저장하면 다음 확인 필요 이미지로 이동합니다.</p></div>
           </div>
-          <div class="callout warn"><strong>클래스 번호 주의</strong><br>화면의 0, 1, 2 번호는 학습 class id입니다. 라벨링을 시작한 뒤에는 순서를 임의로 바꾸지 않습니다.</div>
+          <div class="callout warn"><strong>클래스 번호 주의</strong><br>화면의 0, 1, 2 번호는 학습 클래스 번호입니다. 라벨링을 시작한 뒤에는 순서를 임의로 바꾸지 않습니다.</div>
           <details><summary>이전 라벨이 보일 때</summary><div>대부분 이전 프로젝트의 저장 폴더를 다시 선택한 경우입니다. 이미지 폴더만 바꾸지 말고 상단의 저장 폴더도 확인합니다.</div></details>
         </div>
       </section>
 
       <section id="detection">
-        <div class="section-head"><span class="num">4</span><div><h2>객체탐지: 2점 드래그와 4점 극점</h2><p>두 방식 모두 일반 축 정렬 Rectangle을 만들며 저장 흐름은 같습니다.</p></div></div>
+        <div class="section-head"><span class="num">4</span><div><h2>객체탐지: 2점 드래그와 4점 극점</h2><p>두 방식 모두 축에 정렬된 박스을 만들며 저장 흐름은 같습니다.</p></div></div>
         <div class="body">
           <h3>2점 드래그</h3>
           <figure><img src="images/annotated/03-labeling-workbench-1920-annotated.png" alt="번호와 화살표가 표시된 객체탐지 라벨링 화면"><figcaption>박스를 그린 뒤 왼쪽 저장 라벨에서 클래스와 크기를 확인하고 라벨 저장을 누릅니다.</figcaption></figure>
           <ol><li>활성 클래스를 선택합니다.</li><li>박스 도구로 객체를 감쌉니다.</li><li>이동·크기 조절·클래스 적용으로 수정합니다.</li><li><strong>라벨 저장</strong>을 누릅니다.</li></ol>
           <h3>4점 극점</h3>
-          <figure><img src="images/features-20260802/07-four-point-box-current-1920x1080.png" alt="현재 소스 기준 4점 극점 객체탐지 입력 화면"><figcaption>라벨링 옵션에서 4점 극점을 선택하고 위, 아래, 왼쪽, 오른쪽 순서로 입력합니다.</figcaption></figure>
-          <ol><li><strong>라벨링 옵션 → 박스 입력 → 4점 극점</strong>을 선택합니다.</li><li>위 → 아래 → 왼쪽 → 오른쪽 극점을 누릅니다.</li><li>네 번째 점에서 박스 한 개가 만들어졌는지 확인합니다.</li><li>검토 후 저장합니다.</li></ol>
+          <figure><img src="images/features-20260802/07-four-point-box-current-1920x1080.png" alt="이전 버전의 4점 극점 객체탐지 입력 화면"><figcaption>라벨링 옵션에서 4점 극점을 선택하고 위, 아래, 왼쪽, 오른쪽 순서로 입력합니다.</figcaption></figure>
+          <ol><li><strong>라벨링 옵션 → 박스 입력 → 4점 극점</strong>을 선택합니다.</li><li>위 → 아래 → 왼쪽 → 오른쪽 극점을 누릅니다.</li><li>네 번째 점에서 박스 한 개가 만들어졌는지 확인합니다.</li><li>확인 후 저장합니다.</li></ol>
           <div class="callout"><strong>입력 취소</strong><br><code>Backspace</code>는 마지막 점, <code>Esc</code> 또는 마우스 오른쪽 버튼은 진행 중 입력 전체를 취소합니다.</div>
           <div class="callout warn"><strong>경계</strong><br>4점 극점은 자유 사각형·회전 박스가 아닙니다. 지원하지 않는 회전 입력은 가져오기에서 건너뛰거나 적용을 차단합니다.</div>
         </div>
       </section>
 
       <section id="segmentation">
-        <div class="section-head"><span class="num">5</span><div><h2>세그멘테이션과 Smart Mask</h2><p>정확한 외곽선을 수동으로 만들거나 사각형 프롬프트로 자동 후보를 생성합니다.</p></div></div>
+        <div class="section-head"><span class="num">5</span><div><h2>세그멘테이션과 스마트 마스크</h2><p>정확한 외곽선을 수동으로 만들거나 박스로 위치를 지정해 AI 후보를 만듭니다.</p></div></div>
         <div class="body">
           <h3>수동 폴리곤·브러시·지우개</h3>
           <figure><img src="images/workflows-20260722/segmentation-labeling-1920x1080.png" alt="세그멘테이션 폴리곤과 마스크 라벨링 화면"><figcaption>활성 클래스를 확인하고 폴리곤 또는 마스크를 만든 뒤 저장합니다.</figcaption></figure>
           <ol><li>목적을 세그멘테이션으로 선택합니다.</li><li>폴리곤 또는 브러시로 결함을 표시합니다.</li><li>지우개·이동·객체 선택으로 수정합니다.</li><li>객체 목록과 캔버스를 확인하고 저장합니다.</li></ol>
-          <h3>Smart Mask 자동 윤곽</h3>
-          <figure><img src="images/github/labeling-smart-mask-zero-drift-20260805.gif" alt="실제 실행 결과를 사용해 배경 이동 없이 결함 박스부터 자동 외곽선과 저장 라벨까지 보여주는 고정 캔버스 흐름"><figcaption>실제 EXE 실행의 원본 이미지와 저장된 96점 윤곽 결과를 고정 캔버스에 표시해 박스 입력 → 자동 외곽선 → 후보 검토 → 확정 결과를 보여줍니다.</figcaption></figure>
-          <ol><li><strong>라벨링 옵션 → 자동 윤곽</strong>을 켭니다.</li><li>결함을 감싸는 사각형을 그립니다.</li><li>포함점 또는 제외점을 한 번에 하나씩 추가합니다.</li><li><strong>후보 다시 생성</strong> 후 <strong>이전 후보 보기</strong>와 <strong>현재 후보 보기</strong>를 비교합니다.</li><li>더 나은 후보를 표시하고 <strong>확정</strong> 또는 <strong>스킵</strong>합니다.</li></ol>
-          <div class="callout warn"><strong>저장 기준</strong><br>후보 생성과 비교만으로 정답 파일은 바뀌지 않습니다. 확정 뒤 다시 편집했다면 라벨 저장을 누릅니다.</div>
+          <h3>스마트 마스크 자동 윤곽</h3>
+          <figure><img src="images/github/labeling-smart-mask-zero-drift-20260805.gif" alt="실제 실행 결과를 사용해 배경 이동 없이 결함 박스부터 자동 외곽선과 저장 라벨까지 보여주는 고정 캔버스 흐름"><figcaption>실제 EXE 실행의 원본 이미지와 저장된 96점 윤곽 결과를 고정 캔버스에 표시해 박스 입력 → 자동 외곽선 → 후보 확인 → 확정 결과를 보여줍니다.</figcaption></figure>
+          <ol><li><strong>라벨링 옵션 → 자동 윤곽</strong>을 켭니다.</li><li>결함을 감싸는 사각형을 그립니다.</li><li>포함점 또는 제외점을 한 번에 하나씩 추가합니다.</li><li><strong>후보 다시 생성</strong> 후 <strong>이전 후보 보기</strong>와 <strong>현재 후보 보기</strong>를 비교합니다.</li><li>더 나은 후보를 표시하고 <strong>확정</strong> 또는 <strong>건너뛰기</strong>를 누릅니다.</li></ol>
+          <div class="callout warn"><strong>저장 기준</strong><br>확정은 현재 표시 중인 후보를 편집 라벨에 반영합니다. 후보 생성·비교·확정만으로 정답 파일이 저장되지는 않습니다. 확정한 뒤 라벨 저장을 누릅니다. 이후 다시 편집했다면 다시 저장합니다.</div>
         </div>
       </section>
 
       <section id="anomaly">
-        <div class="section-head"><span class="num">6</span><div><h2>이상 탐지: 이미지 판정과 위치 근거</h2><p>YOLO 분류는 이미지 전체 OK/NG, PatchCore는 정상 전용 학습과 검토용 히트맵을 제공합니다.</p></div></div>
+        <div class="section-head"><span class="num">6</span><div><h2>이상 탐지: 이미지 판정과 위치 근거</h2><p>YOLO 분류는 이미지 전체 OK/NG, PatchCore는 정상 전용 학습과 이상 위치 확인용 히트맵을 제공합니다.</p></div></div>
         <div class="body">
           <h3>YOLO8/YOLO11 이미지 분류</h3>
           <figure><img src="images/workflows-20260722/anomaly-ok-ng-review-1920x1080.png" alt="이상 탐지 정상 OK 이상 NG 판정 화면"><figcaption>이미지를 확인한 뒤 정상 또는 이상을 선택하고 다음 미판정 이미지로 이동합니다.</figcaption></figure>
           <ol><li>폴더명 제안을 확인하되 확실할 때만 사용합니다.</li><li><strong>정상(OK) → 다음</strong> 또는 <strong>이상(NG) → 다음</strong>을 누릅니다.</li><li>오류는 <strong>미판정으로 되돌리기</strong> 후 다시 선택합니다.</li></ol>
           <h3>PatchCore</h3>
-          <figure><img src="images/features-20260802/03-patchcore-candidate-current-1920x1080.png" alt="현재 소스 기준 PatchCore 이미지 판정과 후보 검토 화면"><figcaption>PatchCore 점수와 임계값을 확인하고 위치 근거가 필요할 때만 히트맵 보기를 누릅니다.</figcaption></figure>
-          <figure class="compact"><img src="images/features-20260802/04-patchcore-heatmap-current.png" alt="현재 소스 기준 PatchCore 읽기 전용 히트맵 창"><figcaption>히트맵은 검토 근거입니다. 창을 열거나 닫아도 정답·후보·레이어·모델이 바뀌지 않습니다.</figcaption></figure>
-          <ol><li>검토 완료된 정상 train과 정상 valid 이미지를 준비합니다.</li><li>PatchCore 프로필로 학습하고 임계값 경고를 확인합니다.</li><li>현재 검사를 실행해 이미지 판정·점수·임계값을 봅니다.</li><li>히트맵을 명시적으로 열고 작업자가 후속 판정을 결정합니다.</li></ol>
+          <figure><img src="images/features-20260802/03-patchcore-candidate-current-1920x1080.png" alt="이전 버전의 PatchCore 이미지 판정과 후보 확인 화면"><figcaption>PatchCore 점수와 임계값을 확인하고 위치 근거가 필요할 때만 히트맵 보기를 누릅니다.</figcaption></figure>
+          <figure class="compact"><img src="images/features-20260802/04-patchcore-heatmap-current.png" alt="이전 버전의 PatchCore 읽기 전용 히트맵 창"><figcaption>히트맵은 이상 위치를 확인하는 참고 자료입니다. 창을 열거나 닫아도 정답·후보·레이어·모델이 바뀌지 않습니다.</figcaption></figure>
+          <ol><li>정상으로 판정한 학습·검증 이미지를 준비합니다.</li><li>PatchCore 모델 설정로 학습하고 임계값 경고를 확인합니다.</li><li>추론을 실행해 이미지 판정·점수·임계값을 봅니다.</li><li>히트맵을 명시적으로 열고 작업자가 후속 판정을 결정합니다.</li></ol>
           <div class="callout danger"><strong>품질 경계</strong><br>히트맵 위치는 자동 정답 라벨이 아니며 현장 정확도는 독립 데이터 검증 전까지 주장하지 않습니다.</div>
         </div>
       </section>
 
       <section id="review">
-        <div class="section-head"><span class="num">7</span><div><h2>저장 라벨, AI 후보, 객체 메타데이터</h2><p>정답과 모델 제안을 구분하고 가림·Recipe 태그·동일 이미지 그룹을 저장합니다.</p></div></div>
+        <div class="section-head"><span class="num">7</span><div><h2>저장 라벨, AI 후보, 객체 메타데이터</h2><p>정답과 모델 제안을 구분하고 가림·레시피 태그·동일 이미지 그룹을 저장합니다.</p></div></div>
         <div class="body">
           <table><thead><tr><th>상태</th><th>의미</th><th>해야 할 일</th></tr></thead><tbody>
             <tr><td>저장 필요</td><td>메모리 편집만 있음</td><td>라벨 저장</td></tr>
             <tr><td>저장 라벨</td><td>학습에 사용할 사람 승인 정답</td><td>검수 또는 편집</td></tr>
             <tr><td>AI 후보</td><td>현재 모델의 제안</td><td>확정·숨김·수정</td></tr>
-            <tr><td>수정 필요</td><td>검수 오류와 사유가 있음</td><td>Worklist에서 수정</td></tr>
+            <tr><td>수정 필요</td><td>검수 오류와 사유가 있음</td><td>이미지 목록에서 수정</td></tr>
             <tr><td>검수 완료</td><td>저장 라벨을 현재 기준으로 승인</td><td>다음 이미지</td></tr>
           </tbody></table>
-          <figure><img src="images/features-20260802/02-object-review-current-1920x1080.png" alt="현재 소스 기준 객체 가림 태그 그룹 검토 화면"><figcaption>객체를 선택해 가림과 Recipe 태그를 적용하고, 관련 객체를 같은 그룹으로 묶습니다.</figcaption></figure>
-          <ol><li>저장 라벨에서 객체를 선택합니다.</li><li>필요하면 <strong>가림</strong>과 Recipe 태그를 적용합니다.</li><li>필터로 필요한 객체만 확인합니다.</li><li>둘 이상의 관련 객체를 선택해 <strong>그룹 구성</strong>을 누릅니다.</li><li>라벨 저장을 눌러 메타데이터도 저장합니다.</li></ol>
+          <figure><img src="images/features-20260802/02-object-review-current-1920x1080.png" alt="이전 버전의 객체 가림 태그 그룹 편집 화면"><figcaption>객체를 선택해 가림과 레시피 태그를 적용하고, 관련 객체를 같은 그룹으로 묶습니다.</figcaption></figure>
+          <ol><li>저장 라벨에서 객체를 선택합니다.</li><li>필요하면 <strong>가림</strong>과 레시피 태그를 적용합니다.</li><li>필터로 필요한 객체만 확인합니다.</li><li>둘 이상의 관련 객체를 선택해 <strong>그룹 구성</strong>을 누릅니다.</li><li>라벨 저장을 눌러 메타데이터도 저장합니다.</li></ol>
           <div class="callout warn"><strong>그룹의 의미</strong><br>형상 병합, 함께 이동, 이미지 간 추적 또는 학습 그룹이 아닙니다. 객체당 한 그룹만 가질 수 있습니다.</div>
         </div>
       </section>
 
       <section id="health">
-        <div class="section-head"><span class="num">8</span><div><h2>Dataset Health</h2><p>저장 데이터를 바꾸지 않고 split, 문제, 클래스 분포, 시각 QA를 점검합니다.</p></div></div>
+        <div class="section-head"><span class="num">8</span><div><h2>데이터셋 점검</h2><p>저장 데이터를 바꾸지 않고 분할, 문제, 클래스 분포, 시각 QA를 점검합니다.</p></div></div>
         <div class="body">
-          <figure><img src="images/features-20260802/05-dataset-health-class-filter-verified-1920x1080.png" alt="검증된 Dataset Health 클래스 분할 문제 필터 화면"><figcaption>클래스, 분할, 문제만 필터를 조합해 저장된 라벨을 시각적으로 확인합니다.</figcaption></figure>
-          <ol><li><strong>4 학습/모델 → 데이터 → 데이터셋 상태 분석</strong>을 엽니다.</li><li>개요와 분할/라벨 탭을 확인합니다.</li><li>시각 QA에서 클래스·split·문제만 필터를 조합합니다.</li><li>필요한 행을 편집기에서 열어 수정합니다.</li><li>클래스 분포를 확인합니다.</li></ol>
-          <div class="callout success"><strong>안전 기준</strong><br>필터와 새로고침은 읽기 전용이며 라벨·split·클래스·Recipe를 바꾸지 않습니다.</div>
+          <figure><img src="images/features-20260802/05-dataset-health-class-filter-verified-1920x1080.png" alt="검증된 데이터셋 점검 클래스 분할 문제 필터 화면"><figcaption>클래스, 분할, 문제만 필터를 조합해 저장된 라벨을 시각적으로 확인합니다.</figcaption></figure>
+          <ol><li><strong>데이터셋 → 점검 상세 보기</strong>을 엽니다.</li><li>개요와 분할/라벨 탭을 확인합니다.</li><li>시각 QA에서 클래스·분할·문제만 필터를 조합합니다.</li><li>필요한 행을 편집기에서 열어 수정합니다.</li><li>클래스 분포를 확인합니다.</li></ol>
+          <div class="callout success"><strong>안전 기준</strong><br>필터와 새로고침은 읽기 전용이며 라벨·분할·클래스·레시피를 바꾸지 않습니다.</div>
           <details><summary>목록이 비어 있을 때</summary><div>저장 폴더의 data.yaml과 이미지·라벨 구조를 확인하고 필터를 전체로 돌린 뒤 새로고침합니다.</div></details>
         </div>
       </section>
 
       <section id="template">
-        <div class="section-head"><span class="num">9</span><div><h2>템플릿, 일괄 작업, 데이터 교환</h2><p>반복 작업을 빠르게 시작하되 적용 전 미리보기와 적용 후 검수를 유지합니다.</p></div></div>
+        <div class="section-head"><span class="num">9</span><div><h2>템플릿, 일괄 작업, 가져오기·내보내기</h2><p>반복 작업을 빠르게 시작하되 적용 전 미리보기와 적용 후 검수를 유지합니다.</p></div></div>
         <div class="body">
           <figure><img src="images/annotated/06-template-batch-1920-annotated.png" alt="번호와 화살표가 표시된 템플릿 일괄 적용 화면"><figcaption>대표 라벨을 템플릿으로 준비하고 대상 범위를 확인한 뒤 적용합니다.</figcaption></figure>
           <div class="grid">
             <div class="card"><h3>템플릿</h3><ol><li>대표 이미지 라벨 확인</li><li>객체와 대상 범위 선택</li><li>미리보기</li><li>적용 후 각 이미지 검수</li></ol></div>
-            <div class="card"><h3>데이터 교환</h3><ol><li>형식과 경로 선택</li><li>Dry Run/미리보기</li><li>건너뛴 항목과 이유 확인</li><li>명시적으로 적용</li></ol></div>
+            <div class="card"><h3>가져오기·내보내기</h3><ol><li>형식과 경로 선택</li><li>사전 점검</li><li>건너뛴 항목과 이유 확인</li><li>명시적으로 적용</li></ol></div>
           </div>
           <div class="callout warn"><strong>회전 기하</strong><br>지원하지 않는 회전 박스는 축 정렬 박스로 조용히 변환하지 않습니다.</div>
         </div>
       </section>
 
       <section id="training">
-        <div class="section-head"><span class="num">10</span><div><h2>학습, 모델 비교, 현재 검사</h2><p>학습 완료와 모델 채택을 분리하고 같은 평가 조건으로 비교합니다.</p></div></div>
+        <div class="section-head"><span class="num">10</span><div><h2>학습, 모델 비교, 추론</h2><p>학습 완료와 검사 모델 지정을 분리하고 같은 평가 조건으로 비교합니다.</p></div></div>
         <div class="body">
-          <figure><img src="images/annotated/09-model-center-1920-annotated.png" alt="번호와 화살표가 표시된 학습 모델 센터 화면"><figcaption>데이터 준비, 모델 프로필, 실행기 상태를 확인한 뒤 학습을 시작합니다.</figcaption></figure>
+          <figure><img src="images/annotated/09-model-center-1920-annotated.png" alt="번호와 화살표가 표시된 학습·모델 비교의 이전 버전 화면"><figcaption>데이터셋, 모델 설정, 실행 환경 상태를 확인한 뒤 학습을 시작합니다.</figcaption></figure>
           <table><thead><tr><th>목적</th><th>지원 흐름</th></tr></thead><tbody>
             <tr><td>객체 탐지</td><td>YOLOv5, YOLOv8, YOLO11 detect</td></tr>
             <tr><td>세그멘테이션</td><td>YOLOv8/YOLO11 segment, U-Net</td></tr>
             <tr><td>이상 탐지</td><td>YOLO8/YOLO11 classify, PatchCore normal-only</td></tr>
           </tbody></table>
-          <ol><li>Dataset Health와 split을 확인합니다.</li><li>모델 프로필과 시작 가중치, 실행기 self-test를 확인합니다.</li><li>학습 후 새 best.pt를 후보 모델로 확인합니다.</li><li>같은 test split·클래스·이미지 크기·임계값으로 비교합니다.</li><li>근거가 충분할 때만 현재 검사 모델로 채택합니다.</li></ol>
-          <figure><img src="images/annotated/12-inference-dock-1920-annotated.png" alt="번호와 화살표가 표시된 AI 후보 검토 화면"><figcaption>현재 검사를 실행하고 맞는 후보만 확정합니다. 후보 선택 자체는 정답 저장이 아닙니다.</figcaption></figure>
-          <div class="callout warn"><strong>모델 채택</strong><br>학습이 끝나도 현재 검사 모델은 자동으로 바뀌지 않습니다. 독립 test 근거를 확인하고 명시적으로 채택합니다.</div>
+          <ol><li>데이터셋 점검와 분할을 확인합니다.</li><li>모델 설정과 사전학습 가중치, 실행 환경 점검 결과를 확인합니다.</li><li>학습 후 결과 모델을 모델 비교에서 확인합니다.</li><li>같은 테스트 분할·클래스·이미지 크기·임계값으로 비교합니다.</li><li>테스트 이미지의 지표와 오류 예시를 확인한 뒤 검사 모델로 지정합니다.</li></ol>
+          <figure><img src="images/annotated/12-inference-dock-1920-annotated.png" alt="번호와 화살표가 표시된 AI 후보 확인 화면"><figcaption>추론을 실행하고 맞는 후보만 확정합니다. 후보 선택 자체는 정답 저장이 아닙니다.</figcaption></figure>
+          <div class="callout warn"><strong>검사 모델 지정</strong><br>학습이 끝나도 현재 검사 모델은 자동으로 바뀌지 않습니다. 독립적인 테스트 이미지의 비교 결과를 확인하고 직접 지정합니다.</div>
         </div>
       </section>
 
       <section id="recovery">
         <div class="section-head"><span class="num">11</span><div><h2>프로젝트 보관, 편집 복구, 진단</h2><p>작업 이동과 장애 대응을 명시적인 사용자 동작으로 수행합니다.</p></div></div>
         <div class="body">
-          <figure><img src="images/features-20260802/06-runtime-diagnostics-current-1920x1080.png" alt="현재 소스 기준 프로젝트 아카이브와 진단 지원 메뉴"><figcaption>설정/도구 메뉴에서 프로젝트 아카이브, 환경 점검, 지원 자료 만들기를 찾을 수 있습니다.</figcaption></figure>
+          <figure><img src="images/features-20260802/06-runtime-diagnostics-current-1920x1080.png" alt="이전 버전의 프로젝트 아카이브와 진단 지원 메뉴"><figcaption>설정/도구 메뉴에서 프로젝트 아카이브, 환경 점검, 지원 자료 만들기를 찾을 수 있습니다.</figcaption></figure>
           <div class="grid">
-            <div class="card"><h3>프로젝트 아카이브</h3><ul><li>저장된 Recipe와 전체 데이터셋을 해시 목록과 함께 내보냄</li><li>가져올 때 기존 프로젝트를 덮어쓰지 않음</li><li>가져온 Recipe는 확인 후 명시적으로 적용</li></ul></div>
-            <div class="card"><h3>환경·지원</h3><ul><li>환경 점검으로 실행기·경로·그래픽 기능 확인</li><li>지원 자료는 사용자가 명시적으로 생성</li><li>허용 목록과 가림 처리 적용</li></ul></div>
+            <div class="card"><h3>프로젝트 아카이브</h3><ul><li>저장된 레시피와 전체 데이터셋을 해시 목록과 함께 내보냄</li><li>가져올 때 기존 프로젝트를 덮어쓰지 않음</li><li>가져온 레시피는 확인 후 명시적으로 적용</li></ul></div>
+            <div class="card"><h3>환경·지원</h3><ul><li>환경 점검으로 실행 환경·경로·그래픽 기능 확인</li><li>지원 자료는 사용자가 명시적으로 생성</li><li>허용 목록과 가림 처리 적용</li></ul></div>
           </div>
           <h3>비정상 종료 편집 복구</h3>
-          <figure><img src="images/features-20260802/08-crash-recovery-current-1920x1080.png" alt="현재 소스 기준 비정상 종료 편집 복구 대화상자"><figcaption>저장되지 않은 현재 이미지 초안을 복구하거나 폐기합니다. 복구 후에도 라벨 저장은 별도입니다.</figcaption></figure>
+          <figure><img src="images/features-20260802/08-crash-recovery-current-1920x1080.png" alt="이전 버전의 비정상 종료 편집 복구 대화상자"><figcaption>저장되지 않은 현재 이미지 초안을 복구하거나 삭제합니다. 복구 후에도 라벨 저장은 별도입니다.</figcaption></figure>
           <div class="callout warn"><strong>복구 범위</strong><br>한 개의 현재 이미지 편집 초안만 복구합니다. 여러 이미지 자동 저장이나 AI 후보 확정 기능이 아닙니다.</div>
         </div>
       </section>
@@ -341,23 +343,23 @@
           <table><thead><tr><th>증상</th><th>확인 순서</th></tr></thead><tbody>
             <tr><td>이전 라벨이 보임</td><td>상단 저장 폴더 → 새 실험이면 새 저장 폴더</td></tr>
             <tr><td>다음 이미지에서 라벨이 없음</td><td>이전 이미지 → 저장 필요 → 라벨 저장</td></tr>
-            <tr><td>라벨링 도구가 없음</td><td>데이터셋 목적 → 2 라벨링 단계</td></tr>
-            <tr><td>Smart Mask 비활성</td><td>세그멘테이션 → 현재 이미지 → 자동 윤곽 → MobileSAM 상태</td></tr>
-            <tr><td>Dataset Health가 비어 있음</td><td>data.yaml과 저장 구조 → 전체 필터 → 새로고침</td></tr>
-            <tr><td>PatchCore 히트맵 오류</td><td>안내 확인 → 현재 검사 다시 실행 → 새 후보 선택</td></tr>
-            <tr><td>학습 버튼 비활성</td><td>데이터 오류 → 실행기 self-test → 모델 프로필</td></tr>
-            <tr><td>학습 뒤 모델이 그대로</td><td>후보와 현재 모델 비교 → 명시적 모델 채택</td></tr>
+            <tr><td>라벨링 도구가 없음</td><td>데이터셋 목적 → 라벨링 단계</td></tr>
+            <tr><td>스마트 마스크 비활성</td><td>세그멘테이션 → 현재 이미지 → 자동 윤곽 → MobileSAM 상태</td></tr>
+            <tr><td>데이터셋 점검가 비어 있음</td><td>data.yaml과 저장 구조 → 전체 필터 → 새로고침</td></tr>
+            <tr><td>PatchCore 히트맵 오류</td><td>안내 확인 → 추론 다시 실행 → 새 후보 선택</td></tr>
+            <tr><td>학습 버튼 비활성</td><td>데이터 오류 → 실행 환경 점검 → 모델 설정</td></tr>
+            <tr><td>학습 뒤 모델이 그대로</td><td>후보와 현재 모델 비교 → 직접 검사 모델 지정</td></tr>
             <tr><td>이미지 열기 전 그래픽 오류</td><td>환경 점검 → GPU 드라이버·실제 콘솔 → 지원 자료</td></tr>
           </tbody></table>
         </div>
       </section>
 
       <section id="check">
-        <div class="section-head"><span class="num">13</span><div><h2>작업 종료 체크리스트</h2><p>저장과 검토가 실제로 끝났는지 마지막으로 확인합니다.</p></div></div>
+        <div class="section-head"><span class="num">13</span><div><h2>작업 종료 체크리스트</h2><p>저장과 확인이 실제로 끝났는지 마지막으로 확인합니다.</p></div></div>
         <div class="body grid">
           <div class="card"><h3>라벨링 종료 전</h3><ul class="checklist"><li>저장 필요 0건</li><li>AI 후보와 저장 라벨 구분</li><li>클래스 이름과 번호 확인</li><li>수정 필요·검수 완료 확인</li></ul></div>
-          <div class="card"><h3>학습 전</h3><ul class="checklist"><li>Dataset Health 확인</li><li>split과 독립 test 확인</li><li>프로필과 시작 가중치 확인</li><li>실행기 self-test 확인</li></ul></div>
-          <div class="card"><h3>모델 채택 전</h3><ul class="checklist"><li>같은 평가 조건</li><li>놓침·과검출·클래스 오류</li><li>PatchCore 점수·임계값·히트맵</li><li>명시적 현재 모델 채택</li></ul></div>
+          <div class="card"><h3>학습 전</h3><ul class="checklist"><li>데이터셋 점검 확인</li><li>분할과 독립적인 테스트 이미지 확인</li><li>모델 설정과 사전학습 가중치 확인</li><li>실행 환경 점검 확인</li></ul></div>
+          <div class="card"><h3>검사 모델 지정 전</h3><ul class="checklist"><li>같은 평가 조건</li><li>미검·과검·클래스 오류</li><li>PatchCore 점수·임계값·히트맵</li><li>직접 검사 모델 지정</li></ul></div>
           <div class="card"><h3>앱 종료 전</h3><ul class="checklist"><li>미확정 후보 확인</li><li>중요 프로젝트 아카이브</li><li>오류 시 환경 점검</li><li>필요 시 지원 자료 생성</li></ul></div>
         </div>
       </section>
