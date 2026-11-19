@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.4.1 — 2026-11-20
+
+- Add a separate edge inference runtime under `Runtime/Edge`: ONNX export with a recorded model specification, one shared pre/post-processing path, and parity checks against the Ultralytics reference.
+- Build TensorRT FP32, FP16, and calibrated INT8 (Q/DQ) engines in an explicit prepare step. Each engine records its build GPU and TensorRT version. The worker refuses to start on a different GPU model or TensorRT version, or when an engine hash does not match.
+- Run the worker in a Docker Compose stack on Linux/WSL2 with the NVIDIA Container Toolkit. It sends verdicts over Modbus TCP or OPC UA, infers each request once, and writes a stored result again on retry. Prometheus and Grafana show inspection-latency p99 and per-stage timings.
+- A bundled simulator stands in for the requesting machine during local tests. Machine Studio integration, field-data precision selection, and the Windows-to-WSL frame and network paths are not yet verified.
+- The desktop application, Recipe, annotation, dataset, and integration formats are unchanged.
+
 ## 0.4.0 — 2026-11-09
 
 - Combine the published Smart Mask selection, keyboard navigation, model/run identity, canvas handling, and fresh-source build/storage fixes with current development changes.

@@ -1,0 +1,100 @@
+# OpenVisionLab edge inference stack (design M3/M5).
+#   docker compose -f deploy/compose.yaml --env-file deploy/edge.env --profile sim up -d
+# The GPU is reserved for edge-worker only. Model conversion, calibration and
+# engine builds are explicit `prepare` steps, never part of `up` (design M3).
+# `machine-sim` (profile "sim") stands in for Machine Studio for local tests;
+# without the profile the worker connects to OVL_MODBUS_HOST.
+name: ovl-edge
+
+x-runtime-image: &runtime-image
+  image: ovl-edge-runtime:dev
+  build:
+    context: ..
+    dockerfile: deploy/docker/Dockerfile
+    target: runtime
+
+services:
+  edge-worker:
+    <<: *runtime-image
+    command:
+      - python
+      - -m
+      - ovl_edge.cli.serve
+      - --model-dir=/model
+      - --runtime=${OVL_RUNTIME:-trt-fp16}
+      - --rule=/config/rule.json
+      - --input-root=/frames
+      - --frame-ext=${OVL_FRAME_EXT:-png}
+      - --transport=${OVL_TRANSPORT:-modbus}
+      - --opcua-url=${OVL_OPCUA_URL:-opc.tcp://machine-sim:4840/ovl/}
+      - --modbus-host=${OVL_MODBUS_HOST:-machine-sim}
+      - --modbus-port=${OVL_MODBUS_PORT:-5020}
+      - --poll-ms=${OVL_POLL_MS:-1}
+      - --metrics-port=9100
+    environment:
+      OVL_BUDGET_MS: ${OVL_BUDGET_MS:-50}
+      OVL_CUDA_SCHEDULE: ${OVL_CUDA_SCHEDULE:-auto}
+    volumes:
+      - ${OVL_MODEL_DIR:?set OVL_MODEL_DIR}:/model:ro
+      - ${OVL_FRAMES_DIR:?set OVL_FRAMES_DIR}:/frames:ro
+      - ${OVL_RULE_FILE:-./rule.demo-coco.json}:/config/rule.json:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  machine-sim:
+    <<: *runtime-image
+    profiles: ["sim"]
+    command:
+      - python
+      - -m
+      - ovl_edge.cli.machine_sim
+      - --images=/images
+      - --frames-root=/frames
+      - --frame-ext=${OVL_FRAME_EXT:-png}
+      - --transport=${OVL_TRANSPORT:-modbus}
+      - --count=${OVL_SIM_COUNT:-3000}
+      - --tick-ms=${OVL_SIM_TICK_MS:-10}
+      - --interval-ms=${OVL_SIM_INTERVAL_MS:-0}
+      - --csv=/results/sim_requests.csv
+      - --linger-s=${OVL_SIM_LINGER_S:-600}
+      - --metrics-port=9101
+    environment:
+      OVL_BUDGET_MS: ${OVL_BUDGET_MS:-50}
+    volumes:
+      - ${OVL_SIM_IMAGES_DIR:?set OVL_SIM_IMAGES_DIR}:/images:ro
+      - ${OVL_FRAMES_DIR}:/frames
+      - ${OVL_RESULTS_DIR:?set OVL_RESULTS_DIR}:/results
+
+  prometheus:
+    image: prom/prometheus:v3.15.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  grafana:
+    image: grafana/grafana:13.2.6
+    environment:
+      # Local viewing only: anonymous users get read-only Viewer access.
+      # The admin password is left to the operator (Grafana default until changed).
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/ovl-edge-p99.json
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus

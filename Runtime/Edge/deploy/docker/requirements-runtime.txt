@@ -1,0 +1,8 @@
+onnxruntime-gpu==1.32.0
+onnx==1.23.2
+opencv-python-headless
+numpy==2.5.5
+prometheus-client
+pymodbus==3.16.2
+asyncua==2.1.0
+cuda-python

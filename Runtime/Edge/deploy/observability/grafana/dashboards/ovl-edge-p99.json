@@ -1,0 +1,110 @@
+{
+  "uid": "ovl-edge-p99",
+  "title": "OpenVisionLab 엣지 검사 p99",
+  "description": "검사 p99 = 요청 측 단조 시계로 잰 검사 요청 → 다음 틱 판정 반영. 값은 Prometheus 히스토그램 버킷 추정값이며, 벤치마크 표의 p99(요청별 저장 시간에서 직접 계산)와 다르다.",
+  "tags": ["openvisionlab", "edge"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": {"from": "now-30m", "to": "now"},
+  "templating": {"list": []},
+  "annotations": {"list": []},
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "검사 p99 (최근 5분)",
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 5},
+      "datasource": {"type": "prometheus", "uid": "ovl-prometheus"},
+      "targets": [{"refId": "A", "expr": "1000 * histogram_quantile(0.99, sum by (le) (rate(ovl_inspection_e2e_seconds_bucket[5m])))"}],
+      "fieldConfig": {"defaults": {"unit": "ms", "decimals": 2, "color": {"mode": "thresholds"},
+        "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 40}, {"color": "red", "value": 50}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "value"}
+    },
+    {
+      "id": 2, "type": "stat", "title": "시간 예산",
+      "gridPos": {"x": 6, "y": 0, "w": 3, "h": 5},
+      "datasource": {"type": "prometheus", "uid": "ovl-prometheus"},
+      "targets": [{"refId": "A", "expr": "1000 * max(ovl_inspection_budget_seconds)"}],
+      "fieldConfig": {"defaults": {"unit": "ms", "decimals": 0}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "none", "graphMode": "none", "textMode": "value"}
+    },
+    {
+      "id": 3, "type": "stat", "title": "완료 / 전체 요청 (요청 측 시작 이후)",
+      "description": "누적 카운터 원값이다. increase()는 창 경계에서 외삽하므로 정확한 건수 표시에 쓰지 않는다(첫 실행에서 3,000건이 3,061건으로 표시됨).",
+      "gridPos": {"x": 9, "y": 0, "w": 6, "h": 5},
+      "datasource": {"type": "prometheus", "uid": "ovl-prometheus"},
+      "targets": [
+        {"refId": "A", "legendFormat": "완료", "expr": "sum(ovl_inspection_outcomes_total{outcome=~\"applied_.*\"})"},
+        {"refId": "B", "legendFormat": "전체", "expr": "sum(ovl_inspection_requests_total)"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "decimals": 0}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "none", "graphMode": "none", "textMode": "value_and_name"}
+    },
+    {
+      "id": 4, "type": "stat", "title": "타임아웃률 (최근 5분)",
+      "gridPos": {"x": 15, "y": 0, "w": 4, "h": 5},
+      "datasource": {"type": "prometheus", "uid": "ovl-prometheus"},
+      "targets": [{"refId": "A", "expr": "(sum(increase(ovl_inspection_outcomes_total{outcome=\"timeout\"}[5m])) or vector(0)) / clamp_min(sum(increase(ovl_inspection_requests_total[5m])), 1)"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "decimals": 2, "color": {"mode": "thresholds"},
+        "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 0.001}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "value"}
+    },
+    {
+      "id": 5, "type": "stat", "title": "p99 표본 수 (최근 5분, 추정)",
+      "description": "100개 미만이면 p99 추정이 불안정하므로 '표본 부족'으로 표시한다. increase() 외삽 때문에 실제 건수와 몇 % 다를 수 있다.",
+      "gridPos": {"x": 19, "y": 0, "w": 5, "h": 5},
+      "datasource": {"type": "prometheus", "uid": "ovl-prometheus"},
+      "targets": [{"refId": "A", "expr": "round(sum(increase(ovl_inspection_e2e_seconds_count[5m])))"}],
+      "fieldConfig": {"defaults": {"unit": "none", "decimals": 0,
+        "mappings": [{"type": "range", "options": {"from": 0, "to": 99.999, "result": {"text": "표본 부족", "color": "orange"}}}],
+        "color": {"mode": "fixed", "fixedColor": "text"}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "value", "graphMode": "none", "textMode": "value"}
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "검사 지연 p50 / p99 (1분 창)과 예산",
+      "gridPos": {"x": 0, "y": 5, "w": 24, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "ovl-prometheus"},
+      "targets": [
+        {"refId": "A", "legendFormat": "p99", "expr": "1000 * histogram_quantile(0.99, sum by (le) (rate(ovl_inspection_e2e_seconds_bucket[1m])))"},
+        {"refId": "B", "legendFormat": "p50", "expr": "1000 * histogram_quantile(0.50, sum by (le) (rate(ovl_inspection_e2e_seconds_bucket[1m])))"},
+        {"refId": "C", "legendFormat": "예산", "expr": "1000 * max(ovl_inspection_budget_seconds)"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ms", "custom": {"lineWidth": 2, "fillOpacity": 0}}, "overrides": [
+        {"matcher": {"id": "byName", "options": "예산"}, "properties": [{"id": "custom.lineStyle", "value": {"fill": "dash", "dash": [10, 10]}}, {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}]}
+      ]},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "단계별 p99 (1분 창): 요청 측 대기·틱 대기, 워커 단계",
+      "description": "result_wait = 요청 → 결과 확인(폴링·전송·워커 처리 포함), tick_wait = 결과 확인 → 다음 틱 반영. 워커 단계는 컨테이너 안에서 잰 시간이다. 단계별 p99는 합산하지 않는다.",
+      "gridPos": {"x": 0, "y": 13, "w": 24, "h": 9},
+      "datasource": {"type": "prometheus", "uid": "ovl-prometheus"},
+      "targets": [
+        {"refId": "A", "legendFormat": "요청측 {{phase}}", "expr": "1000 * histogram_quantile(0.99, sum by (le, phase) (rate(ovl_inspection_phase_seconds_bucket[1m])))"},
+        {"refId": "B", "legendFormat": "워커 {{stage}}", "expr": "1000 * histogram_quantile(0.99, sum by (le, stage) (rate(ovl_worker_stage_seconds_bucket[1m])))"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ms", "custom": {"lineWidth": 1, "fillOpacity": 0}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "결과 구분별 처리 수 (1분당)",
+      "gridPos": {"x": 0, "y": 22, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "ovl-prometheus"},
+      "targets": [{"refId": "A", "legendFormat": "{{outcome}}", "expr": "sum by (outcome) (increase(ovl_inspection_outcomes_total[1m]))"}],
+      "fieldConfig": {"defaults": {"unit": "none", "custom": {"drawStyle": "bars", "fillOpacity": 60, "stacking": {"mode": "normal"}}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 9, "type": "table", "title": "워커 식별 정보와 오류",
+      "gridPos": {"x": 12, "y": 22, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "ovl-prometheus"},
+      "targets": [
+        {"refId": "A", "format": "table", "instant": true, "expr": "ovl_worker_info"},
+        {"refId": "B", "format": "table", "instant": true, "expr": "sum by (kind) (ovl_worker_errors_total)"},
+        {"refId": "C", "format": "table", "instant": true, "expr": "sum by (reason) (ovl_worker_result_rewrites_total)"}
+      ],
+      "options": {"showHeader": true},
+      "fieldConfig": {"defaults": {}, "overrides": []}
+    }
+  ]
+}

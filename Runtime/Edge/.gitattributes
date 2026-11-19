@@ -1,0 +1,3 @@
+# These files are read inside WSL2/Linux containers (Dockerfile, env files, Python);
+# keep LF in Windows checkouts so builds from /mnt/c paths do not see CRLF.
+* text eol=lf

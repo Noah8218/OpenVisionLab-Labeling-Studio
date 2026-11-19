@@ -1,0 +1,7 @@
+{
+  "_note": "Demo rule for the COCO yolo11n pipeline test only; not a product recipe. Class 0 = person.",
+  "ng_classes": [0],
+  "min_score": 0.5,
+  "min_count": 1,
+  "no_detection_verdict": "Pass"
+}

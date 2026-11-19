@@ -1,0 +1,5 @@
+# Versions the runtime stage already fixed; prepare-only packages must not move them.
+onnxruntime-gpu==1.32.0
+onnx==1.23.2
+numpy==2.5.5
+torch==2.15.0+cpu

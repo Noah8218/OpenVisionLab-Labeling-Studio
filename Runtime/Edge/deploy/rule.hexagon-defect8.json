@@ -1,0 +1,7 @@
+{
+  "_note": "Benchmark judgment rule for the synthetic hexagon_500 defect model, fixed before the first run: any of the 8 defect classes at score >= 0.25 makes the image Ng; no detection is Pass. Not a field-approved recipe.",
+  "ng_classes": [0, 1, 2, 3, 4, 5, 6, 7],
+  "min_score": 0.25,
+  "min_count": 1,
+  "no_detection_verdict": "Pass"
+}

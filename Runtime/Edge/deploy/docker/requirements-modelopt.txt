@@ -1,0 +1,5 @@
+# Installed into /opt/venv-modelopt only. ModelOpt 0.48.0 [onnx] on Linux x86_64
+# requires onnx~=1.21.0 and onnxruntime-gpu>=1.29,<1.31, which conflict with the
+# runtime pins (onnx 1.23.2, onnxruntime-gpu 1.32.0) verified in M1.
+nvidia-modelopt[onnx]==0.48.0
+torch==2.15.0+cpu
