@@ -19,8 +19,10 @@ import asyncio
 import csv
 import hashlib
 import inspect
+import json
 import logging
 import math
+import os
 import random
 import sys
 import time
@@ -30,7 +32,15 @@ import cv2
 from prometheus_client import start_http_server
 
 from ovl_edge.decision import ResultCode
-from ovl_edge.metrics_export import BUDGET_MS, INSPECTION_E2E_SECONDS, INSPECTION_OUTCOMES, INSPECTION_PHASE_SECONDS, INSPECTION_REQUESTS
+from ovl_edge.frame_transform import apply as apply_transform
+from ovl_edge.metrics_export import (
+    BUDGET_MS,
+    INSPECTION_E2E_SECONDS,
+    INSPECTION_OUTCOMES,
+    INSPECTION_PHASE_SECONDS,
+    INSPECTION_QUALITY,
+    INSPECTION_REQUESTS,
+)
 from ovl_edge.modbus_map import APPLIED_BASE, REQUEST_BASE, RESULT_BASE, RESULT_SIZE, Request, Result, frame_relative_path, u32_to_regs
 from ovl_edge.splits import list_images
 
@@ -44,6 +54,25 @@ def outcome_name(code: int) -> str:
         return "worker_unknown_code"
 
 
+def truth_of(image: Path, labels_dir: Path | None) -> str:
+    """Ground truth from a YOLO label file: boxes -> ng, empty file -> ok, no file -> unknown."""
+    if labels_dir is None:
+        return "unknown"
+    label = labels_dir / (image.stem + ".txt")
+    if not label.exists():
+        return "unknown"
+    return "ng" if label.read_text(encoding="utf-8").strip() else "ok"
+
+
+def feedback_outcome(verdict: str, truth: str) -> str | None:
+    """Confirmed wrong or held verdicts, as re-inspection and audits report them."""
+    return {("pass", "ng"): "escape", ("ng", "ok"): "false_reject", ("hold", "ng"): "hold_ng", ("hold", "ok"): "hold_ok"}.get((verdict, truth))
+
+
+def verdict_name(code: int) -> str:
+    return {ResultCode.PASS: "pass", ResultCode.NG: "ng", ResultCode.HOLD: "hold"}.get(code, "other")
+
+
 async def _io(value):
     # RegisterServer (Modbus) is synchronous; OpcUaBlockStore returns awaitables.
     return await value if inspect.isawaitable(value) else value
@@ -55,6 +84,10 @@ async def drive(args, store) -> None:
         raise SystemExit("no images")
     session = args.session or random.SystemRandom().randint(1, 0xFFFFFFFF)
     frames_root = Path(args.frames_root)
+    labels_dir = Path(args.truth_labels) if args.truth_labels and Path(args.truth_labels).is_dir() else None
+    feedback_path = Path(args.feedback_dir) / "feedback.jsonl" if args.feedback_dir else None
+    if feedback_path:
+        feedback_path.parent.mkdir(parents=True, exist_ok=True)
     tick_s = args.tick_ms / 1000.0
     timeout_s = args.timeout_ms / 1000.0
     csv_path = Path(args.csv) if args.csv else None
@@ -63,7 +96,7 @@ async def drive(args, store) -> None:
         csv_path.parent.mkdir(parents=True, exist_ok=True)
         handle = open(csv_path, "w", newline="", encoding="utf-8")
         writer = csv.writer(handle)
-        writer.writerow(["seq", "image", "outcome", "code", "e2e_ms", "result_wait_ms", "tick_wait_ms", "worker_service_us"])
+        writer.writerow(["seq", "image", "outcome", "code", "e2e_ms", "result_wait_ms", "tick_wait_ms", "worker_service_us", "model_sha_prefix", "t_request_s"])
     await asyncio.sleep(args.start_delay_s)
     sim_t0 = time.monotonic()
     last_commit = (await _io(store.get(RESULT_BASE, RESULT_SIZE)))[9]
@@ -71,6 +104,8 @@ async def drive(args, store) -> None:
     for seq in range(1, args.count + 1):
         source = images[(seq - 1) % len(images)]
         frame = cv2.imread(str(source), cv2.IMREAD_COLOR)
+        if args.frame_transform:  # imitate line drift (lighting, focus, sensor noise)
+            frame = apply_transform(frame, args.frame_transform, source.name)
         ok, encoded = cv2.imencode("." + args.frame_ext, frame)
         data = encoded.tobytes()
         path = frames_root / frame_relative_path(session, seq, args.frame_ext)
@@ -100,7 +135,7 @@ async def drive(args, store) -> None:
             INSPECTION_OUTCOMES.labels(outcome).inc()
             await _io(store.set(REQUEST_BASE, Request(session, seq, 1, False, prefix).encode()))
             if writer:
-                writer.writerow([seq, source.name, outcome, code, "", "", "", ""])
+                writer.writerow([seq, source.name, outcome, code, "", "", "", "", "", f"{t_request - sim_t0:.3f}"])
             continue
         if result.frame_sha_prefix != prefix:
             outcome = "frame_hash_mismatch"
@@ -122,8 +157,19 @@ async def drive(args, store) -> None:
         # Worker service is a duration, so subtracting it needs no shared clock.
         INSPECTION_PHASE_SECONDS.labels("transport_queue").observe(max(0.0, (t_observed - t_request) - result.service_us / 1e6))
         INSPECTION_OUTCOMES.labels(outcome).inc()
+        if outcome != "frame_hash_mismatch":
+            truth, verdict = truth_of(source, labels_dir), verdict_name(result.code)
+            INSPECTION_QUALITY.labels(verdict, truth).inc()
+            report = feedback_outcome(verdict, truth)
+            if report and feedback_path:
+                # What re-inspection / audit would report back to the edge side.
+                with open(feedback_path, "a", encoding="utf-8") as handle:
+                    handle.write(json.dumps({"session": session, "seq": seq, "image": source.name, "truth": truth,
+                                             "verdict": verdict, "outcome": report, "reported_unix": time.time()}) + "\n")
         if writer:
-            writer.writerow([seq, source.name, outcome, result.code, f"{e2e * 1e3:.3f}", f"{(t_observed - t_request) * 1e3:.3f}", f"{(t_applied - t_observed) * 1e3:.3f}", result.service_us])
+            # model_sha_prefix shows which inference tier judged (fallback verdicts carry their own hash).
+            writer.writerow([seq, source.name, outcome, result.code, f"{e2e * 1e3:.3f}", f"{(t_observed - t_request) * 1e3:.3f}", f"{(t_applied - t_observed) * 1e3:.3f}",
+                             result.service_us, result.model_sha_prefix.hex(), f"{t_request - sim_t0:.3f}"])
         if args.interval_ms:
             await asyncio.sleep(args.interval_ms / 1000.0)
     if writer:
@@ -136,7 +182,12 @@ async def amain(args) -> None:
         from ovl_edge.opcua_server import OpcUaBlockStore
 
         store = OpcUaBlockStore()
-        await store.start(args.host, args.opcua_port)
+        secure = None
+        if args.opcua_security == "sign_encrypt":
+            from ovl_edge.opcua_security import SecureSettings
+
+            secure = SecureSettings.requester(Path(args.pki_dir))
+        await store.start(args.host, args.opcua_port, secure)
     else:
         from ovl_edge.modbus_server import RegisterServer
 
@@ -159,6 +210,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=5020)
     parser.add_argument("--transport", default="modbus", choices=["modbus", "opcua"])
     parser.add_argument("--opcua-port", type=int, default=4840)
+    parser.add_argument("--opcua-security", default=os.environ.get("OVL_OPCUA_SECURITY", "none"), choices=["none", "sign_encrypt"])
+    parser.add_argument("--pki-dir", default=os.environ.get("OVL_PKI_DIR", "/pki"))
     parser.add_argument("--count", type=int, default=1000)
     parser.add_argument("--session", type=int, default=0)
     parser.add_argument("--tick-ms", type=float, default=10.0)
@@ -168,6 +221,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--start-delay-s", type=float, default=5.0)
     parser.add_argument("--linger-s", type=float, default=30.0)
     parser.add_argument("--csv", default="")
+    parser.add_argument("--frame-transform", default=os.environ.get("OVL_SIM_FRAME_TRANSFORM", ""),
+                        help="line drift before writing each frame, e.g. gain=0.6,noise=10 (ovl_edge.frame_transform)")
+    parser.add_argument("--feedback-dir", default=os.environ.get("OVL_SIM_FEEDBACK_DIR", ""),
+                        help="write feedback.jsonl with confirmed escapes / false rejects / holds")
+    parser.add_argument("--truth-labels", default=os.environ.get("OVL_SIM_TRUTH_LABELS", ""),
+                        help="YOLO label folder for ground truth (quality metrics); missing -> truth unknown")
     parser.add_argument("--metrics-port", type=int, default=9101)
     parser.add_argument("--log-level", default="INFO")
     args = parser.parse_args(argv)

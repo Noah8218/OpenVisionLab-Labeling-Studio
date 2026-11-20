@@ -1,0 +1,4 @@
+# OpenVINO post-training quantization (NNCF) in its own virtualenv: nncf 3.4.0 pins
+# numpy below the runtime's numpy 2.5.5. Used only by ovl_edge.cli.ov_quantize.
+nncf==3.4.0
+openvino==2026.4.1

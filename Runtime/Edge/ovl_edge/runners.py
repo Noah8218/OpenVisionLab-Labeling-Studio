@@ -62,6 +62,41 @@ class OrtRunner:
         return self.session.run([self.output_name], {self.input_name: tensor})[0]
 
 
+class OvRunner:
+    """OpenVINO runner (CPU by default): the model tier that survives a GPU failure.
+
+    The same FP32 ONNX gives ORT-equivalent detections; an explicit Q/DQ ONNX
+    (the INT8 engine's input) runs as INT8 on CPUs with VNNI / AVX-512.
+    One infer request per runner: give each worker thread its own runner.
+    """
+
+    def __init__(self, onnx_path: str, device: str = "CPU", hint: str = "LATENCY", threads: int | None = None, precision: str | None = "f32"):
+        import openvino as ov
+
+        core = ov.Core()
+        config = {"PERFORMANCE_HINT": hint}
+        # The CPU plugin runs FP32 models in BF16 by default on CPUs with native BF16
+        # (seen on Ryzen 7500F / Zen 4: outputs differed from ORT by ~4e-4). Pin it.
+        if precision:
+            config["INFERENCE_PRECISION_HINT"] = precision
+        if threads:
+            config["INFERENCE_NUM_THREADS"] = int(threads)
+        self.compiled = core.compile_model(core.read_model(onnx_path), device, config)
+        self.request = self.compiled.create_infer_request()
+        element = self.compiled.input(0).get_element_type().get_type_name()
+        self.input_dtype = np.float16 if element == "f16" else np.float32
+        self.name = f"ov-{device.lower()}"
+        self.ov_version = ov.__version__
+        self.device = device
+        hint_type = self.compiled.get_property("INFERENCE_PRECISION_HINT")
+        self.precision = hint_type.get_type_name() if hasattr(hint_type, "get_type_name") else str(hint_type)  # "f32" / "bf16"
+
+    def infer(self, tensor: np.ndarray) -> np.ndarray:
+        self.request.infer({0: tensor})
+        # The output tensor is reused by the next infer call: hand back a copy.
+        return np.array(self.request.get_output_tensor(0).data, dtype=np.float32, copy=True)
+
+
 @dataclass(frozen=True)
 class StageTimes:
     preprocess_ms: float

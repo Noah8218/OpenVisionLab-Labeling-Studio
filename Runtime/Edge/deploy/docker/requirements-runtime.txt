@@ -1,4 +1,5 @@
 onnxruntime-gpu==1.32.0
+openvino==2026.4.1
 onnx==1.23.2
 opencv-python-headless
 numpy==2.5.5

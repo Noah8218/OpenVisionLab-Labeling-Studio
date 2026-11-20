@@ -1,0 +1,8 @@
+{
+  "_note": "Rule-based fallback parameters fitted by ovl_edge.cli.rule_calibrate on the training split of the synthetic multishape v3 set (10 shapes): train false reject <= 5%, then lowest escape. Test split: false reject 4.2%, escape 48%. Only for the fallback tier; not a substitute for the model.",
+  "smooth_px": 5,
+  "median_px": 15,
+  "erode_px": 3,
+  "diff_threshold": 20,
+  "min_area": 3
+}

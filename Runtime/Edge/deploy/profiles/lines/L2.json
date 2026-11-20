@@ -1,0 +1,11 @@
+{
+  "extends": "multishape-defect8",
+  "line": "L2",
+  "product": "multishape (synthetic), fixture edge visible",
+  "_note": "Example of line-specific settings: ignore the 16 px fixture border of the 512 x 512 frame, ignore specks under 16 px^2, and judge cracks more strictly.",
+  "rule": {
+    "roi_xyxy": [16, 16, 496, 496],
+    "min_box_area": 16,
+    "class_min_score": {"1": 0.20}
+  }
+}

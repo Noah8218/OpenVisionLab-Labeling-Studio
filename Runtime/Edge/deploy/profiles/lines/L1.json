@@ -1,0 +1,7 @@
+{
+  "extends": "multishape-defect8",
+  "line": "L1",
+  "product": "multishape (synthetic)",
+  "_note": "Uses the template as is.",
+  "rule": {}
+}

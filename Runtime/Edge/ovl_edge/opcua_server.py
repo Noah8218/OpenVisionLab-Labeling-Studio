@@ -6,7 +6,10 @@ get/set interface the simulator uses for its Modbus RegisterServer.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from ovl_edge.modbus_map import APPLIED_BASE, REQUEST_BASE, RESULT_BASE
+from ovl_edge.opcua_security import OPCUA_SECURITY, SecureSettings, publish_expiry
 from ovl_edge.transport import OPCUA_NAMESPACE_URI, OPCUA_NODES, OPCUA_OBJECT, block_to_regs, regs_to_block
 
 _BASES = {REQUEST_BASE: "request", RESULT_BASE: "result", APPLIED_BASE: "applied"}
@@ -17,13 +20,33 @@ class OpcUaBlockStore:
         self.server = None
         self.nodes: dict[str, object] = {}
 
-    async def start(self, host: str, port: int) -> None:
+    async def start(self, host: str, port: int, secure: SecureSettings | None = None) -> None:
+        """secure=None: SecurityPolicy None, anonymous (local tests only).
+        secure set: only Basic256Sha256 SignAndEncrypt; clients must present a trusted,
+        valid certificate whose application URI matches (ovl_edge.opcua_security)."""
         from asyncua import Server, ua
 
         self.server = Server()
         await self.server.init()
         self.server.set_endpoint(f"opc.tcp://{host}:{port}/ovl/")
-        self.server.set_security_policy([ua.SecurityPolicyType.NoSecurity])
+        if secure is None:
+            self.server.set_security_policy([ua.SecurityPolicyType.NoSecurity])
+            OPCUA_SECURITY.labels("None", "None").set(1)
+        else:
+            from asyncua.crypto.truststore import TrustStore
+            from asyncua.crypto.validator import CertificateValidator, CertificateValidatorOptions
+
+            await self.server.set_application_uri(secure.app_uri)
+            await self.server.load_certificate(str(secure.certificate))
+            await self.server.load_private_key(str(secure.private_key))
+            self.server.set_security_policy([ua.SecurityPolicyType.Basic256Sha256_SignAndEncrypt])
+            store = TrustStore([Path(secure.trusted_dir)], [])
+            await store.load()
+            options = (CertificateValidatorOptions.TRUSTED | CertificateValidatorOptions.TIME_RANGE
+                       | CertificateValidatorOptions.URI | CertificateValidatorOptions.PEER_CLIENT)
+            self.server.set_certificate_validator(CertificateValidator(options, store))
+            OPCUA_SECURITY.labels("Basic256Sha256", "SignAndEncrypt").set(1)
+            publish_expiry("opcua-server", secure.certificate)
         ns = await self.server.register_namespace(OPCUA_NAMESPACE_URI)
         obj = await self.server.nodes.objects.add_object(ns, OPCUA_OBJECT)
         for key, (name, size) in OPCUA_NODES.items():

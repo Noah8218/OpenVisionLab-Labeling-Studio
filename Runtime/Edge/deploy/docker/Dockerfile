@@ -38,5 +38,11 @@ RUN pip install virtualenv \
  && python3 -m virtualenv /opt/venv-modelopt \
  && /opt/venv-modelopt/bin/pip install --extra-index-url https://download.pytorch.org/whl/cpu -r /tmp/requirements-modelopt.txt
 ENV OVL_MODELOPT_PYTHON=/opt/venv-modelopt/bin/python
+# OpenVINO INT8 must come from OpenVINO's own quantizer (NNCF): the Model Optimizer
+# Q/DQ graph that TensorRT runs correctly missed 320 of 500 defects (64%) under OpenVINO (2026-11-20).
+COPY deploy/docker/requirements-nncf.txt /tmp/
+RUN python3 -m virtualenv /opt/venv-nncf \
+ && /opt/venv-nncf/bin/pip install -r /tmp/requirements-nncf.txt
+ENV OVL_NNCF_PYTHON=/opt/venv-nncf/bin/python
 # Unit tests are not baked in; run them with the source mounted:
 #   docker run --rm -v "$PWD":/src -w /src -e PYTHONPATH=/src ovl-edge-prepare:dev python -m pytest -q tests

@@ -1,0 +1,116 @@
+# Alert rules for the edge inspection stack (portfolio step 3).
+# severity=critical: the line is affected now (missed cycle time, no verdicts, defects released).
+# severity=warning : a cause that can lead there (degraded tier, hot GPU, rising false rejects).
+# Unit tests: Runtime/Edge/tests/alerts_test.yml (promtool test rules).
+groups:
+  - name: ovl-edge-symptoms
+    rules:
+      - alert: InspectionP99OverBudget
+        # p99 over 5 minutes above the configured inspection budget, with enough samples to mean something.
+        expr: |
+          histogram_quantile(0.99, sum by (le) (rate(ovl_inspection_e2e_seconds_bucket[5m])))
+            > on() group_left max(ovl_inspection_budget_seconds)
+          and on() sum(increase(ovl_inspection_e2e_seconds_count[5m])) >= 100
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: "Inspection p99 is above the cycle-time budget"
+          runbook: "Check the stage p99 panel: worker stage tail (infer/decode) vs result_wait/tick_wait. See the latency RCA in the design doc."
+      - alert: InspectionTimeouts
+        expr: |
+          sum(increase(ovl_inspection_outcomes_total{outcome="timeout"}[5m]))
+            / clamp_min(sum(increase(ovl_inspection_requests_total[5m])), 1) > 0.001
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "More than 0.1% of inspection requests timed out"
+          runbook: "Worker up and polling? (EdgeWorkerDown / EdgeWorkerStalled). Modbus/OPC UA connection errors in ovl_worker_errors_total."
+      - alert: DefectEscapeConfirmed
+        # Any confirmed escape (truth=ng judged pass) is a quality incident; escapes arrive late via audits.
+        expr: sum(increase(ovl_inspection_quality_total{verdict="pass", truth="ng"}[1h])) > 0
+        labels: {severity: critical}
+        annotations:
+          summary: "A defective part was released (confirmed by audit/truth)"
+          runbook: "Capture the frame and result (seq, model hash), classify the cause (lighting, focus, label, threshold), open an incident."
+      - alert: FalseRejectRateHigh
+        expr: |
+          sum(increase(ovl_inspection_quality_total{verdict="ng", truth="ok"}[15m]))
+            / clamp_min(sum(increase(ovl_inspection_quality_total{truth="ok"}[15m])), 1) > 0.03
+          and on() sum(increase(ovl_inspection_quality_total{truth="ok"}[15m])) >= 200
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "False reject rate above 3% (good parts judged Ng)"
+          runbook: "Check recent changes (model, threshold, lighting). Compare per-tier verdicts; review rejected frames."
+      - alert: HoldRateHigh
+        expr: |
+          sum(increase(ovl_inspection_quality_total{verdict="hold"}[5m]))
+            / clamp_min(sum(increase(ovl_inspection_quality_total[5m])), 1) > 0.05
+        labels: {severity: warning}
+        annotations:
+          summary: "More than 5% of parts sent to manual inspection (rule-tier fallback)"
+          runbook: "The worker is on the rule tier; restore a model tier (see EdgeWorkerDegraded)."
+
+  - name: ovl-edge-causes
+    rules:
+      - alert: EdgeWorkerDown
+        expr: up{job="edge-worker"} == 0
+        for: 30s
+        labels: {severity: critical}
+        annotations:
+          summary: "Edge worker metrics endpoint is unreachable"
+          runbook: "docker compose ps / logs edge-worker; GPU visible in the container (nvidia-smi)?"
+      - alert: EdgeWorkerStalled
+        # Up but not polling: the request loop is blocked (GPU hang, deadlock).
+        # Scoped to the worker job: other processes importing the metric definitions export it as 0.
+        expr: time() - ovl_worker_heartbeat_timestamp_seconds{job="edge-worker"} > 10
+        for: 30s
+        labels: {severity: critical}
+        annotations:
+          summary: "Edge worker stopped polling the request slot"
+          runbook: "Thread dump / restart the worker; check GPU state (ovl_gpu_monitor_up, Xid errors in dmesg)."
+      - alert: EdgeWorkerDegraded
+        expr: ovl_worker_degraded{job="edge-worker"} == 1
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: "Inference runs on a fallback tier instead of the configured runtime"
+          runbook: "ovl_worker_active_tier and tier switch reasons in the worker log; load_failed means rebuild the engine for this GPU/TensorRT."
+      - alert: EdgeWorkerTierFlapping
+        expr: sum(increase(ovl_worker_tier_switches_total{job="edge-worker", kind=~"failover|recover"}[10m])) > 6
+        labels: {severity: warning}
+        annotations:
+          summary: "Inference tier switched more than 6 times in 10 minutes"
+          runbook: "Intermittent failure on the primary tier; raise fail_threshold / probe interval only after finding the cause."
+      - alert: GpuMonitorDown
+        expr: ovl_gpu_monitor_up{job="edge-worker"} == 0
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: "GPU readings (NVML) unavailable from the worker"
+      - alert: GpuTemperatureHigh
+        expr: ovl_gpu_temperature_celsius > 83
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "GPU above 83 C for 5 minutes (thermal throttling raises latency)"
+          runbook: "Check enclosure airflow/fan; compare ovl_gpu_sm_clock_mhz with the normal value."
+      - alert: CertificateExpiringSoon
+        expr: min by (job, certificate) (ovl_certificate_expiry_days) < 30
+        labels: {severity: warning}
+        annotations:
+          summary: "An OPC UA certificate expires within 30 days"
+          runbook: "Issue a new certificate (ovl_edge.cli.opcua_certs issue), add it to the peer's trust list, restart in a window, then remove the old one."
+      - alert: CertificateExpiryCritical
+        # An expired certificate stops the secure connection: no verdicts reach the line.
+        expr: min by (job, certificate) (ovl_certificate_expiry_days) < 7
+        labels: {severity: critical}
+        annotations:
+          summary: "An OPC UA certificate expires within 7 days or has expired"
+          runbook: "Renew now (see CertificateExpiringSoon); an expired client certificate is refused with BadCertificateTimeInvalid."
+      - alert: GpuMemoryHigh
+        expr: ovl_gpu_memory_used_bytes / ovl_gpu_memory_total_bytes > 0.9
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "GPU memory above 90%"

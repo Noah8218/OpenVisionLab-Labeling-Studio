@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.4.2 — 2026-11-20
+
+- Edge runtime throughput: decode, pre-processing, inference and post-processing run as threads joined by bounded queues, with a pool of inference runners; a full first queue drops and counts frames instead of stalling the camera. `stream_bench` measures latency and drops at a fixed frame rate.
+- Fallback chain: after repeated failures the worker moves from TensorRT to OpenVINO BF16 on the CPU (or ONNX Runtime) and then to a rule-based check, and probes higher tiers to return. A rule-tier Pass becomes `Hold` (manual inspection) by default. The judging tier is visible in the result's model hash and in metrics.
+- Monitoring: quality counts by ground truth when known, worker heartbeat, GPU temperature, power, utilization and memory through NVML, and 14 Prometheus alert rules covered by `promtool` tests. The Grafana dashboard shows false-reject rate, confirmed escapes, availability and GPU state.
+- Release registry: immutable releases with recorded hashes, a single atomic pointer with change history, model swaps between requests without restart, shadow comparison, canary routing, a promotion gate, forced promotion only with a review file that covers every disagreement, and rollback.
+- Field feedback: capture of near-threshold, Hold and fallback frames, drift hints from image statistics, and export to YOLO folders for relabeling and retraining.
+- OPC UA Basic256Sha256 SignAndEncrypt with application certificates, trust lists and certificate-expiry alerts.
+- Per-line parameter templates (per-class thresholds, region of interest, minimum box area) with inheritance, and threshold tuning that accepts a change only with a minimum gain.
+- OpenVINO CPU runtimes (FP32, BF16, NNCF INT8) and a native C++ TensorRT benchmark with a CUDA letterbox kernel that matches the Python pre-processing bit for bit.
+- Fix: when the Modbus requester link drops, the worker reports a failed read or write and reconnects instead of exiting.
+- Still tested only against the bundled simulator and synthetic data. The desktop application, Recipe, annotation, dataset and integration formats are unchanged.
+
 ## 0.4.1 — 2026-11-20
 
 - Add a separate edge inference runtime under `Runtime/Edge`: ONNX export with a recorded model specification, one shared pre/post-processing path, and parity checks against the Ultralytics reference.

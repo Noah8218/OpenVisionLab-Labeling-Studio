@@ -27,6 +27,7 @@ services:
       - --frame-ext=${OVL_FRAME_EXT:-png}
       - --transport=${OVL_TRANSPORT:-modbus}
       - --opcua-url=${OVL_OPCUA_URL:-opc.tcp://machine-sim:4840/ovl/}
+      - --opcua-security=${OVL_OPCUA_SECURITY:-none}
       - --modbus-host=${OVL_MODBUS_HOST:-machine-sim}
       - --modbus-port=${OVL_MODBUS_PORT:-5020}
       - --poll-ms=${OVL_POLL_MS:-1}
@@ -34,10 +35,27 @@ services:
     environment:
       OVL_BUDGET_MS: ${OVL_BUDGET_MS:-50}
       OVL_CUDA_SCHEDULE: ${OVL_CUDA_SCHEDULE:-auto}
+      # Fallback chain after OVL_RUNTIME, e.g. "ort-cuda rule" (empty: no fallback).
+      OVL_FALLBACK: ${OVL_FALLBACK:-}
+      OVL_RULE_PARAMS: /config/rule_params.json
+      OVL_RULE_PASS_VERDICT: ${OVL_RULE_PASS_VERDICT:-Hold}
+      OVL_FAIL_THRESHOLD: ${OVL_FAIL_THRESHOLD:-3}
+      OVL_PROBE_INTERVAL_S: ${OVL_PROBE_INTERVAL_S:-30}
+      OVL_INJECT_FAULT: ${OVL_INJECT_FAULT:-}  # test only
+      # Release registry mode (ovl_edge.release): set OVL_REGISTRY=/registry and OVL_REGISTRY_DIR on the host.
+      OVL_REGISTRY: ${OVL_REGISTRY:-}
+      # Field-feedback capture (ovl_edge.case_capture): set OVL_CASES_DIR=/cases to enable.
+      OVL_CASES_DIR: ${OVL_CASES_DIR:-}
+      OVL_CASE_MAX_PER_MINUTE: ${OVL_CASE_MAX_PER_MINUTE:-120}
     volumes:
+      - ${OVL_REGISTRY_DIR:-${OVL_MODEL_DIR}}:/registry
+      - ${OVL_CASES_HOST_DIR:-./cases}:/cases
+      # OPC UA certificates (ovl_edge.cli.opcua_certs setup); read-only for the services
+      - ${OVL_PKI_HOST_DIR:-./pki}:/pki:ro
       - ${OVL_MODEL_DIR:?set OVL_MODEL_DIR}:/model:ro
       - ${OVL_FRAMES_DIR:?set OVL_FRAMES_DIR}:/frames:ro
       - ${OVL_RULE_FILE:-./rule.demo-coco.json}:/config/rule.json:ro
+      - ${OVL_RULE_PARAMS_FILE:-./rule-params.multishape-defect8.json}:/config/rule_params.json:ro
     deploy:
       resources:
         reservations:
@@ -58,6 +76,7 @@ services:
       - --frames-root=/frames
       - --frame-ext=${OVL_FRAME_EXT:-png}
       - --transport=${OVL_TRANSPORT:-modbus}
+      - --opcua-security=${OVL_OPCUA_SECURITY:-none}
       - --count=${OVL_SIM_COUNT:-3000}
       - --tick-ms=${OVL_SIM_TICK_MS:-10}
       - --interval-ms=${OVL_SIM_INTERVAL_MS:-0}
@@ -66,8 +85,15 @@ services:
       - --metrics-port=9101
     environment:
       OVL_BUDGET_MS: ${OVL_BUDGET_MS:-50}
+      OVL_SIM_TRUTH_LABELS: /labels
+      OVL_SIM_FRAME_TRANSFORM: ${OVL_SIM_FRAME_TRANSFORM:-}  # line drift, e.g. gain=0.6,noise=10
+      OVL_SIM_FEEDBACK_DIR: ${OVL_SIM_FEEDBACK_DIR:-}        # /cases to report confirmed errors
     volumes:
+      - ${OVL_CASES_HOST_DIR:-./cases}:/cases
+      - ${OVL_PKI_HOST_DIR:-./pki}:/pki:ro
       - ${OVL_SIM_IMAGES_DIR:?set OVL_SIM_IMAGES_DIR}:/images:ro
+      # YOLO labels for ground truth (quality metrics); defaults to the image folder, where no label means truth unknown.
+      - ${OVL_SIM_LABELS_DIR:-${OVL_SIM_IMAGES_DIR}}:/labels:ro
       - ${OVL_FRAMES_DIR}:/frames
       - ${OVL_RESULTS_DIR:?set OVL_RESULTS_DIR}:/results
 
@@ -78,6 +104,7 @@ services:
       - --storage.tsdb.retention.time=7d
     volumes:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/alerts.yml:/etc/prometheus/alerts.yml:ro
     ports:
       - "127.0.0.1:9090:9090"
 

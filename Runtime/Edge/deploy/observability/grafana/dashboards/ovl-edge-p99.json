@@ -101,10 +101,86 @@
       "targets": [
         {"refId": "A", "format": "table", "instant": true, "expr": "ovl_worker_info"},
         {"refId": "B", "format": "table", "instant": true, "expr": "sum by (kind) (ovl_worker_errors_total)"},
-        {"refId": "C", "format": "table", "instant": true, "expr": "sum by (reason) (ovl_worker_result_rewrites_total)"}
+        {"refId": "C", "format": "table", "instant": true, "expr": "sum by (reason) (ovl_worker_result_rewrites_total)"},
+        {"refId": "D", "format": "table", "instant": true, "expr": "max(ovl_worker_degraded)"},
+        {"refId": "E", "format": "table", "instant": true, "expr": "max by (tier) (ovl_worker_active_tier) == 1"},
+        {"refId": "F", "format": "table", "instant": true, "expr": "sum by (from_tier, to_tier, kind) (ovl_worker_tier_switches_total)"}
       ],
       "options": {"showHeader": true},
       "fieldConfig": {"defaults": {}, "overrides": []}
+    },
+    {
+      "id": 10, "type": "table", "title": "발생 중인 알람",
+      "description": "Prometheus 알람 규칙(deploy/observability/alerts.yml) 중 지금 발생(firing)한 것. critical은 라인에 영향이 있는 증상, warning은 원인 상태다.",
+      "gridPos": {"x": 0, "y": 30, "w": 24, "h": 6},
+      "datasource": {"type": "prometheus", "uid": "ovl-prometheus"},
+      "targets": [{"refId": "A", "format": "table", "instant": true, "expr": "ALERTS{alertstate=\"firing\"}"}],
+      "options": {"showHeader": true},
+      "fieldConfig": {"defaults": {}, "overrides": []}
+    },
+    {
+      "id": 11, "type": "stat", "title": "정상 오검출률 (최근 15분)",
+      "description": "정답이 정상인 부품 중 Ng로 판정된 비율. 현장에서는 Ng 부품 재검사 결과로 정답이 들어온다.",
+      "gridPos": {"x": 0, "y": 36, "w": 6, "h": 5},
+      "datasource": {"type": "prometheus", "uid": "ovl-prometheus"},
+      "targets": [{"refId": "A", "expr": "sum(increase(ovl_inspection_quality_total{verdict=\"ng\",truth=\"ok\"}[15m])) / clamp_min(sum(increase(ovl_inspection_quality_total{truth=\"ok\"}[15m])), 1)"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "decimals": 2, "color": {"mode": "thresholds"},
+        "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 0.03}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "area", "textMode": "value"}
+    },
+    {
+      "id": 12, "type": "stat", "title": "불량 유출 확인 건수 (누적)",
+      "description": "정답이 불량인데 Pass로 판정된 부품. 현장에서는 감사 표본·반품으로 늦게 확인된다. 1건이라도 있으면 critical 알람.",
+      "gridPos": {"x": 6, "y": 36, "w": 6, "h": 5},
+      "datasource": {"type": "prometheus", "uid": "ovl-prometheus"},
+      "targets": [{"refId": "A", "expr": "sum(ovl_inspection_quality_total{verdict=\"pass\",truth=\"ng\"}) or vector(0)"}],
+      "fieldConfig": {"defaults": {"unit": "none", "decimals": 0, "color": {"mode": "thresholds"},
+        "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "value"}
+    },
+    {
+      "id": 13, "type": "stat", "title": "수동 검사 보류 비율 (최근 5분)",
+      "gridPos": {"x": 12, "y": 36, "w": 6, "h": 5},
+      "datasource": {"type": "prometheus", "uid": "ovl-prometheus"},
+      "targets": [{"refId": "A", "expr": "(sum(increase(ovl_inspection_quality_total{verdict=\"hold\"}[5m])) or vector(0)) / clamp_min(sum(increase(ovl_inspection_quality_total[5m])), 1)"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "decimals": 1, "color": {"mode": "thresholds"},
+        "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 0.05}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "area", "textMode": "value"}
+    },
+    {
+      "id": 14, "type": "stat", "title": "워커 가동률 (최근 1시간)",
+      "description": "Prometheus가 워커 지표를 수집한 비율(up). 수집 간격 5초 기준이다.",
+      "gridPos": {"x": 18, "y": 36, "w": 6, "h": 5},
+      "datasource": {"type": "prometheus", "uid": "ovl-prometheus"},
+      "targets": [{"refId": "A", "expr": "avg_over_time(up{job=\"edge-worker\"}[1h])"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "decimals": 2, "color": {"mode": "thresholds"},
+        "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "orange", "value": 0.99}, {"color": "green", "value": 0.999}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "value"}
+    },
+    {
+      "id": 15, "type": "timeseries", "title": "GPU 온도·전력·사용률·SM 클럭",
+      "gridPos": {"x": 0, "y": 41, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "ovl-prometheus"},
+      "targets": [
+        {"refId": "A", "legendFormat": "온도 (°C)", "expr": "ovl_gpu_temperature_celsius"},
+        {"refId": "B", "legendFormat": "전력 (W)", "expr": "ovl_gpu_power_watts"},
+        {"refId": "C", "legendFormat": "사용률 (%)", "expr": "100 * ovl_gpu_utilization_ratio"},
+        {"refId": "D", "legendFormat": "SM 클럭 (100 MHz)", "expr": "ovl_gpu_sm_clock_mhz / 100"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "custom": {"lineWidth": 1, "fillOpacity": 0}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 16, "type": "timeseries", "title": "메모리: GPU 사용량과 워커 프로세스 RSS",
+      "gridPos": {"x": 12, "y": 41, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "ovl-prometheus"},
+      "targets": [
+        {"refId": "A", "legendFormat": "GPU 사용", "expr": "ovl_gpu_memory_used_bytes"},
+        {"refId": "B", "legendFormat": "GPU 전체", "expr": "ovl_gpu_memory_total_bytes"},
+        {"refId": "C", "legendFormat": "워커 RSS", "expr": "ovl_worker_rss_bytes"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"lineWidth": 1, "fillOpacity": 0}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
     }
   ]
 }

@@ -1,0 +1,10 @@
+{
+  "_note": "Product-family template for the synthetic multishape 8-defect model: any defect class at score >= 0.25 is Ng; no detection is Pass.",
+  "class_names": ["scratch", "crack", "dark_contamination", "bright_contamination", "discoloration", "edge_chip", "extra_material", "rectangular_void"],
+  "rule": {
+    "ng_classes": [0, 1, 2, 3, 4, 5, 6, 7],
+    "min_score": 0.25,
+    "min_count": 1,
+    "no_detection_verdict": "Pass"
+  }
+}
