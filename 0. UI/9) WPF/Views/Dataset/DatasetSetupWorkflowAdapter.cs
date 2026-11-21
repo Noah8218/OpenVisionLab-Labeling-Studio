@@ -505,6 +505,20 @@ namespace MvcVisionSystem
                 return false;
             }
 
+            // A snapshot, not the open recipe's live settings object.
+            PythonModelSettings openRuntime = context.DataProvider?.Invoke()?.ProjectSettings?.PythonModel;
+            if (request.InheritedRuntime == null && openRuntime != null)
+            {
+                request.InheritedRuntime = new PythonModelSettings
+                {
+                    ModelEngine = openRuntime.ModelEngine,
+                    PythonExecutablePath = openRuntime.PythonExecutablePath,
+                    ProjectRootPath = openRuntime.ProjectRootPath,
+                    ClientScriptPath = openRuntime.ClientScriptPath,
+                    AutoStartClient = openRuntime.AutoStartClient
+                };
+            }
+
             WpfDatasetSetupExecutionResult result = datasetSetupExecutionService.Execute(
                 request,
                 ProjectRecipeService.GetRecipeRootDirectory(),

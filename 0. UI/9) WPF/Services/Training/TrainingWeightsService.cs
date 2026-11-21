@@ -254,6 +254,9 @@ namespace MvcVisionSystem
             };
         }
 
+        private static bool IsContentHashName(string name)
+            => !string.IsNullOrEmpty(name) && name.Length >= 32 && name.All(Uri.IsHexDigit);
+
         public static string FormatWeightsDisplayPath(string weightsPath)
         {
             if (string.IsNullOrWhiteSpace(weightsPath))
@@ -275,6 +278,13 @@ namespace MvcVisionSystem
             }
 
             var directory = new DirectoryInfo(directoryPath);
+            // The model artifact store names each folder after the weights' SHA-256. That is not a name a user can
+            // recognise; the model caption (for example "YOLO11n · 기록 …") identifies the model instead.
+            if (IsContentHashName(directory.Name))
+            {
+                return fileName;
+            }
+
             if (string.Equals(directory.Name, "weights", StringComparison.OrdinalIgnoreCase)
                 && directory.Parent != null
                 && !string.IsNullOrWhiteSpace(directory.Parent.Name))

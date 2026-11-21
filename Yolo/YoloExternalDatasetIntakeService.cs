@@ -331,6 +331,13 @@ namespace MvcVisionSystem.Yolo
             }
         }
 
+        // Same names rules as the external dataset intake (list or 0..n-1 mapping); used by the YOLO label import.
+        internal static List<string> ReadDataYamlClassNames(string yamlPath, List<string> errors)
+        {
+            Dictionary<object, object> document = ReadYaml(yamlPath, errors);
+            return document == null ? new List<string>() : ReadClassNames(document, errors);
+        }
+
         private static Dictionary<object, object> ReadYaml(string yamlPath, List<string> errors)
         {
             try

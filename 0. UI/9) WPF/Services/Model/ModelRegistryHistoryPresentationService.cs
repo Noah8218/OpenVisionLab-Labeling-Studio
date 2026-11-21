@@ -193,9 +193,9 @@ namespace MvcVisionSystem
             string baselineText = string.IsNullOrWhiteSpace(baseline)
                 ? string.Empty
                 : $" / baseline {baseline}";
-            string datasetVersionText = string.IsNullOrWhiteSpace(run?.DatasetVersionId)
-                ? string.Empty
-                : $" / Dataset {ShortenDatasetVersion(run.DatasetVersionId)}";
+            // The dataset version id ("dsv2-" + content hash) is not shown here: the registry has no capture
+            // time or image count to name it, and a hash prefix means nothing to an operator. The id stays in
+            // DatasetVersionId; the training workspace shows the readable dataset label for the same run.
             string metrics = !string.IsNullOrWhiteSpace(candidate.MetricsSummary)
                 ? candidate.MetricsSummary
                 : !string.IsNullOrWhiteSpace(run?.MetricsSummary)
@@ -245,7 +245,7 @@ namespace MvcVisionSystem
                 BaselineWeightsPath = candidate.BaselineWeightsPath ?? string.Empty,
                 KindText = titlePrefix,
                 TitleText = $"{titlePrefix}: {modelCaption}",
-                DetailText = $"{profileText} / {runText}{datasetVersionText}{baselineText}",
+                DetailText = $"{profileText} / {runText}{baselineText}",
                 MetricText = metrics,
                 DecisionText = candidate.IsCurrentInspectionModel
                     ? $"\uD604\uC7AC \uC0AC\uC6A9 / {decisionText}"
@@ -255,24 +255,18 @@ namespace MvcVisionSystem
                 ActionText = candidate.IsCurrentInspectionModel
                     ? "\uD604\uC7AC \uC0AC\uC6A9 \uC911"
                     : isRejected
-                        ? "\uAC70\uC808\uB41C \uD6C4\uBCF4"
+                        ? "\uAC70\uC808\uD55C \uBAA8\uB378"
                     : weightsExists
-                        ? "\uAC80\uC0AC \uBAA8\uB378\uB85C \uC801\uC6A9"
+                        ? "\uAC80\uC0AC \uBAA8\uB378\uB85C \uC9C0\uC815"
                         : "\uD30C\uC77C \uC5C6\uC74C",
                 ActionToolTip = candidate.IsCurrentInspectionModel
-                    ? "\uC774\uBBF8 \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uB85C \uB4F1\uB85D\uB41C \uC774\uB825\uC785\uB2C8\uB2E4."
+                    ? "\uC774\uBBF8 \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uC785\uB2C8\uB2E4."
                     : isRejected
-                        ? "\uAC70\uC808\uB41C \uD6C4\uBCF4\uB294 \uBC14\uB85C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC801\uC6A9\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uD544\uC694\uD558\uBA74 \uB2E4\uC2DC \uD559\uC2B5/\uBE44\uAD50\uD558\uC138\uC694."
+                        ? "\uAC70\uC808\uD55C \uBAA8\uB378\uC740 \uBC14\uB85C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC9C0\uC815\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uD544\uC694\uD558\uBA74 \uB2E4\uC2DC \uD559\uC2B5\uD558\uAC70\uB098 \uBE44\uAD50\uD558\uC138\uC694."
                     : weightsExists
-                        ? "\uC120\uD0DD\uD55C \uC774\uB825\uC758 \uAC00\uC911\uCE58\uB97C recipe\uC758 \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD569\uB2C8\uB2E4."
-                        : "\uC774\uB825\uC758 \uAC00\uC911\uCE58 \uD30C\uC77C\uC774 \uC5C6\uC5B4 \uC801\uC6A9\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4."
+                        ? "\uC120\uD0DD\uD55C \uC774\uB825\uC758 \uAC00\uC911\uCE58\uB97C \uB808\uC2DC\uD53C\uC758 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC9C0\uC815\uD569\uB2C8\uB2E4."
+                        : "\uAC00\uC911\uCE58 \uD30C\uC77C\uC774 \uC5C6\uC5B4 \uC9C0\uC815\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4."
             };
-        }
-
-        private static string ShortenDatasetVersion(string datasetVersionId)
-        {
-            string value = datasetVersionId?.Trim() ?? string.Empty;
-            return value.Length <= 22 ? value : value.Substring(0, 22) + "…";
         }
 
         private static string BuildHistoryComparisonRowText(

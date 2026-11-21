@@ -605,9 +605,17 @@ namespace MvcVisionSystem.Yolo
                 return;
             }
 
+            // A stored copy made by a plain file copy (dataset import, copied folder) keeps the source's
+            // exact bytes. Re-encoding a lossy JPEG never reproduces them, so compare the raw file first.
+            byte[] sourceFileBytes = ReadSourceFileBytes(sourceImagePath);
             var encodedByExtension = new Dictionary<string, IReadOnlyList<byte[]>>(StringComparer.OrdinalIgnoreCase);
             foreach (string storedImagePath in storedImagePaths)
             {
+                if (sourceFileBytes != null && FileMatchesBytes(storedImagePath, sourceFileBytes))
+                {
+                    continue;
+                }
+
                 string extension = NormalizeImageExtension(Path.GetExtension(storedImagePath));
                 if (!encodedByExtension.TryGetValue(extension, out IReadOnlyList<byte[]> encodedSources))
                 {
@@ -648,6 +656,27 @@ namespace MvcVisionSystem.Yolo
             using var stream = new MemoryStream();
             bitmap.Save(stream, ResolveImageFormat(imagePath));
             return stream.ToArray();
+        }
+
+        private static byte[] ReadSourceFileBytes(string sourceImagePath)
+        {
+            if (string.IsNullOrWhiteSpace(sourceImagePath) || !File.Exists(sourceImagePath))
+            {
+                return null;
+            }
+
+            try
+            {
+                return File.ReadAllBytes(sourceImagePath);
+            }
+            catch (IOException)
+            {
+                return null;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return null;
+            }
         }
 
         private static bool FileMatchesBytes(string path, byte[] expectedBytes)

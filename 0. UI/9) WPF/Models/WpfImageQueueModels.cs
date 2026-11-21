@@ -111,6 +111,7 @@ namespace MvcVisionSystem
         private bool isAnomalyReviewItem;
         private ImageSource thumbnailSource;
         private bool thumbnailLoadAttempted;
+        private readonly object thumbnailLock = new();
         private bool isAnomalyGridSelected;
         private bool isDatasetGridSelected;
         private string datasetSplit = "train";
@@ -176,13 +177,19 @@ namespace MvcVisionSystem
         {
             get
             {
-                if (!thumbnailLoadAttempted)
+                // The labeling row binds this with IsAsync (worker thread) and the inference row binds it directly (UI
+                // thread). Without the lock the second caller saw "attempted" before the first finished decoding, got
+                // null and never heard of the result: rows first shown on the inference stage stayed blank (r11 capture).
+                lock (thumbnailLock)
                 {
-                    thumbnailLoadAttempted = true;
-                    thumbnailSource = CreateThumbnailSource(ImagePath);
-                }
+                    if (!thumbnailLoadAttempted)
+                    {
+                        thumbnailSource = CreateThumbnailSource(ImagePath);
+                        thumbnailLoadAttempted = true;
+                    }
 
-                return thumbnailSource;
+                    return thumbnailSource;
+                }
             }
         }
 

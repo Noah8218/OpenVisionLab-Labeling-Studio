@@ -1591,7 +1591,7 @@
                     </Style></ListBox.ItemContainerStyle>
                     <ListBox.ItemTemplate><DataTemplate>
                         <Grid><Grid.RowDefinitions><RowDefinition Height="{Binding Path=(local:AnomalyGridTileLayoutBehavior.TileImageHeight), RelativeSource={RelativeSource AncestorType=ListBox}}" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                            <Image Source="{Binding GridThumbnailSource}" Stretch="UniformToFill" ClipToBounds="True" />
+                            <Image Source="{Binding GridThumbnailSource}" Stretch="Uniform" ClipToBounds="True" />
                             <Border VerticalAlignment="Top" HorizontalAlignment="Right" Margin="5" Padding="6,0" CornerRadius="4">
                                 <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed" />
                                     <Style.Triggers>
@@ -3364,7 +3364,7 @@
                                                                        Margin="0,2,0,0"
                                                                        TextWrapping="Wrap" />
                                                             <TextBlock x:Name="YoloExternalEvaluationAuditLimitText"
-                                                                       Text="&#xC774;&#xBBF8;&#xC9C0; SHA-256 &#xC911;&#xBCF5; &#xB300;&#xC870;&#xB9CC; &#xC218;&#xD589;&#xD569;&#xB2C8;&#xB2E4;. &#xC911;&#xBCF5; &#xC5C6;&#xC74C;&#xC740; &#xAC80;&#xC0AC; &#xBAA8;&#xB378; &#xC9C0;&#xC815; &#xADFC;&#xAC70;&#xAC00; &#xC544;&#xB2D9;&#xB2C8;&#xB2E4;."
+                                                                       Text="&#xC774;&#xBBF8;&#xC9C0; SHA-256 &#xC911;&#xBCF5;&#xB9CC; &#xD655;&#xC778;&#xD569;&#xB2C8;&#xB2E4;. &#xC911;&#xBCF5;&#xC774; &#xC5C6;&#xB2E4;&#xACE0; &#xAC80;&#xC0AC; &#xBAA8;&#xB378;&#xB85C; &#xC9C0;&#xC815;&#xD574;&#xB3C4; &#xB41C;&#xB2E4;&#xB294; &#xB73B;&#xC740; &#xC544;&#xB2D9;&#xB2C8;&#xB2E4;."
                                                                        Foreground="{DynamicResource RecipeMutedTextBrush}"
                                                                        FontFamily="{DynamicResource UiFontFamily}"
                                                                        FontSize="13"

@@ -20,6 +20,7 @@ namespace MvcVisionSystem
         private readonly Func<string> captureRecipeName;
         private readonly Func<string> captureOutputRootPath;
         private readonly Func<string, bool> openDatasetHealthImageInEditor;
+        private readonly Action afterImportApplied;
         private WpfDatasetHealthWindow datasetHealthWindow;
         private WpfDatasetInterchangeWindow datasetInterchangeWindow;
         private WpfDatasetInterchangeViewModel inlineInterchangeViewModel;
@@ -32,8 +33,11 @@ namespace MvcVisionSystem
             Func<LabelingProjectData> captureData,
             Func<string> captureRecipeName,
             Func<string> captureOutputRootPath,
-            Func<string, bool> openDatasetHealthImageInEditor)
+            Func<string, bool> openDatasetHealthImageInEditor,
+            Action afterImportApplied = null)
         {
+            // Reloads the dataset list after an import writes labels; without it the list kept the old state.
+            this.afterImportApplied = afterImportApplied;
             this.owner = owner ?? throw new ArgumentNullException(nameof(owner));
             this.ownerContent = ownerContent ?? throw new ArgumentNullException(nameof(ownerContent));
             this.fileDialogService = fileDialogService ?? throw new ArgumentNullException(nameof(fileDialogService));
@@ -85,6 +89,7 @@ namespace MvcVisionSystem
                     captureData(),
                     recipeName: captureRecipeName() ?? string.Empty);
                 SelectInterchangeDirection(viewModel, direction);
+                viewModel.Applied += OnImportApplied;
                 viewModel.ConfigurePickers(
                     (operation, current) => PickDatasetInterchangeSource(datasetInterchangeWindow ?? owner, operation, current),
                     (operation, current) => PickDatasetInterchangeTarget(datasetInterchangeWindow ?? owner, operation, current),
@@ -133,6 +138,7 @@ namespace MvcVisionSystem
             if (inlineInterchangeViewModel == null)
             {
                 inlineInterchangeViewModel = new WpfDatasetInterchangeViewModel(captureData(), recipeName: captureRecipeName() ?? string.Empty);
+                inlineInterchangeViewModel.Applied += OnImportApplied;
                 inlineInterchangeViewModel.ConfigurePickers(
                     (operation, current) => PickDatasetInterchangeSource(owner, operation, current),
                     (operation, current) => PickDatasetInterchangeTarget(owner, operation, current),
@@ -195,8 +201,14 @@ namespace MvcVisionSystem
             CloseDatasetInterchange();
             DetachDatasetHealthWindow();
             DetachDatasetInterchangeWindow();
+            if (inlineInterchangeViewModel != null) inlineInterchangeViewModel.Applied -= OnImportApplied;
             inlineInterchangeViewModel?.Dispose();
             inlineInterchangeViewModel = null;
+        }
+
+        private void OnImportApplied()
+        {
+            if (!isDisposed) afterImportApplied?.Invoke();
         }
 
         private string PickDatasetInterchangeSource(
@@ -215,9 +227,12 @@ namespace MvcVisionSystem
                     : currentPath;
             }
 
-            string filter = operation?.Capability.FormatKey.Contains("cvat", StringComparison.Ordinal) == true
+            string formatKey = operation?.Capability.FormatKey ?? string.Empty;
+            string filter = formatKey.Contains("cvat", StringComparison.Ordinal)
                 ? "CVAT archive (*.zip)|*.zip|All files (*.*)|*.*"
-                : "JSON annotation (*.json)|*.json|All files (*.*)|*.*";
+                : formatKey.StartsWith("yolo-", StringComparison.Ordinal)
+                    ? "YOLO data.yaml (*.yaml;*.yml)|*.yaml;*.yml|All files (*.*)|*.*"
+                    : "JSON annotation (*.json)|*.json|All files (*.*)|*.*";
             return fileDialogService.TryPickFile(
                 pickerOwner,
                 OpenVisionLab.OpenVisionLanguageService.T("WpfDataset.Picker.ExternalLabels"),
@@ -306,6 +321,7 @@ namespace MvcVisionSystem
             }
 
             datasetInterchangeWindow.Closed -= DatasetInterchangeWindow_Closed;
+            if (datasetInterchangeWindow.ViewModel != null) datasetInterchangeWindow.ViewModel.Applied -= OnImportApplied;
             datasetInterchangeWindow = null;
             interchangeBackdropScope?.Dispose();
             interchangeBackdropScope = null;

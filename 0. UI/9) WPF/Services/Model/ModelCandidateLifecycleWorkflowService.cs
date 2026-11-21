@@ -134,7 +134,7 @@ namespace MvcVisionSystem
             if (profile == null || PythonModelSettings.NormalizeModelEngine(profile.ModelEngine) != PythonModelSettings.NormalizeModelEngine(settings.ModelEngine)
                 || profile.DatasetPurpose != data.ProjectSettings.DatasetPurpose.ToString()
                 || !string.Equals(Normalize(profile.ProjectRootPath).TrimEnd('\\', '/'), Normalize(settings.ProjectRootPath).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)) return null;
-            ModelCandidate previous = registry.Candidates.FirstOrDefault(item => item.CandidateId == adoption.PreviousCandidateId && item.ProfileId == adoption.ProfileId);
+            ModelCandidate previous = ModelRegistryService.FindAdoptionPreviousCandidate(registry, adoption);
             return previous != null && (string.IsNullOrWhiteSpace(previous.WeightsSha256) || string.Equals(previous.WeightsSha256, adoption.PreviousWeightsSha256, StringComparison.OrdinalIgnoreCase))
                 && (SamePath(previous.WeightsPath, adoption.PreviousWeightsPath) || SamePath(previous.ArtifactPath, adoption.PreviousWeightsPath))
                 ? adoption : null;
@@ -156,9 +156,15 @@ namespace MvcVisionSystem
                     return ModelCandidateLifecycleResult.UndoUnavailable(new InvalidDataException("검사 모델 파일이 바뀌어 되돌리지 않았습니다."));
                 using RecipeSettingsStateTransaction recipeTransaction = new(request.Data);
                 using ModelRegistryStateTransaction registryTransaction = new(request.Data.ProjectSettings.ModelRegistry);
-                if (!ModelRegistryService.RestoreInspectionModelAdoption(request.Data.ProjectSettings.ModelRegistry, adoption, request.Reason))
+                ModelRegistrySettings registry = request.Data.ProjectSettings.ModelRegistry;
+                ModelCandidate previous = ModelRegistryService.FindAdoptionPreviousCandidate(registry, adoption);
+                if (!ModelRegistryService.RestoreInspectionModelAdoption(registry, adoption, request.Reason))
                     return ModelCandidateLifecycleResult.UndoUnavailable(new InvalidOperationException("되돌리기 대상 모델 기록이 바뀌었습니다."));
                 settings.WeightsPath = adoption.PreviousWeightsPath;
+                // Adoption switched the recipe engine to the adopted model's; undo returns it to the previous model's engine.
+                string previousEngine = registry.Profiles?.FirstOrDefault(item => item.ProfileId == previous?.ProfileId)?.ModelEngine;
+                if (PythonModelRuntimePathResolver.IsUltralyticsEngine(previousEngine) && PythonModelRuntimePathResolver.IsUltralyticsEngine(settings.ModelEngine))
+                    settings.ModelEngine = PythonModelSettings.NormalizeModelEngine(previousEngine);
                 if (request.SaveModelMetadata?.Invoke() != true)
                     return ModelCandidateLifecycleResult.PersistenceFailed(adoption.PreviousWeightsPath, adoption.AppliedWeightsPath, true);
                 recipeTransaction.Commit();
@@ -194,11 +200,16 @@ namespace MvcVisionSystem
             string baselineWeightsPath = Normalize(request.BaselineWeightsPath);
             if (savedToRecipe && !string.IsNullOrWhiteSpace(adoptionPreviousWeightsPath)) baselineWeightsPath = adoptionPreviousWeightsPath;
             string previousSettingsWeightsPath = settings.WeightsPath;
+            string previousModelEngine = settings.ModelEngine;
 
             try
             {
                 using RecipeSettingsStateTransaction recipeSettingsTransaction = new RecipeSettingsStateTransaction(data);
                 using ModelRegistryStateTransaction registryTransaction = new ModelRegistryStateTransaction(data.ProjectSettings.ModelRegistry);
+                // Before the decision is recorded, so the model profile carries the adopted model's engine.
+                if (savedToRecipe && PythonModelRuntimePathResolver.IsUltralyticsEngine(request.CandidateModelEngine)
+                    && PythonModelRuntimePathResolver.IsUltralyticsEngine(settings.ModelEngine))
+                    settings.ModelEngine = PythonModelSettings.NormalizeModelEngine(request.CandidateModelEngine);
 
                 ModelCandidate candidate = ModelRegistryService.RecordCandidateDecision(
                     data.ProjectSettings.ModelRegistry,
@@ -246,7 +257,8 @@ namespace MvcVisionSystem
                     {
                         adoption.AppliedWeightsPath = settings.WeightsPath;
                         adoption.PreviousWeightsSha256 = previousWeightsSha256;
-                        adoption.PreviousCandidateId = ModelRegistryService.FindInspectionModelByPath(data.ProjectSettings.ModelRegistry, baselineWeightsPath, candidate.ProfileId)?.CandidateId ?? string.Empty;
+                        adoption.PreviousCandidateId = (ModelRegistryService.FindInspectionModelByPath(data.ProjectSettings.ModelRegistry, baselineWeightsPath, candidate.ProfileId)
+                            ?? ModelRegistryService.FindInspectionModelByPath(data.ProjectSettings.ModelRegistry, baselineWeightsPath))?.CandidateId ?? string.Empty;
                         adoption.EvaluationDatasetVersionId = request.EvaluationDatasetVersionId ?? string.Empty;
                         adoption.EvaluationDatasetContentSha256 = request.EvaluationDatasetContentSha256 ?? string.Empty;
                         adoption.EvaluationReportPath = request.EvaluationReportPath ?? string.Empty;
@@ -270,6 +282,7 @@ namespace MvcVisionSystem
                 recipeSettingsTransaction.Rollback();
                 registryTransaction.Rollback();
                 settings.WeightsPath = previousSettingsWeightsPath;
+                settings.ModelEngine = previousModelEngine;
                 return ModelCandidateLifecycleResult.PersistenceFailed(
                     candidateWeightsPath,
                     baselineWeightsPath,
@@ -278,6 +291,7 @@ namespace MvcVisionSystem
             catch (Exception ex)
             {
                 settings.WeightsPath = previousSettingsWeightsPath;
+                settings.ModelEngine = previousModelEngine;
                 return ModelCandidateLifecycleResult.Failed(
                     candidateWeightsPath,
                     baselineWeightsPath,
@@ -307,6 +321,11 @@ namespace MvcVisionSystem
         public string TrainingRunId { get; set; }
 
         public string TrainingRunName { get; set; }
+        /// <summary>
+        /// Engine of the adopted model. A YOLOv8/YOLO11 model adopted on the other Ultralytics engine switches the
+        /// recipe engine inside the same recipe transaction; other engines leave it unchanged.
+        /// </summary>
+        public string CandidateModelEngine { get; set; }
 
         public string EvaluationDatasetVersionId { get; set; } = string.Empty;
         public string EvaluationDatasetContentSha256 { get; set; } = string.Empty;

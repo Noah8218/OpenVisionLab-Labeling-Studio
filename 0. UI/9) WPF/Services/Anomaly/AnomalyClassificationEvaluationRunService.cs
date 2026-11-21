@@ -381,7 +381,7 @@ namespace MvcVisionSystem
         {
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             {
-                errors.Add($"{name} not found: {path}");
+                errors.Add($"{name} 없음: {path}");
             }
         }
 
@@ -389,7 +389,7 @@ namespace MvcVisionSystem
         {
             if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
             {
-                errors.Add($"{name} not found: {path}");
+                errors.Add($"{name} 없음: {path}");
             }
         }
 

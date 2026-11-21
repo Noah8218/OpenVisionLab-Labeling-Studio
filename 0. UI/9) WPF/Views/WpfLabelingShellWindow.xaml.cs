@@ -558,9 +558,10 @@ namespace MvcVisionSystem
                     WorkspaceViewModelProvider = () => viewModels.ModelComparisonWorkspaceViewModel,
                     ManifestPathProvider = () => viewModels.ProjectConfigViewModel.ManifestPath,
                     IsWorkspaceBusyProvider = IsWorkflowOperationRunning,
+                    EnsureReadinessReport = EnsureTrainingReadinessReport,
                     IsApplicationCloseApproved = () => isApplicationCloseApproved,
                     RepositoryRootProvider = () => ModelBenchmarkCatalogService.FindRepositoryRoot(),
-                    AdoptWorkspaceModel = (model, evaluation, reason) => modelCenterWorkflowAdapter.AdoptWorkspaceModel(model, reason, evaluation),
+                    AdoptWorkspaceModel =(model, evaluation, reason) => modelCenterWorkflowAdapter.AdoptWorkspaceModel(model, reason, evaluation),
                     UndoWorkspaceAdoption = adoptionId => modelCenterWorkflowAdapter.UndoWorkspaceAdoption(adoptionId),
                     UiDispatcher = Dispatcher,
                     ReviewWorkspaceLabels = path => { if (!IsWorkflowOperationRunning() && TryLoadImage(path)) workflowNavigationAdapter.EnterLabelingWorkbenchStartView(); },
@@ -572,6 +573,7 @@ namespace MvcVisionSystem
                     SaveDecisionRuleMetadata = SaveModelMetadataConfigFromPanel,
                     EvaluateDecisionRule = run => _ = modelComparisonWorkflowAdapter.RunDecisionEvaluationAsync(run, modelComparisonWorkflowService),
                     RefreshTrainingReadinessPanel = refreshYaml => RefreshTrainingReadinessPanel(refreshYaml),
+                    RefreshTrainingWorkspace = () => trainingWorkspaceWorkflowAdapter?.Refresh(),
                     RefreshCommands = () => { ShellViewModel?.InvalidateInferenceDecisionProjections(); UpdateYoloCommandButtons(); },
                     RefreshModelCenterDashboard = comparison => modelCenterWorkflowAdapter.RefreshModelCenterDashboard(comparison),
                     UpdateCandidateModelDecisionPanel = comparison => modelCenterWorkflowAdapter.UpdateCandidateModelDecisionPanel(comparison),
@@ -948,6 +950,8 @@ namespace MvcVisionSystem
                     IsRecipeLibraryVisible = () => viewModels.ShellViewModel.IsRecipeLibraryVisible,
                     FocusRecipeSearch = () => RecipeLibraryPanelControl.FocusSearch(),
                     IsComparisonStageActive = () => viewModels.ShellViewModel.IsModelComparisonStageActive && !viewModels.ShellViewModel.IsRecipeLibraryVisible,
+                    IsInferenceStageActive = () => viewModels.ShellViewModel.IsInferenceStageActive && !viewModels.ShellViewModel.IsRecipeLibraryVisible,
+                    RunInferenceTarget = () => viewModels.ShellViewModel.RunInferenceTargetCommand,
                     CancelComparisonConfirmation = viewModels.ModelComparisonWorkspaceViewModel.CancelAdoptionCommand,
                     ExecuteMenuShortcut = id =>
                     {
@@ -1045,7 +1049,9 @@ namespace MvcVisionSystem
                 () => applicationState.Data,
                 GetCurrentRecipeName,
                 () => applicationState.Data?.OutputRootPath,
-                ExecuteOpenDatasetHealthImageInEditor);
+                ExecuteOpenDatasetHealthImageInEditor,
+                () => _ = LoadImageQueueFromRootAsync(applicationState.Data?.ProjectSettings?.ResolveImageRootPath() ?? string.Empty,
+                    applicationState.ImageWorkspace.ActiveImagePath));
             patchCoreHeatmapWindowHost = new PatchCoreHeatmapWindowHost(
                 this,
                 () => viewModels.CandidateReviewViewModel?.ClosePatchCoreHeatmap());
@@ -2823,6 +2829,10 @@ namespace MvcVisionSystem
                         RefreshTrainingReadinessPanel(refreshYaml: false);
                         UpdateYoloCommandButtons();
                         modelComparisonWorkflowAdapter.RefreshWorkspace();
+                        // Evaluation needs the worker; same once-per-recipe attempt as the training stage.
+                        viewModels.ModelWorkflowViewModels.YoloStatusViewModel?.TryConnectSavedRuntimeOnce(
+                            (applicationState.Data?.OutputRootPath ?? string.Empty) + "|" + GetCurrentRecipeName(),
+                            applicationState.Data?.ProjectSettings?.PythonModel, () => applicationState.GetPythonCommunicationStatusSnapshot().IsClientConnected);
                     },
                     RefreshReferenceDisplay = () => displayWorkspaceAdapter?.RefreshReferenceDisplay(),
                     TryFitInferenceCanvas = () => displayWorkspaceAdapter?.TryApplyInferenceFit() == true,
@@ -5347,6 +5357,37 @@ namespace MvcVisionSystem
         private void UpdateYoloTrainingChecklist(YoloDatasetReadinessReport report, bool recordHistory)
             => trainingGuideWorkflowAdapter.UpdateYoloTrainingChecklist(report, recordHistory);
 
+        // Model comparison evaluates the recipe's data.yaml test split. The training queue trains from its own captured
+        // copy, so a session that used only the training workspace never prepared data.yaml and the split image folders,
+        // and comparison stayed blocked. When the readiness report is missing or not ready, this prepares the recipe
+        // dataset once per session (the step the legacy training check ran) and rebuilds the report without history.
+        private void EnsureTrainingReadinessReport()
+        {
+            LabelingProjectData data = applicationState.Data;
+            if (ensuringComparisonReadiness || comparisonDatasetPreparationAttempted || lastYoloTrainingReadinessReport?.IsReady == true
+                || data?.ProjectSettings == null || isApplicationCloseApproved || IsWorkflowOperationRunning()) return;
+            ensuringComparisonReadiness = true;
+            try
+            {
+                TrainingReadinessWorkflowResult result = trainingReadinessWorkflowService.Refresh(new TrainingReadinessWorkflowRequest { Data = data, RefreshYaml = false });
+                if (result.UsesExternalDataset || result.DatasetReport == null) return;
+                if (!result.DatasetReport.IsReady)
+                {
+                    comparisonDatasetPreparationAttempted = true;
+                    var preparation = new YoloTrainingDatasetPreparationService();
+                    if (preparation.TryPrepare(data))
+                        result = trainingReadinessWorkflowService.Refresh(new TrainingReadinessWorkflowRequest { Data = data, RefreshYaml = false });
+                    else
+                        AppendLog("Model comparison dataset preparation failed: " + preparation.LastPreparationFailureMessage);
+                }
+                UpdateYoloTrainingChecklist(result.DatasetReport, recordHistory: false);
+                UpdateYoloCommandButtons();
+            }
+            finally { ensuringComparisonReadiness = false; }
+        }
+
+        private bool comparisonDatasetPreparationAttempted, ensuringComparisonReadiness;
+
         private void RefreshYoloTrainingStepCompletion(YoloDatasetReadinessReport report = null)
             => trainingGuideWorkflowAdapter.RefreshYoloTrainingStepCompletion(report);
 
@@ -7530,7 +7571,12 @@ namespace MvcVisionSystem
                     applicationState.Recipe?.Name + "|" + applicationState.Data?.OutputRootPath,
                     applicationState.ImageWorkspace.ActiveImagePath,
                     GetVisibleQueueItems().Select(item => item.ImagePath).ToArray(),
-                    DetectionWorkflowAdapter.CreateTrialModelSettings(applicationState.Data.ProjectSettings.PythonModel, ShellViewModel.SelectedInferenceModelHistoryItem, includeUnavailableForPresentation: true) ?? applicationState.Data.ProjectSettings.PythonModel,
+                    // Same choice as the run (BatchDetectionWorkflowAdapter): the current inspection model runs with the
+                    // recipe settings, whose weights path is the adopted artifact copy rather than the history item's
+                    // training folder. Keying the result view on the history path hid every result after adoption.
+                    ShellViewModel.SelectedInferenceModelHistoryItem?.IsCurrentInspectionModel == true
+                        ? applicationState.Data.ProjectSettings.PythonModel
+                        : DetectionWorkflowAdapter.CreateTrialModelSettings(applicationState.Data.ProjectSettings.PythonModel, ShellViewModel.SelectedInferenceModelHistoryItem, includeUnavailableForPresentation: true) ?? applicationState.Data.ProjectSettings.PythonModel,
                     ShellViewModel.IsInferenceInspectionOnly,
                     IsWorkflowOperationRunning(),
                     annotationDirtyState.IsDirty || HasPendingMaskStrokeCommitWork(),

@@ -86,7 +86,9 @@ namespace MvcVisionSystem._1._Core
                     ? PythonModelRuntimeBundledWorkerService.ResolveUnetWorkerScriptPath()
                     : settings.ModelEngine == PythonModelSettings.EnginePatchCore
                         ? PythonModelRuntimeBundledWorkerService.ResolvePatchCoreWorkerScriptPath()
-                        : Path.Combine(settings.ProjectRootPath, "labelling_tcp_client.py");
+                        : IsUltralyticsEngine(settings.ModelEngine)
+                            ? PythonModelRuntimeBundledWorkerService.ResolveUltralyticsWorkerScriptPath()
+                            : Path.Combine(settings.ProjectRootPath, "labelling_tcp_client.py");
             }
 
             if (string.IsNullOrWhiteSpace(settings.WeightsPath))
@@ -102,6 +104,37 @@ namespace MvcVisionSystem._1._Core
             {
                 settings.ImageRootPath = GetDefaultImageRootPath();
             }
+        }
+
+        // YOLOv8 and YOLO11 run in the same Ultralytics worker, so one connected runtime serves both.
+        public static bool IsUltralyticsEngine(string modelEngine)
+        {
+            string engine = PythonModelSettings.NormalizeModelEngine(modelEngine);
+            return engine == PythonModelSettings.EngineYoloV8 || engine == PythonModelSettings.EngineYolo11;
+        }
+
+        // A new recipe on a PC that already has a working runtime starts from that runtime instead of
+        // placeholder paths. Only the connection fields are copied; the model file stays per recipe.
+        // Engines must match, or both be Ultralytics engines.
+        public static bool TryInheritRuntime(PythonModelSettings target, PythonModelSettings source)
+        {
+            if (target == null || source == null || string.IsNullOrWhiteSpace(source.PythonExecutablePath))
+            {
+                return false;
+            }
+
+            string from = PythonModelSettings.NormalizeModelEngine(source.ModelEngine);
+            string to = PythonModelSettings.NormalizeModelEngine(target.ModelEngine);
+            if (from != to && !(IsUltralyticsEngine(from) && IsUltralyticsEngine(to)))
+            {
+                return false;
+            }
+
+            target.PythonExecutablePath = source.PythonExecutablePath;
+            target.ProjectRootPath = source.ProjectRootPath ?? string.Empty;
+            target.ClientScriptPath = source.ClientScriptPath ?? string.Empty;
+            target.AutoStartClient = source.AutoStartClient;
+            return true;
         }
 
         public static string GetDefaultProjectRootPath()

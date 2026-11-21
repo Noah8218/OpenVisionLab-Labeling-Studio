@@ -101,6 +101,16 @@ namespace MvcVisionSystem.Yolo
                 },
                 new DatasetExportCapability
                 {
+                    FormatKey = "yolo-detection-import",
+                    DisplayName = "YOLO detection import",
+                    Direction = "import",
+                    DatasetPurpose = LabelingDatasetPurpose.ObjectDetection.ToString(),
+                    IsImplemented = true,
+                    RequirementSummary = "Imports a YOLO data.yaml with per-image box label files and source images into the local YOLO dataset layout, mapping classes by name.",
+                    VerificationSwitch = "--yolo-detection-import"
+                },
+                new DatasetExportCapability
+                {
                     FormatKey = "pascal-voc-detection-import",
                     DisplayName = "Pascal VOC detection import",
                     Direction = "import",

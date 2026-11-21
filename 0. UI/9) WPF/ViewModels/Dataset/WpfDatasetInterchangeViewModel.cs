@@ -54,11 +54,14 @@ namespace MvcVisionSystem
 
         public DatasetExportCapability Capability { get; }
 
-        public string DisplayText => $"{Capability.DisplayName} \u00B7 {DirectionText}";
+        // Capability.DisplayName is the English catalog name ("COCO detection import"); the screen shows the format,
+        // the task and the direction in the current language instead.
+        public string DisplayText => $"{FormatText} \u00B7 {PurposeText} \u00B7 {DirectionText}";
 
         public string FormatText => Capability.FormatKey switch
         {
             string key when key.StartsWith("coco-", StringComparison.Ordinal) => "COCO (json)",
+            string key when key.StartsWith("yolo-", StringComparison.Ordinal) => "YOLO (data.yaml)",
             string key when key.StartsWith("pascal-voc-", StringComparison.Ordinal) => "Pascal VOC (xml)",
             string key when key.StartsWith("label-studio-", StringComparison.Ordinal) => "Label Studio (json)",
             string key when key.StartsWith("cvat-", StringComparison.Ordinal) => "CVAT (xml/zip)",
@@ -157,6 +160,7 @@ namespace MvcVisionSystem
         private string targetIntegrityText = "\uC694\uCCAD \uB300\uC0C1: \uBBF8\uD655\uC778";
         private string lastDryRunSignature = string.Empty;
         private bool canApply;
+        private bool isBusy;
         private bool confirmLossyExport;
         private bool requiresLossWarningConfirmation;
         private string lossManifestText = string.Empty;
@@ -186,9 +190,9 @@ namespace MvcVisionSystem
             BrowseSourceCommand = new RelayCommand(BrowseSource);
             BrowseTargetCommand = new RelayCommand(BrowseTarget);
             BrowseImageRootCommand = new RelayCommand(BrowseImageRoot);
-            DryRunCommand = new RelayCommand(RunDryRun);
+            DryRunCommand = new RelayCommand(RunDryRun, () => !IsBusy);
             ToggleDetailsCommand = new RelayCommand(() => IsDetailsExpanded = !IsDetailsExpanded);
-            ApplyCommand = new RelayCommand(Apply, () => CanApply);
+            ApplyCommand = new RelayCommand(Apply, () => CanApply && !IsBusy);
             Refresh(data, recipeName);
         }
 
@@ -347,6 +351,20 @@ namespace MvcVisionSystem
         {
             get => targetIntegrityText;
             private set => SetProperty(ref targetIntegrityText, value ?? string.Empty);
+        }
+
+        // True while a pre-check or apply runs. Both read or write every image synchronously (about 5 s for 1,000
+        // images), so the buttons lock and the status says what is running instead of the window looking frozen.
+        public bool IsBusy
+        {
+            get => isBusy;
+            private set
+            {
+                if (SetProperty(ref isBusy, value))
+                {
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
         }
 
         public bool CanApply
@@ -509,33 +527,67 @@ namespace MvcVisionSystem
 
         private void RunDryRun()
         {
+            if (IsBusy) return;
             IsDetailsExpanded = true;
-            DatasetInterchangePreflightReport report = preflightService.DryRun(BuildRequest());
-            lastDryRunSignature = BuildRequestSignature();
-            lastDryRunReport = report;
-            RequiresLossWarningConfirmation = IsLossExportReport(report) && report.RequiresLossConfirmation;
-            LossManifestText = string.IsNullOrWhiteSpace(report.LossManifestPath)
-                ? string.Empty
-                : Format("WpfDatasetInterchange.LossWarning.Manifest", report.LossManifestPath);
-            ApplyReport(report);
-            CanApply = CanApplyFromLastDryRun();
+            BeginBusy("WpfDatasetInterchange.Status.Checking");
+            try
+            {
+                DatasetInterchangePreflightReport report = preflightService.DryRun(BuildRequest());
+                lastDryRunSignature = BuildRequestSignature();
+                lastDryRunReport = report;
+                RequiresLossWarningConfirmation = IsLossExportReport(report) && report.RequiresLossConfirmation;
+                LossManifestText = string.IsNullOrWhiteSpace(report.LossManifestPath)
+                    ? string.Empty
+                    : Format("WpfDatasetInterchange.LossWarning.Manifest", report.LossManifestPath);
+                ApplyReport(report);
+                CanApply = CanApplyFromLastDryRun();
+            }
+            finally
+            {
+                IsBusy = false;
+            }
         }
 
         private void Apply()
         {
+            if (IsBusy) return;
             if (!CanApply || !string.Equals(lastDryRunSignature, BuildRequestSignature(), StringComparison.Ordinal))
             {
                 InvalidateDryRun();
                 return;
             }
 
-            DatasetInterchangePreflightReport report = preflightService.Apply(BuildRequest());
-            ApplyReport(report);
-            lastDryRunReport = null;
-            RequiresLossWarningConfirmation = false;
-            LossManifestText = string.Empty;
-            CanApply = false;
+            BeginBusy("WpfDatasetInterchange.Status.Applying");
+            try
+            {
+                DatasetInterchangePreflightReport report = preflightService.Apply(BuildRequest());
+                ApplyReport(report);
+                lastDryRunReport = null;
+                RequiresLossWarningConfirmation = false;
+                LossManifestText = string.Empty;
+                CanApply = false;
+                if (report.WasApplied && IsImport) Applied?.Invoke();
+            }
+            finally
+            {
+                IsBusy = false;
+            }
         }
+
+        // Shows the running state before the synchronous work starts: the pending layout and render run first, so
+        // the pressed button and the status line update instead of the window freezing on the previous state.
+        private void BeginBusy(string statusKey)
+        {
+            IsBusy = true;
+            StatusText = T(statusKey);
+            StatusDetailText = T("WpfDatasetInterchange.Status.BusyDetail");
+            System.Windows.Threading.Dispatcher dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher != null && dispatcher.CheckAccess())
+                dispatcher.Invoke(System.Windows.Threading.DispatcherPriority.Background, new Action(() => { }));
+        }
+
+        /// <summary>Raised after an apply that reported no blocking issue, so the dataset view can reload its list.</summary>
+        public event Action Applied;
 
         private DatasetInterchangeRequest BuildRequest()
             => new DatasetInterchangeRequest

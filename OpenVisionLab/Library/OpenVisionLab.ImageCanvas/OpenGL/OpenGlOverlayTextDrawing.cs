@@ -105,6 +105,9 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 				try
 				{
 					var texture = GetRoiLabelTexture(gl, textures, options.RoiLabelTextureKeys, text, classColor, backgroundAlpha, bold, inference);
+						// A label near the right edge moves left instead of being cut off by the viewport.
+						float labelWidth = texture.Width * screenScale;
+						if (left + labelWidth > viewport[2]) left = Math.Max(0F, viewport[2] - labelWidth);
 					gl.LoadIdentity(); gl.Disable(OpenGL.GL_LIGHTING); gl.Disable(OpenGL.GL_DEPTH_TEST);
 					gl.Enable(OpenGL.GL_TEXTURE_2D); gl.Enable(OpenGL.GL_BLEND); gl.BlendFunc(OpenGL.GL_SRC_ALPHA, OpenGL.GL_ONE_MINUS_SRC_ALPHA); gl.Color(1F, 1F, 1F, 1F);
 					float uMax = texture.Width / (float)System.Numerics.BitOperations.RoundUpToPowerOf2((uint)texture.Width);
@@ -149,6 +152,12 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			return texture;
 		}
 
+		// Width of a 14 px bold prediction tag in image units, shared with the v2 prototype's tag() and the comparison
+		// image view: 14 px padding plus 8 per Latin character and 14 per CJK character. The former 11 per character
+		// made "contamination_spot 0.80" about 70 px wider than its text.
+		public static int PredictionTagWidth(string text)
+			=> 14 + (text ?? string.Empty).EnumerateRunes().Sum(character => character.Value > 0x2E80 ? 14 : 8);
+
 		internal static Bitmap CreateRoiLabelBitmap(string text, System.Drawing.Color classColor, byte backgroundAlpha = 255, bool bold = false, bool inference = false)
 		{
 			using var font = new Font(bold ? "Segoe UI" : "Segoe UI Semibold", inference ? 14F : 12F, bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Pixel);
@@ -158,7 +167,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			SizeF measured;
 			using (var sample = new Bitmap(1, 1))
 			using (Graphics graphics = Graphics.FromImage(sample)) measured = graphics.MeasureString(text, font, int.MaxValue, format);
-			int estimatedWidth = inference ? text.Length * 11 + 14 : 12 + text.EnumerateRunes().Sum(character => character.Value > 0x2E80 ? 12 : 7);
+			int estimatedWidth = inference ? PredictionTagWidth(text) : 12 + text.EnumerateRunes().Sum(character => character.Value > 0x2E80 ? 12 : 7);
 			var bitmap = new Bitmap(Math.Max(estimatedWidth, (int)Math.Ceiling(measured.Width) + inset * 2), height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
 			using (Graphics graphics = Graphics.FromImage(bitmap))
 			using (var background = new SolidBrush(System.Drawing.Color.FromArgb(backgroundAlpha, classColor)))

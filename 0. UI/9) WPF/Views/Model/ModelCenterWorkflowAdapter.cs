@@ -372,7 +372,7 @@ namespace MvcVisionSystem
 
                 SetModelCenterHistoryApplyFailure(
                     "\uBAA8\uB378 \uC774\uB825 \uC801\uC6A9\uC740 \uBA54\uBAA8\uB9AC\uC5D0\uB9CC \uBC18\uC601\uB428",
-                    "\uC120\uD0DD\uD55C \uBAA8\uB378\uC744 recipe\uC5D0 \uC800\uC7A5\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uC800\uC7A5 \uACBD\uB85C\uC640 recipe \uC774\uB984\uC744 \uD655\uC778\uD55C \uB4A4 \uBAA8\uB378 \uC124\uC815\uC744 \uC800\uC7A5\uD558\uC138\uC694.");
+                    "\uC120\uD0DD\uD55C \uBAA8\uB378\uC744 \uB808\uC2DC\uD53C\uC5D0 \uC800\uC7A5\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uC800\uC7A5 \uACBD\uB85C\uC640 \uB808\uC2DC\uD53C \uC774\uB984\uC744 \uD655\uC778\uD55C \uB4A4 \uBAA8\uB378 \uC124\uC815\uC744 \uC800\uC7A5\uD558\uC138\uC694.");
             }
             catch (Exception ex)
             {
@@ -434,6 +434,7 @@ namespace MvcVisionSystem
                 AdoptionPlan = plan,
                 TrainingRunId = selected.TrainingRunId,
                 TrainingRunName = selected.TrainingRunName,
+                CandidateModelEngine = selected.ModelEngine,
                 EvaluationDatasetVersionId = evaluation?.DatasetVersionId,
                 EvaluationDatasetContentSha256 = evaluation?.DatasetContentSha256,
                 EvaluationReportPath = evaluation?.SourcePath,
@@ -471,7 +472,7 @@ namespace MvcVisionSystem
             ShellViewModel?.SetModelCenterRecoveryState(
                 titleText,
                 detailText,
-                "\uBAA8\uB378 \uC774\uB825\uC758 \uD30C\uC77C \uACBD\uB85C\uC640 recipe \uC800\uC7A5 \uC0C1\uD0DC\uB97C \uD655\uC778\uD558\uC138\uC694.");
+                "\uBAA8\uB378 \uC774\uB825\uC758 \uD30C\uC77C \uACBD\uB85C\uC640 \uB808\uC2DC\uD53C \uC800\uC7A5 \uC0C1\uD0DC\uB97C \uD655\uC778\uD558\uC138\uC694.");
             SetYoloCommandStatus($"{titleText}: {detailText}", isBusy: false);
             AppendLog($"{titleText}: {detailText}");
             RefreshModelCenterDashboard();

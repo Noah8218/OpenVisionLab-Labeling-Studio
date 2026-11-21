@@ -129,7 +129,7 @@ namespace MvcVisionSystem
 
             context.ImageQualityReviewWorkflowService.BeginCatalogLoad(request.Version);
             context.AnomalyImageReviewSession.BeginCatalogLoad(request.Version);
-            context.SetDatasetStatus?.Invoke("데이터셋: 파일 목록 준비 중...");
+            context.SetDatasetStatus?.Invoke("데이터셋: 이미지 목록 읽는 중...");
             return true;
         }
 

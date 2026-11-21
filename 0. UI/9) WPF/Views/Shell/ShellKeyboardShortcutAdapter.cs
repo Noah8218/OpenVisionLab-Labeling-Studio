@@ -95,6 +95,15 @@ namespace MvcVisionSystem
                 }
                 return;
             }
+            // The shortcut list names Ctrl+I "Infer"; on the inference stage it runs the stage's own Run inference command
+            // (current/unexecuted/all target), which the labeling-stage branch below never reached.
+            if (e?.Modifiers == ModifierKeys.Control && e.Key == Key.I && context.IsInferenceStageActive?.Invoke() == true)
+            {
+                ICommand run = context.RunInferenceTarget?.Invoke();
+                if (!e.IsRepeat && run?.CanExecute(null) == true) run.Execute(null);
+                e.Handled = true;
+                return;
+            }
             if (e != null && context.IsLabelingStageActive?.Invoke() == true && context.ImageQueueViewModel?.IsAnomalyImageReviewMode == true
                 && !IsInteractiveControl(e.OriginalSource, allowActionControls: true))
             {
@@ -475,6 +484,8 @@ namespace MvcVisionSystem
         internal Func<bool> FocusRecipeSearch { get; init; }
         internal Func<bool> IsLabelingStageActive { get; init; }
         internal Func<bool> IsComparisonStageActive { get; init; }
+        internal Func<bool> IsInferenceStageActive { get; init; }
+        internal Func<ICommand> RunInferenceTarget { get; init; }
         internal ICommand CancelComparisonConfirmation { get; init; }
         internal Action<string> ExecuteMenuShortcut { get; init; }
         internal Func<bool> IsCommandPaletteOpen { get; init; }

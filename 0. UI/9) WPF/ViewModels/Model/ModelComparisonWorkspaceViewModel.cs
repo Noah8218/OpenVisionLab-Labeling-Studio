@@ -35,6 +35,7 @@ namespace MvcVisionSystem
         private bool isReadOnlyDisplayContext;
         private bool isBusy;
         private bool errorsOnly;
+        private string agreementFilter = string.Empty;
         private bool showGroundTruth = true;
         private bool refreshing;
         private bool disposed;
@@ -85,7 +86,9 @@ namespace MvcVisionSystem
 
         public ModelComparisonWorkspaceViewModel()
         {
-            ImageView = new ListCollectionView(Images) { Filter = item => !ErrorsOnly || ((ModelComparisonImagePair)item).ErrorCount > 0 };
+            ImageView = new ListCollectionView(Images) { Filter = item => (!ErrorsOnly || ((ModelComparisonImagePair)item).ErrorCount > 0)
+                && (agreementFilter.Length == 0 || ((ModelComparisonImagePair)item).Agreement == agreementFilter) };
+            SelectAgreementCommand = new RelayCommand<string>(key => AgreementFilter = key == "all" || key == agreementFilter ? string.Empty : key ?? string.Empty, _ => HasImageReview);
             SelectACommand = new RelayCommand<ModelComparisonWorkspaceRow>(row => SelectedA = row, row => CanChooseModels && row?.IsComparable == true);
             SelectBCommand = new RelayCommand<ModelComparisonWorkspaceRow>(row => SelectedB = row, row => CanChooseModels && row?.IsComparable == true);
             SortCommand = new RelayCommand<string>(key => { sortKey = key; RefreshRows(); }, key => CanChooseModels && MetricKeys.Contains(key));
@@ -95,7 +98,7 @@ namespace MvcVisionSystem
             undoAdoptionCommand = new RelayCommand(UndoAdoption, () => CanUndoAdoption);
             CancelAdoptionCommand = new RelayCommand(CancelAdoption, () => isAdoptionConfirmationOpen && !isBusy && !isAdopting);
             reviewLabelsCommand = new RelayCommand(() => { if (!isReadOnlyDisplayContext) reviewLabels(SelectedImage.ImagePath); }, () => !isReadOnlyDisplayContext && CanChooseModels && SelectedImage != null);
-            ReevaluateCommand = new RelayCommand<ModelComparisonWorkspaceRow>(Reevaluate, row => !isReadOnlyDisplayContext && CanChooseModels && canRun && SelectedVersion == currentVersion && UsesCurrentRuntime(row) && Models.Any(other => other != row && UsesCurrentRuntime(other)));
+            ReevaluateCommand = new RelayCommand<ModelComparisonWorkspaceRow>(Reevaluate, row => !isReadOnlyDisplayContext && CanChooseModels && canRun && SelectedVersion == currentVersion && Models.Any(other => other != row && CanEvaluatePair(other, row)));
             ShowRuleCommand = new RelayCommand<ModelComparisonWorkspaceRow>(row => { if (row != null) SelectedRuleModel = row; IsRuleTab = true; }, _ => !disposed && HasModels && CanChooseModels);
             ShowPerformanceCommand = new RelayCommand(() => IsRuleTab = false);
             ShowCandidateRuleCommand = new RelayCommand(() => { SelectedRuleModel = SelectedB; IsRuleTab = true; }, () => CanChooseModels && SelectedB != null);
@@ -119,6 +122,38 @@ namespace MvcVisionSystem
         public ObservableCollection<KeyValuePair<string, string>> VersionChoices { get; } = new();
         public ObservableCollection<ModelComparisonImagePair> Images { get; } = new();
         public ObservableCollection<ModelComparisonClassMetricRow> ClassMetrics { get; } = new();
+        // A/B analysis row (prototype analysisRow): differences, AP per class, confidence sweep, per-image agreement.
+        public ObservableCollection<ModelComparisonDifferenceRow> Differences { get; } = new();
+        public ObservableCollection<ModelComparisonAgreementGroup> AgreementGroups { get; } = new();
+        public ICommand SelectAgreementCommand { get; }
+        public bool HasAnalysis => HasComparablePair && IsLocalizationTask;
+        public string AnalysisNote => HasComparablePair ? Format("AnalysisNote", SelectedA.Run.EvidenceCount) : string.Empty;
+        public IReadOnlyList<WpfModelBenchmarkThresholdReview> SweepA => HasComparablePair ? SelectedA.Run.GroundTruthReview?.ThresholdSweep : null;
+        public IReadOnlyList<WpfModelBenchmarkThresholdReview> SweepB => HasComparablePair ? SelectedB.Run.GroundTruthReview?.ThresholdSweep : null;
+        public double SweepConfidence => confidence;
+        public string SweepCurrentText => Format("SweepCurrent", confidence.ToString("0.00", CultureInfo.CurrentCulture));
+        public string SweepBestText
+        {
+            get
+            {
+                WpfModelBenchmarkThresholdReview a = ConfidenceSweepChart.Usable(SweepA).OrderByDescending(point => point.F1.Value).FirstOrDefault();
+                WpfModelBenchmarkThresholdReview b = ConfidenceSweepChart.Usable(SweepB).OrderByDescending(point => point.F1.Value).FirstOrDefault();
+                return a == null || b == null ? string.Empty : Format("SweepBest", a.Confidence.ToString("0.00", CultureInfo.CurrentCulture), a.F1.Value.ToString("0.000", CultureInfo.CurrentCulture),
+                    b.Confidence.ToString("0.00", CultureInfo.CurrentCulture), b.F1.Value.ToString("0.000", CultureInfo.CurrentCulture));
+            }
+        }
+        public bool HasAgreementFilter => agreementFilter.Length > 0;
+        public string AgreementFilter
+        {
+            get => agreementFilter;
+            set
+            {
+                if (!SetProperty(ref agreementFilter, value ?? string.Empty)) return;
+                foreach (ModelComparisonAgreementGroup group in AgreementGroups) group.IsSelected = group.Key == agreementFilter;
+                ImageView.Refresh(); SelectFirstShownImage();
+                OnPropertyChanged(nameof(HasAgreementFilter)); OnPropertyChanged(nameof(ImagePositionText));
+            }
+        }
         public System.ComponentModel.ICollectionView ImageView { get; }
         public ICommand SelectACommand { get; }
         public ICommand SelectBCommand { get; }
@@ -225,6 +260,10 @@ namespace MvcVisionSystem
         public string RuleSummaryText => BuildRuleDraft() is { } draft && ModelRegistryService.ValidateDecisionRule(draft).Length == 0
             ? IsAnomalyDecisionRule ? Format("RuleAnomalySummary", draft.AnomalyScoreThreshold) : Format("RuleDetectionSummary", draft.Confidence, draft.MinimumShortSidePixels, draft.MinimumDefectCount) : T("RuleUnconfigured");
         public string AdoptionDecisionRuleText => DescribeSavedDecisionRule(adoptionRow);
+        public string AdoptionEngineChangeText => adoptionRow != null && !UsesCurrentRuntime(adoptionRow) && CanAdoptOnCurrentRuntime(adoptionRow)
+            ? string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenVisionLab.OpenVisionLanguageService.T("WpfComparisonWorkspace.AdoptionEngineChange"),
+                PythonModelSettings.FormatModelEngineName(runtimeEngine), PythonModelSettings.FormatModelEngineName(adoptionRow.History.ModelEngine))
+            : string.Empty;
 
         public bool HasModels => Models.Count > 0;
         public IReadOnlyList<string> MetricKeys => purpose switch
@@ -235,14 +274,54 @@ namespace MvcVisionSystem
         };
         public IReadOnlyList<KeyValuePair<string, string>> MetricHeaders => MetricKeys.Select(key => new KeyValuePair<string, string>(key, MetricCaption(key))).ToArray();
         public string PrimaryMetricCaption => MetricCaption(MetricKeys[0]);
+        // Speed/accuracy chart: rows evaluated on the selected dataset version with both a processing
+        // time and the primary metric. A new array per refresh so the chart re-renders on A/B changes.
+        public IReadOnlyList<ModelComparisonWorkspaceRow> SpeedAccuracyRows => Models.Where(row => row.IsComparable && row.PrimaryMetric.HasValue && row.TaktValue.HasValue).ToArray();
+        public bool HasSpeedAccuracyPoints => SpeedAccuracyRows.Count >= 2;
+        public string SpeedCaption => MetricCaption("takt");
+
+        // Same rule as the v2 prototype's recommend(): among the models evaluated on the selected dataset version,
+        // the highest primary metric; when several are within 0.005 of it, the fastest of those. Needs two models.
+        public ModelComparisonWorkspaceRow RecommendedRow { get; private set; }
+        public bool HasRecommendation => RecommendedRow != null;
+        public string RecommendationText => RecommendedRow == null ? string.Empty
+            : string.Format(CultureInfo.CurrentCulture, T("Recommendation"), RecommendedRow.ModelName, recommendationReason);
+        public string RecommendationReason => RecommendedRow == null ? string.Empty : "· " + recommendationReason;
+        private string recommendationReason = string.Empty;
+
+        private ModelComparisonWorkspaceRow FindRecommendedRow(out string reason)
+        {
+            reason = string.Empty;
+            string key = MetricKeys[0];
+            if (key is "takt" or "size" or "trainingMinutes" or "fnr" or "fpr") return null;
+            ModelComparisonWorkspaceRow[] evaluated = Models.Where(row => row.IsComparable && row.PrimaryMetric.HasValue).ToArray();
+            if (evaluated.Length < 2) return null;
+            double top = evaluated.Max(row => row.PrimaryMetric.Value);
+            ModelComparisonWorkspaceRow[] near = evaluated.Where(row => top - row.PrimaryMetric.Value <= 0.005).ToArray();
+            ModelComparisonWorkspaceRow pick = near.Length > 1 ? near.OrderBy(row => row.TaktValue ?? double.PositiveInfinity).First() : near[0];
+            reason = near.Length > 1 && pick.TaktValue.HasValue
+                ? string.Format(CultureInfo.CurrentCulture, T("RecommendationFaster"), PrimaryMetricCaption, pick.TaktText)
+                : string.Format(CultureInfo.CurrentCulture, T("RecommendationBest"), PrimaryMetricCaption, pick.PrimaryMetricText);
+            return pick;
+        }
         public bool HasClassMetrics => ClassMetrics.Count > 0;
         public bool IsLocalizationTask => purpose != LabelingDatasetPurpose.AnomalyDetection;
         public string ClassMetricCaption => T(purpose == LabelingDatasetPurpose.Segmentation ? "ClassIoU" : "ClassMetric");
         public double MetricTableMinimumWidth => 110 + 48 + 200 + 150 + MetricKeys.Count * 70 + 200;
         public bool HasImageReview => Images.Count > 0;
         public bool IsBusy { get => isBusy; internal set { if (SetProperty(ref isBusy, value)) RefreshCommands(); } }
-        public bool CanRunComparison => !isReadOnlyDisplayContext && !isBusy && !isAdoptionConfirmationOpen && canRun && SelectedVersion == currentVersion && SelectedA != null && SelectedB != null && SelectedA != SelectedB && UsesCurrentRuntime(SelectedA) && UsesCurrentRuntime(SelectedB);
-        public bool CanAdoptModel => !isReadOnlyDisplayContext && CanChooseModels && SelectedVersion == currentVersion && HasComparablePair && HasImageReview && UsesCurrentRuntime(SelectedB)
+        public bool CanRunComparison => !isReadOnlyDisplayContext && !isBusy && !isAdoptionConfirmationOpen && canRun && SelectedVersion == currentVersion && SelectedA != null && SelectedB != null && SelectedA != SelectedB && CanEvaluatePair(SelectedA, SelectedB);
+        // A pair outside the configured runtime (for example YOLOv8 next to a configured YOLO11) runs as an
+        // engine comparison: each model is evaluated with its own engine on the same test split.
+        public bool UsesEngineComparison => SelectedA != null && SelectedB != null && !(UsesCurrentRuntime(SelectedA) && UsesCurrentRuntime(SelectedB)) && CanEvaluatePair(SelectedA, SelectedB);
+        // Shown next to the run button: WPF does not show the tooltip of a disabled button, so the reason
+        // the run is unavailable was invisible before (2026-11-20 circular-disk capture).
+        // Only an actual block (busy, historical version, runtime mismatch, unavailable) is shown. The neutral "evaluate A
+        // and B" hint while a pair is incomplete or the adoption dialog is open added a line that pushed the table down
+        // on every A/B change (README capture r11, 2026-11-21).
+        public string RunBlockedReason => CanRunComparison || isReadOnlyDisplayContext || isAdoptionConfirmationOpen || RunHint == T("RunHint") ? string.Empty : RunHint;
+        public bool HasRunBlockedReason => !string.IsNullOrEmpty(RunBlockedReason);
+        public bool CanAdoptModel => !isReadOnlyDisplayContext && CanChooseModels && SelectedVersion == currentVersion && HasComparablePair && HasImageReview && CanAdoptOnCurrentRuntime(SelectedB)
             && SelectedB?.History.CanPromoteToInspectionModel == true && !SelectedB.History.IsCurrentInspectionModel
             && SelectedB.Run.SourceSha256.Length == 64
             && SelectedB.History.WeightsSha256.Length == 64 && string.Equals(SelectedB.History.WeightsSha256, SelectedB.Run.WeightsSha256, StringComparison.OrdinalIgnoreCase);
@@ -290,7 +369,7 @@ namespace MvcVisionSystem
         public string ImagePositionText => Format("ImagePosition", SelectedImage == null ? 0 : ImageView.Cast<object>().ToList().IndexOf(SelectedImage) + 1, ImageView.Cast<object>().Count());
         public string EvidenceText => HasComparablePair ? purpose == LabelingDatasetPurpose.AnomalyDetection ? Format("AnomalyEvidence", SelectedA.Run.EvidenceCount)
             : Format("Evidence", SelectedA.Run.EvidenceCount, confidence, SelectedA.Run.GroundTruthReview.IouThreshold) : T("PairUnavailable");
-        public string RunHint => IsBusy ? T("Busy") : SelectedVersion != currentVersion ? T("HistoricalReadOnly") : !UsesCurrentRuntime(SelectedA) || !UsesCurrentRuntime(SelectedB) ? T("RuntimeMismatch") : !canRun ? T("RunUnavailable") : T("RunHint");
+        public string RunHint => IsBusy ? T("Busy") : SelectedVersion != currentVersion ? T("HistoricalReadOnly") : SelectedA == null || SelectedB == null || SelectedA == SelectedB ? T("RunHint") : !CanEvaluatePair(SelectedA, SelectedB) ? T("RuntimeMismatch") : !canRun ? T("RunUnavailable") : T("RunHint");
         public string BaselineMisses => FormatCount(HasComparablePair ? SelectedA.Run.GroundTruthReview?.FalseNegativeCount : null);
         public string CandidateMisses => FormatCount(HasComparablePair ? SelectedB.Run.GroundTruthReview?.FalseNegativeCount : null);
         public string BaselineExtras => FormatCount(HasComparablePair ? SelectedA.Run.GroundTruthReview?.FalsePositiveCount : null);
@@ -543,6 +622,7 @@ namespace MvcVisionSystem
             if (projectChanged || !Versions.Contains(selectedVersion)) selectedVersion = currentVersion;
             refreshing = false;
             RefreshRows();
+            TryRunPendingAutoEvaluation();
         }
 
         internal void SetCommandAvailability(bool available, bool running)
@@ -550,7 +630,43 @@ namespace MvcVisionSystem
             canRun = available;
             IsBusy = running;
             RefreshCommands();
+            TryRunPendingAutoEvaluation();
         }
+
+        // Prototype parity: a finished training run shows test metrics in the comparison without a manual
+        // re-evaluation. The training queue names each run it just recorded; that model is evaluated through the
+        // existing re-evaluate path (one pair per run) and is attempted once. A recipe without a saved dataset
+        // version records runs without a version, so the run ID, not the version, selects the model.
+        // The request waits while comparison commands are unavailable, which includes the time training still runs.
+        internal void RequestAutoEvaluation(string trainingRunId)
+        {
+            string runId = trainingRunId?.Trim() ?? string.Empty;
+            if (runId.Length > 0 && !autoEvaluationAttempted.Contains(runId)) pendingAutoEvaluationRuns.Add(runId);
+            TryRunPendingAutoEvaluation();
+        }
+
+        internal bool IsAutoEvaluationPending => pendingAutoEvaluationRuns.Count > 0;
+
+        private void TryRunPendingAutoEvaluation()
+        {
+            if (pendingAutoEvaluationRuns.Count == 0 || startingAutoEvaluation || disposed || isReadOnlyDisplayContext || !canRun || IsBusy || !CanChooseModels
+                || SelectedVersion != currentVersion) return;
+            // A run already evaluated on this version needs nothing; a run not listed yet waits for the next refresh.
+            pendingAutoEvaluationRuns.RemoveWhere(runId => Models.Any(row => row.History.TrainingRunId == runId && row.IsComparable));
+            ModelComparisonWorkspaceRow next = Models.FirstOrDefault(row => pendingAutoEvaluationRuns.Contains(row.History.TrainingRunId)
+                && Models.Any(other => other != row && CanEvaluatePair(other, row)));
+            if (next == null) return;
+
+            pendingAutoEvaluationRuns.Remove(next.History.TrainingRunId);
+            autoEvaluationAttempted.Add(next.History.TrainingRunId);
+            startingAutoEvaluation = true;
+            try { Reevaluate(next); }
+            finally { startingAutoEvaluation = false; }
+        }
+
+        private bool startingAutoEvaluation;
+        private readonly HashSet<string> pendingAutoEvaluationRuns = new(StringComparer.Ordinal);
+        private readonly HashSet<string> autoEvaluationAttempted = new(StringComparer.Ordinal);
 
         internal void SetPreview(ModelComparisonPreviewPresentation preview)
         {
@@ -674,7 +790,11 @@ namespace MvcVisionSystem
 
         private void RefreshPair()
         {
-            foreach (ModelComparisonWorkspaceRow row in Models) { row.IsA = row == SelectedA; row.IsB = row == SelectedB; row.RefreshText(); }
+            ModelComparisonWorkspaceRow recommended = FindRecommendedRow(out recommendationReason);
+            foreach (ModelComparisonWorkspaceRow row in Models) { row.IsA = row == SelectedA; row.IsB = row == SelectedB; row.IsRecommended = row == recommended; row.RefreshText(); }
+            RecommendedRow = recommended;
+            OnPropertyChanged(nameof(RecommendedRow)); OnPropertyChanged(nameof(HasRecommendation)); OnPropertyChanged(nameof(RecommendationText)); OnPropertyChanged(nameof(RecommendationReason));
+            OnPropertyChanged(nameof(SpeedAccuracyRows)); OnPropertyChanged(nameof(HasSpeedAccuracyPoints));
             var previousImages = Images.ToDictionary(image => image.ImagePath, StringComparer.OrdinalIgnoreCase);
             Images.Clear();
             if (HasComparablePair)
@@ -696,6 +816,7 @@ namespace MvcVisionSystem
 
             }
             RefreshClassMetrics();
+            RefreshAnalysis();
             ImageView.Refresh();
             SelectFirstShownImage();
             foreach (string property in new[] { nameof(SelectionIdentityText), nameof(SelectedA), nameof(SelectedB), nameof(BaselineTitle), nameof(CandidateTitle), nameof(EvidenceText), nameof(HasComparablePair), nameof(HasImageReview), nameof(HasClassMetrics), nameof(ClassMetricCaption), nameof(BaselineMisses), nameof(CandidateMisses), nameof(BaselineExtras), nameof(CandidateExtras), nameof(BaselineTakt), nameof(CandidateTakt) }) OnPropertyChanged(property);
@@ -715,6 +836,28 @@ namespace MvcVisionSystem
                 }
             }
             OnPropertyChanged(nameof(HasClassMetrics));
+        }
+
+        // Differences decide the choice at a glance; agreement groups classify each test image by which model erred.
+        // A new pair clears the agreement filter.
+        private void RefreshAnalysis()
+        {
+            Differences.Clear(); AgreementGroups.Clear();
+            agreementFilter = string.Empty;
+            if (HasComparablePair)
+            {
+                Differences.Add(ModelComparisonDifferenceRow.Create(PrimaryMetricCaption, SelectedA.PrimaryMetric, SelectedB.PrimaryMetric, higherIsBetter: true, "0.000"));
+                if (IsLocalizationTask)
+                {
+                    Differences.Add(ModelComparisonDifferenceRow.Create(T("Misses"), SelectedA.Run.GroundTruthReview?.FalseNegativeCount, SelectedB.Run.GroundTruthReview?.FalseNegativeCount, higherIsBetter: false, "0"));
+                    Differences.Add(ModelComparisonDifferenceRow.Create(T("Extras"), SelectedA.Run.GroundTruthReview?.FalsePositiveCount, SelectedB.Run.GroundTruthReview?.FalsePositiveCount, higherIsBetter: false, "0"));
+                }
+                if (HasComparableTiming) Differences.Add(ModelComparisonDifferenceRow.Create(T("Takt"), SelectedA.TaktValue, SelectedB.TaktValue, higherIsBetter: false, "0.0"));
+                if (Images.Count > 0)
+                    foreach ((string key, byte r, byte g, byte b) in new[] { ("ok", (byte)0x3C, (byte)0xCF, (byte)0x8E), ("a", (byte)0x60, (byte)0xA5, (byte)0xFA), ("b", (byte)0xF5, (byte)0xA5, (byte)0x24), ("ab", (byte)0xF0, (byte)0x6A, (byte)0x6A) })
+                        AgreementGroups.Add(new ModelComparisonAgreementGroup(key, Images.Count(image => image.Agreement == key), Images.Count, Color.FromRgb(r, g, b)));
+            }
+            foreach (string property in new[] { nameof(HasAnalysis), nameof(AnalysisNote), nameof(SweepA), nameof(SweepB), nameof(SweepConfidence), nameof(SweepCurrentText), nameof(SweepBestText), nameof(AgreementFilter), nameof(HasAgreementFilter) }) OnPropertyChanged(property);
         }
 
         private void SelectFirstShownImage() { SelectedImage = ImageView.Cast<ModelComparisonImagePair>().FirstOrDefault(); RequestPreview(); }
@@ -740,7 +883,16 @@ namespace MvcVisionSystem
         {
             if (isReadOnlyDisplayContext) return;
             selectedB = row;
-            selectedA = Models.FirstOrDefault(item => item != row && item.History.IsCurrentInspectionModel && UsesCurrentRuntime(item)) ?? Models.FirstOrDefault(item => item != row && UsesCurrentRuntime(item));
+            // The baseline is a model this one can be evaluated with, including a YOLOv8/YOLO11 pair on the Ultralytics
+            // runtime. Weights trained in this recipe share its classes; configured weights without a training run (for
+            // example a COCO-pretrained yolo11n.pt as the inspection model) may not, and the evaluation then stops on the
+            // class mismatch. So the inspection model leads only when it was trained here.
+            ModelComparisonWorkspaceRow[] partners = Models.Where(item => item != row && CanEvaluatePair(item, row)).ToArray();
+            static bool TrainedHere(ModelComparisonWorkspaceRow item) => !string.IsNullOrWhiteSpace(item.History.TrainingRunId);
+            selectedA = partners.FirstOrDefault(item => item.History.IsCurrentInspectionModel && TrainedHere(item))
+                ?? partners.FirstOrDefault(TrainedHere)
+                ?? partners.FirstOrDefault(item => item.History.IsCurrentInspectionModel)
+                ?? partners.FirstOrDefault();
             RefreshPair();
             if (CanRunComparison) runComparison();
         }
@@ -754,6 +906,7 @@ namespace MvcVisionSystem
             OnPropertyChanged(nameof(AdoptionModelText));
             OnPropertyChanged(nameof(AdoptionDecisionRuleText));
             OnPropertyChanged(nameof(AdoptionPartTestText));
+            OnPropertyChanged(nameof(AdoptionEngineChangeText));
             OnPropertyChanged(nameof(IsAdoptionConfirmationOpen));
             RefreshCommands();
         }
@@ -787,6 +940,22 @@ namespace MvcVisionSystem
         private bool UsesCurrentRuntime(ModelComparisonWorkspaceRow row)
             => row != null && PythonModelSettings.NormalizeModelEngine(row.History.ModelEngine) == PythonModelSettings.NormalizeModelEngine(runtimeEngine) && SamePath(row.History.ProjectRootPath, runtimeRoot);
 
+        // A YOLOv8/YOLO11 detection model can become the inspection model on the other Ultralytics engine; adoption
+        // switches the recipe engine in the same transaction (ModelCandidateLifecycleRequest.CandidateModelEngine).
+        private bool CanAdoptOnCurrentRuntime(ModelComparisonWorkspaceRow row)
+            => UsesCurrentRuntime(row) || (row != null && purpose == LabelingDatasetPurpose.ObjectDetection
+                && ModelComparisonRunService.IsUltralyticsDetectionEngine(row.History.ModelEngine)
+                && ModelComparisonRunService.IsUltralyticsDetectionEngine(runtimeEngine));
+
+        // Same runtime, or two Ultralytics detection models (YOLOv8 / YOLO11) with weights files, which the
+        // engine-comparison path of compare-yolo-models.ps1 evaluates side by side.
+        private bool CanEvaluatePair(ModelComparisonWorkspaceRow a, ModelComparisonWorkspaceRow b)
+            => a != null && b != null && ((UsesCurrentRuntime(a) && UsesCurrentRuntime(b))
+                || (purpose == LabelingDatasetPurpose.ObjectDetection
+                    && ModelComparisonRunService.IsUltralyticsDetectionEngine(a.History.ModelEngine)
+                    && ModelComparisonRunService.IsUltralyticsDetectionEngine(b.History.ModelEngine)
+                    && !string.IsNullOrWhiteSpace(a.History.WeightsPath) && !string.IsNullOrWhiteSpace(b.History.WeightsPath)));
+
         private bool MatchesTask(WpfModelBenchmarkRun run) => run.TaskKey == (purpose switch
         {
             LabelingDatasetPurpose.Segmentation => "segmentation",
@@ -814,6 +983,7 @@ namespace MvcVisionSystem
             ((RelayCommand<ModelComparisonWorkspaceRow>)ReevaluateCommand).RaiseCanExecuteChanged();
             ((RelayCommand<string>)SortCommand).RaiseCanExecuteChanged();
             OnPropertyChanged(nameof(CanRunComparison)); OnPropertyChanged(nameof(CanAdoptModel)); OnPropertyChanged(nameof(CanChooseModels)); OnPropertyChanged(nameof(CanUndoAdoption)); OnPropertyChanged(nameof(RunHint));
+            OnPropertyChanged(nameof(UsesEngineComparison)); OnPropertyChanged(nameof(RunBlockedReason)); OnPropertyChanged(nameof(HasRunBlockedReason));
             if (SaveDecisionRuleCommand != null) RefreshRulePresentation();
         }
 
@@ -835,7 +1005,7 @@ namespace MvcVisionSystem
             OnPropertyChanged(nameof(SelectedVersionChoice));
         }
 
-        private void OnLanguageChanged(object sender, EventArgs e) { RefreshVersionChoices(); foreach (ModelComparisonWorkspaceRow row in Models) { row.DecisionTestSummaryText = DescribeFixedTest(row); row.RefreshText(); } foreach (ModelComparisonImagePair image in Images) image.RefreshText(); if (!string.IsNullOrEmpty(statusKey)) status = Format(statusKey, statusArguments); RequestPreview(); OnPropertyChanged(string.Empty); }
+        private void OnLanguageChanged(object sender, EventArgs e) { RefreshVersionChoices(); foreach (ModelComparisonWorkspaceRow row in Models) { row.DecisionTestSummaryText = DescribeFixedTest(row); row.RefreshText(); } foreach (ModelComparisonImagePair image in Images) image.RefreshText(); foreach (ModelComparisonAgreementGroup group in AgreementGroups) group.RefreshText(); if (!string.IsNullOrEmpty(statusKey)) status = Format(statusKey, statusArguments); RequestPreview(); OnPropertyChanged(string.Empty); }
         public void Dispose()
         {
             if (disposed) return;
@@ -897,6 +1067,7 @@ namespace MvcVisionSystem
         public bool IsComparable { get; internal set; }
         public bool IsA { get; internal set; }
         public bool IsB { get; internal set; }
+        public bool IsRecommended { get; internal set; }
         public bool IsSelected => IsA || IsB;
         public int Rank { get; internal set; }
         internal HashSet<string> BestMetrics { get; } = new();
@@ -927,6 +1098,7 @@ namespace MvcVisionSystem
         public double? F1 => Metric("precision") is double p && Metric("recall") is double r ? p + r > 0 ? 2 * p * r / (p + r) : 0 : null;
         internal double SortValue(string key) => MetricValue(key) is double value ? key is "takt" or "size" or "trainingMinutes" or "fnr" or "fpr" ? value : -value : double.PositiveInfinity;
         public string TaktText => Run?.TaktMs is double value && double.IsFinite(value) && value >= 0 ? value.ToString("0.00", CultureInfo.CurrentCulture) : "—";
+        public double? TaktValue => MetricValue("takt");
         private double? MetricValue(string key)
         {
             double? value = key switch
@@ -968,6 +1140,8 @@ namespace MvcVisionSystem
         public string ImageName => Baseline.ImageName;
         public int ErrorCount => Baseline.ErrorCount + Candidate.ErrorCount;
         public bool HasErrors => ErrorCount > 0;
+        // ok: neither model erred · a: only A · b: only B · ab: both.
+        public string Agreement => Baseline.ErrorCount > 0 && Candidate.ErrorCount > 0 ? "ab" : Baseline.ErrorCount > 0 ? "a" : Candidate.ErrorCount > 0 ? "b" : "ok";
         public ImageSource ThumbnailSource { get => thumbnailSource; internal set => SetProperty(ref thumbnailSource, value); }
         public string ErrorText => string.Format(ModelComparisonWorkspaceViewModel.T("ImageErrors"), ErrorCount);
         internal void RefreshText() => OnPropertyChanged(nameof(ErrorText));
@@ -988,6 +1162,47 @@ namespace MvcVisionSystem
         public string ValuesText => "A " + (BaselineValue?.ToString("0.00", CultureInfo.CurrentCulture) ?? "—") + " · B " + (CandidateValue?.ToString("0.00", CultureInfo.CurrentCulture) ?? "—");
         public double BaselineShare => BaselineValue ?? 0;
         public double CandidateShare => CandidateValue ?? 0;
+        // B against A for this class, shown when the difference is at least 0.03.
+        public bool IsImproved => BaselineValue.HasValue && CandidateValue.HasValue && CandidateValue - BaselineValue >= 0.03;
+        public bool IsWorse => BaselineValue.HasValue && CandidateValue.HasValue && BaselineValue - CandidateValue >= 0.03;
+        public string TrendText => IsImproved ? "▲" : IsWorse ? "▼" : string.Empty;
         private static double? Valid(double? value) => value.HasValue && double.IsFinite(value.Value) && value >= 0 && value <= 1 ? value : null;
+    }
+
+    public sealed class ModelComparisonDifferenceRow
+    {
+        private ModelComparisonDifferenceRow(string name, string aText, string bText, string deltaText, int trend) { Name = name; AText = aText; BText = bText; DeltaText = deltaText; Trend = trend; }
+        public string Name { get; }
+        public string AText { get; }
+        public string BText { get; }
+        public string DeltaText { get; }
+        // 1: B is better, -1: B is worse, 0: same or unknown.
+        public int Trend { get; }
+        public bool IsBetter => Trend > 0;
+        public bool IsWorse => Trend < 0;
+
+        internal static ModelComparisonDifferenceRow Create(string name, double? a, double? b, bool higherIsBetter, string format)
+        {
+            static bool Usable(double? value) => value.HasValue && double.IsFinite(value.Value);
+            string Text(double? value) => Usable(value) ? value.Value.ToString(format, CultureInfo.CurrentCulture) : "—";
+            if (!Usable(a) || !Usable(b)) return new ModelComparisonDifferenceRow(name, Text(a), Text(b), "—", 0);
+            double delta = b.Value - a.Value, rounded = Math.Round(delta, format.Length > 2 ? format.Length - 2 : 0);
+            int trend = rounded == 0 ? 0 : (rounded > 0) == higherIsBetter ? 1 : -1;
+            return new ModelComparisonDifferenceRow(name, Text(a), Text(b), (rounded > 0 ? "+" : string.Empty) + rounded.ToString(format, CultureInfo.CurrentCulture), trend);
+        }
+    }
+
+    public sealed class ModelComparisonAgreementGroup : WpfObservableViewModel
+    {
+        private bool isSelected;
+        internal ModelComparisonAgreementGroup(string key, int count, int total, Color color) { Key = key; Count = count; Share = total > 0 ? (double)count / total : 0; Color = color; }
+        public string Key { get; }
+        public int Count { get; }
+        public double Share { get; }
+        public Color Color { get; }
+        public string Name => ModelComparisonWorkspaceViewModel.T(Key switch { "a" => "AgreementOnlyA", "b" => "AgreementOnlyB", "ab" => "AgreementBoth", _ => "AgreementNone" });
+        public string CountText => string.Format(CultureInfo.CurrentCulture, ModelComparisonWorkspaceViewModel.T("AgreementCount"), Count);
+        public bool IsSelected { get => isSelected; internal set => SetProperty(ref isSelected, value); }
+        internal void RefreshText() { OnPropertyChanged(nameof(Name)); OnPropertyChanged(nameof(CountText)); }
     }
 }

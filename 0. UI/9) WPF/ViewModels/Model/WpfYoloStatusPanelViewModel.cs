@@ -152,7 +152,14 @@ namespace MvcVisionSystem
         public bool IsRestartWorkerEnabled
         {
             get => isRestartWorkerEnabled;
-            private set => SetProperty(ref isRestartWorkerEnabled, value);
+            private set
+            {
+                if (!SetProperty(ref isRestartWorkerEnabled, value) || !value || pendingSavedRuntimeConnect == null) return;
+                // A stage opened while general commands were locked (for example, the image list was still loading).
+                (string key, PythonModelSettings settings, Func<bool> isConnected) pending = pendingSavedRuntimeConnect.Value;
+                pendingSavedRuntimeConnect = null;
+                TryConnectSavedRuntimeOnce(pending.key, pending.settings, pending.isConnected);
+            }
         }
 
         public bool IsStopWorkerEnabled
@@ -238,6 +245,29 @@ namespace MvcVisionSystem
             IsRestartWorkerEnabled = canRunGeneralCommands;
             IsStopWorkerEnabled = canRunGeneralCommands;
         }
+
+        // The Python worker only starts on demand, so after an app start the training and comparison stages
+        // would stay blocked until the user found 환경 점검. When one of those stages opens, this connects the worker
+        // once per recipe and session, and only for a saved runtime (Python path set) with auto start on.
+        // While general commands are locked the request waits and runs once they unlock.
+        public bool TryConnectSavedRuntimeOnce(string recipeKey, PythonModelSettings settings, Func<bool> isConnected)
+        {
+            if (isConnected?.Invoke() == true || settings == null || !settings.AutoStartClient || string.IsNullOrWhiteSpace(settings.PythonExecutablePath)) return false;
+            if (savedRuntimeConnectAttempted.Contains(recipeKey ?? string.Empty)) return false;
+            // The worker restart command connects without the environment check's model-center navigation, which
+            // goes through a stage-change approval and stalled when started from the comparison stage.
+            if (!IsRestartWorkerEnabled || RestartWorkerCommand?.CanExecute(null) != true)
+            {
+                pendingSavedRuntimeConnect = (recipeKey ?? string.Empty, settings, isConnected);
+                return false;
+            }
+            savedRuntimeConnectAttempted.Add(recipeKey ?? string.Empty);
+            RestartWorkerCommand.Execute(null);
+            return true;
+        }
+
+        private readonly System.Collections.Generic.HashSet<string> savedRuntimeConnectAttempted = new(StringComparer.OrdinalIgnoreCase);
+        private (string key, PythonModelSettings settings, Func<bool> isConnected)? pendingSavedRuntimeConnect;
 
         private Task ExecuteCheckAsync()
             => runtimeWorkflowService?.CheckAsync(runtimeCallbacksProvider?.Invoke()) ?? Task.CompletedTask;

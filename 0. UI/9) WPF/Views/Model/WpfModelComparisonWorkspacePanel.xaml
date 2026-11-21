@@ -42,8 +42,10 @@
     </UserControl.Resources>
     <Grid Margin="20,16">
         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-        <Grid x:Name="ComparisonPopulatedContent" Grid.RowSpan="3" Visibility="{Binding HasModels, Converter={StaticResource ComparisonBooleanToVisibility}}">
-        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+        <!-- The page scrolls when the window is shorter than the content (v2 prototype: image pair at least 400 px); otherwise it fills the view. -->
+        <ScrollViewer x:Name="ComparisonScroll" Grid.RowSpan="3" Margin="-20,-16" Padding="20,16" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Visibility="{Binding HasModels, Converter={StaticResource ComparisonBooleanToVisibility}}">
+        <Grid x:Name="ComparisonPopulatedContent" MinHeight="960" Height="{Binding ViewportHeight, ElementName=ComparisonScroll}" Visibility="{Binding HasModels, Converter={StaticResource ComparisonBooleanToVisibility}}">
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
         <Grid Margin="0,0,0,12">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
             <StackPanel>
@@ -58,6 +60,19 @@
                     </Grid>
                 </Border>
                 <TextBlock Margin="0,6,12,0" Style="{StaticResource ComparisonCaptionStyle}" Text="{Binding Language[WpfComparisonWorkspace.FairComparison]}" Visibility="{Binding IsPerformanceTab, Converter={StaticResource ComparisonBooleanToVisibility}}" />
+                <!-- Prototype #cmp-recommend: info chip, model caption, reason. Only with two or more evaluated models. -->
+                <StackPanel x:Name="ComparisonRecommendation" Orientation="Horizontal" Margin="0,4,12,0">
+                    <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding IsPerformanceTab}" Value="True" /><Condition Binding="{Binding HasRecommendation}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible" /></MultiDataTrigger></Style.Triggers></Style></StackPanel.Style>
+                    <Border Padding="8,1" CornerRadius="10.2" BorderThickness="1" Background="{DynamicResource RecipeSelectedBrush}" BorderBrush="{DynamicResource RecipeSelectedBorderBrush}" VerticalAlignment="Center">
+                        <TextBlock FontSize="12" Foreground="#B9D3FF" Text="{Binding Language[WpfComparisonWorkspace.RecommendedBadge]}" />
+                    </Border>
+                    <TextBlock Margin="6,0,0,0" FontSize="12" VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding RecommendedRow.ModelName}" />
+                    <TextBlock Margin="6,0,0,0" Style="{StaticResource ComparisonCaptionStyle}" VerticalAlignment="Center" Text="{Binding RecommendationReason}" />
+                </StackPanel>
+                <!-- WPF hides the tooltip of a disabled button, so the reason the evaluation cannot run is shown as text. -->
+                <StackPanel Visibility="{Binding IsPerformanceTab, Converter={StaticResource ComparisonBooleanToVisibility}}">
+                    <TextBlock x:Name="ComparisonRunBlockedReason" Margin="0,4,12,0" Style="{StaticResource ComparisonCaptionStyle}" Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" Text="{Binding RunBlockedReason}" Visibility="{Binding HasRunBlockedReason, Converter={StaticResource ComparisonBooleanToVisibility}}" />
+                </StackPanel>
                 <TextBlock Margin="0,6,12,0" Style="{StaticResource ComparisonCaptionStyle}" Text="{Binding Language[WpfComparisonWorkspace.RuleIntroduction]}" Visibility="{Binding IsRuleTab, Converter={StaticResource ComparisonBooleanToVisibility}}" />
             </StackPanel>
             <Grid Grid.Column="1" VerticalAlignment="Center">
@@ -65,7 +80,7 @@
                 <StackPanel Orientation="Horizontal" Visibility="{Binding IsPerformanceTab, Converter={StaticResource ComparisonBooleanToVisibility}}">
                     <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" Style="{StaticResource ComparisonCaptionStyle}" Text="{Binding Language[WpfComparisonWorkspace.ReferenceData]}" />
                     <ComboBox x:Name="ComparisonVersionCombo" Height="Auto" MinWidth="96" MaxWidth="456" MinHeight="30" Padding="8,5,28,5" Style="{StaticResource RecipeComboBoxStyle}" ItemsSource="{Binding VersionChoices}" SelectedValuePath="Key" SelectedItem="{Binding SelectedVersionChoice, Mode=TwoWay}" IsEnabled="{Binding CanChooseModels}" ToolTip="{Binding SelectedVersionLabel}"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Value}" MaxWidth="420" TextWrapping="Wrap" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
-                    <Button x:Name="RunWorkspaceComparisonButton" Margin="8,0,0,0" Height="30" MinHeight="30" Padding="10,5" Style="{StaticResource RecipeSecondaryButtonStyle}" Command="{Binding RunComparisonCommand}" Content="{Binding Language[WpfComparisonWorkspace.Run]}" ToolTip="{Binding RunHint}" />
+                    <Button x:Name="RunWorkspaceComparisonButton" Margin="8,0,0,0" Height="30" MinHeight="30" Padding="10,5" Style="{StaticResource RecipeSecondaryButtonStyle}" Command="{Binding RunComparisonCommand}" Content="{Binding Language[WpfComparisonWorkspace.Run]}" ToolTip="{Binding RunHint}" ToolTipService.ShowOnDisabled="True" />
                 </StackPanel>
                 <Expander x:Name="ComparisonIdentityDetails" Grid.Row="1" Margin="0,6,0,0" HorizontalAlignment="Right" MaxWidth="456" Style="{StaticResource DatasetExpanderStyle}" Header="{Binding Language[WpfDatasetVersion.IdentityDetails]}" Visibility="{Binding IsPerformanceTab, Converter={StaticResource ComparisonBooleanToVisibility}}">
                     <TextBox x:Name="ComparisonIdentityBox" Style="{StaticResource RecipeInputStyle}" MinWidth="300" MaxWidth="420" IsReadOnly="True" Text="{Binding SelectionIdentityText, Mode=OneWay}" TextWrapping="Wrap" AutomationProperties.Name="{Binding Language[WpfDatasetVersion.IdentityDetails]}" />
@@ -76,7 +91,21 @@
                 </StackPanel>
             </Grid>
         </Grid>
-        <Border Grid.Row="1" Visibility="{Binding IsPerformanceTab, Converter={StaticResource ComparisonBooleanToVisibility}}" Margin="0,0,0,12" CornerRadius="8" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1" MaxHeight="260">
+        <!-- Table on the left; speed/accuracy chart in the same 300px column as the A/B side panel below (v2 prototype speedChart). -->
+        <Grid Grid.Row="1" Visibility="{Binding IsPerformanceTab, Converter={StaticResource ComparisonBooleanToVisibility}}" Margin="0,0,0,12" MaxHeight="260">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="300" /></Grid.ColumnDefinitions>
+        <Border x:Name="ComparisonSpeedAccuracyCard" Grid.Column="1" Margin="12,0,0,0" CornerRadius="8" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1" Padding="10">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Margin="0,0,0,6" Style="{StaticResource ComparisonCaptionStyle}" TextWrapping="Wrap" Text="{Binding Language[WpfComparisonWorkspace.SpeedAccuracyCaption]}" />
+                <Border Background="#0F141A" BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1" CornerRadius="6">
+                    <!-- Same plot height as the prototype's speedChart() SVG; with two models the table row alone is too short to draw it. -->
+                    <local:ModelSpeedAccuracyChart x:Name="ComparisonSpeedAccuracyChart" MinHeight="180" FontFamily="{DynamicResource UiFontFamily}" FontSize="12" Foreground="{DynamicResource RecipeMutedTextBrush}"
+                        Rows="{Binding SpeedAccuracyRows}" SpeedCaption="{Binding SpeedCaption}" MetricCaption="{Binding PrimaryMetricCaption}" EmptyText="{Binding Language[WpfComparisonWorkspace.SpeedAccuracyEmpty]}"
+                        AutomationProperties.Name="{Binding Language[WpfComparisonWorkspace.SpeedAccuracyCaption]}" />
+                </Border>
+            </DockPanel>
+        </Border>
+        <Border Grid.Column="0" CornerRadius="8" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1">
             <ScrollViewer x:Name="ComparisonTableScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                 <StackPanel MinWidth="{Binding MetricTableMinimumWidth}" Grid.IsSharedSizeScope="True">
                     <Grid x:Name="ComparisonTableHeaders" Background="{DynamicResource PanelBrush}" MinHeight="32" Panel.ZIndex="1">
@@ -120,9 +149,13 @@
                                     </Button>
                                     <TextBlock Grid.Column="1" Margin="8,7" Text="{Binding RankText}" TextAlignment="Right" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" Visibility="Collapsed" />
                                     <Grid Grid.Column="2" Margin="8,7" VerticalAlignment="Center">
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                                         <TextBlock x:Name="ComparisonModelName" Text="{Binding ModelName}" FontWeight="SemiBold" TextWrapping="Wrap" LineHeight="17.4" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="1" Margin="6,0,0,0" Text="{Binding ModelRole, NotifyOnTargetUpdated=True}" TargetUpdated="OnModelRoleTargetUpdated" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center" />
+                                        <Border x:Name="ComparisonRecommendedChip" Grid.Column="1" Margin="6,0,0,0" Padding="8,1" CornerRadius="10.2" BorderThickness="1" Background="{DynamicResource RecipeSelectedBrush}" BorderBrush="{DynamicResource RecipeSelectedBorderBrush}" VerticalAlignment="Center"
+                                                Visibility="{Binding IsRecommended, Converter={StaticResource ComparisonBooleanToVisibility}}">
+                                            <TextBlock FontSize="11" Foreground="#B9D3FF" Text="{Binding [WpfComparisonWorkspace.RecommendedBadge], Source={x:Static local:WpfLocalizationViewModel.Instance}}" />
+                                        </Border>
+                                        <TextBlock Grid.Column="2" Margin="6,0,0,0" Text="{Binding ModelRole, NotifyOnTargetUpdated=True}" TargetUpdated="OnModelRoleTargetUpdated" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center" />
                                     </Grid>
                                     <Grid Grid.Column="3" Margin="8,7" VerticalAlignment="Center">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
@@ -153,7 +186,88 @@
                 </StackPanel>
             </ScrollViewer>
         </Border>
+        </Grid>
+        <!-- A/B analysis between the ranking and the image pair (v2 prototype analysisRow): the differences that decide the
+             choice, AP per class, F1 and recall over the confidence threshold, and per-image agreement that filters the strip. -->
         <Grid Grid.Row="2" Visibility="{Binding IsPerformanceTab, Converter={StaticResource ComparisonBooleanToVisibility}}">
+        <Grid x:Name="ComparisonAnalysisRow" Margin="0,0,0,12" Height="210" Visibility="{Binding HasAnalysis, Converter={StaticResource ComparisonBooleanToVisibility}}">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="300" /><ColumnDefinition Width="*" /><ColumnDefinition Width="1.2*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+            <Border x:Name="ComparisonDifferenceCard" CornerRadius="8" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1" Padding="12,10">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="{Binding Language[WpfComparisonWorkspace.AnalysisDifference]}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource RecipeMutedTextBrush}" Margin="0,0,0,6" />
+                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding AnalysisNote}" Style="{StaticResource ComparisonCaptionStyle}" Margin="0,4,0,0" />
+                    <StackPanel TextElement.FontSize="12">
+                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="54" /><ColumnDefinition Width="54" /><ColumnDefinition Width="60" /></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="1" Text="A" TextAlignment="Right" Margin="4,3" /><TextBlock Grid.Column="2" Text="B" TextAlignment="Right" Margin="4,3" /><TextBlock Grid.Column="3" Text="{Binding Language[WpfComparisonWorkspace.AnalysisChange]}" TextAlignment="Right" Margin="4,3" />
+                        </Grid>
+                        <ItemsControl x:Name="ComparisonDifferenceRows" ItemsSource="{Binding Differences}"><ItemsControl.ItemTemplate><DataTemplate>
+                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="54" /><ColumnDefinition Width="54" /><ColumnDefinition Width="60" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Name}" Margin="4,3" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="1" Text="{Binding AText}" TextAlignment="Right" Margin="4,3" Typography.NumeralAlignment="Tabular" />
+                                <TextBlock Grid.Column="2" Text="{Binding BText}" TextAlignment="Right" Margin="4,3" Typography.NumeralAlignment="Tabular" />
+                                <TextBlock Grid.Column="3" Text="{Binding DeltaText}" TextAlignment="Right" Margin="4,3" Typography.NumeralAlignment="Tabular">
+                                    <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" /><Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsBetter}" Value="True"><Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" /></DataTrigger>
+                                        <DataTrigger Binding="{Binding IsWorse}" Value="True"><Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" /></DataTrigger>
+                                    </Style.Triggers></Style></TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+            <Border x:Name="ComparisonClassCard" Grid.Column="1" Margin="12,0,0,0" CornerRadius="8" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1" Padding="12,10">
+                <DockPanel>
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                        <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding ClassMetricCaption}" Margin="0,0,8,0" TextWrapping="Wrap" Foreground="{DynamicResource RecipeMutedTextBrush}" />
+                        <TextBlock x:Name="ComparisonClassLegendText" FontSize="12" FontWeight="SemiBold" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Foreground="{DynamicResource RecipeDisabledTextBrush}" Text="{Binding Language[WpfComparisonWorkspace.ClassLegend]}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                    </WrapPanel>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding ClassMetrics}"><ItemsControl.ItemTemplate><DataTemplate><StackPanel Margin="0,0,0,6">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding TrendText}" FontSize="12" FontWeight="SemiBold" Margin="4,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" /><Style.Triggers><DataTrigger Binding="{Binding IsWorse}" Value="True"><Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding ValuesText}" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                <Border x:Name="ComparisonClassSwatch" DockPanel.Dock="Left" Width="12" Height="12" CornerRadius="3" Margin="0,0,6,0" VerticalAlignment="Center" Visibility="{Binding HasClassColor, Converter={StaticResource ComparisonBooleanToVisibility}}"><Border.Background><SolidColorBrush Color="{Binding ClassColor}" /></Border.Background></Border>
+                                <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <ProgressBar Style="{StaticResource ComparisonProgressStyle}" Minimum="0" Maximum="1" Value="{Binding BaselineShare, Mode=OneWay}" Margin="0,3,0,0" Foreground="#8DB4FF" />
+                            <ProgressBar Style="{StaticResource ComparisonProgressStyle}" Minimum="0" Maximum="1" Value="{Binding CandidateShare, Mode=OneWay}" Margin="0,2,0,0" Foreground="#F5A524" />
+                        </StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+            <Border x:Name="ComparisonSweepCard" Grid.Column="2" Margin="12,0,0,0" CornerRadius="8" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1" Padding="10">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Margin="0,0,0,4" Style="{StaticResource ComparisonCaptionStyle}"><Run Text="{Binding Language[WpfComparisonWorkspace.SweepTitle], Mode=OneWay}" /><Run Text=" · " /><Run Text="A" Foreground="#60A5FA" /><Run Text=" · " /><Run Text="B" Foreground="#F5A524" /></TextBlock>
+                    <TextBlock DockPanel.Dock="Bottom" Margin="0,4,0,0" Text="{Binding SweepBestText}" Style="{StaticResource ComparisonCaptionStyle}" />
+                    <Border Background="#0F141A" BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1" CornerRadius="6">
+                        <local:ConfidenceSweepChart x:Name="ComparisonSweepChart" FontFamily="{DynamicResource UiFontFamily}" FontSize="11" Foreground="{DynamicResource RecipeMutedTextBrush}"
+                            Baseline="{Binding SweepA}" Candidate="{Binding SweepB}" CurrentConfidence="{Binding SweepConfidence}" CurrentText="{Binding SweepCurrentText}" EmptyText="{Binding Language[WpfComparisonWorkspace.SweepEmpty]}"
+                            AutomationProperties.Name="{Binding Language[WpfComparisonWorkspace.SweepTitle]}" />
+                    </Border>
+                </DockPanel>
+            </Border>
+            <Border x:Name="ComparisonAgreementCard" Grid.Column="3" Margin="12,0,0,0" CornerRadius="8" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1" Padding="12,10">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Margin="0,0,0,6" TextWrapping="Wrap"><Run Text="{Binding Language[WpfComparisonWorkspace.AgreementTitle], Mode=OneWay}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource RecipeMutedTextBrush}" /><Run Text="  " /><Run Text="{Binding Language[WpfComparisonWorkspace.AgreementHint], Mode=OneWay}" FontSize="11" Foreground="{DynamicResource RecipeDisabledTextBrush}" /></TextBlock>
+                    <Button x:Name="ComparisonAgreementAllButton" DockPanel.Dock="Bottom" MinHeight="26" Padding="8,3" Margin="0,4,0,0" HorizontalAlignment="Left" Style="{StaticResource RecipeQuietButtonStyle}" Command="{Binding SelectAgreementCommand}" CommandParameter="all" Content="{Binding Language[WpfComparisonWorkspace.AgreementAll]}" Visibility="{Binding HasAgreementFilter, Converter={StaticResource ComparisonBooleanToVisibility}}" />
+                    <ItemsControl x:Name="ComparisonAgreementGroups" ItemsSource="{Binding AgreementGroups}"><ItemsControl.ItemTemplate><DataTemplate>
+                        <Button MinHeight="26" Padding="8,3" Margin="0,0,0,3" HorizontalContentAlignment="Stretch" Command="{Binding DataContext.SelectAgreementCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding Key}" AutomationProperties.Name="{Binding Name}">
+                            <Button.Style><Style TargetType="Button" BasedOn="{StaticResource RecipeQuietButtonStyle}"><Style.Triggers><DataTrigger Binding="{Binding IsSelected}" Value="True"><Setter Property="Background" Value="{DynamicResource RecipeSelectedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeSelectedBorderBrush}" /></DataTrigger></Style.Triggers></Style></Button.Style>
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" FontSize="12" Typography.NumeralAlignment="Tabular" Margin="8,0,0,0" />
+                                <Border Width="10" Height="10" CornerRadius="2" Margin="0,0,6,0" VerticalAlignment="Center"><Border.Background><SolidColorBrush Color="{Binding Color}" /></Border.Background></Border>
+                                <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                            </DockPanel>
+                        </Button>
+                    </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                </DockPanel>
+            </Border>
+        </Grid>
+        </Grid>
+        <Grid Grid.Row="3" Visibility="{Binding IsPerformanceTab, Converter={StaticResource ComparisonBooleanToVisibility}}">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="300" /></Grid.ColumnDefinitions>
             <Grid Margin="0,0,12,0" Visibility="{Binding HasComparablePair, Converter={StaticResource ComparisonBooleanToVisibility}}">
                 <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
@@ -204,8 +318,8 @@
                         <Style.Triggers><Trigger Property="HasItems" Value="False"><Setter Property="Visibility" Value="Collapsed" /></Trigger></Style.Triggers>
                     </Style></ListBox.Style>
                     <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListBox.ItemsPanel>
-                    <ListBox.ItemTemplate><DataTemplate><Grid Width="96" Height="64" ToolTip="{Binding ImageName}">
-                        <Image Source="{Binding ThumbnailSource}" Stretch="UniformToFill" />
+                    <ListBox.ItemTemplate><DataTemplate><Grid Width="96" Height="64" ToolTip="{Binding ImageName}" Background="{DynamicResource RecipeButtonBrush}">
+                        <Image Source="{Binding ThumbnailSource}" Stretch="Uniform" />
                         <Border Background="{DynamicResource BadBackgroundBrush}" HorizontalAlignment="Right" VerticalAlignment="Bottom" CornerRadius="4" Padding="5,0" Visibility="{Binding HasErrors, Converter={StaticResource ComparisonBooleanToVisibility}}"><TextBlock Text="{Binding ErrorText}" FontSize="10" Foreground="{DynamicResource ErrorBrush}" /></Border>
                     </Grid></DataTemplate></ListBox.ItemTemplate>
                 </ListBox>
@@ -224,19 +338,6 @@
                         <TextBlock Grid.Row="2" Text="{Binding Language[WpfComparisonWorkspace.Extras]}" Margin="8,7" /><TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding BaselineExtras}" TextAlignment="Right" Margin="8,7" /><TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding CandidateExtras}" TextAlignment="Right" Margin="8,7" />
                         <TextBlock Grid.Row="3" Text="{Binding Language[WpfComparisonWorkspace.Takt]}" Margin="8,7" /><TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding BaselineTakt}" TextAlignment="Right" Margin="8,7" /><TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding CandidateTakt}" TextAlignment="Right" Margin="8,7" />
                     </Grid>
-                    <WrapPanel Margin="0,14,0,8" Visibility="{Binding HasClassMetrics, Converter={StaticResource ComparisonBooleanToVisibility}}">
-                        <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding ClassMetricCaption}" Margin="0,0,8,0" TextWrapping="Wrap" />
-                        <TextBlock x:Name="ComparisonClassLegendText" FontSize="12" FontWeight="SemiBold" LineHeight="17.4" LineStackingStrategy="BlockLineHeight" Foreground="{DynamicResource RecipeDisabledTextBrush}" Text="{Binding Language[WpfComparisonWorkspace.ClassLegend]}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                    </WrapPanel>
-                    <ItemsControl ItemsSource="{Binding ClassMetrics}"><ItemsControl.ItemTemplate><DataTemplate><StackPanel Margin="0,0,0,8">
-                        <DockPanel>
-                            <TextBlock DockPanel.Dock="Right" Text="{Binding ValuesText}" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Margin="8,0,0,0" VerticalAlignment="Center" />
-                            <Border x:Name="ComparisonClassSwatch" DockPanel.Dock="Left" Width="12" Height="12" CornerRadius="3" Margin="0,0,6,0" VerticalAlignment="Center" Visibility="{Binding HasClassColor, Converter={StaticResource ComparisonBooleanToVisibility}}"><Border.Background><SolidColorBrush Color="{Binding ClassColor}" /></Border.Background></Border>
-                            <TextBlock Text="{Binding Name}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" />
-                        </DockPanel>
-                        <ProgressBar Style="{StaticResource ComparisonProgressStyle}" Minimum="0" Maximum="1" Value="{Binding BaselineShare, Mode=OneWay}" Margin="0,3,0,0" Foreground="#8DB4FF" />
-                        <ProgressBar Style="{StaticResource ComparisonProgressStyle}" Minimum="0" Maximum="1" Value="{Binding CandidateShare, Mode=OneWay}" Margin="0,2,0,0" Foreground="#F5A524" />
-                    </StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
                     <Button x:Name="WorkspaceAdoptModelButton" Height="30" MinHeight="30" Padding="10,5" Margin="0,14,0,0" Style="{StaticResource RecipePrimaryButtonStyle}" Command="{Binding AdoptModelCommand}" Content="{Binding Language[WpfComparisonWorkspace.Adopt]}" />
                     <TextBlock Text="{Binding BaselinePartTestText, StringFormat='A · {0}'}" TextWrapping="Wrap" Margin="0,8,0,0" Style="{StaticResource ComparisonCaptionStyle}" />
                     <TextBlock Text="{Binding CandidatePartTestText, StringFormat='B · {0}'}" TextWrapping="Wrap" Margin="0,6,0,0" Style="{StaticResource ComparisonCaptionStyle}" />
@@ -248,7 +349,7 @@
                 </StackPanel></ScrollViewer>
             </Border>
         </Grid>
-        <Grid x:Name="DecisionRuleWorkspace" Grid.Row="1" Grid.RowSpan="2" Visibility="{Binding IsRuleTab, Converter={StaticResource ComparisonBooleanToVisibility}}">
+        <Grid x:Name="DecisionRuleWorkspace" Grid.Row="1" Grid.RowSpan="3" Visibility="{Binding IsRuleTab, Converter={StaticResource ComparisonBooleanToVisibility}}">
             <Grid.ColumnDefinitions><ColumnDefinition Width="400" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" MinWidth="240" /></Grid.ColumnDefinitions>
             <Border CornerRadius="8" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1">
                 <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="14">
@@ -315,8 +416,8 @@
                             <Setter Property="Background" Value="{DynamicResource InputBrush}" /><Setter Property="BorderBrush" Value="Transparent" /><Setter Property="BorderThickness" Value="2" />
                             <Style.Triggers><MultiTrigger><MultiTrigger.Conditions><Condition Property="IsMouseOver" Value="True" /><Condition Property="IsEnabled" Value="True" /></MultiTrigger.Conditions><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></MultiTrigger><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger></Style.Triggers>
                         </Style></Button.Style>
-                        <Grid Width="96" Height="64"><Grid.Clip><RectangleGeometry Rect="0,0,96,64" RadiusX="4" RadiusY="4" /></Grid.Clip>
-                            <Image Source="{Binding ThumbnailSource}" Width="96" Height="64" Stretch="UniformToFill" />
+                        <Grid Width="96" Height="64" Background="{DynamicResource RecipeButtonBrush}"><Grid.Clip><RectangleGeometry Rect="0,0,96,64" RadiusX="4" RadiusY="4" /></Grid.Clip>
+                            <Image Source="{Binding ThumbnailSource}" Width="96" Height="64" Stretch="Uniform" />
                             <Border VerticalAlignment="Bottom" HorizontalAlignment="Right" Background="#46202AD9" CornerRadius="4" Padding="5,0">
                                 <TextBlock Text="{Binding Caption}" MaxWidth="84" FontSize="10" LineHeight="14.5" LineStackingStrategy="BlockLineHeight" Foreground="#FFC4C4" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
                             </Border>
@@ -325,6 +426,7 @@
                 </DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer><TextBlock Text="{Binding RuleStatusText}" Margin="0,4,0,0"><TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource ComparisonCaptionStyle}"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding Text, RelativeSource={RelativeSource Self}}" Value=""/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Collapsed"/></MultiDataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></StackPanel></Border></StackPanel></ScrollViewer>
         </Grid>
         </Grid>
+        </ScrollViewer>
         <Border x:Name="ComparisonEmptyState" Grid.RowSpan="3" Margin="-20,-16" Padding="16,120,16,28" Background="{DynamicResource RecipePageBrush}">
             <Border.Style><Style TargetType="Border"><Style.Triggers><DataTrigger Binding="{Binding HasModels}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Border.Style>
             <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center">
@@ -366,6 +468,10 @@
                         <TextBlock Style="{StaticResource ComparisonCaptionStyle}" Text="{Binding Language[WpfComparisonWorkspace.ReasonLabel]}" Margin="0,0,0,4" />
                         <TextBox x:Name="WorkspaceAdoptionReason" Height="30" Padding="8,5" Style="{StaticResource RecipeInputStyle}" Text="{Binding AdoptionReason, UpdateSourceTrigger=PropertyChanged}" />
                         <TextBlock Style="{StaticResource ComparisonCaptionStyle}" Text="{Binding Language[WpfComparisonWorkspace.AdoptionHint]}" Margin="0,12,0,0" />
+                        <!-- Only when the adopted Ultralytics model switches the recipe engine (YOLOv8 <-> YOLO11). -->
+                        <TextBlock x:Name="WorkspaceAdoptionEngineChange" Text="{Binding AdoptionEngineChangeText}" Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource WarningBrush}">
+                            <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource ComparisonCaptionStyle}"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed" /></Trigger></Style.Triggers></Style></TextBlock.Style>
+                        </TextBlock>
                         <TextBlock Style="{StaticResource ComparisonCaptionStyle}" Text="{Binding OperationStatus}" Margin="0,12,0,0" />
                     </StackPanel></ScrollViewer>
                 </DockPanel>

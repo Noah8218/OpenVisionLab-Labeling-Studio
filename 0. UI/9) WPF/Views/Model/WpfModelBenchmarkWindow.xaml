@@ -616,7 +616,7 @@
                                         Padding="10"
                                         Margin="0,0,7,0">
                                     <StackPanel>
-                                        <TextBlock Text="&#xD3C9;&#xAC00; &#xADFC;&#xAC70;"
+                                        <TextBlock Text="&#xD3C9;&#xAC00; &#xC815;&#xBCF4;"
                                                    Foreground="{DynamicResource RecipeMutedTextBrush}"
                                                    FontFamily="{DynamicResource UiFontFamily}"
                                                    FontSize="13"
@@ -1009,7 +1009,7 @@
                                                         Width="1.25*"
                                                         MinWidth="150"
                                                         ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
-                                    <DataGridTextColumn Header="&#xD3C9;&#xAC00; &#xADFC;&#xAC70;" Binding="{Binding EvidenceText}" Width="90" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
+                                    <DataGridTextColumn Header="&#xD3C9;&#xAC00; &#xC815;&#xBCF4;" Binding="{Binding EvidenceText}" Width="90" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
                                     <DataGridTextColumn Header="&#xD310;&#xC815;" Binding="{Binding DecisionText}" Width="90" ElementStyle="{StaticResource BenchmarkWrappedCellTextStyle}" />
                                 </DataGrid.Columns>
                             </DataGrid>

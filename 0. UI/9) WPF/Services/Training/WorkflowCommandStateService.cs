@@ -48,7 +48,7 @@
             }
             else if (!hasCurrentRecipeName)
             {
-                saveProjectConfigUnavailableHint = "\uC800\uC7A5\uD560 recipe\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uB370\uC774\uD130\uC14B \uD648\uC5D0\uC11C \uB370\uC774\uD130\uC14B\uC744 \uB9CC\uB4E4\uAC70\uB098 \uAE30\uC874 \uB370\uC774\uD130\uC14B\uC744 \uC801\uC6A9\uD558\uC138\uC694.";
+                saveProjectConfigUnavailableHint = "\uC800\uC7A5\uD560 \uB808\uC2DC\uD53C\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uB370\uC774\uD130\uC14B \uD648\uC5D0\uC11C \uB370\uC774\uD130\uC14B\uC744 \uB9CC\uB4E4\uAC70\uB098 \uAE30\uC874 \uB370\uC774\uD130\uC14B\uC744 \uC5EC\uC138\uC694.";
             }
             string unavailableHint = anyBusy
                 ? OpenVisionLab.OpenVisionLanguageService.T("WpfShell.Command.Unavailable.Busy")

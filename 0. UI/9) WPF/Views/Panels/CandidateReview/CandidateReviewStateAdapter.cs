@@ -280,7 +280,7 @@ namespace MvcVisionSystem
                     : selectedConfirmable ? OpenVisionLanguageService.T("WpfCandidate.Draft.ConfirmSelectedHint") : BuildCandidateConfirmDisabledHintText(selectedCandidate),
                 isInferenceInspectionOnly
                     ? OpenVisionLanguageService.T("WpfInference.ResultOnly.ConfirmBlocked")
-                    : hasConfirmableCandidates ? OpenVisionLanguageService.T("WpfCandidate.Draft.ConfirmAllHint") : "\uD655\uC815 \uAC00\uB2A5 \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uC911\uBCF5 \uAC00\uB2A5 \uD6C4\uBCF4\uB294 \uC81C\uC678\uD569\uB2C8\uB2E4.",
+                    : hasConfirmableCandidates ? OpenVisionLanguageService.T("WpfCandidate.Draft.ConfirmAllHint") : "\uD655\uC815\uD560 \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uAE30\uC874 \uB77C\uBCA8\uACFC \uACB9\uCE58\uB294 \uD6C4\uBCF4\uB294 \uC81C\uC678\uB429\uB2C8\uB2E4.",
                 hasSelectedCandidate ? "\uC120\uD0DD AI \uD6C4\uBCF4 \uAC74\uB108\uB6F0\uAE30" : "\uAC74\uB108\uB6F8 AI \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.");
             CandidateReviewViewModel?.SetNavigationState(canNavigateCandidates, canNavigateCandidates, canFocusCandidate);
             CandidateReviewViewModel?.SetCurrentLabelFocusState(

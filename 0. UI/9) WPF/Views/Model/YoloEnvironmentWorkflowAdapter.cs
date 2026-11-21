@@ -348,10 +348,13 @@ namespace MvcVisionSystem
                 SaveYoloEditorFields();
                 SaveTrainingEditorFields();
                 using ModelRegistryStateTransaction registryTransaction = new ModelRegistryStateTransaction(projectData.ProjectSettings.ModelRegistry);
-                ModelRegistryService.RecordConfiguredInspectionModel(
-                    projectData.ProjectSettings.ModelRegistry,
-                    previousModelSettings,
-                    projectData.ProjectSettings.DatasetPurpose);
+                // A model file that does not exist (such as a new recipe's placeholder path) is not recorded as an
+                // adopted inspection model; it would appear as a comparable model and become the comparison baseline.
+                if (System.IO.File.Exists(previousModelSettings.WeightsPath))
+                    ModelRegistryService.RecordConfiguredInspectionModel(
+                        projectData.ProjectSettings.ModelRegistry,
+                        previousModelSettings,
+                        projectData.ProjectSettings.DatasetPurpose);
                 if (pendingWeightsRecipeSave)
                 {
                     trainingWeightsApplicationWorkflowService.RecordAppliedWeights(
@@ -363,7 +366,7 @@ namespace MvcVisionSystem
                             SavedToRecipe = true
                         });
                 }
-                else
+                else if (System.IO.File.Exists(projectData.ProjectSettings.PythonModel.WeightsPath))
                 {
                     ModelRegistryService.RecordConfiguredInspectionModel(
                         projectData.ProjectSettings.ModelRegistry,

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.4.3 — 2026-11-21
+
+- Training queue: select several YOLOv8/YOLO11 models and train them one after another on the same captured data. While a model trains, the validation chart draws finished models of the same dataset version in grey; an epoch log of the latest eight epochs and a progress summary show the best value, the difference from a finished model at the same epoch, time per epoch, the remaining estimate including the queue, and the next model. The finished view lists the same-version test results in one table.
+- Automatic evaluation: when the queue finishes, the new models are evaluated on the test split and the training and comparison views fill in without further action. A queue started without a recipe save records the dataset version it trains on.
+- Model comparison: YOLOv8 and YOLO11 models are evaluated with their own engines on the same test split. The comparison shows the A→B difference, AP by class, F1 and recall by confidence, a speed/accuracy chart and per-image agreement filters, and recommends a model among those evaluated on the same dataset version.
+- Inspection model: the chosen YOLOv8 or YOLO11 model can be set on either Ultralytics engine. The recipe engine switches with it, the confirmation names the switch, and Undo restores the previous model and engine. Inference uses the adopted model; Ctrl+I runs inference on the inference stage.
+- Dataset: label sets can be imported from a YOLO `data.yaml` in the label import window, with progress during the pre-check; byte-identical image copies are accepted; the stratified split keeps the configured ratio.
+- Fixes: inference image list thumbnails, a comparison header that moved when choosing A/B, a duplicate re-evaluation row after an engine-changing adoption, Korean status text in the English UI, and UI wording.
+- Verified on the synthetic washer dataset only; field data has not been evaluated.
+
 ## 0.4.2 — 2026-11-20
 
 - Edge runtime throughput: decode, pre-processing, inference and post-processing run as threads joined by bounded queues, with a pool of inference runners; a full first queue drops and counts frames instead of stalling the camera. `stream_bench` measures latency and drops at a fixed frame rate.

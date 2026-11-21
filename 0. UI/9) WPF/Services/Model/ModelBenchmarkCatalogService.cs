@@ -716,7 +716,7 @@ namespace MvcVisionSystem
             return (decision ?? string.Empty).Trim().ToLowerInvariant() switch
             {
                 "adopt" => OpenVisionLab.OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfModelBenchmark.Decision.Adopt")[0],
-                "promote" => "\uAD50\uCCB4 \uCD94\uCC9C",
+                "promote" => "\uAC80\uC0AC \uBAA8\uB378\uB85C \uC9C0\uC815 \uAD8C\uC7A5",
                 "hold" => "\uBCF4\uB958",
                 "review" => OpenVisionLab.OpenVisionLanguageService.GetPreviousKoreanDefaults("WpfModelBenchmark.Decision.Review")[0],
                 "benchmark" => "\uC131\uB2A5 \uBD84\uC11D",

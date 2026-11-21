@@ -152,7 +152,7 @@
                                         CornerRadius="3">
                                     <Image x:Name="RecipeMetadataPreviewImage"
                                            Source="{Binding EditableRecipePreviewImageSource}"
-                                           Stretch="UniformToFill"
+                                           Stretch="Uniform"
                                            Visibility="{Binding RecipeMetadataPreviewImageVisibility}"
                                            AutomationProperties.AutomationId="RecipeMetadataPreviewImage" />
                                 </Border>

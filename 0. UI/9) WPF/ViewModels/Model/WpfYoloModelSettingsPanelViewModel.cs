@@ -73,8 +73,8 @@ namespace MvcVisionSystem
         private string runtimeInstallPlanTargetText = string.Empty;
         private string runtimeInstallPlanCommandText = string.Empty;
         private string runtimeInstallPlanUninstallCommandText = string.Empty;
-        private string runtimePackageResultSummaryText = "\uC544\uC9C1 \uC2E4\uD589 \uAE30\uB85D \uC5C6\uC74C";
-        private string runtimePackageResultDetailText = "\uC124\uCE58 \uC2E4\uD589 \uB610\uB294 \uC81C\uAC70 \uD6C4 \uACB0\uACFC\uAC00 \uC5EC\uAE30\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
+        private string runtimePackageResultSummaryText = "\uC2E4\uD589 \uAE30\uB85D \uC5C6\uC74C";
+        private string runtimePackageResultDetailText = "\uD328\uD0A4\uC9C0\uB97C \uC124\uCE58\uD558\uAC70\uB098 \uC81C\uAC70\uD558\uBA74 \uACB0\uACFC\uAC00 \uC5EC\uAE30\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
         private ICommand runtimeInstallPackageCommand = new RelayCommand(NoOpCommand);
         private ICommand runtimeUninstallPackageCommand = new RelayCommand(NoOpCommand);
         private Action runtimeInstallPackageAction = NoOpCommand;

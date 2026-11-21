@@ -31,12 +31,50 @@ namespace MvcVisionSystem
                 IsCloseApproved = context.IsCloseApproved,
                 SaveMetadata = context.SaveMetadata,
                 CommandStateChanged = () => context.UpdateCommandState?.Invoke(),
-                HistoryUpdated = () => { Refresh(); context.RefreshComparison?.Invoke(); }
+                // The queue records a run and then calls this; TrainingGuide.LastTrainingRunId is that run. The comparison
+                // waits while training still runs (comparison commands are unavailable) and evaluates the new models
+                // once the queue releases the runtime.
+                HistoryUpdated = () =>
+                {
+                    Refresh();
+                    context.ViewModels.ModelComparisonWorkspaceViewModel.RequestAutoEvaluation(context.DataProvider()?.ProjectSettings?.TrainingGuide?.LastTrainingRunId);
+                    context.RefreshComparison?.Invoke();
+                }
             });
             Workspace.Configure(context.Runtime, CaptureImages, Refresh, context.OpenDataset, context.OpenEnvironment, context.OpenComparison, context.OpenInference,
                 () => context.DataProvider()?.ProjectSettings?.ModelRegistry?.TrainingRuns?.Count(run => run != null && string.Equals(run.State, "completed", StringComparison.OrdinalIgnoreCase)) ?? 0,
                 context.ViewModels.ModelWorkflowViewModels.YoloStatusViewModel);
-            Workspace.RefreshRequested += Refresh;
+            Workspace.RefreshRequested += OnTrainingStageShown;
+            context.Runtime.QueueChanged += OnQueueChanged;
+        }
+
+        // A recorded run asks for auto evaluation while the queue still holds the runtime, so the comparison cannot run
+        // yet. When the queue becomes idle the comparison refreshes once more; that refresh prepares the comparison
+        // dataset if needed and reads the now-available command state, which starts the pending evaluations.
+        private void OnQueueChanged(TrainingQueueSnapshot snapshot)
+        {
+            if (disposed || context.ViewModels.ModelComparisonWorkspaceViewModel.IsAutoEvaluationPending != true) return;
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (disposed || context.IsCloseApproved?.Invoke() == true || context.Runtime.IsQueueBusy || !context.ViewModels.ModelComparisonWorkspaceViewModel.IsAutoEvaluationPending) return;
+                context.UpdateCommandState?.Invoke();
+                context.RefreshComparison?.Invoke();
+            }), System.Windows.Threading.DispatcherPriority.Background);
+        }
+
+        private void OnTrainingStageShown()
+        {
+            Refresh();
+            TryConnectSavedRuntime();
+        }
+
+        // Only while no model card is available; the attempt record is shared with the comparison stage.
+        private void TryConnectSavedRuntime()
+        {
+            if (disposed || context.IsCloseApproved?.Invoke() == true || !Workspace.NeedsRuntimeSetup) return;
+            LabelingProjectData data = context.DataProvider();
+            context.ViewModels.ModelWorkflowViewModels.YoloStatusViewModel?.TryConnectSavedRuntimeOnce(
+                (data?.OutputRootPath ?? string.Empty) + "|" + context.RecipeNameProvider(), data?.ProjectSettings?.PythonModel, () => context.StatusProvider()?.IsClientConnected == true);
         }
 
         internal void Refresh()
@@ -86,7 +124,7 @@ namespace MvcVisionSystem
                     && (ModelComparisonWorkspaceViewModel.SamePath(history.WeightsPath, report.WeightsPath) || ModelComparisonWorkspaceViewModel.SamePath(history.ArtifactPath, report.WeightsPath)))
                     .OrderByDescending(report => report.CreatedAt).FirstOrDefault();
             if (evaluation != null && !ModelArtifactStoreService.Verify(evaluation.SourcePath, evaluation.SourceSha256)) evaluation = null;
-            return new TrainingHistoryItem(history, run, name, purpose, evaluation, versionLabel);
+            return new TrainingHistoryItem(history, run, name, purpose, evaluation, versionLabel, TrainingResultsCurveService.Read(history.WeightsPath));
         }
 
         private IReadOnlyList<TrainingDatasetImageSelection> CaptureImages()
@@ -105,7 +143,10 @@ namespace MvcVisionSystem
                 bool cached = requiredEngine is PythonModelSettings.EngineUnet or PythonModelSettings.EnginePatchCore
                     || status.WorkerRuntimeReadyTrainingWeights.Any(path => Path.GetFileName(path).Equals(weights, StringComparison.OrdinalIgnoreCase));
                 bool available = compatible && runtimeReady && status.IsClientConnected && cached;
-                models.Add(new TrainingModelChoice(id, name, requiredEngine, weights, note, available, !compatible ? "OtherRuntime" : !cached ? "MissingWeights" : "RuntimeUnavailable"));
+                // Without a connected worker every model is blocked for the same reason; naming another runtime
+                // or missing weights there would point the user at the wrong fix.
+                string reason = !status.IsClientConnected || !runtimeReady ? "RuntimeUnavailable" : !compatible ? "OtherRuntime" : !cached ? "MissingWeights" : "RuntimeUnavailable";
+                models.Add(new TrainingModelChoice(id, name, requiredEngine, weights, note, available, reason));
             }
             if (purpose == LabelingDatasetPurpose.Segmentation)
             {
@@ -134,7 +175,8 @@ namespace MvcVisionSystem
         public void Dispose()
         {
             if (disposed) return;
-            disposed = true; Workspace.RefreshRequested -= Refresh;
+            disposed = true; Workspace.RefreshRequested -= OnTrainingStageShown;
+            if (context.Runtime != null) context.Runtime.QueueChanged -= OnQueueChanged;
         }
     }
 

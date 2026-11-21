@@ -25,7 +25,20 @@ namespace MvcVisionSystem
             int leafEnd = path.TrimEnd('\\', '/').Length;
             int separator = leafEnd > 0 ? path.LastIndexOfAny(new[] { '\\', '/' }, leafEnd - 1) : -1;
             string tail = separator >= 0 ? path.Substring(separator) : path;
-            if (Measure("…" + tail) <= width) return "…" + tail;
+            if (Measure("…" + tail) <= width)
+            {
+                // Add parent folders from the end while they still fit, so the field shows where the file is
+                // ("…\fresh\coco\instances.json") rather than the leaf alone.
+                while (separator > 0)
+                {
+                    int previous = path.LastIndexOfAny(new[] { '\\', '/' }, separator - 1);
+                    if (previous < 0) break;
+                    string wider = path.Substring(previous);
+                    if (Measure("…" + wider) > width) break;
+                    tail = wider; separator = previous;
+                }
+                return "…" + tail;
+            }
 
             int[] elements = StringInfo.ParseCombiningCharacters(tail);
             int first = 0, end = elements.Length;

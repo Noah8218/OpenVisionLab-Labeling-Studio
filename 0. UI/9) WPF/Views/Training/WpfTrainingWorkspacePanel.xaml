@@ -183,7 +183,11 @@
                     </StackPanel></Border>
                     <Border Style="{StaticResource TrainingCardStyle}" Margin="0,0,0,16"><StackPanel>
                         <TextBlock Margin="0,0,0,8" Style="{StaticResource TrainingSectionTitleStyle}" Text="{Binding Language[WpfTrainingWorkspace.Preflight]}" />
-                        <TextBlock Text="{Binding SavedInputText}" TextWrapping="Wrap" /><TextBlock Margin="0,6,0,0" Text="{Binding EnvironmentText}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding SavedInputText}" TextWrapping="Wrap" />
+                        <Grid Margin="0,6,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" Text="{Binding EnvironmentText}" TextWrapping="Wrap" />
+                            <Button x:Name="TrainingOpenRuntimeSettingsButton" Grid.Column="1" Margin="10,0,0,0" Height="24" MinHeight="24" Padding="8,2" FontSize="12" HorizontalAlignment="Left" Style="{StaticResource RecipeQuietButtonStyle}" Command="{Binding OpenRuntimeSettingsCommand}" Content="{Binding Language[WpfTrainingWorkspace.SetUpRuntime]}" Visibility="{Binding NeedsRuntimeSetup, Converter={StaticResource TrainingBooleanToVisibility}}" />
+                        </Grid>
                         <ItemsControl Margin="0,6,0,0" ItemsSource="{Binding Warnings}"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Margin="0,4,0,0" TextWrapping="Wrap" Foreground="{DynamicResource WarningBrush}"><Run Text="!  " /><Run Text="{Binding Mode=OneWay}" /></TextBlock></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
                     </StackPanel></Border>
                     <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBlock Margin="0,0,12,0" VerticalAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource RecipeMutedTextBrush}" Text="{Binding SelectedCountText}" />
@@ -214,10 +218,45 @@
                             </Border>
                         </StackPanel></Border>
                         <Border x:Name="TrainingValidationCard" Grid.Column="2" Style="{StaticResource TrainingCardStyle}" Padding="10" Margin="0"><StackPanel>
-                            <TextBlock x:Name="TrainingValidationCurveCaption" Style="{StaticResource TrainingCaptionStyle}" Text="{Binding LiveValidationCaption}" />
+                            <TextBlock x:Name="TrainingValidationCurveCaption" Style="{StaticResource TrainingCaptionStyle}" TextTrimming="CharacterEllipsis"><Run Text="{Binding LiveValidationCaption, Mode=OneWay}" /><Run Text="{Binding LivePeerCompareText, Mode=OneWay}" /><Run Foreground="#3CCF8E" Text="{Binding LiveThisModelText, Mode=OneWay}" /><Run Text="{Binding LivePeerCloseText, Mode=OneWay}" /></TextBlock>
                             <Border Height="150" Background="#0F141A" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1" CornerRadius="6">
-                                <local:TrainingMetricCurve x:Name="TrainingValidationCurve" FontFamily="{DynamicResource UiFontFamily}" FontSize="12" Foreground="{DynamicResource RecipeMutedTextBrush}" Metrics="{Binding LiveMetrics}" Epochs="{Binding LiveMetricEpochs}" MetricOnly="True" EmptyText="{Binding Language[WpfTrainingWorkspace.NoLiveMetrics]}" AutomationProperties.Name="{Binding LiveValidationCaption}" />
+                                <local:TrainingMetricCurve x:Name="TrainingValidationCurve" FontFamily="{DynamicResource UiFontFamily}" FontSize="12" Foreground="{DynamicResource RecipeMutedTextBrush}" Metrics="{Binding LiveMetrics}" Epochs="{Binding LiveMetricEpochs}" MetricOnly="True" Peers="{Binding LivePeerCurves}" PeerAxisFloor="False" EmptyText="{Binding Language[WpfTrainingWorkspace.NoLiveMetrics]}" AutomationProperties.Name="{Binding LiveValidationCaption}" />
                             </Border>
+                        </StackPanel></Border>
+                    </Grid>
+                    <!-- v2 prototype liveDetails(): the latest recorded epochs and a summary against the finished same-version models. -->
+                    <Grid x:Name="TrainingLiveDetails" Margin="0,12,0,0" Visibility="{Binding HasLiveDetails, Converter={StaticResource TrainingBooleanToVisibility}}"><Grid.ColumnDefinitions><ColumnDefinition Width="3*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
+                        <Border x:Name="TrainingLiveEpochTable" Style="{StaticResource TrainingCardStyle}" Padding="14,10" Margin="0"><StackPanel>
+                            <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource RecipeMutedTextBrush}"><Run Text="{Binding Language[WpfTrainingWorkspace.EpochTableTitle], Mode=OneWay}" /><Run Text="  " /><Run FontWeight="Normal" Foreground="{DynamicResource DisabledTextBrush}" Text="{Binding LiveEpochTableRecentText, Mode=OneWay}" /></TextBlock>
+                            <Grid Margin="0,8,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <TextBlock Margin="8,7" Style="{StaticResource TrainingCaptionStyle}" Text="{Binding Language[WpfTrainingWorkspace.EpochColumn]}" />
+                                <TextBlock Grid.Column="1" Margin="8,7" HorizontalAlignment="Right" Style="{StaticResource TrainingCaptionStyle}" Text="{Binding Language[WpfTrainingWorkspace.TrainLossColumn]}" />
+                                <TextBlock Grid.Column="2" Margin="8,7" HorizontalAlignment="Right" Style="{StaticResource TrainingCaptionStyle}" Text="{Binding Language[WpfTrainingWorkspace.ValidationLossColumn]}" />
+                                <TextBlock Grid.Column="3" Margin="8,7" HorizontalAlignment="Right" Style="{StaticResource TrainingCaptionStyle}" Text="{Binding LiveMetricColumnText}" />
+                            </Grid>
+                            <ItemsControl x:Name="TrainingLiveEpochRows" ItemsSource="{Binding LiveEpochRows}"><ItemsControl.ItemTemplate><DataTemplate>
+                                <Border Padding="0,7" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,1,0,0">
+                                    <Border.Style><Style TargetType="Border"><Style.Triggers><DataTrigger Binding="{Binding IsBest}" Value="True"><Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" /></DataTrigger></Style.Triggers></Style></Border.Style>
+                                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <StackPanel Margin="8,0,0,0" Orientation="Horizontal"><TextBlock FontSize="12" LineHeight="17.4" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" Text="{Binding Epoch}" />
+                                            <Border Margin="6,0,0,0" Padding="7,0" CornerRadius="9" BorderThickness="1" Background="{DynamicResource DatasetReadyBrush}" BorderBrush="{DynamicResource DatasetReadyBorderBrush}" Visibility="{Binding IsBest, Converter={StaticResource TrainingBooleanToVisibility}}"><TextBlock FontSize="11" Foreground="{DynamicResource DatasetReadyTextBrush}" Text="{Binding [WpfTrainingWorkspace.BestEpoch], Source={x:Static local:WpfLocalizationViewModel.Instance}}" /></Border></StackPanel>
+                                        <TextBlock Grid.Column="1" Margin="0,0,8,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="12" LineHeight="17.4" Typography.NumeralAlignment="Tabular" Text="{Binding TrainLoss}" />
+                                        <TextBlock Grid.Column="2" Margin="0,0,8,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="12" LineHeight="17.4" Typography.NumeralAlignment="Tabular" Text="{Binding ValidationLoss}" />
+                                        <TextBlock Grid.Column="3" Margin="0,0,8,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="12" LineHeight="17.4" Typography.NumeralAlignment="Tabular" Text="{Binding Metric}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                        </StackPanel></Border>
+                        <Border x:Name="TrainingLiveSummary" Grid.Column="2" Style="{StaticResource TrainingCardStyle}" Padding="14,10" Margin="0"><StackPanel>
+                            <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource RecipeMutedTextBrush}" Text="{Binding Language[WpfTrainingWorkspace.LiveSummaryTitle]}" />
+                            <ItemsControl x:Name="TrainingLiveFacts" Margin="0,8,0,0" Grid.IsSharedSizeScope="True" ItemsSource="{Binding LiveFacts}"><ItemsControl.ItemTemplate><DataTemplate>
+                                <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" SharedSizeGroup="LiveFactLabel" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                    <TextBlock Margin="0,0,16,0" Style="{StaticResource TrainingCaptionStyle}" VerticalAlignment="Center" Text="{Binding Label}" />
+                                    <TextBlock Grid.Column="1" FontSize="12" TextWrapping="Wrap" Typography.NumeralAlignment="Tabular">
+                                        <Run Text="{Binding Value, Mode=OneWay}"><Run.Style><Style TargetType="Run"><Style.Triggers><DataTrigger Binding="{Binding IsEmphasized}" Value="True"><Setter Property="FontWeight" Value="SemiBold" /></DataTrigger></Style.Triggers></Style></Run.Style></Run><Run Text=" " /><Run Text="{Binding Detail, Mode=OneWay}"><Run.Style><Style TargetType="Run"><Setter Property="Foreground" Value="{DynamicResource RecipeMutedTextBrush}" /><Style.Triggers><DataTrigger Binding="{Binding IsGood}" Value="True"><Setter Property="Foreground" Value="#3CCF8E" /></DataTrigger><DataTrigger Binding="{Binding IsWarning}" Value="True"><Setter Property="Foreground" Value="{DynamicResource WarningBrush}" /></DataTrigger></Style.Triggers></Style></Run.Style></Run>
+                                    </TextBlock>
+                                </Grid>
+                            </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
                         </StackPanel></Border>
                     </Grid>
                     <Border Style="{StaticResource TrainingCardStyle}" Margin="0,12,0,0"><TextBlock FontSize="12" Foreground="{DynamicResource RecipeMutedTextBrush}" TextWrapping="Wrap" Text="{Binding LiveLogText}" /></Border>
@@ -251,6 +290,55 @@
                     <Border x:Name="TrainingAdoptionHint" Margin="0,14,0,0">
                         <Border.Style><Style TargetType="Border" BasedOn="{StaticResource TrainingCardStyle}"><Style.Triggers><DataTrigger Binding="{Binding SelectedRun.IsInspectionModel}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Border.Style>
                         <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBlock Margin="0,0,12,0" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding Language[WpfTrainingWorkspace.AdoptionBoundary]}" /><Button Grid.Column="1" Height="30" MinHeight="30" Padding="10,5" Style="{StaticResource RecipePrimaryButtonStyle}" Command="{Binding OpenComparisonCommand}" Content="{Binding Language[WpfTrainingWorkspace.CompareAndAdopt]}" /></Grid></Border>
+                    <!-- Finished run (v2 prototype runPeers): its loss curves, the validation metric of every model on the same
+                         dataset version, and their test results with the recommendation. Rows wrap instead of demanding width.
+                         The curve cards appear only for a run whose results.csv was read (every Ultralytics run writes one). -->
+                    <Grid x:Name="TrainingResultCurves" Margin="0,14,0,0" Visibility="{Binding SelectedRun.HasCurve, Converter={StaticResource TrainingBooleanToVisibility}, FallbackValue=Collapsed}"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Style="{StaticResource TrainingCardStyle}" Padding="10" Margin="0"><StackPanel>
+                            <TextBlock Style="{StaticResource TrainingCaptionStyle}" TextTrimming="CharacterEllipsis"><Run Text="{Binding Language[WpfTrainingWorkspace.LossCaption], Mode=OneWay}" /><Run Text=" · " /><Run Foreground="#60A5FA" Text="{Binding Language[WpfTrainingWorkspace.TrainSeries], Mode=OneWay}" /><Run Text=" · " /><Run Foreground="#F5A524" Text="{Binding Language[WpfTrainingWorkspace.ValidationSeries], Mode=OneWay}" /></TextBlock>
+                            <Border Height="150" Background="#0F141A" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1" CornerRadius="6">
+                                <local:TrainingMetricCurve x:Name="TrainingResultLossCurve" FontFamily="{DynamicResource UiFontFamily}" FontSize="12" Foreground="{DynamicResource RecipeMutedTextBrush}" Metrics="{Binding SelectedRun.Curve}" Epochs="{Binding SelectedRun.CurveEpochs}" EmptyText="{Binding Language[WpfTrainingWorkspace.NoRunCurve]}" AutomationProperties.Name="{Binding Language[WpfTrainingWorkspace.LossCaption]}" />
+                            </Border>
+                        </StackPanel></Border>
+                        <Border Grid.Column="2" Style="{StaticResource TrainingCardStyle}" Padding="10" Margin="0"><StackPanel>
+                            <TextBlock x:Name="TrainingResultPeerCurveCaption" Style="{StaticResource TrainingCaptionStyle}" TextTrimming="CharacterEllipsis"><Run Text="{Binding PeerMetricCaption, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding PeerCurveCaption, Mode=OneWay}" /></TextBlock>
+                            <Border Height="150" Background="#0F141A" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="1" CornerRadius="6">
+                                <local:TrainingMetricCurve x:Name="TrainingResultPeerCurve" FontFamily="{DynamicResource UiFontFamily}" FontSize="12" Foreground="{DynamicResource RecipeMutedTextBrush}" Metrics="{Binding SelectedRun.Curve}" Epochs="{Binding SelectedRun.CurveEpochs}" MetricOnly="True" Peers="{Binding SelectedRunPeerCurves}" EmptyText="{Binding Language[WpfTrainingWorkspace.NoRunCurve]}" AutomationProperties.Name="{Binding PeerCurveCaption}" />
+                            </Border>
+                        </StackPanel></Border>
+                    </Grid>
+                    <Border x:Name="TrainingPeerTable" Margin="0,12,0,0" Style="{StaticResource TrainingCardStyle}" Visibility="{Binding HasSelectedRunPeers, Converter={StaticResource TrainingBooleanToVisibility}}"><StackPanel>
+                        <!-- Prototype table.lb: title with the recommendation on one line, then a header row and one row per model with
+                             fixed right-aligned metric columns, so values line up across models. -->
+                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <TextBlock FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource RecipeMutedTextBrush}" Text="{Binding Language[WpfTrainingWorkspace.PeerTableTitle]}" />
+                            <TextBlock x:Name="TrainingPeerRecommendation" Grid.Column="1" Margin="16,0,0,0" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource TrainingCaptionStyle}" TextTrimming="CharacterEllipsis" Text="{Binding PeerRecommendationText}" />
+                        </Grid>
+                        <Grid x:Name="TrainingPeerHeader" Margin="0,8,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="104" /></Grid.ColumnDefinitions>
+                            <TextBlock Margin="6,7" Style="{StaticResource TrainingCaptionStyle}" Text="{Binding Language[WpfTrainingWorkspace.PeerModelColumn]}" />
+                            <ItemsControl Grid.Column="1" ItemsSource="{Binding PeerTableColumns}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate>
+                                <TextBlock Width="96" Margin="0,7" Padding="0,0,8,0" TextAlignment="Right" Style="{StaticResource TrainingCaptionStyle}" TextTrimming="CharacterEllipsis" Text="{Binding}" />
+                            </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                        </Grid>
+                        <ItemsControl x:Name="TrainingPeerRows" ItemsSource="{Binding SelectedRunPeers}"><ItemsControl.ItemTemplate><DataTemplate>
+                            <Border Padding="6,6" BorderBrush="{DynamicResource RecipeBorderBrush}" BorderThickness="0,1,0,0">
+                                <Border.Style><Style TargetType="Border"><Style.Triggers><DataTrigger Binding="{Binding IsSelected}" Value="True"><Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" /></DataTrigger></Style.Triggers></Style></Border.Style>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="98" /></Grid.ColumnDefinitions>
+                                    <WrapPanel VerticalAlignment="Center">
+                                        <TextBlock FontWeight="SemiBold" FontSize="12" Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                        <Border Margin="6,0,0,0" Padding="7,0" CornerRadius="9" BorderThickness="1" Background="{DynamicResource DatasetReadyBrush}" BorderBrush="{DynamicResource DatasetReadyBorderBrush}" Visibility="{Binding IsInspectionModel, Converter={StaticResource TrainingBooleanToVisibility}}"><TextBlock FontSize="11" Foreground="{DynamicResource DatasetReadyTextBrush}" Text="{Binding [WpfTrainingWorkspace.InspectionModel], Source={x:Static local:WpfLocalizationViewModel.Instance}}" /></Border>
+                                        <Border Margin="6,0,0,0" Padding="7,0" CornerRadius="9" BorderThickness="1" Background="{DynamicResource RecipeSelectedBrush}" BorderBrush="{DynamicResource RecipeSelectedBorderBrush}" Visibility="{Binding IsRecommendedPeer, Converter={StaticResource TrainingBooleanToVisibility}}"><TextBlock FontSize="11" Foreground="#B9D3FF" Text="{Binding [WpfComparisonWorkspace.RecommendedBadge], Source={x:Static local:WpfLocalizationViewModel.Instance}}" /></Border>
+                                    </WrapPanel>
+                                    <ItemsControl Grid.Column="1" VerticalAlignment="Center" ItemsSource="{Binding MetricCells}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate>
+                                        <TextBlock Width="96" Padding="0,0,8,0" TextAlignment="Right" FontSize="12" Typography.NumeralAlignment="Tabular" Text="{Binding Text}" />
+                                    </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                                    <Button Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center" Height="26" MinHeight="26" Padding="8,2" FontSize="12" Command="{Binding DataContext.SelectRunCommand, RelativeSource={RelativeSource AncestorType=ItemsControl, AncestorLevel=1}}" CommandParameter="{Binding}" Content="{Binding [WpfTrainingWorkspace.PeerOpen], Source={x:Static local:WpfLocalizationViewModel.Instance}}">
+                                        <Button.Style><Style TargetType="Button" BasedOn="{StaticResource RecipeSecondaryButtonStyle}"><Style.Triggers><DataTrigger Binding="{Binding IsSelected}" Value="True"><Setter Property="Visibility" Value="Hidden" /></DataTrigger></Style.Triggers></Style></Button.Style>
+                                    </Button>
+                                </Grid>
+                            </Border>
+                        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                    </StackPanel></Border>
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>

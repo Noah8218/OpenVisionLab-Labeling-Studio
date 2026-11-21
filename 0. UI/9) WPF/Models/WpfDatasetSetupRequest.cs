@@ -32,6 +32,11 @@ namespace MvcVisionSystem
 
         public string WeightsPath { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Copy of the open recipe's runtime connection, offered to the new recipe. Null when no recipe is open.
+        /// </summary>
+        public PythonModelSettings InheritedRuntime { get; set; }
+
         public IReadOnlyList<string> AnomalyNormalClassNames { get; set; } = Array.Empty<string>();
 
         public IReadOnlyList<string> AnomalyAbnormalClassNames { get; set; } = Array.Empty<string>();

@@ -50,10 +50,14 @@
             </Style>
             <Style x:Key="InterchangeTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource RecipeInputStyle}">
                 <Setter Property="MinHeight" Value="30" /><Setter Property="Height" Value="Auto" /><Setter Property="FontSize" Value="13" /><Setter Property="Padding" Value="8,5" />
-                <Setter Property="TextWrapping" Value="Wrap" /><Setter Property="AcceptsReturn" Value="False" /><Setter Property="AcceptsTab" Value="False" />
+                <!-- Path inputs stay on one line; the overlay below shows the file/folder name end while unfocused
+                     and the tooltip carries the full path. -->
+                <Setter Property="TextWrapping" Value="NoWrap" /><Setter Property="AcceptsReturn" Value="False" /><Setter Property="AcceptsTab" Value="False" />
                 <Setter Property="Background" Value="{DynamicResource RecipePageBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonBorderBrush}" />
                 <Setter Property="CaretBrush" Value="{DynamicResource RecipeTextBrush}" /><Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
                 <Style.Triggers>
+                    <Trigger Property="Text" Value=""><Setter Property="ToolTip" Value="{x:Null}" /></Trigger>
                     <DataTrigger Binding="{Binding IsDetailsExpanded}" Value="True"><Setter Property="MinHeight" Value="38" /></DataTrigger>
                     <Trigger Property="IsMouseOver" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource RecipeButtonHoverBorderBrush}" /></Trigger>
                     <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource RecipeFocusBrush}" /></Trigger>
@@ -61,6 +65,34 @@
                     <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource RecipeDisabledTextBrush}" /></Trigger>
                     <Trigger Property="Validation.HasError" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource ErrorBrush}" /></Trigger>
                 </Style.Triggers>
+            </Style>
+            <!-- Same display-only tail preview as the model settings path fields (PathTailPreviewConverter). -->
+            <local:PathTailPreviewConverter x:Key="InterchangePathTail" />
+            <Style x:Key="InterchangePathPreviewStyle" TargetType="ContentControl">
+                <Setter Property="IsHitTestVisible" Value="False" /><Setter Property="Focusable" Value="False" /><Setter Property="IsTabStop" Value="False" />
+                <Setter Property="Visibility" Value="{Binding Visibility}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ContentControl">
+                            <Border x:Name="Preview" Margin="{Binding BorderThickness}" Padding="{Binding Padding}" Background="{Binding Background}" CornerRadius="5">
+                                <TextBlock x:Name="Tail" VerticalAlignment="Center" Foreground="{Binding Foreground}" FontFamily="{Binding FontFamily}" FontSize="{Binding FontSize}" FontWeight="{Binding FontWeight}">
+                                    <TextBlock.Text>
+                                        <MultiBinding Converter="{StaticResource InterchangePathTail}">
+                                            <Binding Path="Text" />
+                                            <Binding Path="ActualWidth" RelativeSource="{RelativeSource Self}" />
+                                            <Binding Path="FontSize" />
+                                            <Binding />
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger SourceName="Tail" Property="Text" Value=""><Setter TargetName="Preview" Property="Opacity" Value="0" /></Trigger>
+                                <DataTrigger Binding="{Binding IsKeyboardFocusWithin}" Value="True"><Setter TargetName="Preview" Property="Opacity" Value="0" /></DataTrigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
             <Style TargetType="ComboBox" BasedOn="{StaticResource RecipeComboBoxStyle}">
                 <Setter Property="Height" Value="Auto" /><Setter Property="MinHeight" Value="30" />
@@ -226,6 +258,7 @@
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                                     <TextBox x:Name="DatasetInterchangeSourcePathBox" Text="{Binding SourcePath, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsExport}" Style="{StaticResource InterchangeTextBoxStyle}"
                                              AutomationProperties.AutomationId="DatasetInterchangeSourcePathBox" AutomationProperties.Name="{Binding [WpfDatasetInterchange.Label.SourcePath], Source={x:Static local:WpfLocalizationViewModel.Instance}}" />
+                                    <ContentControl DataContext="{Binding ElementName=DatasetInterchangeSourcePathBox}" Style="{StaticResource InterchangePathPreviewStyle}" />
                                     <ui:Button Grid.Column="1" MinWidth="76" Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource InterchangeButtonStyle}" Command="{Binding BrowseSourceCommand}" Visibility="{Binding IsImport, Converter={StaticResource BooleanToVisibilityConverter}}"
                                                AutomationProperties.Name="{Binding [WpfDatasetInterchange.Label.SourceSelect], Source={x:Static local:WpfLocalizationViewModel.Instance}}">
                                         <TextBlock Text="{Binding [WpfDatasetInterchange.Button.Select], Source={x:Static local:WpfLocalizationViewModel.Instance}}" />
@@ -236,7 +269,8 @@
                                 <TextBlock Text="{Binding [WpfDatasetInterchange.Label.SourceImages], Source={x:Static local:WpfLocalizationViewModel.Instance}}" Style="{StaticResource InterchangeLabelStyle}" />
                                 <Grid>
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                    <TextBox Text="{Binding ImageRoot, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource InterchangeTextBoxStyle}" AutomationProperties.Name="{Binding [WpfDatasetInterchange.Label.SourceImages], Source={x:Static local:WpfLocalizationViewModel.Instance}}" />
+                                    <TextBox x:Name="DatasetInterchangeImageRootBox" Text="{Binding ImageRoot, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource InterchangeTextBoxStyle}" AutomationProperties.Name="{Binding [WpfDatasetInterchange.Label.SourceImages], Source={x:Static local:WpfLocalizationViewModel.Instance}}" />
+                                    <ContentControl DataContext="{Binding ElementName=DatasetInterchangeImageRootBox}" Style="{StaticResource InterchangePathPreviewStyle}" />
                                     <ui:Button Grid.Column="1" MinWidth="76" Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource InterchangeButtonStyle}" Command="{Binding BrowseImageRootCommand}" AutomationProperties.Name="{Binding [WpfDatasetInterchange.Label.SourceImagesSelect], Source={x:Static local:WpfLocalizationViewModel.Instance}}">
                                         <TextBlock Text="{Binding [WpfDatasetInterchange.Button.Select], Source={x:Static local:WpfLocalizationViewModel.Instance}}" />
                                     </ui:Button>
@@ -249,6 +283,7 @@
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                                     <TextBox x:Name="DatasetInterchangeTargetPathBox" Text="{Binding TargetPath, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsImport}" Style="{StaticResource InterchangeTextBoxStyle}"
                                              AutomationProperties.AutomationId="DatasetInterchangeTargetPathBox" AutomationProperties.Name="{Binding [WpfDatasetInterchange.Label.TargetPath], Source={x:Static local:WpfLocalizationViewModel.Instance}}" />
+                                    <ContentControl DataContext="{Binding ElementName=DatasetInterchangeTargetPathBox}" Style="{StaticResource InterchangePathPreviewStyle}" />
                                     <ui:Button Grid.Column="1" MinWidth="76" Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource InterchangeButtonStyle}" Command="{Binding BrowseTargetCommand}" Visibility="{Binding IsExport, Converter={StaticResource BooleanToVisibilityConverter}}"
                                                AutomationProperties.Name="{Binding [WpfDatasetInterchange.Label.TargetSelect], Source={x:Static local:WpfLocalizationViewModel.Instance}}">
                                         <TextBlock Text="{Binding [WpfDatasetInterchange.Button.Select], Source={x:Static local:WpfLocalizationViewModel.Instance}}" />

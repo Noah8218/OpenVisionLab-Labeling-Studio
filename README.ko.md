@@ -2,7 +2,7 @@
 
 한 PC에서 산업 이미지에 라벨을 붙이고 모델을 학습·비교한 뒤 추론하는 Windows 데스크톱 도구입니다.
 
-[![버전 0.4.2](https://img.shields.io/badge/version-0.4.2-blue)](Directory.Build.props)
+[![버전 0.4.3](https://img.shields.io/badge/version-0.4.3-blue)](Directory.Build.props)
 ![Windows 10/11 x64](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-blue)
 ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
 [![MIT License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -105,6 +105,10 @@ Python 실행 환경과 가중치는 학습·추론·MobileSAM 보조 기능의 
 **학습 → 실행 환경**에서 등록된 모델을 선택하면 Python 실행 파일, 실행 환경 폴더와 통신 스크립트가 함께 전환됩니다. 최초 자동 탐색에 실패하면 실행 환경 폴더를 지정합니다.
 데이터 식별값, 클래스, 분할과 평가 설정이 같은 모델을 비교하며, 조건이 다르면 우열 대신 차이를 표시합니다.
 
+![같은 데이터 버전으로 학습한 두 모델을 테스트 분할에서 비교하고 검사 모델로 지정한 뒤 추론](docs/tutorial/images/readme/ko/multimodel-comparison.gif)
+
+같은 데이터 버전으로 YOLOv8n과 YOLO11n 학습 → 테스트 분할에서 비교 → 더 나은 모델을 검사 모델로 지정 → 추론. [MP4로 보기](docs/tutorial/images/readme/ko/multimodel-comparison.mp4). (학습 대기 시간 생략)
+
 ## 소스에서 빌드
 
 Windows 10/11 x64, .NET SDK **8.0.421**, PowerShell이 필요합니다.
@@ -145,7 +149,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x6
 .\scripts\start-labeling-workbench.ps1 -AppMode Publish
 ```
 
-버전별 self-contained 폴더는 `artifacts\publish\Release\win-x64\0.4.2`입니다. portable ZIP을 새 폴더에 풀고 manifest를 검증한 뒤 `OpenVisionLab.LabelingStudio.exe`를 실행합니다. release·publish manifest는 소스·빌드 식별 정보와 전체 payload의 SHA-256을 기록합니다.
+버전별 self-contained 폴더는 `artifacts\publish\Release\win-x64\0.4.3`입니다. portable ZIP을 새 폴더에 풀고 manifest를 검증한 뒤 `OpenVisionLab.LabelingStudio.exe`를 실행합니다. release·publish manifest는 소스·빌드 식별 정보와 전체 payload의 SHA-256을 기록합니다.
 
 기본 런처는 `Directory.Build.props`의 버전으로 Publish 폴더를 찾으므로 기본 번들에는 로컬 설정이 필요하지 않습니다. 명시한 `-ConfigPath`, `config/labeling-runtime.local.json`, 예제 설정 순서로 적용합니다. 사용자 지정 번들은 [런처 설정](docs/tutorial/BUILD_AND_RUNTIME.md#launcher-configuration)을 참고하세요.
 
@@ -154,7 +158,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x6
 기존 패키지를 변경하지 않고 검증합니다.
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.4.2 -VerifyOnly
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.4.3 -VerifyOnly
 ```
 
 ### 환경 점검 CLI
@@ -190,8 +194,9 @@ OpenVisionLab.LabelingStudio.exe --environment-self-test --json
 
 ## 버전
 
-현재 버전: **0.4.2** ([버전 원본](Directory.Build.props)) · [버전 이력](RELEASE_NOTES.md)
+현재 버전: **0.4.3** ([버전 원본](Directory.Build.props)) · [버전 이력](RELEASE_NOTES.md)
 
+- **0.4.3** — 여러 YOLOv8/YOLO11 모델을 같은 데이터로 한 대기열에서 차례로 학습하고, 대기열이 끝나면 테스트 분할로 평가합니다. 모델 비교는 A→B 차이, 클래스별 AP, 신뢰도별 F1·재현율, 이미지별 판정 일치를 보여 주고, 같은 데이터 버전에서 평가한 모델 중 하나를 추천합니다. 고른 모델은 두 엔진 중 어느 쪽에서든 검사 모델로 지정할 수 있고, 되돌리기는 이전 모델과 엔진을 함께 복원합니다. 합성 와셔 데이터로만 확인했습니다.
 - **0.4.2** — 엣지 추론 실행 구성(`Runtime/Edge`)에 운영 기능을 더했습니다. 단계별 프레임 파이프라인, 대체 경로(TensorRT, CPU의 OpenVINO, 부품을 수동 검사로 보류하는 룰 검사), 품질·GPU 지표와 알람, shadow 비교·승격 관문·롤백을 갖춘 릴리스 관리, 재라벨링용 사례 캡처, OPC UA 인증서 보안, 라인별 파라미터 템플릿, C++/CUDA 실행 경로가 들어갔습니다. 요청 측 연결이 끊겨도 워커가 다시 접속합니다. 데스크톱 앱의 동작과 파일 형식은 바뀌지 않았고, 이 구성은 여전히 시뮬레이터와 합성 데이터로만 시험했습니다.
 - **0.4.1** — 별도 엣지 추론 실행 구성(`Runtime/Edge`)을 추가했습니다. 준비한 YOLO 탐지 모델을 ONNX로 내보내고, Linux/WSL2 GPU 컨테이너에서 ONNX Runtime 또는 TensorRT FP32·FP16·INT8 엔진으로 추론합니다. 판정은 Modbus TCP나 OPC UA로 전송하고, 검사 지연 p99는 Prometheus·Grafana로 표시합니다. 데스크톱 앱의 동작과 파일 형식은 바뀌지 않았습니다. 이 구성은 시뮬레이터로만 시험했으며 Machine Studio 연동은 아직 확인하지 않았습니다.
 - **0.4.0** — 수신 이미지 라벨 검토를 위한 선택형 TCP 수신함과 화면 개선

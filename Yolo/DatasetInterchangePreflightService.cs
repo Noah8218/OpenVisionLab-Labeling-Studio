@@ -122,6 +122,7 @@ namespace MvcVisionSystem.Yolo
             "label-studio-segmentation-json",
             "cvat-segmentation-archive",
             "coco-detection-import",
+            "yolo-detection-import",
             "pascal-voc-detection-import",
             "label-studio-detection-import",
             "cvat-detection-import",
@@ -395,6 +396,8 @@ namespace MvcVisionSystem.Yolo
             => capability.FormatKey switch
             {
                 "coco-detection-import" => CocoDetectionImportService.ImportDataset(
+                    data, request.SourcePath, request.ImageRoot, request.TargetSplit),
+                "yolo-detection-import" => YoloDetectionImportService.ImportDataset(
                     data, request.SourcePath, request.ImageRoot, request.TargetSplit),
                 "pascal-voc-detection-import" => PascalVocDetectionImportService.ImportDirectory(
                     data, request.SourcePath, request.ImageRoot, request.TargetSplit),
@@ -1011,7 +1014,11 @@ namespace MvcVisionSystem.Yolo
                 return ComputePathFingerprint(request.Data.OutputRootPath);
             }
 
-            string annotationFingerprint = ComputePathFingerprint(request.SourcePath);
+            // A YOLO source is data.yaml plus the label folders beside it, so the whole dataset folder is the source.
+            string annotationFingerprint = ComputePathFingerprint(
+                string.Equals(capability.FormatKey, "yolo-detection-import", StringComparison.Ordinal) && File.Exists(request.SourcePath)
+                    ? Path.GetDirectoryName(Path.GetFullPath(request.SourcePath))
+                    : request.SourcePath);
             if (!RequiresImageRoot(capability.FormatKey))
             {
                 return annotationFingerprint;

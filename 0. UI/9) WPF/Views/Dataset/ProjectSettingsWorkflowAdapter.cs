@@ -44,8 +44,8 @@ namespace MvcVisionSystem
             }
 
             PopulateProjectConfigPanelFields();
-            SetProjectConfigStatus($"설정 저장 완료: {DateTime.Now:HH:mm:ss}");
-            context.SetDatasetStatus?.Invoke($"데이터셋: 설정 저장 {Path.GetFileName(configPath)}");
+            SetProjectConfigStatus(string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.Saved"), DateTime.Now.ToString("HH:mm:ss")));
+            context.SetDatasetStatus?.Invoke(string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.DatasetSaved"), Path.GetFileName(configPath)));
             context.AppendLog?.Invoke($"프로젝트 설정 저장: {configPath}");
         }
 
@@ -262,14 +262,14 @@ namespace MvcVisionSystem
             {
                 string configPath = saveRecipe(recipeName);
                 PopulateProjectConfigPanelFields();
-                SetProjectConfigStatus($"설정 저장 완료: {DateTime.Now:HH:mm:ss}");
-                context.SetDatasetStatus?.Invoke($"데이터셋: 설정 저장 {Path.GetFileName(configPath)}");
+                SetProjectConfigStatus(string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.Saved"), DateTime.Now.ToString("HH:mm:ss")));
+                context.SetDatasetStatus?.Invoke(string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.DatasetSaved"), Path.GetFileName(configPath)));
                 context.AppendLog?.Invoke($"프로젝트 설정 저장: {configPath}");
                 return true;
             }
             catch (Exception ex)
             {
-                SetProjectConfigStatus($"설정 저장 실패: {ex.Message}");
+                SetProjectConfigStatus(string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.SaveFailed"), ex.Message));
                 context.AppendLog?.Invoke($"프로젝트 설정 저장 실패: {ex.Message}");
                 return false;
             }

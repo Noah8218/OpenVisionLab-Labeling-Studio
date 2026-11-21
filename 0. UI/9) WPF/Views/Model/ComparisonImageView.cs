@@ -62,7 +62,7 @@ namespace MvcVisionSystem
             dc.DrawRectangle(null, pen, bounds);
             if (string.IsNullOrEmpty(label)) return;
             FormattedText text = new(label, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface(FontFamily, FontStyles.Normal, FontWeights.Bold, FontStretches.Normal), 14, new SolidColorBrush(Color.FromRgb(0x0B, 0x0E, 0x12)), VisualTreeHelper.GetDpi(this).PixelsPerDip);
-            double tagWidth = label.Length * 11 + 14;
+            double tagWidth = OpenVisionLab.ImageCanvas.OpenGLRendering.OpenGlDrawing.PredictionTagWidth(label);
             double left = (bounds.Left - image.Left) / scale;
             double top = Math.Max(18, (bounds.Top - image.Top) / scale) - 20;
             Rect tag = new(left, top, tagWidth, 20);

@@ -203,7 +203,7 @@ WpfModelBenchmark.Status.SelectionLimit	비교 선택은 {0}개까지 가능합�
 WpfModelBenchmark.Comparison.None	비교할 실행이 선택되지 않았습니다.	No run is selected for comparison.
 WpfModelBenchmark.Comparison.One	기준 실행 1개가 선택되었습니다.	One baseline run is selected.
 WpfModelBenchmark.Label.Summary	요약	Summary
-WpfModelBenchmark.Label.Evidence	평가 근거	Evaluation evidence
+WpfModelBenchmark.Label.Evidence	평가 정보	Evaluation details
 WpfModelBenchmark.Label.PrimaryMetric	대표 지표	Primary metric
 WpfModelBenchmark.Label.Decision	보고서 판정	Report decision
 WpfModelBenchmark.Label.AccuracyTakt	정확도 / 모델 처리 시간	Accuracy / model processing time
@@ -218,7 +218,7 @@ WpfModelBenchmark.GroundTruth.SelectReport	정답 대조 결과가 있는 탐지
 WpfModelBenchmark.GroundTruth.SelectedDetails	선택 실행 상세	Selected run details
 WpfModelBenchmark.GroundTruthPreview.ErrorTitle	선택 오류 원본	Selected error source
 WpfModelBenchmark.GroundTruthPreview.SelectPrompt	오류 예시를 선택하세요.	Select an error example.
-WpfModelBenchmark.GroundTruthPreview.SourceMissing	원본 이미지 경로를 열 수 없습니다.	The source image path cannot be opened.
+WpfModelBenchmark.GroundTruthPreview.SourceMissing	원본 이미지를 열 수 없습니다. 원본 이미지 폴더를 확인하세요.	The source image cannot be opened. Check the source image folder.
 WpfModelBenchmark.GroundTruth.Title.Decision	이미지별 판정 결과	Per-image decisions
 WpfModelBenchmark.GroundTruth.Title.Errors	정답 대조 오류 예시	Ground-truth error examples
 WpfModelBenchmark.GroundTruth.Notice.Empty	선택한 보고서에 클래스별 평가·정답 라벨 비교 결과가 없습니다. 모델 비교를 다시 실행하면 추가됩니다.	The selected report has no per-class evaluation or ground-truth comparison data. Run a new comparison to add it.
@@ -252,7 +252,7 @@ WpfModelBenchmark.Header.Confidence	신뢰도	Confidence
 WpfModelBenchmark.Header.BestIou	최대 IoU	Best IoU
 WpfModelBenchmark.Header.TaktProtocol	시간 측정 조건	Timing conditions
 WpfModelBenchmark.Header.Report	보고서	Report
-WpfModelBenchmark.Header.Evidence	근거	Evidence
+WpfModelBenchmark.Header.Evidence	평가 정보	Evaluation details
 WpfModelBenchmark.Task.All	전체	All
 WpfModelBenchmark.Task.Detection	객체 탐지	Object detection
 WpfModelBenchmark.Task.Segmentation	세그멘테이션	Segmentation
@@ -344,11 +344,11 @@ WpfBatch.Count	요청 {0} · 실행 {1} · 기존 라벨 {2} · 제외 {3}	Reque
 WpfBatch.Model	{0} · {1} · 신뢰도 {2}\n{3}	{0} · {1} · Inference confidence: {2}\n{3}
 WpfBatch.ClassContract.Empty	클래스 매핑 없음	No class mapping
 WpfBatch.ClassContract.Count	레시피 클래스 {0}개 · 모델과 레시피의 클래스 이름을 대소문자 구분 없이 비교합니다.	Recipe classes: {0} · Match model and recipe class names without case sensitivity.
-WpfBatch.DestinationPolicy	결과는 라벨링의 AI 후보로 전달됩니다. 확정하고 저장해야 라벨 파일에 반영됩니다.	Results appear as AI suggestions in Labeling. Accept and save them to write label files.
+WpfBatch.DestinationPolicy	결과는 라벨링 화면의 AI 후보로 들어갑니다. 확정하고 저장해야 라벨 파일에 반영됩니다.	Results appear as AI suggestions in Labeling. Accept and save them to write label files.
 WpfBatch.Policy.Skip.Display	기존 라벨 이미지 제외 (권장)	Skip labeled images (Recommended)
 WpfBatch.Policy.Skip.Detail	저장된 라벨이 있는 이미지는 실행 대상에서 제외합니다.	Images with saved labels are excluded from the run.
 WpfBatch.Policy.Include.Display	포함하고 기존 라벨 유지	Include and keep existing labels
-WpfBatch.Policy.Include.Detail	선택한 이미지 모두에서 추론하고 AI 결과를 후보로 전달합니다.	Run inference on all selected images and send the results as AI suggestions.
+WpfBatch.Policy.Include.Detail	선택한 이미지를 모두 추론하고 결과를 AI 후보로 보냅니다.	Run inference on all selected images and send the results as AI suggestions.
 WpfBatch.Finding.Severity.Blocking	차단	Blocking
 WpfBatch.Finding.Severity.Warning	주의	Warning
 WpfBatch.Finding.NoImages	일괄 추론할 이미지가 없습니다.	No images for batch inference.
@@ -359,7 +359,7 @@ WpfBatch.Finding.ProjectFolderNotFound	YOLO 프로젝트 폴더를 찾을 수 �
 WpfBatch.Finding.ClientScriptNotFound	YOLO TCP 클라이언트 스크립트를 찾을 수 없습니다: {0}	The YOLO TCP client script was not found: {0}
 WpfBatch.Finding.PythonExecutableNotFound	Python 실행 파일을 찾을 수 없습니다: {0}	The Python executable was not found: {0}
 WpfBatch.Finding.WeightsFileNotFound	모델 파일을 찾을 수 없습니다: {0}	The model file was not found: {0}
-WpfBatch.Finding.MappingWarning	학습 모델의 클래스 목록은 미리 추출하지 않습니다. 모델이 낸 클래스 이름을 레시피의 같은 이름에 연결합니다. 전체 추론 결과는 별도로 확인하세요. AI 후보 목록에는 클래스·신뢰도 등 표시 조건을 통과한 후보가 표시됩니다.	The trained model class list is not extracted in advance. Model result class names are matched to recipe classes with the same names. Check the full inference results separately; the AI suggestions list shows only suggestions that meet display conditions such as class and confidence.
+WpfBatch.Finding.MappingWarning	모델이 낸 클래스 이름을 레시피의 같은 이름 클래스에 연결합니다. AI 후보 목록에는 클래스·신뢰도 표시 조건을 통과한 후보만 나옵니다. 전체 추론 결과는 따로 확인하세요.	Model result class names are matched to recipe classes with the same names. The AI suggestions list shows only suggestions that meet the class and confidence display conditions; check the full inference results separately.
 WpfBatch.Finding.IncludeExisting	기존 라벨이 있는 이미지 {0}장도 추론합니다. 기존 라벨은 유지합니다.	Images with existing labels will also be inferred: {0}. Existing labels are kept.
 WpfBatch.Finding.NoClasses	레시피에 등록된 클래스가 없습니다.	No classes are registered in the recipe.
 WpfBatch.Finding.EmptyClass	이름이 없는 클래스가 있습니다.	A class has no name.
@@ -392,7 +392,7 @@ WpfLearningWorkflow.GuideToolsRoleTitle	가이드/도구 역할	Guide / tool rol
 WpfLearningWorkflow.GuideToolsPrimaryTask	주 작업: 라벨을 그리고 라벨 저장 후 다음 이미지로 이동	Primary task: draw labels, save them, then move to the next image
 WpfLearningWorkflow.GuideToolsHelperTask	보조 도구: 템플릿은 현재 이미지에 라벨 초안을 만들고, 최종 반영은 위치 확인 후 라벨 저장	Helper tool: templates create label drafts on the current image; check their positions and save the labels.
 WpfLearningWorkflow.FirstRunSamplePathTitle	처음 사용하기	Getting started
-WpfLearningWorkflow.FirstRunSamplePathSummary	새 데이터셋에서 첫 라벨을 저장하고 AI 후보 확인, 학습 준비까지 이 순서로 확인합니다.	Use this order to save the first label in a new dataset, check AI suggestions, and prepare training.
+WpfLearningWorkflow.FirstRunSamplePathSummary	새 데이터셋은 첫 라벨 저장 → AI 후보 확인 → 학습 준비 순서로 진행합니다.	In a new dataset, save the first label, check AI suggestions, then prepare training.
 WpfLearningWorkflow.FirstRunSamplePathPrimaryAction	지금 할 일: 1 데이터셋 목적을 고르고 새로 만들기 또는 기존 열기	Next: 1 Choose a dataset purpose, then create a new dataset or open an existing one
 WpfLearningWorkflow.FirstRunChecklistTitle	처음 10분 시작	Start your first 10 minutes
 WpfLearningWorkflow.FirstRunChecklistSummary	처음 사용하더라도 아래 순서대로 진행하면 첫 라벨을 저장하고 학습 준비 상태까지 확인할 수 있습니다.	Even if you are starting from scratch, follow the order below to save your first label and check training readiness.
@@ -444,7 +444,7 @@ WpfLearningWorkflow.ModelReplacement.Status.Hold	검사 모델 지정: 보류	In
 WpfLearningWorkflow.ModelReplacement.Detail.Initial	학습 후 테스트 결과로 검사 모델 지정 여부를 결정하세요.	Use test results after training to decide which inspection model to set.
 WpfLearningWorkflow.ModelReplacement.Detail.Unavailable	학습을 막는 문제를 해결한 뒤 검사 모델 지정을 결정하세요.	Resolve the issues blocking training before deciding which inspection model to set.
 WpfLearningWorkflow.ModelReplacement.Detail.NoLabels	테스트 이미지는 있지만 정답 라벨 파일이 없습니다. 모델 비교 전에 테스트 라벨을 저장하세요.	Test images exist, but ground-truth label files are missing. Save the test labels before comparing models.
-WpfLearningWorkflow.ModelReplacement.Detail.WeakEvidence	테스트 라벨 {0}장으로 비교할 수 있지만 권장 수보다 적습니다. 권장 {1}장까지 {2}장을 더 추가하세요.	Test labels: {0}. Comparison is possible, but the count is below the recommendation. Add {2} more to reach {1}.
+WpfLearningWorkflow.ModelReplacement.Detail.WeakEvidence	테스트 라벨 {0}장으로 비교는 되지만 권장 {1}장보다 {2}장 적습니다. 테스트 라벨을 더 추가하세요.	Test labels: {0}. Comparison is possible, but the count is below the recommendation. Add {2} more to reach {1}.
 WpfLearningWorkflow.ModelReplacement.Detail.Available	테스트 라벨 {0}장으로 현재 모델과 비교한 뒤 검사 모델 지정을 결정하세요.	Compare with the current model using {0} test labels, then decide which inspection model to set.
 WpfLearningWorkflow.ModelReplacement.Detail.NoTest	학습·검증 이미지로 학습할 수 있지만 테스트 이미지가 없습니다. 검사 모델 지정은 보류하세요.	Training is possible with the train and validation images, but no test images exist. Hold the inspection model decision.
 WpfLearningWorkflow.TrainingModelLifecycle.Current.Initial	없음	None
@@ -487,7 +487,7 @@ WpfLearningWorkflow.TrainingComparison.Run.Tooltip.Value	{0}	{0}
 WpfLearningWorkflow.TrainingComparison.Basis.Initial	비교 기준: 데이터셋 점검 후 표시됩니다.	Comparison basis: shown after Dataset Health.
 WpfLearningWorkflow.TrainingComparison.Basis.Value	{0}	{0}
 WpfLearningWorkflow.DatasetPurpose.ObjectDetection	객체 탐지 데이터셋: 박스 라벨로 위치를 학습하고 여러 객체탐지 모델에서 재사용할 수 있습니다.	Object-detection dataset: learn object locations from box labels and reuse them with multiple object-detection models.
-WpfLearningWorkflow.DatasetPurpose.Segmentation	세그멘테이션 데이터셋: 폴리곤, 브러시, 지우개로 픽셀 마스크를 만듭니다. 모델 학습·추론은 세그멘테이션 실행 환경 연결 후 진행합니다.	Segmentation dataset: create pixel masks with polygons, the brush, and the eraser. Model training and inference run after a segmentation runtime is connected.
+WpfLearningWorkflow.DatasetPurpose.Segmentation	세그멘테이션 데이터셋: 폴리곤, 브러시, 지우개로 픽셀 마스크를 만듭니다. 모델 학습·추론은 세그멘테이션 실행 환경을 연결한 뒤 쓸 수 있습니다.	Segmentation dataset: create pixel masks with polygons, the brush, and the eraser. Model training and inference run after a segmentation runtime is connected.
 WpfLearningWorkflow.DatasetPurpose.AnomalyDetection	이상 탐지는 이미지 전체를 정상/이상으로 판정합니다. 필요하면 박스로 이상 위치를 표시하고 저장할 수 있습니다. 학습과 추론은 연결된 실행 환경에서 진행합니다.	Anomaly detection classifies the whole image as normal or abnormal. You can optionally mark anomaly locations with boxes and save them. Training and inference use the connected runtime.
 WpfLearningWorkflow.DatasetPurpose.Train	학습 단계: 선택한 데이터셋을 점검하고 모델 학습을 시작합니다.	Training stage: check the selected dataset and start model training.
 WpfLearningWorkflow.DatasetPurpose.Infer	학습한 모델로 추론하고 AI 후보를 확인합니다.	Run inference with a trained model and check AI suggestions.
@@ -947,7 +947,7 @@ WpfDatasetHealth.VisualQa.NoObjects	객체 없음	No objects
 WpfDatasetHealth.VisualQa.ReviewedSample	저장된 이미지 판정 표본입니다.	This is a saved image decision sample.
 WpfDatasetHealth.VisualQa.ReviewBeforeTraining	학습 전에 정상 또는 이상으로 판정하세요.	Class the image as normal or abnormal before training.
 WpfDatasetHealth.Static.TrainingExportNote	분류용 데이터 내보내기는 학습 시작 시점에 수행되며, 이 창은 원본 이미지의 검토 상태를 기준으로 표시합니다.	Classification data is exported when training starts; this window reflects the review state of the source images.
-WpfDatasetHealth.Static.ReadOnly	읽기 전용 · 수정은 기존 라벨링 편집기에서 수행합니다.	Read-only · make changes in the existing labeling editor.
+WpfDatasetHealth.Static.ReadOnly	읽기 전용입니다. 수정은 라벨링 화면에서 하세요.	Read-only. Make changes in the labeling view.
 WpfDatasetHealth.Static.EvidenceWarning	이 화면의 점검 결과가 정상이어도 모델 정확도·TaktTime·현장 대표성을 대신하지 않습니다.	A healthy result here does not replace model accuracy, TaktTime, or field representativeness.
 WpfDatasetHealth.Static.NoStructuralIssues	저장된 데이터에서 추가 확인이 필요한 구조적 문제는 없습니다.	No structural issues requiring additional checks were found in the saved data.
 WpfDatasetInterchange.Title	가져오기 · 내보내기	Import · Export
@@ -961,8 +961,8 @@ WpfDatasetInterchange.Label.SourceImages	원본 이미지 폴더	Source image fo
 WpfDatasetInterchange.Label.SourceImagesSelect	원본 이미지 폴더 선택	Select source image folder
 WpfDatasetInterchange.Label.TargetPath	변환 대상 경로	Conversion target path
 WpfDatasetInterchange.Label.TargetSelect	변환 대상 선택	Select conversion target
-WpfDatasetInterchange.Label.ImportSplit	가져오기 분할	Import split
-WpfDatasetInterchange.Label.ImportSplitTarget	가져오기 대상 분할	Import target split
+WpfDatasetInterchange.Label.ImportSplit	가져올 분할	Import split
+WpfDatasetInterchange.Label.ImportSplitTarget	가져올 대상 분할	Import target split
 WpfDatasetInterchange.Label.Guarantees	적용 전 점검	Check before applying
 WpfDatasetInterchange.Guarantees.Detail	적용 전 점검은 임시 폴더에서 실행합니다. 원본과 적용 대상은 바뀌지 않습니다.	The preflight check runs in a temporary folder. The source and target remain unchanged.
 WpfDatasetInterchange.Label.PreflightResult	변환 사전 점검 결과	Conversion preflight results
@@ -987,6 +987,9 @@ WpfDatasetInterchange.Operation.ImportContract	원본은 읽기 전용으로 유
 WpfDatasetInterchange.Operation.ExportContract	현재 데이터셋은 읽기 전용으로 유지됩니다.	The current dataset remains read-only.
 WpfDatasetInterchange.Operation.Contract	{0} · {1} · {2}	{0} · {1} · {2}
 WpfDatasetInterchange.Status.Waiting	사전 점검 대기	Waiting for preflight
+WpfDatasetInterchange.Status.Checking	사전 점검 중	Checking
+WpfDatasetInterchange.Status.Applying	적용 중	Applying
+WpfDatasetInterchange.Status.BusyDetail	이미지 수에 따라 몇 초 걸릴 수 있습니다.	This can take a few seconds depending on the number of images.
 WpfDatasetInterchange.Status.Detail	형식·경로·분할이 바뀌면 다시 확인한 후 적용하세요.	Preview again after changing the format, paths or split.
 WpfDatasetInterchange.Status.DryRunImpact	원본과 요청 대상은 변경되지 않았습니다. 확인한 내용을 적용하려면 적용 버튼을 누르세요.	The source and requested target are unchanged. Select Apply to apply the reviewed changes.
 WpfDatasetInterchange.Integrity.TargetKept	요청 대상: 변경 없음	Requested target: unchanged
@@ -2177,9 +2180,9 @@ WpfShell.Right.Inspect.Name	추론 실행	Run inference
 WpfShell.Right.Inspect.Text	추론 실행	Run inference
 WpfShell.Right.Inspect.ToolTip	현재 이미지로 모델 검사를 실행합니다.	Run model inspection on the current image.
 WpfInference.Purpose.Labeling	라벨 작성	Label authoring
-WpfInference.Purpose.Labeling.ToolTip	AI 결과를 후보로 받아 확인하고 라벨로 확정할 수 있습니다.	Check AI results as suggestions and confirm them as labels.
+WpfInference.Purpose.Labeling.ToolTip	추론 결과를 후보로 받아 확인하고 라벨로 확정할 수 있습니다.	Check inference results as suggestions and confirm them as labels.
 WpfInference.Purpose.ResultOnly	결과만 확인	Check results only
-WpfInference.Purpose.ResultOnly.ToolTip	기존 라벨을 유지합니다. AI 결과는 확인만 하며 라벨로 확정할 수 없습니다.	Keep existing labels. Check AI results without confirming them as labels.
+WpfInference.Purpose.ResultOnly.ToolTip	기존 라벨을 유지합니다. 추론 결과는 확인만 하며 라벨로 확정할 수 없습니다.	Keep existing labels. Check inference results without confirming them as labels.
 WpfInference.Model	시험 모델	Trial model
 WpfInference.Model.Select.ToolTip	선택한 모델은 다음 추론에 사용합니다. 검사 모델을 바꾸려면 검사 모델로 지정하세요.	The selected model is used for the next inference. Choose Set as inspection model to change the inspection model.
 WpfInference.Model.Apply	검사 모델로 지정	Set as inspection model
@@ -2443,7 +2446,7 @@ WpfCanvas.Layer.Candidates.Shown	AI 후보 {0}개 표시	AI suggestions: {0} sho
 WpfCanvas.Layer.Candidates.Hidden	AI 후보 {0}개 숨김	AI suggestions: {0} hidden
 WpfCanvas.LayerMode.Inference.Title	작업: AI 후보 확인	Task: check AI suggestions
 WpfCanvas.LayerMode.Inference.Detail	저장 라벨은 숨김. AI 후보를 확인한 뒤 라벨로 확정하거나 건너뜁니다.	Saved labels are hidden. Check AI suggestions, then accept them as labels or skip them.
-WpfCanvas.LayerMode.Both.Title	작업: 라벨+AI 비교	Work: Compare labels + AI
+WpfCanvas.LayerMode.Both.Title	작업: 라벨 + AI 후보 같이 보기	Work: Labels + AI suggestions
 WpfCanvas.LayerMode.Both.Detail	저장 라벨과 AI 후보를 함께 보며 겹침/누락을 비교합니다.	Compare overlap and omissions while viewing saved labels and AI suggestions together.
 WpfCanvas.LayerMode.Labels.Title	작업: 저장 라벨 편집	Work: Edit saved labels
 WpfCanvas.LayerMode.Labels.Detail	AI 후보는 숨김. 저장된 라벨만 선택/수정/저장합니다.	AI suggestions are hidden. Select, edit, and save saved labels only.
@@ -2539,7 +2542,7 @@ WpfClassCatalog.Current.ArchivedDetail	숨긴 클래스는 새 라벨에 사용�
 WpfClassCatalog.Action.Empty	먼저 OK, NG처럼 모델이 배울 클래스를 추가하세요.	First add the classes the model should learn, such as OK and NG.
 WpfClassCatalog.Action.Populated	클래스 이름을 추가·변경하거나 숨기고 다시 표시할 수 있습니다.	Add or rename classes, or hide and show them again.
 WpfClassCatalog.Recipe.Title	레시피 클래스	Recipe classes
-WpfClassCatalog.Recipe.Guide	번호는 저장·학습·AI 결과에 사용하는 클래스 번호입니다.	These class numbers are used for saved labels, training, and AI results.
+WpfClassCatalog.Recipe.Guide	번호는 저장·학습·추론 결과에 쓰는 클래스 번호입니다.	These class numbers are used for saved labels, training, and inference results.
 WpfClassCatalog.IndexContract	번호는 고정됩니다. 이름 변경·숨김·다시 표시에도 기존 라벨은 유지됩니다. 1~9는 캔버스의 클래스 선택 단축키입니다.	Class numbers are fixed. Renaming, hiding, or showing a class keeps existing labels unchanged. Canvas keys 1–9 select a class.
 WpfClassCatalog.ColorPreset.Normal	정상	Normal
 WpfClassCatalog.ColorPreset.Defect	불량	Defect
@@ -2547,7 +2550,7 @@ WpfClassCatalog.ColorPreset.Warning	주의	Warning
 WpfClassCatalog.ColorPreset.Review	검수	Review
 WpfClassCatalog.ColorPreset.Segmentation	세그멘테이션	Segmentation
 WpfClassCatalog.ColorPreset.ForeignMaterial	이물	Foreign material
-WpfClassCatalog.Item.ToolTip	클래스 번호 {0}: {1}\n이 번호를 저장·학습·AI 결과에 사용합니다.	Class number {0}: {1}\nThis number is used for saved labels, training, and AI results.
+WpfClassCatalog.Item.ToolTip	클래스 번호 {0}: {1}\n이 번호를 저장·학습·추론 결과에 씁니다.	Class number {0}: {1}\nThis number is used for saved labels, training, and inference results.
 WpfClassCatalog.Item.Archived	숨김	Hidden
 WpfClassCatalog.Item.ArchivedToolTip	클래스 번호 {0}: {1}\n숨김: 기존 라벨에는 유지되며 새 라벨 선택에서는 숨깁니다.	Class number {0}: {1}\nHidden: kept in existing labels and hidden from new-label selection.
 WpfClassCatalog.Status.Initial	클래스 이름을 입력하고 추가를 누르세요.	Enter a class name and press Add.
@@ -2616,13 +2619,13 @@ WpfImageQueue.Search.ResetFilters	검색·필터 해제	Clear search and filters
 WpfImageQueue.Search.ResetFilters.ToolTip	검색어와 필터를 해제합니다. 라벨은 변경하지 않습니다.	Clear the search text and filters without changing labels.
 WpfImageQueue.Action.Detect.Name	선택 추론 실행	Run inference on selection
 WpfImageQueue.Action.Detect.ToolTip	선택 이미지 추론 실행	Run inference on the selected image
-WpfImageQueue.Action.Batch.Name	AI 일괄 사전 점검	Preflight batch AI suggestions
-WpfImageQueue.Action.Batch.ToolTip	표시 목록 AI 일괄 사전 점검	Preflight batch AI suggestions for the visible image list
+WpfImageQueue.Action.Batch.Name	일괄 추론 사전 점검	Preflight batch inference
+WpfImageQueue.Action.Batch.ToolTip	표시된 이미지 일괄 추론 사전 점검	Preflight batch inference for the visible images
 WpfImageQueue.Action.Template.Name	전체 이미지 자동 저장	Auto-save all images
 WpfImageQueue.Action.Template.ToolTip	전체 이미지를 템플릿으로 한 번씩 검사하고 라벨 없는 이미지에만 바로 저장	Inspect every image once with the template and save only images without labels
 WpfImageQueue.Action.Template.Text	전체 자동 저장	Auto-save all
 WpfImageQueue.Action.Retry.Name	실패 재시도 사전 점검	Preflight failed-item retry
-WpfImageQueue.Action.Retry.ToolTip	실패 항목 AI 일괄 사전 점검	Preflight batch AI suggestions for failed items
+WpfImageQueue.Action.Retry.ToolTip	실패한 이미지 다시 사전 점검	Preflight the failed images again
 WpfImageQueue.Action.Stop.Name	중지	Stop
 WpfImageQueue.Action.Stop.ToolTip	일괄 추론 중지	Stop batch inference
 WpfImageQueue.Column.File	파일	File
@@ -2690,7 +2693,7 @@ WpfImageQueue.Current.NoCandidate.Detail	객체 없음으로 저장됨. 다음 �
 WpfImageQueue.Current.NoCandidate.Badge	객체 없음	No objects
 WpfImageQueue.Current.AiEmpty.Title	AI 후보 0개	0 AI suggestions
 WpfImageQueue.Current.AiEmpty.Detail	AI 후보가 없습니다.	No AI suggestions.
-WpfImageQueue.Current.AiEmpty.Badge	AI 0	AI 0
+WpfImageQueue.Current.AiEmpty.Badge	후보 0	AI 0
 WpfImageQueue.Current.Skipped.Title	후보 숨김	Candidate hidden
 WpfImageQueue.Current.Skipped.Detail	AI 후보를 숨겼습니다. 필요하면 다시 확인하세요.	AI suggestions are hidden. Check them again if needed.
 WpfImageQueue.Current.Skipped.Badge	숨김	Hidden
@@ -2833,7 +2836,7 @@ WpfCanvas.ToolContext.CurrentClass	현재 라벨 클래스	Current label class
 WpfCanvas.ToolContext.SelectedObject	선택 객체	Selected object
 WpfCanvas.ToolContext.TwoPoint	2점 드래그	Two-point drag
 WpfCanvas.ToolContext.FourPoint	4점 극점	Four-point extremes
-WpfCanvas.ToolContext.Setup	AI 설정	AI settings
+WpfCanvas.ToolContext.Setup	마스크 설정	Mask settings
 WpfCanvas.ToolContext.AutoContourOn	자동 윤곽: 켜짐	Auto contour: On
 WpfCanvas.ToolContext.AutoContourOff	자동 윤곽: 꺼짐	Auto contour: Off
 WpfCanvas.ToolContext.EraserCurrentClass	드래그로 마스크 지우기 · 현재 클래스의 표시 중이며 잠기지 않은 마스크만 지웁니다	Drag to erase masks · Only visible, unlocked masks in the current class
@@ -2843,8 +2846,8 @@ WpfCanvas.ToolContext.EraserVisible	드래그로 마스크 지우기 · 표시 �
 WpfCanvas.ToolContext.CandidateBrush	AI 후보 보정: 드래그해 후보 영역을 더하거나 빼고 후보 적용을 누르세요. 파일 저장은 별도입니다.	Edit the AI suggestion: paint or erase, then apply the suggestion. Saving the file is separate.
 WpfCanvas.ToolContext.CandidateEraser	AI 후보 보정: 지우개로 후보 영역을 정리한 뒤 후보 적용을 누르세요. 파일 저장은 별도입니다.	Edit the AI suggestion: clean the region with the eraser, then apply. Saving the file is separate.
 WpfCanvas.ToolContext.BoxInput	박스 입력	Box input
-WpfCanvas.ToolContext.CandidateAction	추천(AI)	AI suggestion
-WpfCanvas.ToolContext.CandidateReady	박스를 그리고 추천(AI)로 후보를 만드세요.	Draw a box, then request an AI suggestion.
+WpfCanvas.ToolContext.CandidateAction	스마트 마스크	Smart Mask
+WpfCanvas.ToolContext.CandidateReady	박스를 그린 뒤 스마트 마스크로 후보를 만드세요.	Draw a box, then create a candidate with Smart Mask.
 WpfCanvas.ToolContext.CandidateBusy	마스크 생성 중...	Generating mask...
 WpfCanvas.ToolContext.CandidateRegenerate	후보 다시 생성	Regenerate candidate
 WpfCanvas.ToolContext.ProgressTop	4점 극점 · 위 0/4	Four-point extremes · Top 0/4
@@ -3003,7 +3006,7 @@ WpfObjectReview.Row.Locked	잠금	Locked
 WpfObjectReview.Row.Pinned	이동 고정	Pinned
 WpfCanvas.LabelClass.ShortcutToolTip	단축키 {0} · 클래스 번호 {1} · 선택 객체 변경 / 다음 그리기: {2}	Shortcut {0} · Class number {1} · Change selected object / next drawing: {2}
 WpfCanvas.LabelClass.DrawToolTip	YOLO 클래스 ID(0부터) {0} · 다음 그리기: {1}	YOLO class ID (zero-based) {0} · Next drawing: {1}
-WpfCanvas.PreviousLabels.Section	AI 보조 · 빠른 입력	AI assistance · Quick input
+WpfCanvas.PreviousLabels.Section	빠른 입력	Quick input
 WpfCanvas.PreviousLabels.Name	이전 이미지 라벨 가져오기	Import previous image labels
 WpfCanvas.PreviousLabels.Hint	Ctrl+Shift+V · 바로 앞 이미지의 저장 라벨을 추가합니다. 위치를 확인한 뒤 저장하세요. Ctrl+Z로 취소할 수 있습니다.	Ctrl+Shift+V · Add the preceding image's saved labels. Check their positions before saving. Undo with Ctrl+Z.
 WpfCanvas.PreviousLabels.Empty	이전 이미지에 가져올 라벨이 없습니다.	The preceding image has no labels to import.
@@ -3135,7 +3138,7 @@ WpfDatasetWorkspace.CheckDetails	점검 상세 보기	Check details
 WpfDatasetWorkspace.Exchange	가져오기 · 내보내기	Import · Export
 WpfDatasetWorkspace.Import	라벨 가져오기…	Import labels…
 WpfDatasetWorkspace.Export	내보내기…	Export…
-WpfDatasetWorkspace.ExchangeHint	YOLO · COCO · Pascal VOC · Label Studio · CVAT. 적용 전 변경 내용과 손실 항목을 확인합니다.	YOLO · COCO · Pascal VOC · Label Studio · CVAT. Before applying, check changes and losses.
+WpfDatasetWorkspace.ExchangeHint	YOLO · COCO · Pascal VOC · Label Studio · CVAT. 적용 전 바뀌는 내용과 빠지는 정보를 확인합니다.	YOLO · COCO · Pascal VOC · Label Studio · CVAT. Before applying, check changes and losses.
 WpfDatasetWorkspace.RemainingStage	{0} 남음	{0} left
 WpfDatasetWorkspace.Continue	라벨링 계속 · 미완료 {0}장	Continue labeling · Unfinished: {0}
 WpfDatasetWorkspace.Training	학습 준비로	Prepare training
@@ -3200,6 +3203,7 @@ WpfComparisonWorkspace.ConfirmTitle	이 모델을 검사 모델로 지정할까�
 WpfComparisonWorkspace.Cancel	취소	Cancel
 WpfComparisonWorkspace.Confirm	지정	Set as inspection model
 WpfComparisonWorkspace.ReasonLabel	지정 이유 (기록에 남습니다)	Reason for setting the model (recorded)
+WpfComparisonWorkspace.AdoptionEngineChange	레시피 모델 엔진도 바뀝니다: {0} → {1}. 실행 환경은 그대로 씁니다.	The recipe's model engine also changes: {0} → {1}. The runtime stays the same.
 WpfComparisonWorkspace.AdoptionHint	이후 추론·내보내기에 쓰는 검사 모델이 바뀝니다. 라벨과 기존 추론 결과는 유지됩니다. 지정 직후 나타나는 ‘되돌리기’로 이전 모델을 복원할 수 있습니다.	The inspection model used for subsequent inference and export will change. Labels and previous inference results stay unchanged. Choose Undo immediately after setting the model to restore the previous model.
 WpfComparisonWorkspace.None	선택 없음	None selected
 WpfComparisonWorkspace.ImagesUnavailable	이미지별 평가 결과가 없습니다.	Per-image evaluation results are unavailable.
@@ -3211,8 +3215,29 @@ WpfComparisonWorkspace.HistoricalReadOnly	지난 평가 버전은 저장된 결�
 WpfComparisonWorkspace.RuntimeMismatch	현재 실행 환경과 일치하는 모델을 선택하세요.	Select models that match the current runtime.
 WpfComparisonWorkspace.RunUnavailable	모델 파일과 테스트 데이터를 확인하세요.	Check the model files and test data readiness.
 WpfComparisonWorkspace.RunHint	현재 테스트 이미지로 A와 B 모델의 성능을 평가합니다.	Evaluate models A and B on the current test images.
+WpfComparisonWorkspace.SpeedAccuracyCaption	속도와 정확도 (왼쪽 위일수록 빠르고 정확)	Speed and accuracy (top left is faster and more accurate)
+WpfComparisonWorkspace.SpeedAccuracyEmpty	같은 데이터셋 버전에서 모델 2개 이상을 평가하면 속도와 정확도를 함께 보여 줍니다.	Evaluate two or more models on the same dataset version to compare speed and accuracy.
 WpfComparisonWorkspace.CurrentModel	검사 모델	Inspection model
 WpfComparisonWorkspace.TrainedModel	학습 모델	Trained model
+WpfComparisonWorkspace.RecommendedBadge	추천	Recommended
+WpfComparisonWorkspace.Recommendation	{0} · {1}	{0} · {1}
+WpfComparisonWorkspace.RecommendationBest	{0} {1}로 가장 높음	Highest {0} at {1}
+WpfComparisonWorkspace.RecommendationFaster	{0} 최고값과 0.005 이내 중 가장 빠름 ({1} ms/장)	Fastest within 0.005 of the best {0} ({1} ms/image)
+WpfComparisonWorkspace.AnalysisDifference	A → B 차이	A → B difference
+WpfComparisonWorkspace.AnalysisChange	차이	Change
+WpfComparisonWorkspace.AnalysisNote	테스트 {0}장 · 초록은 B가 나음, 빨강은 B가 나쁨	{0} test images · green: B is better, red: B is worse
+WpfComparisonWorkspace.SweepTitle	신뢰도별 F1(실선)·재현율(점선)	F1 (solid) and recall (dashed) by confidence
+WpfComparisonWorkspace.SweepEmpty	이 평가 기록에는 신뢰도별 결과가 없습니다. 다시 평가하면 표시됩니다.	This evaluation has no results by confidence. Re-evaluate to show them.
+WpfComparisonWorkspace.SweepCurrent	현재 {0}	Current {0}
+WpfComparisonWorkspace.SweepBest	F1 최대: A {0}에서 {1} · B {2}에서 {3}	Highest F1: A {1} at {0} · B {3} at {2}
+WpfComparisonWorkspace.AgreementTitle	이미지별 판정 일치	Agreement per image
+WpfComparisonWorkspace.AgreementHint	누르면 아래 이미지만 표시	Select to show only those images below
+WpfComparisonWorkspace.AgreementAll	전체 이미지 보기	Show all images
+WpfComparisonWorkspace.AgreementNone	둘 다 오류 없음	Both correct
+WpfComparisonWorkspace.AgreementOnlyA	A만 오류	Only A wrong
+WpfComparisonWorkspace.AgreementOnlyB	B만 오류	Only B wrong
+WpfComparisonWorkspace.AgreementBoth	둘 다 오류	Both wrong
+WpfComparisonWorkspace.AgreementCount	{0}장	{0}
 WpfComparisonWorkspace.VersionMissing	버전 기록 없음	Version not recorded
 WpfComparisonWorkspace.SameVersion	동일 버전·조건	Same version and conditions
 WpfComparisonWorkspace.Reevaluate	모델 재평가	Re-evaluate model
@@ -3302,6 +3327,35 @@ WpfTrainingWorkspace.ResultMetrics	모델 평가 지표	Model evaluation metrics
 WpfTrainingWorkspace.Duration	학습 시간	Training time
 WpfTrainingWorkspace.AdoptionBoundary	학습만으로 검사 모델이 바뀌지 않습니다. 성능을 비교한 뒤 검사 모델로 지정하세요.	Training does not change the inspection model. Compare performance, then set the model as the inspection model.
 WpfTrainingWorkspace.CompareAndAdopt	비교 후 지정	Compare and set as inspection model
+WpfTrainingWorkspace.PeerCurveCaption	같은 데이터셋 버전 모델 {0}개 · 이 모델은 초록	{0} models on the same dataset version · this run in green
+WpfTrainingWorkspace.PeerTableTitle	같은 데이터셋 버전의 테스트 결과	Test results on the same dataset version
+WpfTrainingWorkspace.PeerRecommendation	{0} · {1}	{0} · {1}
+WpfTrainingWorkspace.PeerRecommendationPending	테스트 평가가 끝나면 추천 모델을 표시합니다.	A model is recommended when test evaluations finish.
+WpfTrainingWorkspace.PeerOpen	기록 보기	Open record
+WpfTrainingWorkspace.NoRunCurve	이 학습 기록에는 에폭별 지표 파일이 없습니다.	This run has no per-epoch metrics file.
+WpfTrainingWorkspace.PeerModelColumn	모델	Model
+WpfTrainingWorkspace.LivePeerCompare	같은 데이터셋 버전 모델 {0}개와 비교	compared with models on the same dataset version: {0}
+WpfTrainingWorkspace.LiveThisModel	이 모델	this model
+WpfTrainingWorkspace.EpochTableTitle	에폭별 기록	Epoch log
+WpfTrainingWorkspace.EpochTableRecent	최근 {0}개	latest {0}
+WpfTrainingWorkspace.EpochColumn	에폭	Epoch
+WpfTrainingWorkspace.TrainLossColumn	학습 손실	Train loss
+WpfTrainingWorkspace.ValidationLossColumn	검증 손실	Validation loss
+WpfTrainingWorkspace.BestEpoch	최고	Best
+WpfTrainingWorkspace.LiveSummaryTitle	진행 요약	Progress summary
+WpfTrainingWorkspace.LiveBest	최고 {0}	Best {0}
+WpfTrainingWorkspace.LiveEpochDetail	· 에폭 {0}	· epoch {0}
+WpfTrainingWorkspace.LivePeerAt	에폭 {0}의 {1}	{1} at epoch {0}
+WpfTrainingWorkspace.LivePeerDelta	(이 모델 {0})	(this model {0})
+WpfTrainingWorkspace.LiveSecondsPerEpoch	에폭당 시간	Time per epoch
+WpfTrainingWorkspace.LiveSeconds	{0:0.0}초	{0:0.0} s
+WpfTrainingWorkspace.LiveMeasuring	측정 중	Measuring
+WpfTrainingWorkspace.LiveRemaining	남은 예상	Remaining (est.)
+WpfTrainingWorkspace.LiveRemainingValue	약 {0}분	about {0} min
+WpfTrainingWorkspace.LiveRemainingQueue	· 대기 {0}개 포함	· includes {0} waiting
+WpfTrainingWorkspace.LiveNextModel	다음 모델	Next model
+WpfTrainingWorkspace.LiveNextValue	· 에폭 {0} · {1}px	· {0} epochs · {1} px
+WpfTrainingWorkspace.LiveNoNext	없음 · 이 모델이 마지막	None · this is the last model
 WpfTrainingWorkspace.SettingsRange	에폭 1–1000, 이미지 크기 64–2048 (32의 배수), 배치 크기 1–128을 입력하세요.	Enter epochs 1–1000, image size 64–2048 (a multiple of 32), and batch size 1–128.
 WpfTrainingWorkspace.EnvironmentUnknown	학습 환경을 확인하세요.	Check the training environment.
 WpfTrainingWorkspace.HistoryCount	{0}개	Runs: {0}
@@ -3348,6 +3402,7 @@ WpfTrainingWorkspace.SnapshotFailed	학습 데이터 버전 확인 실패: {0}	U
 WpfTrainingWorkspace.OtherRuntime	다른 실행 환경 연결 필요	Connect another runtime
 WpfTrainingWorkspace.MissingWeights	로컬 학습 가중치 필요	Local training weights required
 WpfTrainingWorkspace.RuntimeUnavailable	실행 환경 설정 필요	Runtime setup required
+WpfTrainingWorkspace.SetUpRuntime	실행 환경 설정	Set up runtime
 WpfTrainingWorkspace.Note.Small	가벼운 모델	Small model
 WpfTrainingWorkspace.Note.Balanced	균형형 모델	Balanced model
 WpfTrainingWorkspace.Note.Larger	중형 모델	Medium model
@@ -3401,7 +3456,7 @@ ShellKeys.SupportedNote	자동 이동은 설정을 따릅니다.	Auto advance fo
 ShellKeys.Group.Tools	라벨링 도구	Labeling tools
 ShellKeys.Group.Objects	객체·클래스	Objects and classes
 ShellKeys.Group.SaveMove	저장·이동	Save and navigate
-ShellKeys.Group.Ai	AI 보조	AI assistance
+ShellKeys.Group.Ai	자동 라벨	Auto labeling
 ShellKeys.Group.Anomaly	이상 탐지	Anomaly detection
 ShellKeys.Group.Global	전체	Global
 ShellKeys.Select	선택·이동	Select and move
@@ -3445,7 +3500,7 @@ ShellKeys.CopyPaste	라벨 복사 / 붙여넣기	Copy / paste labels
 ShellKeys.Fit	화면 맞춤	Fit view
 ShellKeys.Infer	검사 모델로 AI 후보 만들기	Generate AI suggestions with the inspection model
 ShellKeys.ConfirmAll	보이는 AI 후보 모두 확정	Accept all visible AI suggestions
-ShellKeys.AnomalyCandidate	AI 판정 후보 따르기	Accept AI decision candidate
+ShellKeys.AnomalyCandidate	판정 후보 적용	Apply decision candidate
 ShellClipboard.Copied	라벨을 복사했습니다. 붙여넣기 전에는 라벨이 바뀌지 않습니다.	Label copied. Labels change only when pasted.
 ShellClipboard.Incompatible	현재 레시피·작업·이미지 크기에 맞는 라벨을 다시 복사하세요.	Copy a label compatible with the current recipe, task and image dimensions.
 ShellClipboard.Paste	라벨 붙여넣기	Paste label
@@ -3681,13 +3736,13 @@ WpfModelDetails.Runtime.141	학습은 가능하며 추론에는 모델 파일 �
 WpfModelDetails.Runtime.142	학습·추론 실행 경로	Training and inference execution routes
 WpfModelDetails.Runtime.143	실행 경로: {0} -> {1} / 작업 폴더 {2}	Execution route: {0} -> {1} / Working folder {2}
 WpfModelDetails.Runtime.144	학습: ONNX는 추론 전용 / 학습 요청 없음	Training: ONNX supports inference only / No training request
-WpfModelDetails.Runtime.145	학습: 미지원 / 연결한 실행 환경은 추론만 지원하며 TCP StartTraining(model={0})를 요청하지 않습니다.	Training: unsupported / The connected runtime supports inference only; no TCP StartTraining(model={0}) request is sent.
-WpfModelDetails.Runtime.146	학습: 실행 차단 / TCP StartTraining(model={0}) 연결 필요 - YOLOv5 환경으로 대체 실행하지 않습니다.	Training: blocked / Connect TCP StartTraining(model={0}); no fallback execution with a YOLOv5 runtime.
-WpfModelDetails.Runtime.147	학습: TCP StartTraining(model={0}) -> 앱에서 준비한 U-Net 세그멘테이션 마스크 / 모델 루트 {1}	Training: TCP StartTraining(model={0}) -> app-prepared U-Net segmentation masks / Model root {1}
-WpfModelDetails.Runtime.148	학습: TCP StartTraining(model={0}, task=anomaly) -> 정상으로 판정한 train/val 이미지 / 메모리 뱅크 {1}	Training: TCP StartTraining(model={0}, task=anomaly) -> train/val images judged normal / Memory bank {1}
-WpfModelDetails.Runtime.149	학습: TCP StartTraining(model={0}) -> 모델 루트 {1} / data.yaml + 학습 설정	Training: TCP StartTraining(model={0}) -> Model root {1} / data.yaml + training settings
-WpfModelDetails.Runtime.150	현재 이미지 추론: 실행 차단 / TCP DetectImage(model={0}) 연결 필요 - YOLOv5 환경으로 대체 실행하지 않습니다.	Current-image inference: blocked / Connect TCP DetectImage(model={0}); no fallback execution with a YOLOv5 runtime.
-WpfModelDetails.Runtime.151	현재 이미지 추론: TCP DetectImage(model={0}) -> 모델 파일 {1} / 이미지 {2}	Current-image inference: TCP DetectImage(model={0}) -> Model file {1} / Image {2}
+WpfModelDetails.Runtime.145	학습: 미지원 / 연결한 실행 환경은 추론만 지원합니다. {0} 학습 요청을 보내지 않습니다.	Training: unsupported / The connected runtime supports inference only; no {0} training request is sent.
+WpfModelDetails.Runtime.146	학습: 실행 차단 / {0} 학습에는 모델 통신 연결이 필요합니다. YOLOv5 환경으로 대신 실행하지 않습니다.	Training: blocked / {0} training needs the model connection; it does not fall back to a YOLOv5 runtime.
+WpfModelDetails.Runtime.147	학습: {0} · 앱에서 준비한 U-Net 세그멘테이션 마스크 / 모델 루트 {1}	Training: {0} · app-prepared U-Net segmentation masks / Model root {1}
+WpfModelDetails.Runtime.148	학습: {0} 이상 탐지 · 정상으로 판정한 train/val 이미지 / 메모리 뱅크 {1}	Training: {0} anomaly detection · train/val images judged normal / Memory bank {1}
+WpfModelDetails.Runtime.149	학습: {0} · 모델 루트 {1} / data.yaml + 학습 설정	Training: {0} · Model root {1} / data.yaml + training settings
+WpfModelDetails.Runtime.150	현재 이미지 추론: 실행 차단 / {0} 추론에는 모델 통신 연결이 필요합니다. YOLOv5 환경으로 대신 실행하지 않습니다.	Current-image inference: blocked / {0} inference needs the model connection; it does not fall back to a YOLOv5 runtime.
+WpfModelDetails.Runtime.151	현재 이미지 추론: {0} · 모델 파일 {1} / 이미지 {2}	Current-image inference: {0} · Model file {1} / Image {2}
 WpfModelDetails.Runtime.152	실행 환경 확인 필요	Check runtime status
 WpfModelDetails.Runtime.153	학습·추론 가능	Training and inference available
 WpfModelDetails.Runtime.154	설치·연결 필요	Installation or connection required
@@ -3721,8 +3776,8 @@ WpfModelDetails.Runtime.183	로컬 YOLOv8 TCP 연결로 현재 이미지 추론�
 WpfModelDetails.Runtime.184	YOLOv8 학습·현재 추론 가능	YOLOv8 training and current inference available
 WpfModelDetails.Runtime.185	YOLOv8 현재 추론 가능 / 학습은 TrainYolo 지원 필요	YOLOv8 current inference available / training requires TrainYolo support
 WpfModelDetails.Runtime.186	YOLOv8 실행 환경 연결됨 / Ultralytics 설치 필요	YOLOv8 runtime connected / Ultralytics installation required
-WpfModelDetails.Runtime.187	YOLOv8 실행 프로그램이 있지만 선택한 venv에서 ultralytics 패키지를 찾지 못했습니다.	The local YOLOv8 runtime process was found, but ultralytics was not found in the selected venv.
-WpfModelDetails.Runtime.188	YOLOv8 venv에 ultralytics를 설치하고 segmentation 가중치를 연결하세요.	Install ultralytics in the YOLOv8 venv and check segmentation weights.
+WpfModelDetails.Runtime.187	YOLOv8 실행 파일은 있지만 선택한 venv에서 ultralytics 패키지를 찾지 못했습니다.	The local YOLOv8 runtime process was found, but ultralytics was not found in the selected venv.
+WpfModelDetails.Runtime.188	YOLOv8 venv에 ultralytics를 설치하고 세그멘테이션 가중치를 연결하세요.	Install ultralytics in the YOLOv8 venv and check segmentation weights.
 WpfModelDetails.Runtime.189	{0} Ultralytics 추론 준비됨	{0} Ultralytics inference ready
 WpfModelDetails.Runtime.190	{0} 번들 Ultralytics 실행 프로그램으로 현재 이미지 추론을 실행할 수 있습니다. 이 프로그램에서는 현재 학습을 사용할 수 없습니다.	The {0} bundled Ultralytics process supports current-image inference. Training is currently unavailable with this process.
 WpfModelDetails.Runtime.191	{0} 현재 추론 가능 / 학습 지원 실행 환경 연결 필요	{0} current inference available / connect a training-capable runtime
@@ -3808,8 +3863,8 @@ WpfModelDetails.Action.232	YOLOv5 선택됨. 기존 YOLOv5 폴더를 연결하�
 WpfModelDetails.Action.233	선택한 실행 환경의 패키지 설치를 시작합니다. 진행 상태는 실행 환경 상태와 로그에 표시합니다.	Starting package installation for the selected runtime. Progress appears in the runtime status and log.
 WpfModelDetails.Action.234	선택한 실행 환경의 패키지 제거를 시작합니다. 제거 후 실행 환경을 다시 점검합니다.	Starting package removal for the selected runtime. Check the runtime again after removal.
 WpfModelDetails.InitialActionHint	실행할 모델을 선택하면 다음 작업을 여기에 보여줍니다.	Select a model to see the next action here.
-WpfModelDetails.InitialResultSummary	아직 실행 기록 없음	No execution recorded yet
-WpfModelDetails.InitialResultDetail	설치 실행 또는 제거 후 결과가 여기에 표시됩니다.	Installation or removal results appear here after execution.
+WpfModelDetails.InitialResultSummary	실행 기록 없음	No runs recorded
+WpfModelDetails.InitialResultDetail	패키지를 설치하거나 제거하면 결과가 여기에 표시됩니다.	Install or remove a package to see the result here.
 WpfDatasetWorkspace.SplitSettings.Open	분할 설정…	Split settings…
 WpfDatasetWorkspace.SplitSettings.Title	분할 설정	Split settings
 WpfDatasetWorkspace.SplitSettings.TrainPercent	학습 %	Training %
@@ -3866,11 +3921,11 @@ WpfComparisonWorkspace.RuleDetectionSummary	신뢰도 ≥ {0:0.##} · 최소 {1:
 WpfComparisonWorkspace.RuleEvaluationSummary	미검 (NG→OK) {0}/{1} · 과검 (OK→NG) {2}/{3} · 정확도 {4:P1} · 제외 {5}장	Misses (NG→OK) {0}/{1} · false alarms (OK→NG) {2}/{3} · Accuracy {4:P1} · excluded {5}
 WpfComparisonWorkspace.RuleRefreshFailed	기준은 저장했지만 화면을 갱신하지 못했습니다. 다시 여세요.	The rule was saved, but display refresh failed. Reopen the workspace.
 WpfCandidate.Batch.Action	AI 후보 일괄	Generate AI suggestions
-WpfCandidate.Batch.RowCount	AI {0}	AI {0}
+WpfCandidate.Batch.RowCount	후보 {0}	AI {0}
 WpfCandidate.Batch.Sort	이미지 정렬	Image order
 WpfCandidate.Batch.SortDisagreement	모델 의견이 다른 순	Most model disagreement first
 WpfCandidate.Batch.SortFile	파일 순	File order
-WpfCandidate.Batch.SortUncertain	AI가 불확실한 순	Most uncertain first
+WpfCandidate.Batch.SortUncertain	신뢰도 낮은 순	Lowest confidence first
 WpfLabelSuspicion.Dismiss	의심 아님	Not suspicious
 WpfLabelSuspicion.Filter	라벨 오류 의심	Possible label errors
 WpfLabelSuspicion.Fix	고치기	Edit label
@@ -3926,9 +3981,9 @@ WpfCandidate.Batch.Stopped	실패로 중단	Stopped after failure
 WpfCandidate.Batch.UnverifiedResult	모델·이미지·설정을 확인하지 못해 AI 후보를 반영하지 않았습니다.	AI suggestions were not added because the model, image, or settings could not be verified.
 WpfCandidate.Batch.AnomalyRow	AI {0} {1}	AI {0} {1}
 WpfCandidate.Batch.AnomalyPrediction	AI 판정 후보: {0} · 이상 점수 {1} · 판정 기준 {2}	AI judgement suggestion: {0} · Anomaly score {1} · Judgement threshold {2}
-WpfCandidate.Batch.AnomalyApply	AI 판정 따르기 → {0}	Use AI verdict → {0}
-WpfCandidate.Batch.SelectNormal	AI 정상 후보 {0}장 선택	Select {0} AI normal candidates
-WpfCandidate.Batch.SelectAbnormal	AI 이상 후보 {0}장 선택	Select {0} AI abnormal candidates
+WpfCandidate.Batch.AnomalyApply	후보 판정 적용 → {0}	Apply candidate verdict → {0}
+WpfCandidate.Batch.SelectNormal	정상 후보 {0}장 선택	Select {0} normal candidates
+WpfCandidate.Batch.SelectAbnormal	이상 후보 {0}장 선택	Select {0} abnormal candidates
 WpfLabelSuspicion.Queue.Unavailable	라벨 점검 불가	Cannot check labels
 WpfInference.Run.SourceChanged	추론 중 모델 또는 이미지가 변경되어 결과를 적용하지 않았습니다.	The model or image changed during inference; the result was not applied.
 WpfLabelSuspicion.Fix.Position	모델 위치로	Use model position
@@ -4556,12 +4611,16 @@ WpfProjectConfig.Status.ApplyCanceledOrBlocked	레시피 적용을 취소하거�
 WpfProjectConfig.Status.NotApplied	레시피를 적용하지 않았습니다.	The recipe was not applied.
 WpfProjectConfig.Status.ApplyFailed	레시피 적용 실패: {0}	Recipe application failed: {0}
 WpfProjectConfig.Status.DatasetRecipe	데이터셋: 레시피 {0}	Dataset: recipe {0}
+WpfProjectConfig.Status.DatasetSaved	데이터셋: 설정 저장 {0}	Dataset: settings saved {0}
+WpfProjectConfig.Status.Saved	설정 저장 완료: {0}	Settings saved: {0}
+WpfProjectConfig.Status.SaveFailed	설정 저장 실패: {0}	Settings save failed: {0}
+WpfProjectConfig.Status.ProjectSaveFailed	프로젝트 설정 저장 실패: {0}	Project settings save failed: {0}
 WpfProjectConfig.Status.Reapplied	레시피 재적용: {0}	Recipe reapplied: {0}
 WpfProjectConfig.Status.Applied	레시피 적용: {0}	Recipe applied: {0}
 WpfProjectConfig.Status.Initial	현재 레시피 설정 위치를 확인하세요.	Check the current recipe settings location.
 WpfProjectConfig.Status.ListRefreshed	레시피 목록을 다시 읽었습니다. 적용할 항목을 선택하세요.	Reloaded the recipe list. Select an item to apply.
 WpfProjectConfig.Status.ExternalReferences	 외부 실행 환경/가중치 참조 {0}개는 이 PC에서 다시 확인해야 합니다.	 Recheck {0} external runtime/weights references on this PC.
-WpfProjectConfig.Status.ImportComplete	가져오기 완료: {0}. 자동 적용하지 않았습니다. 목록에서 `적용`을 누르세요.{1}	Import complete: {0}. It was not applied automatically. Choose `Apply` in the list.{1}
+WpfProjectConfig.Status.ImportComplete	가져오기 완료: {0}. 목록에서 [적용]을 눌러야 반영됩니다.{1}	Import complete: {0}. Choose [Apply] in the list to use it.{1}
 WpfProjectConfig.Status.Applying	레시피 적용 중: {0}	Applying recipe: {0}
 WpfLearningWorkflow.Catalog.Mode.ObjectDetection.ToolTip	박스 라벨과 AI 후보 확인	Box labels and checking AI suggestions
 WpfLearningWorkflow.Catalog.Mode.Infer.ToolTip	모델 실행과 추론 결과 확인	Model execution and checking inference results
@@ -5113,8 +5172,8 @@ WpfInference.Transport.RequestFailed	추론 요청을 보내지 못했습니다.
 WpfClose.ActiveWork.SmartMask	스마트 마스크 후보 생성	Generating Smart Mask suggestions
 WpfClose.ActiveWork.SegmentationCorrection	세그멘테이션 보정 확인	Checking segmentation corrections
 WpfClose.ActiveWork.SegmentationComparison	세그멘테이션 모델 비교	Segmentation model comparison
-WpfClose.ActiveWork.CurrentInference	현재 이미지 AI 추론	AI inference on the current image
-WpfClose.ActiveWork.BatchInference	일괄 AI 추론	Batch AI inference
+WpfClose.ActiveWork.CurrentInference	현재 이미지 추론	Current-image inference
+WpfClose.ActiveWork.BatchInference	일괄 추론	Batch inference
 WpfClose.ActiveWork.ExternalDataset	외부 YOLO 데이터셋 확인	Checking an external YOLO dataset
 WpfClose.ActiveWork.ExternalEvaluation	외부 평가 데이터 대조	Checking external evaluation data
 WpfClose.ActiveWork.Training	모델 학습	Model training
@@ -5185,7 +5244,7 @@ WpfShell.Navigation.TrainedModelCheck.Status	학습 모델 결과 확인	Check t
 WpfShell.Navigation.TrainedModelCheck.Detail	학습 모델 결과 확인을 요청했습니다. 현재 이미지 추론은 현재 이미지 추론 버튼에서 실행합니다.	Requested a trained-model result check. Use Infer current image to run inference on the current image.
 WpfShell.Navigation.Stage.TrainedModelCheck.Log	작업 단계 이동: 학습 모델 결과 확인	Workflow stage changed: check trained model results
 WpfShell.Status.SmartMask.ImageChanged	이미지 변경 후 스마트 마스크 초기화	Smart Mask reset after image change
-WpfShell.Status.BatchPreflightPassed	AI 일괄 작업 사전 점검 통과: {0} · 실행 {1}개 · 결과는 AI 후보 확인 대기, 자동 저장 없음	AI batch preflight passed: {0} · Runs: {1} · Results await AI suggestion checking; no automatic saving.
+WpfShell.Status.BatchPreflightPassed	일괄 추론 사전 점검 통과: {0} · 실행 {1}개 · 결과는 AI 후보로 확인 대기, 자동 저장 없음	Batch inference preflight passed: {0} · Runs: {1} · Results wait as AI suggestions; no automatic saving.
 WpfShell.Status.SavedLabels.EmptyFile	저장된 라벨 파일에 객체가 없습니다. 새 라벨을 만들면 저장 안 됨 상태로 바뀝니다.	The saved label file contains no objects. Creating a new label marks labels as unsaved.
 WpfShell.Status.Layout.ResetWidths	패널 너비 초기화: 작업 패널 320px / 이미지 목록 216px	Panel widths reset: task panel 320px / image list 216px
 WpfShell.Navigation.Mode.Labeling	모드: 라벨링	Mode: Labeling
@@ -5248,7 +5307,7 @@ ApplicationClose.ActiveWorkTitle	진행 중인 작업이 있습니다	There is a
 ApplicationClose.SaveAndClose	저장 후 종료	Save and close
 WpfShell.ModelCenter.AnomalyEvaluation.ToolTip	현재 YOLOv8·YOLO11·PatchCore 모델을 테스트 normal/abnormal 분할로 평가하고 같은 평가 데이터의 결과를 모델 비교에서 확인합니다.	Evaluate the current YOLOv8, YOLO11, or PatchCore model on the test normal/abnormal split, then check results for the same evaluation data in model comparison.
 WpfShell.Dataset.Interchange.ToolTip	COCO, Pascal VOC, Label Studio, CVAT 변환 결과를 먼저 점검한 뒤 직접 적용할 수 있습니다.	Check conversion results for COCO, Pascal VOC, Label Studio, and CVAT before applying them.
-WpfShell.ExternalEvaluation.AuditBoundary	이미지 SHA-256 중복 대조만 수행합니다. 중복 없음은 검사 모델 지정 근거가 아닙니다.	Only image SHA-256 duplicates are checked. No duplicates does not provide evidence for setting an inspection model.
+WpfShell.ExternalEvaluation.AuditBoundary	이미지 SHA-256 중복만 확인합니다. 중복이 없다고 검사 모델로 지정해도 된다는 뜻은 아닙니다.	Only image SHA-256 duplicates are checked. No duplicates does not provide evidence for setting an inspection model.
 WpfCandidateReview.ModelComparison.Benchmark.Title	정확도 / 모델 처리 시간	Accuracy / model processing time
 WpfLearningWorkflow.Workbench.QualityDetail	품질·학습 정보	Quality and training details
 WpfModelSettings.ProjectRoot.Browse.ToolTip	모델 실행 환경 폴더 선택	Choose the model runtime folder
@@ -5321,7 +5380,7 @@ WpfInference.Workspace.NotRunHint	아직 이 이미지를 추론하지 않았습
 WpfInference.Workspace.Images	이미지	Images
 WpfInference.Workspace.ResultBoundary	추론 결과는 라벨이 아닙니다. 라벨링에서 확정하고 저장해야 정답이 됩니다.	Inference results are not labels. Confirm and save them in Labeling to create ground truth.
 WpfAnomalyLabeling.Mode	판정	Decision
-WpfAnomalyLabeling.RunCandidate	검사 모델로 AI 판정 후보	AI decision candidate from inspection model
+WpfAnomalyLabeling.RunCandidate	검사 모델로 판정 후보 만들기	Create decision candidates with the inspection model
 WpfAnomalyLabeling.CandidateHelp	미완료 전체는 왼쪽 목록의 'AI 후보 일괄'. AI 후보는 참고용이며 판정은 직접 누르거나 Enter로 따릅니다.	Use Batch AI candidates in the left list for all incomplete images. AI candidates are references; choose a decision yourself or press Enter to follow one.
 WpfAnomalyLabeling.EmptyLocation	표시한 위치가 없습니다.	No marked locations.
 WpfAnomalyLabeling.ImmediateSaveHint	판정은 바로 저장됩니다. 위치 변경은 저장하세요.	Decisions save immediately. Save location changes separately.
@@ -5351,7 +5410,7 @@ WpfCanvas.Static.KeepZoom	이미지 이동 시 확대 유지	Keep zoom when movi
 WpfCanvas.Static.HoldOriginal	O 누르는 동안 원본	Hold O for original
 WpfCanvas.Static.BrightnessContrast	밝기·대비	Brightness/contrast
 WpfCanvas.Static.BrightnessContrastDialogTitle	밝기·대비 (표시 전용)	Brightness/contrast (display only)
-WpfCanvas.Static.AdditionalActionsScope	보조 작업의 저장·실행 버튼은 실제 작업을 수행합니다.	Save and run buttons below perform their respective actions.
+WpfCanvas.Static.AdditionalActionsScope	아래 보조 작업의 저장·실행 버튼은 누르면 바로 실행됩니다.	The save and run buttons below take effect immediately.
 WpfDatasetInterchange.Error.PurposeMismatch	선택한 작업은 {0} 목적이 필요하지만 현재 데이터셋 목적은 {1}입니다.	The selected operation requires {0}, but the current dataset purpose is {1}.
 WpfInference.Decision.EvidenceHint	판정 기준을 넘어 NG 판정에 들어간 결과	This result exceeds the decision rule and contributes to an NG decision.
 WpfAnomalyLabeling.ProgressTitle	진행	Progress

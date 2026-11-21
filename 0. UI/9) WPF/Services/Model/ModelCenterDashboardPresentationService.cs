@@ -327,7 +327,7 @@ namespace MvcVisionSystem
 
             if (text.Contains("recipe", StringComparison.OrdinalIgnoreCase))
             {
-                return "recipe \uC800\uC7A5 \uC870\uAC74 \uD655\uC778";
+                return "\uB808\uC2DC\uD53C \uC800\uC7A5 \uC870\uAC74 \uD655\uC778";
             }
 
             if (text.Contains("\uAC80\uC0AC \uBAA8\uB378\uC744 \uC800\uC7A5", StringComparison.Ordinal))
@@ -553,7 +553,7 @@ namespace MvcVisionSystem
         {
             if (hasPendingModelSelection)
             {
-                return "\uC800\uC7A5: \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5 \uBC84\uD2BC\uC73C\uB85C recipe\uC5D0 \uC800\uC7A5, \uB2E4\uC74C \uCD94\uB860\uBD80\uD130 \uC0AC\uC6A9";
+                return "\uC800\uC7A5: [\uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5]\uC744 \uB204\uB974\uBA74 \uB808\uC2DC\uD53C\uC5D0 \uC800\uC7A5\uB418\uACE0 \uB2E4\uC74C \uCD94\uB860\uBD80\uD130 \uC801\uC6A9\uB429\uB2C8\uB2E4";
             }
 
             if (comparison?.HasLatestWeights != true)

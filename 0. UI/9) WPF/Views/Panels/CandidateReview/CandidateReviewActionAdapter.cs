@@ -249,7 +249,7 @@ namespace MvcVisionSystem
                 ShowCandidateReviewWorkflowView();
                 FocusSelectedCandidateInViewer(logIfMissing: false);
                 AddCandidateReviewHistory($"\uC644\uB8CC \uBCF4\uB958: \uB0A8\uC740 \uD6C4\uBCF4 {candidateReviewState.PendingCount}\uAC1C");
-                AppendLog($"\uB0A8\uC740 AI \uD6C4\uBCF4 {candidateReviewState.PendingCount}\uAC1C\uB97C \uBA3C\uC800 \uD655\uC815\uD558\uAC70나 \uAC74\uB108\uB6F0\uAE30\uD558\uC138요.");
+                AppendLog($"\uB0A8\uC740 AI \uD6C4\uBCF4 {candidateReviewState.PendingCount}\uAC1C\uB97C \uBA3C\uC800 \uD655\uC815\uD558\uAC70\uB098 \uAC74\uB108\uB6F0\uC138\uC694.");
                 return;
             }
             else

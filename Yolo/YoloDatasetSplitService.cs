@@ -168,6 +168,14 @@ namespace MvcVisionSystem.Yolo
                     throw new System.IO.InvalidDataException("A new image shares a source group with the fixed test set. Unlock the test split before repartitioning this group.");
                 if (anchors.Length == 1) Assign(group, anchors[0]); else pending.Add(group);
             }
+            // Manual and fixed-test images are already counted. What each split still needs is spread over the
+            // automatic images in placement order, so the whole-split term tracks progress. Measured against the
+            // final totals it pulled the rare-class images, which are placed first, into train (70/15/15 became 82/9/9).
+            var anchored = StandardModes.ToDictionary(mode => mode, mode => counts[mode]);
+            int anchoredTotal = anchored.Values.Sum();
+            double[] need = Enumerable.Range(0, 3).Select(mode => options.FreezeTestSplit && mode == 2 ? 0D
+                : Math.Max(0D, available * proportions[mode] - anchored[StandardModeValues[mode]])).ToArray();
+            double needTotal = need.Sum();
             foreach (var group in pending.OrderByDescending(group => options.StratifySplit ? group.SelectMany(image => image.Strata).Sum(key => 1D / Math.Max(1, totals[key])) : 0D)
                 .ThenBy(group => StableBucket(group[0].ImageName, options.SplitSeed)).ThenBy(group => group[0].ImageName, StringComparer.OrdinalIgnoreCase))
             {
@@ -180,11 +188,13 @@ namespace MvcVisionSystem.Yolo
                     double Cost(int candidate)
                     {
                         double score = 0;
+                        int placed = counts.Values.Sum() - anchoredTotal + group.Count;
                         for (int mode = 0; mode < 3; mode++)
                         {
                             if (options.FreezeTestSplit && mode == 2) continue;
                             double actual = counts[StandardModeValues[mode]] + (candidate == mode ? group.Count : 0);
-                            score += Math.Pow(actual - available * proportions[mode], 2) / Math.Max(1, available);
+                            double target = needTotal > 0 ? anchored[StandardModeValues[mode]] + placed * need[mode] / needTotal : available * proportions[mode];
+                            score += Math.Pow(actual - target, 2) / Math.Max(1, available);
                             if (options.StratifySplit)
                                 foreach (string key in strata)
                                     score += Math.Pow(classCounts[StandardModeValues[mode]][key] + (candidate == mode ? groupClasses[key] : 0) - totals[key] * proportions[mode], 2) / Math.Max(1, totals[key]);

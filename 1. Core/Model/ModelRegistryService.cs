@@ -380,6 +380,15 @@ namespace MvcVisionSystem
                 .OrderByDescending(item => item.CandidateId == registry.CurrentInspectionModelId).FirstOrDefault();
         }
 
+        // The previous model of an engine-changing adoption lives in its own engine's profile; candidate ids come from the
+        // weights path, so the same id may exist in both profiles. Prefer the adopted profile, then any profile.
+        public static ModelCandidate FindAdoptionPreviousCandidate(ModelRegistrySettings registry, InspectionModelAdoption adoption)
+        {
+            if (registry?.Candidates == null || adoption == null || string.IsNullOrEmpty(adoption.PreviousCandidateId)) return null;
+            return registry.Candidates.FirstOrDefault(item => item != null && item.CandidateId == adoption.PreviousCandidateId && item.ProfileId == adoption.ProfileId)
+                ?? registry.Candidates.FirstOrDefault(item => item != null && item.CandidateId == adoption.PreviousCandidateId);
+        }
+
         public static InspectionModelAdoption FindLatestInspectionModelAdoption(ModelRegistrySettings registry)
             => registry?.AdoptionHistory?.Where(item => item != null).OrderByDescending(item => ParseUtc(item.AdoptedUtc)).FirstOrDefault();
 
@@ -388,7 +397,7 @@ namespace MvcVisionSystem
             if (registry == null || adoption == null || !registry.AdoptionHistory.Contains(adoption)
                 || !string.IsNullOrEmpty(adoption.UndoneUtc) || registry.CurrentInspectionModelId != adoption.CandidateId
                 || !ReferenceEquals(adoption, FindLatestInspectionModelAdoption(registry))) return false;
-            ModelCandidate previous = registry.Candidates.FirstOrDefault(item => item.CandidateId == adoption.PreviousCandidateId && item.ProfileId == adoption.ProfileId);
+            ModelCandidate previous = FindAdoptionPreviousCandidate(registry, adoption);
             if (previous == null) return false;
             MarkCurrentInspectionModel(registry, previous);
             registry.CurrentProfileId = previous.ProfileId;
@@ -579,19 +588,23 @@ namespace MvcVisionSystem
             }
 
             string baselineCandidateId = BuildStableId("candidate", baselineWeightsPath);
-            ModelCandidate baseline = FindInspectionModelByPath(registry, baselineWeightsPath, profile?.ProfileId);
+            // An adoption that changes the engine (YOLO11 -> YOLOv8) passes the adopted model's profile. The previous
+            // inspection model is usually already recorded under its own engine's profile; reuse that record instead of
+            // copying the same weights into the new profile, which produced a "YOLOv8 · yolo11n.pt" row (r11 capture).
+            ModelCandidate baseline = FindInspectionModelByPath(registry, baselineWeightsPath, profile?.ProfileId)
+                ?? FindInspectionModelByPath(registry, baselineWeightsPath);
             if (baseline == null)
             {
                 baseline = new ModelCandidate
                 {
                     CandidateId = baselineCandidateId,
                     CreatedUtc = now,
-                    WeightsPath = baselineWeightsPath
+                    WeightsPath = baselineWeightsPath,
+                    ProfileId = profile?.ProfileId ?? string.Empty
                 };
                 registry.Candidates.Add(baseline);
             }
 
-            baseline.ProfileId = profile?.ProfileId ?? string.Empty;
             baseline.LastSeenUtc = now;
             baseline.SavedToRecipe = true;
             if (string.IsNullOrWhiteSpace(baseline.Decision))

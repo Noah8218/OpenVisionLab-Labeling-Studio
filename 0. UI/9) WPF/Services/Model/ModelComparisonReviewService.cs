@@ -288,7 +288,7 @@ namespace MvcVisionSystem
                 ? "\uBAA8\uB378 \uCC28\uC774 \uC608\uC2DC: \uCC28\uC774 \uC5C6\uC74C"
                 : $"\uBAA8\uB378 \uCC28\uC774 \uC608\uC2DC: \uCC28\uC774 {differenceImageCount}\uAC1C \uC774\uBBF8\uC9C0 / \uC608\uC2DC {examples.Count}\uAC1C";
             string detail =
-                $"\uAE30\uC874 \uBAA8\uB378 {baselineCount}\uAC1C, \uC0C8 \uBAA8\uB378 {candidateCount}\uAC1C, \uC2E0\uB8B0\uB3C4 {confidenceThreshold.ToString("P0", CultureInfo.CurrentCulture)}, \uACB9\uCE68 {iouThreshold.ToString("P0", CultureInfo.CurrentCulture)}";
+                $"\uAE30\uC874 \uBAA8\uB378 {baselineCount}\uAC1C, \uC0C8 \uBAA8\uB378 {candidateCount}\uAC1C, \uC2E0\uB8B0\uB3C4 {confidenceThreshold.ToString("P0", CultureInfo.CurrentCulture)}, IoU {iouThreshold.ToString("P0", CultureInfo.CurrentCulture)}";
             if (!string.IsNullOrWhiteSpace(promotionDetail))
             {
                 detail += " / " + promotionDetail;
@@ -844,7 +844,7 @@ namespace MvcVisionSystem
                 PackIconMaterialKind.MinusCircleOutline,
                 priority: 2,
                 imagePath: imagePath,
-                actionText: "\uD655\uC778: \uC2E4\uC81C \uAC1D\uCCB4\uBA74 \uC0C8 \uBAA8\uB378 \uB204\uB77D\uC73C\uB85C \uAD50\uCCB4 \uBCF4\uB958",
+                actionText: "\uD655\uC778: \uC2E4\uC81C \uAC1D\uCCB4\uBA74 \uC0C8 \uBAA8\uB378\uC758 \uBBF8\uAC80\uC774\uBBC0\uB85C \uC9C0\uC815 \uBCF4\uB958",
                 locationText: FormatLocation(baseline),
                 left: baseline.Left,
                 top: baseline.Top,

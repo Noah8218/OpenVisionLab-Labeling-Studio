@@ -21,6 +21,11 @@ namespace MvcVisionSystem
     {
         private readonly ModelComparisonWorkflowAdapterContext context;
         private bool workspaceConfigured;
+        private bool workspaceRunStarting;
+
+        // A run uses the workspace's A/B selection when the comparison stage is shown or when the workspace itself
+        // started it; otherwise it is the legacy current-versus-latest comparison of the training and inference views.
+        private bool IsWorkspaceComparisonStarting() => workspaceRunStarting || context.IsComparisonStageActiveProvider?.Invoke() == true;
         private bool disposed;
         private DispatcherTimer adoptionUndoTimer;
 
@@ -72,7 +77,15 @@ namespace MvcVisionSystem
             if (disposed || workspaceConfigured || Workspace == null) return;
             workspaceConfigured = true;
             Workspace.Configure(
-                () => { if (Workspace.CanRunComparison && context.IsWorkspaceBusyProvider?.Invoke() != true) LearningWorkflowViewModel?.RunModelComparisonCommand.Execute(null); },
+                () =>
+                {
+                    if (!Workspace.CanRunComparison || context.IsWorkspaceBusyProvider?.Invoke() == true) return;
+                    // The workspace also starts runs while another stage is shown (automatic evaluation after training).
+                    // The command builds its request and callbacks synchronously, so the flag covers exactly that start.
+                    workspaceRunStarting = true;
+                    try { LearningWorkflowViewModel?.RunModelComparisonCommand.Execute(null); }
+                    finally { workspaceRunStarting = false; }
+                },
                 AdoptWorkspaceModel,
                 (pair, groundTruth) =>
                 {
@@ -89,8 +102,14 @@ namespace MvcVisionSystem
             if (disposed || Workspace == null || context.IsApplicationCloseApproved?.Invoke() == true) return;
             LabelingProjectData data = projectData;
             if (data?.ProjectSettings == null) return;
+            // Running a comparison needs a dataset readiness report. The legacy training panel produced it only after its
+            // view model existed, so a session that used only the training workspace could never evaluate a model.
+            context.EnsureReadinessReport?.Invoke();
             PythonModelSettings settings = data.ProjectSettings.PythonModel;
-            IReadOnlyList<WpfModelRegistryHistoryItem> models = ModelRegistryHistoryPresentationService.IncludeConfiguredModel(ModelRegistryHistoryPresentationService.BuildHistoryItems(data.ProjectSettings.ModelRegistry, int.MaxValue), settings, int.MaxValue);
+            // A model whose file is gone cannot be evaluated or used as a comparison baseline, so it is not listed.
+            // This also hides a placeholder path that an older settings save recorded as the inspection model.
+            IReadOnlyList<WpfModelRegistryHistoryItem> models = ModelRegistryHistoryPresentationService.IncludeConfiguredModel(ModelRegistryHistoryPresentationService.BuildHistoryItems(data.ProjectSettings.ModelRegistry, int.MaxValue), settings, int.MaxValue)
+                .Where(model => model != null && (File.Exists(model.WeightsPath) || File.Exists(model.ArtifactPath))).ToArray();
             var hashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var sizes = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
             foreach (WpfModelRegistryHistoryItem model in models)
@@ -664,8 +683,15 @@ namespace MvcVisionSystem
             PythonModelSettings settings = data.ProjectSettings.PythonModel;
             bool comparingSelectedInferenceModel = context.IsInferenceStageActiveProvider?.Invoke() == true;
             WpfModelRegistryHistoryItem selectedModel = context.SelectedInferenceModelProvider?.Invoke();
-            if (context.IsComparisonStageActiveProvider?.Invoke() == true)
+            if (IsWorkspaceComparisonStarting())
             {
+                if (Workspace?.UsesEngineComparison == true)
+                {
+                    WpfModelRegistryHistoryItem a = Workspace.SelectedA.History, b = Workspace.SelectedB.History;
+                    return context.ModelComparisonRunService.BuildSelectedModelsEngineRequest(data,
+                        a.ModelEngine, a.ProjectRootPath, a.WeightsPath,
+                        b.ModelEngine, b.ProjectRootPath, b.WeightsPath);
+                }
                 return context.ModelComparisonRunService.BuildRequest(data, context.TrainingWeightsService, task: "test",
                     baselineWeightsOverride: Workspace?.SelectedA?.History.WeightsPath,
                     candidateWeightsOverride: Workspace?.SelectedB?.History.WeightsPath);
@@ -842,7 +868,7 @@ namespace MvcVisionSystem
         internal ModelComparisonCallbacks CreateCallbacks()
         {
             bool isInferenceComparison = context.IsInferenceStageActiveProvider?.Invoke() == true;
-            bool isWorkspaceComparison = context.IsComparisonStageActiveProvider?.Invoke() == true;
+            bool isWorkspaceComparison = IsWorkspaceComparisonStarting();
             bool workspaceResultApplied = false;
             return new ModelComparisonCallbacks
             {
@@ -878,7 +904,7 @@ namespace MvcVisionSystem
                 },
                 ApplyCandidateComparisonResult = (result, request, report) =>
                 {
-                    ApplyCandidateComparisonResult(result, request, report, isInferenceComparison);
+                    ApplyCandidateComparisonResult(result, request, report, isInferenceComparison, isWorkspaceComparison);
                     workspaceResultApplied = true;
                 },
                 RefreshHistory = RefreshHistoryItems,
@@ -913,9 +939,13 @@ namespace MvcVisionSystem
             ModelComparisonRunResult result,
             ModelComparisonRunRequest request,
             WpfModelComparisonReviewReport report,
-            bool isInferenceComparison)
+            bool isInferenceComparison,
+            bool isWorkspaceComparison)
         {
-            if (context.IsComparisonStageActiveProvider?.Invoke() == true)
+            // The training workspace reads test metrics from the benchmark reports this comparison just wrote; without
+            // a refresh its finished view keeps "—" until the user reselects a record (README capture r11, 2026-11-21).
+            if (!isInferenceComparison) context.RefreshTrainingWorkspace?.Invoke();
+            if (isWorkspaceComparison)
             {
                 RefreshWorkspace();
                 Workspace?.SetLocalizedStatus("Completed");
@@ -1029,6 +1059,7 @@ namespace MvcVisionSystem
         internal Func<bool> IsComparisonStageActiveProvider { get; init; }
         internal Func<ModelComparisonWorkspaceViewModel> WorkspaceViewModelProvider { get; init; }
         internal Func<bool> IsWorkspaceBusyProvider { get; init; }
+        internal Action EnsureReadinessReport { get; init; }
         internal Func<bool> IsApplicationCloseApproved { get; init; }
         internal Func<string> RepositoryRootProvider { get; init; }
         internal Func<string> ManifestPathProvider { get; init; }
@@ -1042,6 +1073,7 @@ namespace MvcVisionSystem
         internal Action EnsureProjectSettings { get; init; }
         internal Action SaveTrainingEditorFields { get; init; }
         internal Action<bool> RefreshTrainingReadinessPanel { get; init; }
+        internal Action RefreshTrainingWorkspace { get; init; }
         internal Action RefreshCommands { get; init; }
         internal Func<bool> SaveDecisionRuleMetadata { get; init; }
         internal Action<TrainingRun> EvaluateDecisionRule { get; init; }

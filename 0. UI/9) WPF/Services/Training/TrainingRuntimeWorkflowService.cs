@@ -1,5 +1,6 @@
 using MvcVisionSystem._1._Core;
 using MvcVisionSystem._3._Communication.TCP;
+using MvcVisionSystem.Yolo;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -86,13 +87,20 @@ namespace MvcVisionSystem
             {
                 var preparation = new YoloTrainingDatasetPreparationService();
                 string inputRoot = Path.Combine(source.OutputRootPath, "training-inputs", Guid.NewGuid().ToString("N"));
-                TrainingDatasetSnapshot captured = await Task.Run(() => preparation.CaptureQueueInput(source,
-                    new RecipeDatasetVersionSnapshot { ContentSha256 = plan.DatasetContentSha256 }, selectedImages, plan.OnlyReviewed, inputRoot, preparationCancellation.Token), preparationCancellation.Token);
+                TrainingQueuePlan runPlan = plan;
+                TrainingDatasetSnapshot captured = await Task.Run(() =>
+                {
+                    runPlan = EnsureSplitContract(source, plan);
+                    TrainingDatasetSnapshot input = preparation.CaptureQueueInput(source,
+                        new RecipeDatasetVersionSnapshot { ContentSha256 = runPlan.DatasetContentSha256 }, selectedImages, runPlan.OnlyReviewed, inputRoot, preparationCancellation.Token);
+                    RecordQueueDatasetVersion(source, runPlan);
+                    return input;
+                }, preparationCancellation.Token);
                 preparationCancellation.Token.ThrowIfCancellationRequested();
                 if (disposed || queueCallbacks.IsCloseApproved?.Invoke() == true || !ReferenceEquals(source, dataAccessor()) || plan.RecipeName != recipeNameAccessor())
                     throw new OperationCanceledException(preparationCancellation.Token);
                 isPreparingQueue = false;
-                return await queue.RunAsync(plan, (capturedPlan, model, token) => RunQueuedModelAsync(source, captured, capturedPlan, model, token));
+                return await queue.RunAsync(runPlan, (capturedPlan, model, token) => RunQueuedModelAsync(source, captured, capturedPlan, model, token));
             }
             finally
             {
@@ -100,6 +108,48 @@ namespace MvcVisionSystem
                 if (ReferenceEquals(queuePreparationCancellation, preparationCancellation)) queuePreparationCancellation = null;
                 preparationCancellation.Dispose();
                 NotifyQueueChanged();
+            }
+        }
+
+        // The split projection dataset.splits.json is part of the dataset version, and a recipe that was never saved does not
+        // have it yet. The first run's metadata save wrote it, so the runs kept the version without it while every later
+        // snapshot (and the automatic comparison) used the version with it, and no evaluation matched a run (README capture
+        // r10/r12). Writing the projection before capture trains on the version a recipe save records. A plan computed for
+        // other content is returned unchanged so the capture identity check still rejects it.
+        private static TrainingQueuePlan EnsureSplitContract(LabelingProjectData source, TrainingQueuePlan plan)
+        {
+            if (source == null || string.IsNullOrWhiteSpace(source.OutputRootPath)
+                || File.Exists(Path.Combine(source.OutputRootPath, DatasetSplitAssignmentService.ContractFileName))) return plan;
+            if (!string.Equals(RecipeDatasetVersionService.CreateSnapshot(source).DatasetVersionId, plan.DatasetVersionId, StringComparison.Ordinal)) return plan;
+            DatasetSplitAssignmentService.SaveContract(source);
+            RecipeDatasetVersionSnapshot written = RecipeDatasetVersionService.CreateSnapshot(source);
+            return string.Equals(written.DatasetVersionId, plan.DatasetVersionId, StringComparison.Ordinal) ? plan
+                : new TrainingQueuePlan(plan.RecipeName, written.DatasetVersionId, written.ContentSha256, plan.Models, plan.Epochs, plan.ImageSize, plan.BatchSize, plan.OnlyReviewed);
+        }
+
+        // The dataset panel promises a new version on "save or training start", and the run label, the comparison grouping
+        // and its baseline selector read the recorded history. A queue started without a recipe save therefore records the
+        // version it trains on. The manifest is rewritten only when it is missing or names another version, so a queue on
+        // an already recorded version leaves the recipe files untouched. A failure here is logged and never blocks training.
+        private static void RecordQueueDatasetVersion(LabelingProjectData source, TrainingQueuePlan plan)
+        {
+            if (source == null || string.IsNullOrWhiteSpace(plan.RecipeName) || string.IsNullOrWhiteSpace(plan.DatasetVersionId)) return;
+            try
+            {
+                RecipeDatasetVersionSnapshot current = RecipeDatasetVersionService.CreateSnapshot(source);
+                if (!string.Equals(current.DatasetVersionId, plan.DatasetVersionId, StringComparison.Ordinal)) return;
+                string manifestPath = LabelingDatasetManifestService.GetManifestPath(plan.RecipeName);
+                string recordedId = File.Exists(manifestPath)
+                    ? Newtonsoft.Json.JsonConvert.DeserializeObject<LabelingDatasetManifest>(File.ReadAllText(manifestPath))?.DatasetVersionId ?? string.Empty
+                    : string.Empty;
+                if (string.Equals(recordedId, current.DatasetVersionId, StringComparison.Ordinal))
+                    RecipeDatasetVersionService.RecordSnapshot(Path.GetDirectoryName(manifestPath), current);
+                else
+                    LabelingDatasetManifestService.Save(source, plan.RecipeName, current);
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or InvalidDataException or Newtonsoft.Json.JsonException)
+            {
+                AppLog.ABNORMAL("Training queue could not record its dataset version: " + error.Message);
             }
         }
 

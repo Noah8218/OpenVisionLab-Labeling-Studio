@@ -2,7 +2,7 @@
 
 A Windows desktop tool for labeling industrial images, training and comparing models, and running inference on one PC.
 
-[![Version 0.4.2](https://img.shields.io/badge/version-0.4.2-blue)](Directory.Build.props)
+[![Version 0.4.3](https://img.shields.io/badge/version-0.4.3-blue)](Directory.Build.props)
 ![Windows 10/11 x64](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-blue)
 ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
 [![MIT License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -105,6 +105,10 @@ The Dataset view shows the recorded version, and trained-model history records t
 In **Training → Runtime**, selecting a registered model switches its Python executable, runtime folder, and communication script together; select the runtime folder if initial discovery fails.
 Compare models with matching dataset identities, classes, splits, and evaluation settings; different conditions are shown as differences rather than a ranking.
 
+![Two models trained on one dataset version, compared on the test split, set as the inspection model, then used for inference](docs/tutorial/images/readme/en/multimodel-comparison.gif)
+
+Train YOLOv8n and YOLO11n on the same dataset version → compare them on the test split → set the better model as the inspection model → run inference. [Watch the MP4](docs/tutorial/images/readme/en/multimodel-comparison.mp4). (Training time omitted.)
+
 ## Build from source
 
 Windows 10/11 x64, .NET SDK **8.0.421**, and PowerShell are required.
@@ -145,7 +149,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x6
 .\scripts\start-labeling-workbench.ps1 -AppMode Publish
 ```
 
-The versioned self-contained folder is `artifacts\publish\Release\win-x64\0.4.2`. Extract the portable ZIP into a new folder, verify the manifests, then run `OpenVisionLab.LabelingStudio.exe`. The release and publish manifests record source/build identity and the full payload's SHA-256 hashes.
+The versioned self-contained folder is `artifacts\publish\Release\win-x64\0.4.3`. Extract the portable ZIP into a new folder, verify the manifests, then run `OpenVisionLab.LabelingStudio.exe`. The release and publish manifests record source/build identity and the full payload's SHA-256 hashes.
 
 The example launcher resolves the Publish folder from the version in `Directory.Build.props`; no local configuration is needed for the default bundle. An explicit `-ConfigPath` takes precedence over `config/labeling-runtime.local.json`, which takes precedence over the example. See [launcher configuration](docs/tutorial/BUILD_AND_RUNTIME.md#launcher-configuration) for custom bundles.
 
@@ -154,7 +158,7 @@ The example launcher resolves the Publish folder from the version in `Directory.
 Verify the existing package without changing it:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.4.2 -VerifyOnly
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.4.3 -VerifyOnly
 ```
 
 ### Environment check CLI
@@ -190,8 +194,9 @@ See [Runtime limitations](docs/tutorial/BUILD_AND_RUNTIME.md#limitations) for ar
 
 ## Version
 
-Current version: **0.4.2** ([version source](Directory.Build.props)) · [Release notes](RELEASE_NOTES.md)
+Current version: **0.4.3** ([version source](Directory.Build.props)) · [Release notes](RELEASE_NOTES.md)
 
+- **0.4.3** — Trains several YOLOv8/YOLO11 models in one queue on the same data and evaluates them on the test split when the queue finishes. Model comparison shows the A→B difference, AP by class, F1 and recall by confidence, and per-image agreement, and recommends a model among those evaluated on the same dataset version. The chosen model can be set as the inspection model on either engine, and Undo restores the previous model and engine. Verified on the synthetic washer dataset only.
 - **0.4.2** — Extends the edge inference runtime (`Runtime/Edge`) for operation: a staged frame pipeline, a fallback chain (TensorRT, OpenVINO on the CPU, then a rule check that holds parts for manual inspection), quality, GPU and alert monitoring, a release registry with shadow comparison, a promotion gate and rollback, case capture for relabeling, OPC UA certificate security, per-line parameter templates, and a native C++/CUDA path. The worker now reconnects when the requester link drops. Desktop application behavior and file formats are unchanged; the runtime is still tested only against a simulator and synthetic data.
 - **0.4.1** — Adds a separate edge inference runtime (`Runtime/Edge`). A prepared YOLO detection model is exported to ONNX and runs in a Linux/WSL2 GPU container with ONNX Runtime or TensorRT FP32, FP16, or INT8 engines. Verdicts are sent over Modbus TCP or OPC UA, and inspection latency p99 is shown in Prometheus and Grafana. Desktop application behavior and file formats are unchanged. The runtime has been tested only against a simulator; Machine Studio integration is not yet verified.
 - **0.4.0** — Opt-in TCP inbox for received-image label review, plus UI refinements

@@ -1457,7 +1457,7 @@
                                     <Border BorderThickness="3,0,0,0" Padding="7,5,10,5">
                                         <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent" /><Style.Triggers><DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" /><Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" /></DataTrigger></Style.Triggers></Style></Border.Style>
                                         <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="56" /><ColumnDefinition Width="8" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                            <Border Width="56" Height="38" CornerRadius="4" ClipToBounds="True"><Image Source="{Binding ThumbnailSource}" Stretch="UniformToFill" /></Border>
+                                            <Border Width="56" Height="38" CornerRadius="4" ClipToBounds="True" Background="{DynamicResource RecipeButtonBrush}"><Image Source="{Binding ThumbnailSource}" Stretch="Uniform" /></Border>
                                             <StackPanel Grid.Column="2" VerticalAlignment="Center"><TextBlock Text="{Binding FileName}" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip="{Binding FileName}" /><TextBlock Text="{Binding InferenceStateText, StringFormat='● {0}'}" Foreground="{Binding InferenceStateBrush}" FontSize="12" TextTrimming="CharacterEllipsis" /></StackPanel>
                                         </Grid>
                                     </Border>

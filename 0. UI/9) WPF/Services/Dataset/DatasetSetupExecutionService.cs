@@ -116,11 +116,13 @@ namespace MvcVisionSystem
 
             var data = new LabelingProjectData();
             data.ProjectSettings.EnsureDefaults();
+            // The engine is set before path defaults so an Ultralytics recipe does not start with YOLOv5 paths.
+            data.ProjectSettings.PythonModel.ModelEngine = PythonModelSettings.NormalizeModelEngine(request.ModelEngine);
             PythonModelRuntimePathResolver.ApplyDefaults(data.ProjectSettings);
+            PythonModelRuntimePathResolver.TryInheritRuntime(data.ProjectSettings.PythonModel, request.InheritedRuntime);
             data.ProjectSettings.DatasetPurpose = request.Purpose;
             data.ProjectSettings.ProductCode = request.ProductCode?.Trim() ?? string.Empty;
             data.ProjectSettings.RecipeDescription = request.RecipeDescription?.Trim() ?? string.Empty;
-            data.ProjectSettings.PythonModel.ModelEngine = PythonModelSettings.NormalizeModelEngine(request.ModelEngine);
             data.ProjectSettings.PythonModel.WeightsPath = request.WeightsPath?.Trim() ?? string.Empty;
             if (request.Purpose == LabelingDatasetPurpose.AnomalyDetection)
             {

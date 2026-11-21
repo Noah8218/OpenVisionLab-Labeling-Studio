@@ -86,7 +86,8 @@ namespace MvcVisionSystem
             if (data?.ProjectSettings?.AdditionalImageRootPaths?.Count is not > 0) return recorded;
             bool hasRecordedVersion = recorded.VersionText.StartsWith("dsv2-", StringComparison.Ordinal);
             bool unavailable = data.ProjectSettings.ResolveImageRootPaths().Any(root => !Directory.Exists(root));
-            string recordedVersion = hasRecordedVersion ? recorded.VersionText : OpenVisionLanguageService.T("WpfDatasetVersion.NoRecordedVersion");
+            // Name the recorded version by capture time and image count, not by its "dsv2-" hash id.
+            string recordedVersion = hasRecordedVersion ? recorded.DisplayText : OpenVisionLanguageService.T("WpfDatasetVersion.NoRecordedVersion");
             return new RecipeDatasetVersionPresentation
             {
                 VersionText = OpenVisionLanguageService.T(hasRecordedVersion ? "WpfDatasetVersion.LastRecorded" : "WpfDatasetVersion.NoRecordedVersion"),

@@ -489,18 +489,18 @@ namespace MvcVisionSystem
                     refreshDatasetVersion: true);
                 if (!result.IsSuccess)
                 {
-                    string failure = $"프로젝트 설정 저장 실패: {result.ErrorMessage}";
+                    string failure = string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.ProjectSaveFailed"), result.ErrorMessage);
                     StatusText = failure;
                     WorkflowError?.Invoke(failure);
                     return;
                 }
 
-                StatusText = $"설정 저장 완료: {DateTime.Now:HH:mm:ss}";
+                StatusText = string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.Saved"), DateTime.Now.ToString("HH:mm:ss"));
                 ProjectConfigSaved?.Invoke(result.Path);
             }
             catch (Exception ex)
             {
-                string failure = $"프로젝트 설정 저장 실패: {ex.Message}";
+                string failure = string.Format(OpenVisionLanguageService.T("WpfProjectConfig.Status.ProjectSaveFailed"), ex.Message);
                 StatusText = failure;
                 WorkflowError?.Invoke(failure);
             }

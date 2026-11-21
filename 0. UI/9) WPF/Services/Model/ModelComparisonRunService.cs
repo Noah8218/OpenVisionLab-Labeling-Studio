@@ -138,6 +138,78 @@ namespace MvcVisionSystem
             return request;
         }
 
+        /// <summary>
+        /// Engine comparison for the two models chosen as A and B in the comparison workspace when
+        /// they were trained with different YOLO engines (for example YOLOv8 and YOLO11). Unlike
+        /// <see cref="BuildYoloDetectionEngineRequest"/>, which picks the newest registry candidate per
+        /// engine, this evaluates exactly the selected weights on the test split.
+        /// </summary>
+        public ModelComparisonRunRequest BuildSelectedModelsEngineRequest(
+            LabelingProjectData data,
+            string baselineEngine,
+            string baselineProjectRoot,
+            string baselineWeights,
+            string candidateEngine,
+            string candidateProjectRoot,
+            string candidateWeights)
+        {
+            data?.NormalizeOutputPaths();
+            data?.NormalizeTrainingSettings();
+            PythonModelSettings settings = data?.ProjectSettings?.PythonModel ?? new PythonModelSettings();
+            PythonModelRuntimePathResolver.ApplyPathDefaults(settings);
+            TrainingSettings training = data?.GetTrainingSettings() ?? new TrainingSettings();
+            string normalizedBaselineEngine = PythonModelSettings.NormalizeModelEngine(baselineEngine);
+            string normalizedCandidateEngine = PythonModelSettings.NormalizeModelEngine(candidateEngine);
+            EngineModelRuntime baseline = BuildSelectedModelRuntime(normalizedBaselineEngine, baselineProjectRoot, baselineWeights, settings);
+            EngineModelRuntime candidate = BuildSelectedModelRuntime(normalizedCandidateEngine, candidateProjectRoot, candidateWeights, settings);
+
+            ModelComparisonRunRequest request = new()
+            {
+                ScriptPath = Path.Combine(repositoryRoot, "scripts", "compare-yolo-models.ps1"),
+                PythonExecutablePath = baseline.PythonExecutablePath,
+                YoloProjectRootPath = baseline.ProjectRootPath,
+                YoloSourceRootPath = baseline.SourceRootPath,
+                DataYamlPath = data?.DataYamlFilePath ?? string.Empty,
+                BaselineWeightsPath = baseline.WeightsPath,
+                CandidateWeightsPath = candidate.WeightsPath,
+                BaselineModelEngine = normalizedBaselineEngine,
+                BaselinePythonExecutablePath = baseline.PythonExecutablePath,
+                BaselineYoloSourceRootPath = baseline.SourceRootPath,
+                CandidateModelEngine = normalizedCandidateEngine,
+                CandidatePythonExecutablePath = candidate.PythonExecutablePath,
+                CandidateYoloSourceRootPath = candidate.SourceRootPath,
+                ImageSize = Math.Max(1, training.ImageSize),
+                BatchSize = Math.Max(1, training.Batch),
+                Task = "test",
+                ModelTask = "detect",
+                UiConfidence = settings.MinimumDetectionConfidence,
+                OutputDirectory = Path.Combine(repositoryRoot, "artifacts", "yolo-model-comparison"),
+                IsEngineComparison = true
+            };
+            SetDatasetIdentity(request, data);
+            return request;
+        }
+
+        /// <summary>YOLOv8 and YOLO11 both run on the Ultralytics package, so one Python environment serves both.</summary>
+        public static bool IsUltralyticsDetectionEngine(string engine)
+        {
+            string normalized = PythonModelSettings.NormalizeModelEngine(engine);
+            return string.Equals(normalized, PythonModelSettings.EngineYoloV8, StringComparison.Ordinal)
+                || string.Equals(normalized, PythonModelSettings.EngineYolo11, StringComparison.Ordinal);
+        }
+
+        private static EngineModelRuntime BuildSelectedModelRuntime(string engine, string projectRoot, string weightsPath, PythonModelSettings currentSettings)
+        {
+            EngineModelRuntime runtime = BuildEngineModelRuntime(engine, projectRoot, weightsPath, currentSettings);
+            bool sameRoot = currentSettings != null && string.Equals(currentSettings.ProjectRootPath?.Trim(), runtime.ProjectRootPath, StringComparison.OrdinalIgnoreCase);
+            if (sameRoot && IsUltralyticsDetectionEngine(engine) && IsUltralyticsDetectionEngine(currentSettings.ModelEngine))
+            {
+                // Same Ultralytics project root: reuse the configured interpreter instead of a per-engine .venv guess.
+                runtime.PythonExecutablePath = PythonModelSettingsValidator.ResolvePythonExecutable(currentSettings);
+            }
+            return runtime;
+        }
+
         private static void SetDatasetIdentity(ModelComparisonRunRequest request, LabelingProjectData data)
         {
             if (data == null || string.IsNullOrWhiteSpace(data.OutputRootPath) || data.ProjectSettings?.ExternalYoloDataset?.UseForTraining == true) return;
@@ -500,7 +572,7 @@ namespace MvcVisionSystem
         {
             if (string.IsNullOrWhiteSpace(sourceRootPath))
             {
-                errors.Add("Model validation runtime not found: ");
+                errors.Add("모델 평가 실행 환경 없음: ");
                 return;
             }
 
@@ -510,7 +582,7 @@ namespace MvcVisionSystem
                 return;
             }
 
-            errors.Add($"Model validation runtime not found: {sourceRootPath}");
+            errors.Add($"모델 평가 실행 환경 없음(val.py 또는 ultralytics 필요): {sourceRootPath}");
         }
 
         private static void ValidateModelRuntime(
@@ -526,7 +598,7 @@ namespace MvcVisionSystem
             ValidateYoloValidationRuntime(sourceRootPath, errors);
             if (errors.Count > errorCount)
             {
-                errors[errors.Count - 1] = $"{label} validation runtime not found: {sourceRootPath}";
+                errors[errors.Count - 1] = $"{label} 평가 실행 환경 없음(val.py 또는 ultralytics 필요): {sourceRootPath}";
             }
         }
 
@@ -534,7 +606,7 @@ namespace MvcVisionSystem
         {
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             {
-                errors.Add($"{name} not found: {path}");
+                errors.Add($"{name} 없음: {path}");
             }
         }
 
@@ -542,7 +614,7 @@ namespace MvcVisionSystem
         {
             if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
             {
-                errors.Add($"{name} not found: {path}");
+                errors.Add($"{name} 없음: {path}");
             }
         }
 

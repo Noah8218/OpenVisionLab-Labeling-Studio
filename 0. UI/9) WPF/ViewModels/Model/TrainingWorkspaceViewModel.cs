@@ -46,6 +46,7 @@ namespace MvcVisionSystem
             ToggleModelCommand = new RelayCommand<TrainingModelChoice>(item => { if (!CanEdit || item?.IsAvailable != true) return; item.IsSelected = !item.IsSelected; RefreshPresentation(); }, item => CanEdit && item?.IsAvailable == true);
             OpenDatasetCommand = new RelayCommand(() => { if (CanEdit) openDataset(); }, () => CanEdit);
             OpenEnvironmentCommand = new RelayCommand(() => { if (CanEdit) openEnvironment(); }, () => CanEdit);
+            OpenRuntimeSettingsCommand = new RelayCommand(() => SelectedSettingsTabIndex = 1, () => !disposed);
             OpenComparisonCommand = new RelayCommand(() => { if (CanOpenResult) openComparison(selectedRun.History); }, () => CanOpenResult);
             OpenInferenceCommand = new RelayCommand(() => { if (CanOpenResult && selectedRun.History.CanRunInferenceTrial) openInference(selectedRun.History); }, () => CanOpenResult && selectedRun.History.CanRunInferenceTrial);
             RefreshCommand = new RelayCommand(() => { if (CanEdit) refresh(); }, () => CanEdit);
@@ -70,6 +71,9 @@ namespace MvcVisionSystem
         public ICommand ToggleModelCommand { get; }
         public ICommand OpenDatasetCommand { get; }
         public ICommand OpenEnvironmentCommand { get; }
+        // Switches to the 실행 환경 tab of this screen; shown in the preflight card while no model can be trained.
+        public ICommand OpenRuntimeSettingsCommand { get; }
+        public bool NeedsRuntimeSetup => context != null && Models.Count > 0 && !Models.Any(model => model.IsAvailable);
         public ICommand OpenComparisonCommand { get; }
         public ICommand OpenInferenceCommand { get; }
         public ICommand RefreshCommand { get; }
@@ -115,7 +119,7 @@ namespace MvcVisionSystem
         public string StartText => F("StartModels", Models.Count(model => model.IsSelected));
         public string LiveCountText => F("RemainingModels", runtime?.QueueSnapshot.Items.Count(item => item.State is TrainingQueueItemState.Waiting or TrainingQueueItemState.Running) ?? 0);
         public string LiveModelText => runtime?.QueueSnapshot.Current is TrainingQueueItemSnapshot item ? ModelName(item.Model.ModelId) + " · " + F("EpochProgress", item.Epoch?.ToString() ?? "—", item.TotalEpochs?.ToString() ?? "—") : T("QueueFinished");
-        public string LiveLogText => IsPreparing ? T("CapturingInput") : string.Join(Environment.NewLine, QueueRows.Select(row => row.ModelName + " · " + row.StateText + (row.Message.Length == 0 ? "" : " · " + row.Message)));
+        public string LiveLogText => IsPreparing ? T("CapturingInput") : string.Join(Environment.NewLine, QueueRows.Select(row => row.ModelName + " · " + row.StateText + (row.LogDetail.Length == 0 ? "" : " · " + row.LogDetail)));
         public IReadOnlyList<TrainingEpochMetric> LiveMetrics => runtime?.QueueSnapshot.Current?.Metrics
             ?? (runtime?.HasPendingQueueCandidate == true ? runtime.QueueSnapshot.Items.LastOrDefault(item => item.State == TrainingQueueItemState.Failed)?.Metrics : null) ?? Array.Empty<TrainingEpochMetric>();
         public int LiveMetricEpochs => runtime?.QueueSnapshot.Plan?.Epochs ?? 1;
@@ -127,6 +131,51 @@ namespace MvcVisionSystem
                 return string.IsNullOrEmpty(key) ? T("ValidationCaption") : F("ValidationMetricCaption", T("Metric." + key));
             }
         }
+        // Live view (v2 prototype livePeers()/liveDetails()): finished models on the dataset version this queue trains
+        // with the same epoch count, drawn in grey behind the running model, plus the epoch table and summary.
+        public IReadOnlyList<TrainingHistoryItem> LivePeers => runtime?.QueueSnapshot.Plan is TrainingQueuePlan plan
+            ? History.Where(item => item.HasCurve && item.History.DatasetVersionId == plan.DatasetVersionId && item.Parameters?.Epochs == plan.Epochs
+                && item.History.TrainingRunId != runtime.QueueSnapshot.Current?.Model.RunId).ToArray()
+            : Array.Empty<TrainingHistoryItem>();
+        public IReadOnlyList<IReadOnlyList<TrainingEpochMetric>> LivePeerCurves => LivePeers.Select(item => item.Curve).ToArray();
+        public string LivePeerCompareText => LivePeers.Count > 0 ? " · " + F("LivePeerCompare", LivePeers.Count) + " (" : string.Empty;
+        public string LiveThisModelText => LivePeers.Count > 0 ? T("LiveThisModel") : string.Empty;
+        public string LivePeerCloseText => LivePeers.Count > 0 ? ")" : string.Empty;
+        private TrainingLiveSnapshot LiveSnapshot
+        {
+            get
+            {
+                TrainingQueueSnapshot snapshot = runtime?.QueueSnapshot;
+                TrainingQueueItemSnapshot current = snapshot?.Current;
+                if (snapshot?.Plan == null || current == null) return TrainingLiveSnapshot.Empty;
+                TrainingQueueItemSnapshot next = snapshot.Items.FirstOrDefault(item => item.State == TrainingQueueItemState.Waiting);
+                // The short model name, unless the same model was trained more than once; then the record caption with its time.
+                IReadOnlyList<TrainingHistoryItem> peers = LivePeers;
+                string[] names = peers.Select(item => item.Parameters?.ModelId is string id ? ModelName(id) : item.Name).ToArray();
+                TrainingLivePeer[] livePeers = peers.Select((item, index) => new TrainingLivePeer(names.Count(name => name == names[index]) > 1 ? item.Name : names[index], item.Curve)).ToArray();
+                return TrainingLivePresentationService.Build(new TrainingLiveRequest(LiveMetrics, livePeers,
+                    snapshot.Plan.Epochs, current.Epoch, SecondsPerEpoch(current), snapshot.WaitingCount, next == null ? null : ModelName(next.Model.ModelId), snapshot.Plan.ImageSize));
+            }
+        }
+        public IReadOnlyList<TrainingLiveEpochRow> LiveEpochRows => LiveSnapshot.Rows;
+        public IReadOnlyList<TrainingLiveFact> LiveFacts => LiveSnapshot.Facts;
+        public string LiveMetricColumnText => LiveSnapshot.MetricName;
+        public bool HasLiveDetails => LiveSnapshot.HasRows;
+        public string LiveEpochTableRecentText => F("EpochTableRecent", TrainingLivePresentationService.TableRows);
+        // Time per epoch from when this ViewModel saw the running model's epochs advance.
+        private double? SecondsPerEpoch(TrainingQueueItemSnapshot current)
+            => current.Model.RunId == timedRunId && lastTimedEpoch > firstTimedEpoch ? (lastTimedAt - firstTimedAt).TotalSeconds / (lastTimedEpoch - firstTimedEpoch) : null;
+        private void RecordEpochTiming(TrainingQueueItemSnapshot current)
+        {
+            if (current?.Epoch is not int epoch) return;
+            DateTime now = Clock();
+            if (current.Model.RunId != timedRunId) { timedRunId = current.Model.RunId; firstTimedEpoch = lastTimedEpoch = epoch; firstTimedAt = lastTimedAt = now; return; }
+            if (epoch > lastTimedEpoch) { lastTimedEpoch = epoch; lastTimedAt = now; }
+        }
+        internal Func<DateTime> Clock { get; set; } = () => DateTime.UtcNow;
+        private string timedRunId;
+        private int firstTimedEpoch, lastTimedEpoch;
+        private DateTime firstTimedAt, lastTimedAt;
         public int SelectedSettingsTabIndex
         {
             get => selectedSettingsTabIndex;
@@ -140,6 +189,31 @@ namespace MvcVisionSystem
         public bool IsTrainingTabVisible => selectedSettingsTabIndex == 0;
         public bool IsSettingsTabVisible => selectedSettingsTabIndex != 0;
         public TrainingHistoryItem SelectedRun => selectedRun;
+        // Finished-run view (v2 prototype runPeers): the models trained on the selected run's dataset version, their
+        // validation curves behind this run, and the comparison recommendation among those with test results.
+        public IReadOnlyList<TrainingHistoryItem> SelectedRunPeers => selectedRun == null || selectedRun.History.DatasetVersionId.Length == 0 ? Array.Empty<TrainingHistoryItem>()
+            : History.Where(item => item.History.DatasetVersionId == selectedRun.History.DatasetVersionId).ToArray();
+        public IReadOnlyList<IReadOnlyList<TrainingEpochMetric>> SelectedRunPeerCurves => SelectedRunPeers.Where(item => !ReferenceEquals(item, selectedRun) && item.HasCurve).Select(item => item.Curve).ToArray();
+        public bool HasSelectedRunPeers => SelectedRunPeers.Count >= 2;
+        public string PeerMetricCaption => ModelComparisonWorkspaceViewModel.FormatMetricCaption(context?.Purpose switch { LabelingDatasetPurpose.Segmentation => "miou", LabelingDatasetPurpose.AnomalyDetection => "auroc", _ => "map50" }, context?.Purpose ?? LabelingDatasetPurpose.ObjectDetection);
+        public string PeerCurveCaption => F("PeerCurveCaption", SelectedRunPeers.Count);
+        // Column headers of the same-version results table (prototype table.lb): the metric captions of the run's cells.
+        public IReadOnlyList<string> PeerTableColumns => (selectedRun?.MetricCells ?? Array.Empty<ModelComparisonMetricCell>()).Select(cell => cell.Caption).ToArray();
+        public string PeerRecommendationText => FindRecommendedPeer(out string reason) is TrainingHistoryItem pick ? F("PeerRecommendation", pick.Name, reason) : T("PeerRecommendationPending");
+        // Same rule as the comparison workspace: the highest primary test metric; within 0.005 of it, the fastest.
+        private TrainingHistoryItem FindRecommendedPeer(out string reason)
+        {
+            reason = string.Empty;
+            TrainingHistoryItem[] evaluated = SelectedRunPeers.Where(item => item.PrimaryMetricValue.HasValue).ToArray();
+            if (evaluated.Length < 2) return null;
+            double top = evaluated.Max(item => item.PrimaryMetricValue.Value);
+            TrainingHistoryItem[] near = evaluated.Where(item => top - item.PrimaryMetricValue.Value <= 0.005).ToArray();
+            TrainingHistoryItem pick = near.Length > 1 ? near.OrderBy(item => item.TaktValue ?? double.MaxValue).First() : near[0];
+            reason = near.Length > 1 && pick.TaktValue.HasValue
+                ? ModelComparisonWorkspaceViewModel.T("RecommendationFaster").Replace("{0}", PeerMetricCaption).Replace("{1}", pick.TaktText)
+                : string.Format(CultureInfo.CurrentCulture, ModelComparisonWorkspaceViewModel.T("RecommendationBest"), PeerMetricCaption, pick.MetricText);
+            return pick;
+        }
         public bool OnlyReviewed { get => onlyReviewed; set { if (!CanEdit || !SetProperty(ref onlyReviewed, value)) return; RefreshPresentation(); } }
         public string EpochsText { get => epochsText; set { if (CanEdit && SetProperty(ref epochsText, value ?? string.Empty)) RefreshPresentation(); } }
         public string ImageSizeText { get => imageSizeText; set { if (CanEdit && SetProperty(ref imageSizeText, value ?? string.Empty)) RefreshPresentation(); } }
@@ -263,6 +337,7 @@ namespace MvcVisionSystem
         private void OnQueueChanged(TrainingQueueSnapshot snapshot)
         {
             if (disposed) return;
+            RecordEpochTiming(snapshot?.Current);
             QueueRows.Clear();
             foreach (TrainingQueueItemSnapshot item in snapshot.Items) QueueRows.Add(new TrainingQueueRow(item, ModelName(item.Model.ModelId)));
             RefreshPresentation();
@@ -291,12 +366,17 @@ namespace MvcVisionSystem
             {
                 nameof(IsBusy), nameof(IsPreparing), nameof(CanEdit), nameof(CanStart), nameof(CanStop), nameof(CanRetrySave), nameof(CanRepeat), nameof(CanOpenResult),
                 nameof(CompletedRunCount), nameof(HasCompletedRuns), nameof(IsFormVisible), nameof(IsLiveVisible), nameof(IsDetailVisible), nameof(HasHistory), nameof(HasQueue), nameof(HasStatus), nameof(HasWarnings),
-                nameof(HasValidationError), nameof(ValidationError), nameof(Status), nameof(PendingWeightsPath), nameof(VersionText), nameof(VersionDisplayText), nameof(RecipeName), nameof(InspectionModelName), nameof(InspectionModelBadgeText), nameof(InspectionModelCaption), nameof(EnvironmentText),
+                nameof(HasValidationError), nameof(ValidationError), nameof(Status), nameof(NeedsRuntimeSetup), nameof(PendingWeightsPath), nameof(VersionText), nameof(VersionDisplayText), nameof(RecipeName), nameof(InspectionModelName), nameof(InspectionModelBadgeText), nameof(InspectionModelCaption), nameof(EnvironmentText),
                 nameof(HistoryCountText), nameof(InputCountText), nameof(ExcludedText), nameof(SavedInputText), nameof(SelectedCountText), nameof(StartText),
                 nameof(LiveCountText), nameof(LiveModelText), nameof(LiveLogText), nameof(LiveMetrics), nameof(LiveMetricEpochs), nameof(LiveValidationCaption),
-                nameof(SelectedRun), nameof(OnlyReviewed), nameof(EpochsText), nameof(ImageSizeText), nameof(BatchSizeText)
+                nameof(SelectedRun), nameof(OnlyReviewed), nameof(EpochsText), nameof(ImageSizeText), nameof(BatchSizeText),
+                nameof(SelectedRunPeers), nameof(SelectedRunPeerCurves), nameof(HasSelectedRunPeers), nameof(PeerRecommendationText), nameof(PeerMetricCaption), nameof(PeerCurveCaption),
+                nameof(PeerTableColumns), nameof(LivePeers), nameof(LivePeerCurves), nameof(LivePeerCompareText), nameof(LiveThisModelText), nameof(LivePeerCloseText),
+                nameof(LiveEpochRows), nameof(LiveFacts), nameof(LiveMetricColumnText), nameof(HasLiveDetails), nameof(LiveEpochTableRecentText)
             }) OnPropertyChanged(property);
             foreach (TrainingHistoryItem item in History) item.IsSelected = ReferenceEquals(item, selectedRun);
+            TrainingHistoryItem recommended = FindRecommendedPeer(out _);
+            foreach (TrainingHistoryItem item in History) item.IsRecommendedPeer = ReferenceEquals(item, recommended);
             CommandManager.InvalidateRequerySuggested();
         }
 
@@ -317,6 +397,10 @@ namespace MvcVisionSystem
             if (statusKey.Length > 0) status = F(statusKey, statusValues);
             foreach (TrainingModelChoice model in Models) model.RefreshText();
             foreach (TrainingHistoryItem item in History) item.RefreshText();
+            // The history rows are rebuilt so every row is measured again for the new caption widths. With the result
+            // table visible, a re-measure that only followed the text change left the role chip at the old language's
+            // width (2026-11-21 training workspace check: "Inspection model" inside a "검사 모델"-wide chip).
+            TrainingHistoryItem[] rows = History.ToArray(); History.Clear(); foreach (TrainingHistoryItem item in rows) History.Add(item);
             foreach (TrainingQueueRow row in QueueRows) row.RefreshText();
             OnPropertyChanged(nameof(RuntimeStatus));
             RequestRefresh(); RefreshPresentation();
@@ -370,9 +454,12 @@ namespace MvcVisionSystem
         private readonly RecipeDatasetVersionPresentation versionLabel;
         private readonly string runName;
         private readonly string modelId;
-        internal TrainingHistoryItem(WpfModelRegistryHistoryItem history, TrainingRun run, string name, LabelingDatasetPurpose task = LabelingDatasetPurpose.ObjectDetection, WpfModelBenchmarkRun report = null, RecipeDatasetVersionPresentation datasetVersionLabel = null)
+        private bool isRecommendedPeer;
+        internal TrainingHistoryItem(WpfModelRegistryHistoryItem history, TrainingRun run, string name, LabelingDatasetPurpose task = LabelingDatasetPurpose.ObjectDetection, WpfModelBenchmarkRun report = null, RecipeDatasetVersionPresentation datasetVersionLabel = null,
+            IReadOnlyList<TrainingEpochMetric> curve = null)
         {
             History = history; Parameters = run?.Parameters?.Copy(); EventUtc = run?.EventUtc ?? string.Empty; purpose = task;
+            Curve = curve ?? Array.Empty<TrainingEpochMetric>();
             runName = string.IsNullOrEmpty(run?.RunName) ? name : run.RunName; modelId = run?.Parameters?.ModelId; versionLabel = datasetVersionLabel;
             var row = new ModelComparisonWorkspaceRow(history, report, run?.DatasetVersionId, run?.DatasetContentSha256, report?.Confidence ?? double.NaN, MetricKeys);
             evaluation = row.IsComparable && report.SourceSha256.Length == 64 ? row : new ModelComparisonWorkspaceRow(history, null, run?.DatasetVersionId, run?.DatasetContentSha256, double.NaN, MetricKeys);
@@ -401,6 +488,15 @@ namespace MvcVisionSystem
         public string SettingsText => TrainingWorkspaceViewModel.F("RunSettings", VersionDisplayText, DateText, Parameters?.Epochs.ToString() ?? "—", Parameters?.ImageSize.ToString() ?? "—", Parameters?.BatchSize.ToString() ?? "—");
         public string DurationText => Parameters?.DurationSeconds is double duration && double.IsFinite(duration) && duration >= 0 ? TrainingWorkspaceViewModel.F("DurationMinutes", duration / 60) : "—";
         public string EvaluationNote => evaluation.Run != null ? TrainingWorkspaceViewModel.F("VerifiedEvaluation", VersionDisplayText, evaluation.Run.EvidenceCount) : TrainingWorkspaceViewModel.T("EvaluationPending");
+        // Finished-run view (v2 prototype runPeers): this run's curve from results.csv, and its row in the table of
+        // models trained on the same dataset version.
+        public IReadOnlyList<TrainingEpochMetric> Curve { get; }
+        public bool HasCurve => Curve.Count > 0;
+        public int CurveEpochs => Math.Max(Parameters?.Epochs ?? 0, Curve.Count == 0 ? 1 : Curve.Max(metric => metric.Epoch));
+        internal double? PrimaryMetricValue => evaluation.Run != null ? evaluation.PrimaryMetric : null;
+        internal double? TaktValue => evaluation.Run != null ? evaluation.TaktValue : null;
+        public string TaktText => evaluation.Run != null ? evaluation.TaktText : "—";
+        public bool IsRecommendedPeer { get => isRecommendedPeer; internal set => SetProperty(ref isRecommendedPeer, value); }
         internal void RefreshText() { foreach (string name in new[] { nameof(Name), nameof(VersionDisplayText), nameof(RoleText), nameof(MetricText), nameof(MetricCells), nameof(SummaryText), nameof(SettingsText), nameof(DurationText), nameof(EvaluationNote) }) OnPropertyChanged(name); }
     }
 
@@ -410,6 +506,14 @@ namespace MvcVisionSystem
         internal TrainingQueueRow(TrainingQueueItemSnapshot item, string name) { this.item = item; ModelName = name; }
         public string ModelName { get; }
         public string Message => item.Message;
+        // The worker's status text is English and ends with the run folder path; the log shows the epoch while
+        // running and keeps the worker text only where it explains a failure or a cancel.
+        public string LogDetail => item.State switch
+        {
+            TrainingQueueItemState.Running => item.Epoch.HasValue ? ProgressText : string.Empty,
+            TrainingQueueItemState.Failed or TrainingQueueItemState.Canceled => Message ?? string.Empty,
+            _ => string.Empty
+        };
         public string StateText => TrainingWorkspaceViewModel.T("State." + item.State);
         public string Glyph => item.State switch { TrainingQueueItemState.Completed => "✓", TrainingQueueItemState.Running => "▶", TrainingQueueItemState.Failed => "!", TrainingQueueItemState.Canceled => "×", _ => "·" };
         public bool IsRunning => item.State == TrainingQueueItemState.Running;

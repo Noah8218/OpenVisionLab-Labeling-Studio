@@ -173,7 +173,7 @@ namespace MvcVisionSystem
             {
                 Applied = true,
                 ImageRootPath = targetImages,
-                SummaryText = $"COCO128 샘플 적용: images {imageCount}, labels {labelCount}"
+                SummaryText = $"COCO128 샘플 적용: 이미지 {imageCount}장, 라벨 {labelCount}개"
             };
             return true;
         }
