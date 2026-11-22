@@ -73,6 +73,18 @@ notices:
 - https://github.com/dotnet/runtime
 - https://github.com/dotnet/wpf
 
+Documentation media
+-------------------
+
+CC BY 4.0:
+- docs/tutorial/images/readme/visa-pcb4-test-result.png is the VisA image
+  pcb4/Data/Images/Anomaly/056.JPG with detection boxes drawn on it. It is
+  used in the README only and is not part of the release bundle.
+  VisA: Zou et al., "SPot-the-Difference Self-Supervised Pre-training for
+  Anomaly Detection and Segmentation", ECCV 2022.
+  https://github.com/amazon-science/spot-diff
+  https://creativecommons.org/licenses/by/4.0/
+
 License texts
 -------------
 

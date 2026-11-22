@@ -2,7 +2,7 @@
 
 A Windows desktop tool for labeling industrial images, training and comparing models, and running inference on one PC.
 
-[![Version 0.4.3](https://img.shields.io/badge/version-0.4.3-blue)](Directory.Build.props)
+[![Version 0.4.4](https://img.shields.io/badge/version-0.4.4-blue)](Directory.Build.props)
 ![Windows 10/11 x64](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-blue)
 ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
 [![MIT License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -12,7 +12,7 @@ English | [한국어](README.ko.md)
 
 ![Smart Mask: starting box, AI candidate, confirmation, then save and next](docs/tutorial/images/readme/en/hero-smart-mask.gif)
 
-Draw a starting box → review the MobileSAM candidate → apply the mask → save and advance. [Watch the MP4](docs/tutorial/images/readme/en/hero-smart-mask.mp4). (Idle time omitted.) [Build and try it](#try-it-in-3-steps)
+Draw a starting box, review the MobileSAM candidate, apply the mask, then save and advance. [Watch the MP4](docs/tutorial/images/readme/en/hero-smart-mask.mp4). (Idle time omitted.) [Build and try it](#try-it-in-3-steps)
 
 ## Supported tasks
 
@@ -20,11 +20,11 @@ Draw a starting box → review the MobileSAM candidate → apply the mask → sa
 | --- | --- | --- |
 | [![Washer boxes](docs/tutorial/images/readme/en/detection-washer.png)](#object-detection) | [![Bubble masks](docs/tutorial/images/readme/en/segmentation-bubble.png)](#segmentation-and-smart-mask) | [![Hexagon OK/NG decisions](docs/tutorial/images/readme/en/anomaly-grid-disk.png)](#anomaly-detection) |
 | **Ground truth:** axis-aligned boxes | **Ground truth:** polygons and pixel masks | **Ground truth:** reviewed image-level OK/NG decisions |
-| **Models:** YOLOv5, YOLOv8, YOLO11 | **Models:** YOLOv8-seg, YOLO11-seg, U-Net | **Models:** YOLOv8/YOLO11 classification, PatchCore pilot |
+| **Models:** YOLOv5, YOLOv8, YOLO11 | **Models:** YOLOv8-seg, YOLO11-seg, U-Net | **Models:** YOLOv8/YOLO11 classification, PatchCore (pilot) |
 
 ## Workflow
 
-**Dataset → Labeling → Training → Model comparison → Inference**
+Work moves through **Dataset, Labeling, Training, Model comparison, and Inference**.
 
 Set the image folders, classes, and splits in a recipe. Save ground truth in Labeling, train with the selected runtime, compare results under the same evaluation conditions, and explicitly set the inspection model before running inference.
 
@@ -43,7 +43,7 @@ Setting the inspection model is a separate step; finishing training does not rep
 The actual app shows five saved boxes: four washers and one defective washer.
 
 Draw a box around the actual object or defect, check its class and bounds, then select **Save labels**.
-Choose two-point drag or four extreme points; top → bottom → left → right creates an ordinary axis-aligned box.
+Choose two-point drag or four extreme points; clicking top, bottom, left, then right creates an ordinary axis-aligned box.
 For an image without a target, explicitly mark **No object**.
 Select a class with **1–9**; **Ctrl+Enter** saves and advances to the next image.
 
@@ -62,9 +62,9 @@ Select **Confirm** for the displayed candidate or **Skip** to discard it. Confir
 
 ![Hexagon grid with four normal, four anomaly and four undecided images](docs/tutorial/images/readme/en/anomaly-grid-disk.png)
 
-This procedural hexagon example shows manual image decisions: four normal, four anomaly, and four still undecided.
+This generated hexagon example shows manual image decisions: four normal, four anomaly, and four still undecided.
 
-Use **Normal (OK) → Next** or **Anomaly (NG) → Next** to save the image decision and advance to the next unreviewed image.
+Select **Normal (OK)** or **Anomalous (NG)** to save the image decision and advance to the next unreviewed image.
 Boxes and masks are optional. **G** switches the image queue to grid view.
 YOLOv8/YOLO11 classification learns from both OK and NG examples; PatchCore learns from reviewed-normal images.
 PatchCore returns an image decision, score/threshold, location candidates, and a heatmap. **View heatmap** opens read-only review without changing labels, candidates, or the model.
@@ -102,12 +102,25 @@ Build from source using the commands below. Keep the repository's `dll`, local `
 A recipe shares source images, canonical class order, ground truth, train/valid/test membership, and data/configuration/model provenance across adapters.
 Recipe save or training start records a content-based `dsv2-...` dataset version and SHA-256 identities; identical content reuses the version, while changed labels or splits create a new version.
 The Dataset view shows the recorded version, and trained-model history records the version used.
-In **Training → Runtime**, selecting a registered model switches its Python executable, runtime folder, and communication script together; select the runtime folder if initial discovery fails.
+On the **Runtime** tab of **Training**, selecting a registered model switches its Python executable, runtime folder, and communication script together; select the runtime folder if initial discovery fails.
 Compare models with matching dataset identities, classes, splits, and evaluation settings; different conditions are shown as differences rather than a ranking.
 
 ![Two models trained on one dataset version, compared on the test split, set as the inspection model, then used for inference](docs/tutorial/images/readme/en/multimodel-comparison.gif)
 
-Train YOLOv8n and YOLO11n on the same dataset version → compare them on the test split → set the better model as the inspection model → run inference. [Watch the MP4](docs/tutorial/images/readme/en/multimodel-comparison.mp4). (Training time omitted.)
+Train YOLOv8n and YOLO11n on the same dataset version, compare them on the test split, set the better model as the inspection model, then run inference. [Watch the MP4](docs/tutorial/images/readme/en/multimodel-comparison.mp4). (Training time omitted.)
+
+## Results on real PCB images
+
+The workflow above was also run end to end on 1,105 real PCB photos (1358×1104) from VisA PCB4. Boxes made from the dataset's defect masks were imported as YOLO labels on the dataset's own split (test: 40 defective, 402 normal images). YOLOv8n and YOLO11n were trained in the app, compared on the test split, and converted to TensorRT engines with the edge runtime.
+
+| Model | mAP50 (app comparison) | Missed defective images | Normal images rejected | TensorRT FP16 GPU time |
+| --- | ---: | ---: | ---: | ---: |
+| YOLOv8n | 0.747 | 3 / 40 | 4 / 402 | 0.76 ms |
+| YOLO11n | 0.723 | 8 / 40 | 1 / 402 | 0.82 ms |
+
+![YOLOv8n on a VisA PCB4 test image: three defects found, one small defect missed](docs/tutorial/images/readme/visa-pcb4-test-result.png)
+
+Green boxes are found defects, the orange box is a missed defect, and thin white boxes are ground truth. Confidence 0.25, input 960 px, RTX 4070 SUPER. These results come from one dataset with 40 defective test images and are not evidence of production accuracy. Image source: VisA (Zou et al., ECCV 2022), [CC BY 4.0](https://github.com/amazon-science/spot-diff).
 
 ## Build from source
 
@@ -149,7 +162,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x6
 .\scripts\start-labeling-workbench.ps1 -AppMode Publish
 ```
 
-The versioned self-contained folder is `artifacts\publish\Release\win-x64\0.4.3`. Extract the portable ZIP into a new folder, verify the manifests, then run `OpenVisionLab.LabelingStudio.exe`. The release and publish manifests record source/build identity and the full payload's SHA-256 hashes.
+The versioned self-contained folder is `artifacts\publish\Release\win-x64\0.4.4`. Extract the portable ZIP into a new folder, verify the manifests, then run `OpenVisionLab.LabelingStudio.exe`. The release and publish manifests record source/build identity and the full payload's SHA-256 hashes.
 
 The example launcher resolves the Publish folder from the version in `Directory.Build.props`; no local configuration is needed for the default bundle. An explicit `-ConfigPath` takes precedence over `config/labeling-runtime.local.json`, which takes precedence over the example. See [launcher configuration](docs/tutorial/BUILD_AND_RUNTIME.md#launcher-configuration) for custom bundles.
 
@@ -158,7 +171,7 @@ The example launcher resolves the Publish folder from the version in `Directory.
 Verify the existing package without changing it:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.4.3 -VerifyOnly
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.4.4 -VerifyOnly
 ```
 
 ### Environment check CLI
@@ -179,14 +192,14 @@ Sample information: `datasets/object-detection/coco128/coco128/README.txt`; [Pyt
 
 ## Documentation
 
-- [User guide](docs/tutorial/README.md) · [Visual guide](docs/tutorial/labeling-workbench-tutorial.html) · [Single-file guide](docs/tutorial/labeling-workbench-tutorial-standalone.html)
-- [Build and runtime](docs/tutorial/BUILD_AND_RUNTIME.md) · [Release notes](RELEASE_NOTES.md)
+- [User guide](docs/tutorial/README.md), [Visual guide](docs/tutorial/labeling-workbench-tutorial.html), [Single-file guide](docs/tutorial/labeling-workbench-tutorial-standalone.html)
+- [Build and runtime](docs/tutorial/BUILD_AND_RUNTIME.md), [Release notes](RELEASE_NOTES.md)
 
 ## Known Limitations
 
 - There is no installer, code-signing package, or completed clean-PC install/upgrade/uninstall validation. Even a self-contained bundle needs compatible graphics; basic or virtualized displays can be incompatible.
 - Model runtimes and weights may need separate preparation and are not downloaded without approval. Model support requires a registered adapter with compatible class/split/output mapping.
-- Local functional evidence does not establish production accuracy, long-run reliability, or takt time. PatchCore remains a bounded normal-only pilot.
+- Checks on a single PC do not show production accuracy, long-run reliability, or takt time. PatchCore is a pilot that learns from normal images only.
 - AI output remains a candidate. Confirmation and label saving are separate; automatic confirmation/save and text/voice-based labeling are unsupported.
 - Cloud accounts, team permissions, deployment pipelines, and camera/PLC control are outside the current product scope.
 
@@ -194,9 +207,10 @@ See [Runtime limitations](docs/tutorial/BUILD_AND_RUNTIME.md#limitations) for ar
 
 ## Version
 
-Current version: **0.4.3** ([version source](Directory.Build.props)) · [Release notes](RELEASE_NOTES.md)
+Current version: **0.4.4** ([version source](Directory.Build.props)), [Release notes](RELEASE_NOTES.md)
 
-- **0.4.3** — Trains several YOLOv8/YOLO11 models in one queue on the same data and evaluates them on the test split when the queue finishes. Model comparison shows the A→B difference, AP by class, F1 and recall by confidence, and per-image agreement, and recommends a model among those evaluated on the same dataset version. The chosen model can be set as the inspection model on either engine, and Undo restores the previous model and engine. Verified on the synthetic washer dataset only.
+- **0.4.4** — Label import now saves the split chosen for imported images, so reopening the recipe no longer re-splits them by percentage. Adds results on real PCB images (VisA PCB4) to this README.
+- **0.4.3** — Trains several YOLOv8/YOLO11 models in one queue on the same data and evaluates them on the test split when the queue finishes. Model comparison shows the difference between A and B, AP by class, F1 and recall by confidence, and per-image agreement, and recommends a model among those evaluated on the same dataset version. The chosen model can be set as the inspection model on either engine, and Undo restores the previous model and engine. Verified on the synthetic washer dataset only.
 - **0.4.2** — Extends the edge inference runtime (`Runtime/Edge`) for operation: a staged frame pipeline, a fallback chain (TensorRT, OpenVINO on the CPU, then a rule check that holds parts for manual inspection), quality, GPU and alert monitoring, a release registry with shadow comparison, a promotion gate and rollback, case capture for relabeling, OPC UA certificate security, per-line parameter templates, and a native C++/CUDA path. The worker now reconnects when the requester link drops. Desktop application behavior and file formats are unchanged; the runtime is still tested only against a simulator and synthetic data.
 - **0.4.1** — Adds a separate edge inference runtime (`Runtime/Edge`). A prepared YOLO detection model is exported to ONNX and runs in a Linux/WSL2 GPU container with ONNX Runtime or TensorRT FP32, FP16, or INT8 engines. Verdicts are sent over Modbus TCP or OPC UA, and inspection latency p99 is shown in Prometheus and Grafana. Desktop application behavior and file formats are unchanged. The runtime has been tested only against a simulator; Machine Studio integration is not yet verified.
 - **0.4.0** — Opt-in TCP inbox for received-image label review, plus UI refinements

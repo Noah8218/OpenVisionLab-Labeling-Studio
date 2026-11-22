@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.4.4 — 2026-11-22
+
+- Label import: the split chosen when importing labels is now saved as each imported image's split assignment, together with the dataset split file. Before, reopening the recipe re-split the imported images by the validation and test percentages. All import formats share the step that applies this; a focused test covers the YOLO import. The fixed build was not re-checked in the running app.
+- README: adds results on real PCB images from VisA PCB4 (CC BY 4.0): boxes from the dataset's defect masks, the dataset's own split, YOLOv8n and YOLO11n trained and compared in the app, and TensorRT engines built with the edge runtime. One dataset with 40 defective test images; not evidence of production accuracy.
+- README: Korean wording reads more naturally, and lists and arrows in both READMEs are written out as sentences. The Korean requirements heading is now `설치와 요구 사항`.
+
 ## 0.4.3 — 2026-11-21
 
 - Training queue: select several YOLOv8/YOLO11 models and train them one after another on the same captured data. While a model trains, the validation chart draws finished models of the same dataset version in grey; an epoch log of the latest eight epochs and a progress summary show the best value, the difference from a finished model at the same epoch, time per epoch, the remaining estimate including the queue, and the next model. The finished view lists the same-version test results in one table.

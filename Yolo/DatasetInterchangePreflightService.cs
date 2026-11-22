@@ -476,6 +476,8 @@ namespace MvcVisionSystem.Yolo
                 .ToList();
             targetData.ClassNamedList ??= new List<LabelClass>();
             int originalClassCount = targetData.ClassNamedList.Count;
+            YoloDatasetSettings splitSettings = targetData.ProjectSettings?.YoloDataset;
+            List<YoloImageSplitAssignment> previousAssignments = splitSettings?.ImageSplitAssignments;
 
             try
             {
@@ -507,6 +509,14 @@ namespace MvcVisionSystem.Yolo
                     }
 
                     AppendImportedClasses(targetData, stagedData, originalClassCount);
+                    // The importer writes each image into the split folder the user chose. Without a saved manual
+                    // assignment the dataset re-splits those images by percentage on the next load.
+                    if (splitSettings != null)
+                    {
+                        splitSettings.ImageSplitAssignments = MergeImportedSplitAssignments(previousAssignments, stageRoot, stagedFiles);
+                        DatasetSplitAssignmentService.SaveContract(targetData);
+                    }
+
                     pairResult = targetData.SaveConfigAndYoloDataYaml(
                         recipeName,
                         refreshDatasetVersion: false);
@@ -527,9 +537,60 @@ namespace MvcVisionSystem.Yolo
                     targetData.ClassNamedList.RemoveAt(targetData.ClassNamedList.Count - 1);
                 }
 
+                if (splitSettings != null)
+                {
+                    splitSettings.ImageSplitAssignments = previousAssignments;
+                }
+
                 DeleteEmptyDirectories(missingDirectories);
                 throw;
             }
+        }
+
+        // Staged images live at data/<split>/images/<name>; each becomes a manual assignment to that split,
+        // replacing any earlier assignment of the same image name. Other assignments are kept unchanged.
+        private static List<YoloImageSplitAssignment> MergeImportedSplitAssignments(
+            List<YoloImageSplitAssignment> existing,
+            string stageRoot,
+            IEnumerable<string> stagedFiles)
+        {
+            var imported = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string stagedPath in stagedFiles)
+            {
+                string[] parts = Path.GetRelativePath(stageRoot, stagedPath)
+                    .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                if (parts.Length != 4
+                    || !string.Equals(parts[0], "data", StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(parts[2], "images", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                string split = YoloDatasetSplitService.NormalizeStandardSplit(parts[1]);
+                if (split.Length == 0)
+                {
+                    continue;
+                }
+
+                string name = Path.GetFileNameWithoutExtension(parts[3]);
+                if (imported.TryGetValue(name, out string other) && !string.Equals(other, split, StringComparison.Ordinal))
+                {
+                    throw new InvalidDataException("An imported image name appears in more than one split: " + name);
+                }
+
+                imported[name] = split;
+            }
+
+            List<YoloImageSplitAssignment> merged = (existing ?? new List<YoloImageSplitAssignment>())
+                .Where(item => item != null && !imported.ContainsKey(item.ImageName?.Trim() ?? string.Empty))
+                .ToList();
+            merged.AddRange(imported.Select(item => new YoloImageSplitAssignment
+            {
+                ImageName = item.Key,
+                Split = item.Value,
+                IsAutomatic = false
+            }));
+            return merged.OrderBy(item => item.ImageName, StringComparer.OrdinalIgnoreCase).ToList();
         }
 
         private static void AppendImportedClasses(LabelingProjectData targetData, LabelingProjectData stagedData, int originalClassCount)
